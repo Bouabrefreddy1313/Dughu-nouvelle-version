@@ -1,0 +1,267 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import {
+  Home, MessageCircle, Users, Heart, Image as ImageIcon, Bookmark,
+  Zap, ThumbsUp, Calendar, Play, Globe, ChevronDown, X,
+  BarChart3, ShieldAlert, Gift, UserPlus, Sparkles, LayoutGrid, Radio,
+  Videotape, Wallet,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import Card from "@/components/common/Card"
+import Badge from "@/components/common/Badge"
+
+interface LeftSidebarProps {
+  user?: any
+  active?: string
+  filter?: "all" | "following"
+  onFilterChange?: (f: "all" | "following") => void
+  mobile?: boolean
+  onCloseMobile?: () => void
+}
+
+interface SidebarItemProps {
+  icon: React.ReactNode
+  label: string
+  active?: boolean
+  badge?: string | number
+  onClick?: () => void
+  open?: boolean
+  chevron?: boolean
+  iconBg?: string
+  iconColor?: string
+}
+
+function SidebarItem({ icon, label, active, badge, onClick, open, chevron, iconBg, iconColor }: SidebarItemProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-3 rounded-2xl cursor-pointer transition-all duration-200 select-none text-left px-3 py-2.5",
+        active ? "bg-[#A35A2A]/8 text-[#2D2D2D]" : "hover:bg-[#F0F2F5] text-[#4A4A4A]"
+      )}
+    >
+      <span className={cn(
+        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+        iconBg || "bg-[#F0F2F5]"
+      )}>
+        <span className={cn("flex items-center justify-center", iconColor || "text-[#65676B]")}>
+          {icon}
+        </span>
+      </span>
+      <span className={cn(
+        "font-medium flex-1 truncate text-[15px]",
+        active ? "text-[#2D2D2D] font-semibold" : "text-[#4A4A4A]"
+      )}>
+        {label}
+      </span>
+      {badge && <Badge variant="red">{badge}</Badge>}
+      {chevron && (
+        <ChevronDown
+          size={16}
+          className={cn(
+            "text-[#A35A2A] transition-transform duration-200 shrink-0",
+            open && "rotate-180"
+          )}
+        />
+      )}
+    </button>
+  )
+}
+
+export default function LeftSidebar({
+  user,
+  active = "feed",
+  filter = "all",
+  onFilterChange,
+  mobile,
+  onCloseMobile,
+}: LeftSidebarProps) {
+  const router = useRouter()
+  const [feedOpen, setFeedOpen] = useState(false)
+
+  return (
+    <aside className={cn(
+      "flex flex-col overflow-y-auto scrollbar-hide z-30",
+      "w-full h-full bg-[#f7f8fa] py-4 px-3",
+      mobile && "bg-white shadow-2xl"
+    )}>
+      {mobile && (
+        <div className="flex items-center justify-between mb-3 px-2">
+          <p className="font-bold text-lg text-[#2D2D2D]">Menu</p>
+          <button
+            onClick={onCloseMobile}
+            className="w-9 h-9 rounded-full bg-[#F0F2F5] flex items-center justify-center text-[#65676B] hover:bg-[#E4E6EB]"
+            aria-label="Fermer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* ═══════════════════ PREMIER PANNEAU ═══════════════════ */}
+      <Card className="p-2 rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
+        <nav className="space-y-0.5">
+          <SidebarItem
+            icon={<Globe size={20} />}
+            label="Fil d'actualité"
+            active={active === "feed"}
+            chevron
+            open={feedOpen}
+            iconBg="bg-[#A35A2A]"
+            iconColor="text-white"
+            onClick={() => setFeedOpen(!feedOpen)}
+          />
+          {feedOpen && (
+            <div className="ml-8 space-y-0.5 border-l-2 border-[#E4E6EB] pl-3">
+              <SidebarItem
+                icon={<Globe size={20} />}
+                label="Toutes les publications"
+                active={filter === "all"}
+                iconBg="bg-[#A35A2A]/15"
+                iconColor="text-[#A35A2A]"
+                onClick={() => { onFilterChange?.("all"); setFeedOpen(false) }}
+              />
+              <SidebarItem
+                icon={<Users size={20} />}
+                label="Mes amis"
+                active={filter === "following"}
+                iconBg="bg-[#1877F2]/15"
+                iconColor="text-[#1877F2]"
+                onClick={() => { onFilterChange?.("following"); setFeedOpen(false) }}
+              />
+            </div>
+          )}
+
+          <SidebarItem
+            icon={<MessageCircle size={20} />}
+            label="Messages"
+            iconBg="bg-[#1877F2]"
+            iconColor="text-white"
+            onClick={() => router.push("/messages")}
+          />
+
+          <SidebarItem
+            icon={<Users size={20} />}
+            label="Retrouvailles"
+            badge="NEW"
+            iconBg="bg-[#F5A33B]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<Gift size={20} />}
+            label="Points et badges"
+            badge="NEW"
+            iconBg="bg-[#E4405F]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<ImageIcon size={20} />}
+            label="Albums"
+            iconBg="bg-[#8B5CF6]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<Bookmark size={20} />}
+            label="Mes sauvegardes"
+            iconBg="bg-[#06B6D4]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<UserPlus size={20} />}
+            label="Affiliation"
+            iconBg="bg-[#42B72A]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<BarChart3 size={20} />}
+            label="Tendances"
+            iconBg="bg-[#F5C33B]"
+            iconColor="text-[#5C3D00]"
+          />
+
+          <SidebarItem
+            icon={<ShieldAlert size={20} />}
+            label="Stop aux arnaques"
+            iconBg="bg-[#FF4444]"
+            iconColor="text-white"
+          />
+        </nav>
+      </Card>
+
+      {/* ═══════════════════ DEUXIÈME PANNEAU ═══════════════════ */}
+      <Card className="p-2 mt-4 rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
+        <nav className="space-y-0.5">
+          <SidebarItem
+            icon={<Sparkles size={20} />}
+            label="Satrivium IA"
+            iconBg="bg-[#A35A2A]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<ThumbsUp size={20} />}
+            label="Pokes"
+            iconBg="bg-[#F5A33B]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<Users size={20} />}
+            label="Groupes"
+            iconBg="bg-[#1877F2]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<LayoutGrid size={20} />}
+            label="Espaces"
+            iconBg="bg-[#8B5CF6]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<Radio size={20} />}
+            label="Canal"
+            iconBg="bg-[#E4405F]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<Play size={20} />}
+            label="Akwaplay"
+            iconBg="bg-[#42B72A]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<Calendar size={20} />}
+            label="Événements"
+            iconBg="bg-[#06B6D4]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<Videotape size={20} />}
+            label="Capsule"
+            iconBg="bg-[#8B5CF6]"
+            iconColor="text-white"
+          />
+
+          <SidebarItem
+            icon={<Wallet size={20} />}
+            label="Finance"
+            iconBg="bg-[#059669]"
+            iconColor="text-white"
+          />
+        </nav>
+      </Card>
+    </aside>
+  )
+}

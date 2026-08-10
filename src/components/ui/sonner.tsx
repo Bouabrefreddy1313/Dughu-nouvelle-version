@@ -1,0 +1,19 @@
+"use client"
+
+import { Toaster as Sonner } from "sonner"
+
+export function Toaster() {
+  return (
+    <Sonner
+      position="top-center"
+      richColors
+      toastOptions={{
+        className: "!border-gray-200",
+        style: {
+          borderRadius: "1rem",
+          fontFamily: "'Segoe UI', Arial, Tahoma, sans-serif",
+        },
+      }}
+    />
+  )
+}
