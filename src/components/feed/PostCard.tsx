@@ -9,6 +9,7 @@ interface Author {
   id: string
   name: string | null
   avatar: string | null
+  username?: string | null
   verified?: boolean
 }
 
@@ -332,7 +333,12 @@ export function PostCard({
       <div className="flex items-center gap-3 px-4 pt-4 pb-2">
         <Avatar src={author.avatar} name={author.name} size="md" verified={author.verified} />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[15px] text-[#050505] truncate">{author.name}</p>
+          <a
+            href={`/profile/${author.username || author.id}`}
+            className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
+          >
+            {author.name}
+          </a>
           <p className="text-[12px] text-[#65676B]">{timeAgo}</p>
         </div>
         <button

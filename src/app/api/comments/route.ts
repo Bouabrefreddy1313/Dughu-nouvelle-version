@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { dughu, dughuApi, mapComments } from "@/lib/dughu"
 import { processHashtags, notifyMentions, createActivity } from "@/lib/feed"
 
 export async function GET(req: NextRequest) {
@@ -9,6 +10,24 @@ export async function GET(req: NextRequest) {
     const currentUserId = searchParams.get("userId")
     if (!postId) {
       return NextResponse.json({ success: false, message: "postId requis." }, { status: 422 })
+    }
+
+    // ── Mode Dughu API : les posts Dughu ont un ID numérique ──
+    if (dughu.enabled && /^\d+$/.test(String(postId))) {
+      try {
+        let viewerDughuId = "0"
+        if (currentUserId) {
+          const viewer = await prisma.user.findUnique({ where: { id: currentUserId }, select: { dughuId: true } })
+          viewerDughuId = viewer?.dughuId || "0"
+        }
+        const raw = await dughuApi.getComments(String(postId), viewerDughuId)
+        const comments = mapComments(raw, viewerDughuId || "")
+        return NextResponse.json({ success: true, comments })
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("DUGHU_API_KEY manquant")) throw err
+        console.error("DUGHU GET COMMENTS ERROR:", err)
+        // fallback sur les commentaires locaux Prisma (probablement vides pour un post Dughu)
+      }
     }
 
     const comments = await prisma.comment.findMany({
@@ -66,6 +85,44 @@ export async function POST(req: NextRequest) {
     }
     if (content.length > 1000) {
       return NextResponse.json({ success: false, message: "Commentaire trop long (1000 max)." }, { status: 422 })
+    }
+
+    // ── Mode Dughu API : les posts Dughu ont un ID numérique ──
+    if (dughu.enabled && /^\d+$/.test(String(postId))) {
+      const actingUser = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
+      if (!actingUser?.dughuId) {
+        return NextResponse.json({ success: false, message: "Compte Dughu requis." }, { status: 404 })
+      }
+      try {
+        const dForm = new FormData()
+        dForm.append("user_id", String(actingUser.dughuId))
+        dForm.append("post_id", String(postId))
+        dForm.append("text", content.trim())
+        if (parentId) dForm.append("comment_id", String(parentId))
+
+        const raw = parentId ? await dughuApi.replyComment(dForm) : await dughuApi.addComment(dForm)
+        if (raw?.success) {
+          return NextResponse.json({
+            success: true,
+            comment: {
+              id: raw?.result?.id || String(Date.now()),
+              content: raw?.result?.text ?? content.trim(),
+              userId,
+              postId: String(postId),
+              parentId: parentId || null,
+              createdAt: raw?.result?.created_at || new Date().toISOString(),
+              user: { id: userId, name: "", username: "", avatar: "/images/avatar.png" },
+              liked: false,
+              likesCount: 0,
+            },
+          }, { status: 201 })
+        }
+        return NextResponse.json({ success: false, message: raw?.message || "Erreur commentaire (API Dughu)." }, { status: 502 })
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("DUGHU_API_KEY manquant")) throw err
+        console.error("DUGHU ADD COMMENT ERROR:", err)
+        return NextResponse.json({ success: false, message: "Erreur commentaire (API Dughu)." }, { status: 502 })
+      }
     }
 
     const post = await prisma.post.findUnique({ where: { id: postId }, select: { authorId: true } })

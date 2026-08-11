@@ -246,7 +246,8 @@ export default function HomePage() {
         }))
         if (reset || page === 1) setPosts(mapped)
         else setPosts((prev) => [...prev, ...mapped])
-        if ((data.posts || []).length < 10) setHasMore(false)
+        setHasMore(data.hasMore !== false)
+        if ((data.posts || []).length === 0) setHasMore(false)
       }
     } catch {
       toast.error("Erreur chargement posts")

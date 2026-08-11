@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { dughu, dughuApi } from '@/lib/dughu'
 import { sendOtpEmail } from '@/lib/mail'
 import { generateOtp, slugify, isDisposableEmail, getIpFromRequest, detectCountryFromIp } from '@/lib/utils'
 import bcrypt from 'bcryptjs'
@@ -146,6 +147,40 @@ export async function POST(req: NextRequest) {
         console.error('SEND OTP EMAIL ERROR:', err)
       }
     })
+
+    // 12. Inscription vers l'API Dughu (best-effort, ne bloque pas l'inscription locale)
+    if (dughu.enabled) {
+      after(async () => {
+        try {
+          const remote = await dughuApi.register({
+            first_name,
+            last_name,
+            email,
+            gender,
+            password,
+            password_confirmation: password,
+            phone_number: phone,
+            country_code,
+            referrer: ref || undefined,
+          })
+          if (remote?.success) {
+            try {
+              const auth = await dughuApi.login(email, password)
+              const dughuId = auth?.result?.user_id
+              if (dughuId) {
+                await prisma.user.update({ where: { id: user.id }, data: { dughuId: String(dughuId) } })
+              }
+            } catch (err) {
+              console.error('DUGHU LOGIN AFTER REGISTER ERROR:', err)
+            }
+          } else {
+            console.error('DUGHU REGISTER FAILED:', remote)
+          }
+        } catch (err) {
+          console.error('DUGHU REGISTER ERROR:', err)
+        }
+      })
+    }
 
     return NextResponse.json(
       { success: true, message: 'Inscription réussie. Vérifiez votre email.', email },

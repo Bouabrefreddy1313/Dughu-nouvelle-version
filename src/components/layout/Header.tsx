@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Home, Video, Zap, Play, Bell, MessageCircle, Search, X, LayoutGrid } from "lucide-react"
+import { Home, Video, Zap, Play, Bell, MessageCircle, Search, X, LayoutGrid, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
 import Badge from "@/components/common/Badge"
@@ -18,7 +18,9 @@ interface HeaderProps {
 export default function Header({ user, onLogout, onSearch, chatOpen, onToggleChat }: HeaderProps) {
   const [q, setQ] = useState("")
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const mobileSearchRef = useRef<HTMLInputElement>(null)
+  const profileMenuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -26,6 +28,19 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
       mobileSearchRef.current?.focus()
     }
   }, [mobileSearchOpen])
+
+  // Fermer le menu profil au clic extérieur
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false)
+      }
+    }
+    if (profileMenuOpen) {
+      document.addEventListener("mousedown", handler)
+      return () => document.removeEventListener("mousedown", handler)
+    }
+  }, [profileMenuOpen])
 
   const navItems = [
     { icon: <Home size={24} />, label: "Accueil", active: true, href: "/home" },
@@ -109,14 +124,46 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
         </button>
 
         {/* Profil */}
-        <button onClick={onLogout} className="shrink-0" aria-label="Profil">
-          <Avatar
-            src={user?.avatar || user?.image}
-            name={user?.name}
-            size="sm"
-            className="w-9 h-9 ring-2 ring-[#A35A2A]/20"
-          />
-        </button>
+        <div className="relative shrink-0" ref={profileMenuRef}>
+          <button
+            onClick={() => setProfileMenuOpen((v) => !v)}
+            className="shrink-0"
+            aria-label="Profil"
+          >
+            <Avatar
+              src={user?.avatar || user?.image}
+              name={user?.name}
+              size="sm"
+              className="w-9 h-9 ring-2 ring-[#A35A2A]/20"
+            />
+          </button>
+
+          {profileMenuOpen && (
+            <div className="absolute right-0 top-full mt-2 w-60 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-[100] animate-in fade-in zoom-in duration-150">
+              <a
+                href="/profile"
+                onClick={() => setProfileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition"
+              >
+                <Avatar src={user?.avatar || user?.image} name={user?.name} size="sm" />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-[#050505] truncate">{user?.name || "Utilisateur"}</p>
+                  <p className="text-[12px] text-[#65676B] truncate">Voir mon profil</p>
+                </div>
+              </a>
+              <div className="border-t border-gray-100 my-1" />
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[#050505] hover:bg-[#F0F2F5] transition text-left"
+              >
+                <span className="w-8 h-8 rounded-full bg-[#F0F2F5] flex items-center justify-center">
+                  <LogOut size={16} className="text-[#E4405F]" />
+                </span>
+                <span className="text-[13px] font-medium">Déconnexion</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ═════ MOBILE : Barre de recherche overlay ═════ */}

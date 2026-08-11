@@ -1,12 +1,18 @@
 "use client"
 
+import { useRouter } from "next/navigation"
+
 interface MiniProfileCardProps {
   user?: any
 }
 
 export default function MiniProfileCard({ user }: MiniProfileCardProps) {
+  const router = useRouter()
   return (
-    <div className="w-full bg-white rounded-[20px] overflow-visible shadow-sm">
+    <div
+      onClick={() => router.push(`/profile/${user?.username || user?.id || ""}`)}
+      className="w-full bg-white rounded-[20px] overflow-visible shadow-sm hover:shadow-md cursor-pointer transition"
+    >
       {/* Badge points */}
       <div className="bg-[#B87333] text-white text-center py-1.5 rounded-t-[20px]">
         <p className="font-bold text-sm tracking-wide">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { X, Plus, Send, ImageIcon, Sparkles, BarChart3, PlusCircle, MapPin, Music, Mic, ChevronDown, Video, FileText } from "lucide-react"
+import { X, Plus, Send, ImageIcon, BarChart3, PlusCircle, MapPin, Music, Mic, ChevronDown, Video, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DEFAULT_COLORS, BackgroundColor } from "./BackgroundPicker"
 import Avatar from "@/components/common/Avatar"
@@ -257,7 +257,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
               onClick={() => openModal("ai")}
               className="flex items-center gap-2 text-sm font-semibold text-[#F59E0B] hover:bg-[#F59E0B]/10 px-3 py-2 rounded-lg transition whitespace-nowrap"
             >
-              <Sparkles size={20} className="text-[#F59E0B]" />
+              <img src="/images/ia.png" alt="Satrivium IA" className="w-5 h-5 object-contain" />
               <span>Satrivium IA</span>
             </button>
             <button className="flex items-center gap-2 text-sm font-semibold text-[#10B981] hover:bg-[#10B981]/10 px-3 py-2 rounded-lg transition">

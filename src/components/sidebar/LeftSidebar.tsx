@@ -5,7 +5,7 @@ import { useState } from "react"
 import {
   Home, MessageCircle, Users, Heart, Image as ImageIcon, Bookmark,
   Zap, ThumbsUp, Calendar, Play, Globe, ChevronDown, X,
-  BarChart3, ShieldAlert, Gift, UserPlus, Sparkles, LayoutGrid, Radio,
+  BarChart3, ShieldAlert, Gift, UserPlus, LayoutGrid, Radio,
   Videotape, Wallet,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -199,9 +199,9 @@ export default function LeftSidebar({
       <Card className="p-2 mt-4 rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
         <nav className="space-y-0.5">
           <SidebarItem
-            icon={<Sparkles size={20} />}
+            icon={<img src="/images/ia.png" alt="Satrivium IA" className="w-5 h-5 object-contain" />}
             label="Satrivium IA"
-            iconBg="bg-[#A35A2A]"
+            iconBg="bg-[#e3d5cc]"
             iconColor="text-white"
           />
 
@@ -248,7 +248,7 @@ export default function LeftSidebar({
           />
 
           <SidebarItem
-            icon={<Videotape size={20} />}
+            icon={<img src="/images/capsule.png" alt="Satrivium IA" className="w-7 h-7 object-contain" />}
             label="Capsule"
             iconBg="bg-[#8B5CF6]"
             iconColor="text-white"

@@ -14,6 +14,7 @@ interface MainLayoutProps {
   onSearch?: (q: string) => void
   filter?: "all" | "following"
   onFilterChange?: (f: "all" | "following") => void
+  wide?: boolean
 }
 
 export default function MainLayout({
@@ -23,6 +24,7 @@ export default function MainLayout({
   onSearch,
   filter = "all",
   onFilterChange,
+  wide = false,
 }: MainLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -106,7 +108,11 @@ export default function MainLayout({
           chatOpen ? "xl:mr-[640px]" : "xl:mr-[520px]"
         )}
       >
-        <div className="w-full max-w-[640px] sm:max-w-[720px] space-y-3 sm:space-y-4 px-2 sm:px-4 lg:px-6">
+        <div className={cn(
+          wide
+            ? "w-full max-w-[980px] space-y-4 px-2 sm:px-4 lg:px-6"
+            : "w-full max-w-[640px] sm:max-w-[720px] space-y-3 sm:space-y-4 px-2 sm:px-4 lg:px-6"
+        )}>
           {children}
         </div>
       </main>

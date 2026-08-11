@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { dughu, dughuApi } from '@/lib/dughu'
 import bcrypt from 'bcryptjs'
 
 export async function POST(req: NextRequest) {
@@ -79,6 +80,27 @@ export async function POST(req: NextRequest) {
       data: { lastSeen: new Date(), lastseen: new Date() }
     })
 
+    // ── Synchronisation avec l'API Dughu (best-effort) ──
+    let dughuInfo: Record<string, unknown> | null = null
+    if (dughu.enabled) {
+      try {
+        const auth = await dughuApi.login(login, password)
+        if (auth?.success && auth?.result?.user_id) {
+          const dughuId = String(auth.result.user_id)
+          await prisma.user.update({ where: { id: user.id }, data: { dughuId } })
+          dughuInfo = {
+            userId: dughuId,
+            token: auth.result.token || "",
+            username: auth.result.username || user.username || "",
+          }
+        } else {
+          console.error('DUGHU LOGIN FAILED:', auth)
+        }
+      } catch (err) {
+        console.error('DUGHU LOGIN ERROR:', err)
+      }
+    }
+
     // Compter followers et following
     const [followersCount, followingCount, postsCount] = await Promise.all([
       prisma.follow.count({ where: { followingId: user.id } }),
@@ -98,7 +120,7 @@ export async function POST(req: NextRequest) {
         username: user.username,
         avatar: user.avatar || '/images/avatar.png',
         image: user.image || '/images/avatar.png',
-        cover: '/images/group/default-cover.jpg',
+        cover: user.cover || '/images/group/default-cover.jpg',
         bio: user.bio,
         _count: {
           posts: postsCount,
@@ -107,6 +129,7 @@ export async function POST(req: NextRequest) {
         },
         followers: [],
         following: [],
+        dughu: dughuInfo,
       },
       redirect: '/home'
     })
