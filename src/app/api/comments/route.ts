@@ -1,7 +1,46 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { dughu, dughuApi, mapComments } from "@/lib/dughu"
+import { dughu, dughuApi, mapComments, resolveMediaUrl } from "@/lib/dughu"
 import { processHashtags, notifyMentions, createActivity } from "@/lib/feed"
+import { writeFile, mkdir } from "fs/promises"
+import path from "path"
+
+/**
+ * Récupère TOUS les commentaires Dughu d'un post.
+ * L'API pagine par défaut par 10 (per_page fixe, les paramètres per_page/limit sont ignorés),
+ * on parcourt donc toutes les pages et on regroupe les résultats (avec déduplication).
+ */
+async function fetchAllDughuComments(postId: string, viewerDughuId: string) {
+  const readPage = (pag: any): any[] => {
+    const unwrapped = pag?.comments && typeof pag.comments === "object" && !Array.isArray(pag.comments)
+      ? pag.comments
+      : pag?.result && typeof pag.result === "object" && !Array.isArray(pag.result)
+        ? pag.result
+        : pag
+    return Array.isArray(unwrapped) ? unwrapped : unwrapped?.data || []
+  }
+
+  const first = await dughuApi.getComments(postId, viewerDughuId, 1)
+  const firstUnwrapped = first?.comments && typeof first.comments === "object" && !Array.isArray(first.comments)
+    ? first.comments
+    : first
+  const lastPage = Number(firstUnwrapped?.last_page || 1) || 1
+
+  let all: any[] = readPage(first)
+  for (let p = 2; p <= lastPage; p++) {
+    const pageRaw = await dughuApi.getComments(postId, viewerDughuId, p)
+    all = all.concat(readPage(pageRaw))
+  }
+
+  // Déduplication par id (au cas où l'API renverrait un chevauchement entre pages)
+  const seen = new Set<string>()
+  return all.filter((c: any) => {
+    const id = String(c?.id ?? "")
+    if (!id || seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,8 +59,8 @@ export async function GET(req: NextRequest) {
           const viewer = await prisma.user.findUnique({ where: { id: currentUserId }, select: { dughuId: true } })
           viewerDughuId = viewer?.dughuId || "0"
         }
-        const raw = await dughuApi.getComments(String(postId), viewerDughuId)
-        const comments = mapComments(raw, viewerDughuId || "")
+        const rawList = await fetchAllDughuComments(String(postId), viewerDughuId)
+        const comments = mapComments({ data: rawList }, viewerDughuId || "")
         return NextResponse.json({ success: true, comments })
       } catch (err) {
         if (err instanceof Error && err.message.includes("DUGHU_API_KEY manquant")) throw err
@@ -75,12 +114,41 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { postId, userId, content, parentId } = await req.json()
+    // Parser multipart (avec pièces jointes) ou JSON
+    const contentType = req.headers.get("content-type") || ""
+    let postId = ""
+    let userId = ""
+    let content = ""
+    let parentId: string | null = null
+    const files: File[] = []
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData()
+      postId = String(formData.get("postId") || "")
+      userId = String(formData.get("userId") || "")
+      content = String(formData.get("content") || "")
+      const rawParent = formData.get("parentId")
+      parentId = rawParent ? String(rawParent) : null
+      const isFile = (v: FormDataEntryValue | null): v is File =>
+        !!v && typeof v !== "string" && "arrayBuffer" in v
+      for (const v of formData.getAll("files")) if (isFile(v)) files.push(v)
+      for (const v of ["images", "videos"] as const) {
+        for (const f of formData.getAll(v)) if (isFile(f)) files.push(f)
+      }
+    } else {
+      const body = await req.json()
+      postId = body.postId || ""
+      userId = body.userId || ""
+      content = body.content || ""
+      parentId = body.parentId || null
+    }
+
+    const file = files[0] || null
 
     if (!postId || !userId) {
       return NextResponse.json({ success: false, message: "Paramètres requis." }, { status: 422 })
     }
-    if (!content?.trim()) {
+    if (!content?.trim() && !file) {
       return NextResponse.json({ success: false, message: "Commentaire vide." }, { status: 422 })
     }
     if (content.length > 1000) {
@@ -97,23 +165,34 @@ export async function POST(req: NextRequest) {
         const dForm = new FormData()
         dForm.append("user_id", String(actingUser.dughuId))
         dForm.append("post_id", String(postId))
-        dForm.append("text", content.trim())
+        if (content?.trim()) dForm.append("text", content.trim())
         if (parentId) dForm.append("comment_id", String(parentId))
+        if (file) dForm.append("file", file, file.name)
 
         const raw = parentId ? await dughuApi.replyComment(dForm) : await dughuApi.addComment(dForm)
         if (raw?.success) {
+          const r = raw.result || {}
+          const rawPath = String(r?.file_path || r?.file || r?.image || r?.c_file || "") || null
+          const filePath = rawPath ? resolveMediaUrl(rawPath) : null
+          const ft = String(r?.file_type || r?.fileType || "").toLowerCase()
+          const isImage = ft.startsWith("image")
+          const isVideo = ft.startsWith("video")
           return NextResponse.json({
             success: true,
             comment: {
-              id: raw?.result?.id || String(Date.now()),
-              content: raw?.result?.text ?? content.trim(),
+              id: r?.id || String(Date.now()),
+              content: r?.text ?? content.trim(),
               userId,
               postId: String(postId),
               parentId: parentId || null,
-              createdAt: raw?.result?.created_at || new Date().toISOString(),
+              createdAt: r?.created_at || new Date().toISOString(),
               user: { id: userId, name: "", username: "", avatar: "/images/avatar.png" },
               liked: false,
               likesCount: 0,
+              image: isImage ? filePath : null,
+              video: isVideo ? filePath : null,
+              file: !isImage && !isVideo && filePath ? filePath : null,
+              fileType: ft || null,
             },
           }, { status: 201 })
         }
@@ -138,8 +217,56 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Sauvegarde locale de la pièce jointe
+    let finalContent = content?.trim() || ""
+    let imagePath: string | null = null
+    let videoPath: string | null = null
+    let fileType: string | null = null
+
+    if (file) {
+      try {
+        const uploadDir = path.join(process.cwd(), "public", "uploads")
+        await mkdir(uploadDir, { recursive: true })
+        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+        const fileName = `${Date.now()}-${safeName}`
+        const filePath = path.join(uploadDir, fileName)
+        await writeFile(filePath, Buffer.from(await file.arrayBuffer()))
+        const publicPath = `/uploads/${fileName}`
+        
+        // Déterminer le type de fichier
+        const mimeType = file.type
+        if (mimeType.startsWith("image/")) {
+          imagePath = publicPath
+          fileType = "image"
+        } else if (mimeType.startsWith("video/")) {
+          videoPath = publicPath
+          fileType = "video"
+        } else {
+          fileType = "file"
+        }
+        
+        // Pour les fichiers génériques (non image/vidéo), on garde le chemin dans
+        // le contenu car il n'existe pas de colonne dédiée dans le modèle Comment.
+        // Les images et vidéos sont stockées dans leurs champs respectifs
+        // (image / video) et n'ont pas besoin d'être dupliquées dans le texte.
+        if (fileType === "file") {
+          finalContent = finalContent ? `${finalContent}\n${publicPath}` : publicPath
+        }
+      } catch (err) {
+        console.error("COMMENT FILE SAVE ERROR:", err)
+      }
+    }
+
     const comment = await prisma.comment.create({
-      data: { content: content.trim(), postId, userId, parentId: parentId || null },
+      data: { 
+        content: finalContent, 
+        postId, 
+        userId, 
+        parentId: parentId || null,
+        image: imagePath,
+        video: videoPath,
+        fileType,
+      },
       include: {
         user: { select: { id: true, name: true, username: true, avatar: true } },
         likes: { select: { id: true, userId: true } },

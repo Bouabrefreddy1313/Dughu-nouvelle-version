@@ -104,14 +104,14 @@ export default function MainLayout({
       <main
         className={cn(
           "pt-[80px] sm:pt-[88px] pb-16 lg:pb-12 flex justify-center transition-[margin] duration-300 ease-in-out w-full",
-          "lg:ml-[-100px] xl:ml-[-100px]",
-          chatOpen ? "xl:mr-[640px]" : "xl:mr-[520px]"
+          "lg:ml-[-140px] xl:ml-[-140px]",
+          chatOpen ? "xl:mr-[600px]" : "xl:mr-[460px]"
         )}
       >
         <div className={cn(
           wide
             ? "w-full max-w-[980px] space-y-4 px-2 sm:px-4 lg:px-6"
-            : "w-full max-w-[640px] sm:max-w-[720px] space-y-3 sm:space-y-4 px-2 sm:px-4 lg:px-6"
+            : "w-full max-w-[800px] sm:max-w-[900px] space-y-3 sm:space-y-4 px-2 sm:px-4 lg:px-6"
         )}>
           {children}
         </div>

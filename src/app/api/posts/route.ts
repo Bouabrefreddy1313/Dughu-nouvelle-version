@@ -78,6 +78,19 @@ function mergeProfilePosts(localPosts: FeedPost[], remotePosts: FeedPost[]): Fee
   return merged.sort((a, b) => new Date(b.createdAt || "").getTime() - new Date(a.createdAt || "").getTime())
 }
 
+// Fusionne le fil des publications des pages avec les posts de l'utilisateur
+// lui-même (créés directement depuis l'API Dughu), sans doublon.
+function mergeFeedPosts(pagePosts: FeedPost[], userPosts: FeedPost[]): FeedPost[] {
+  const seen = new Set<string>()
+  const merged: FeedPost[] = []
+  for (const p of [...pagePosts, ...userPosts]) {
+    if (!p.id || seen.has(p.id)) continue
+    seen.add(p.id)
+    merged.push(p)
+  }
+  return merged.sort((a, b) => new Date(b.createdAt || "").getTime() - new Date(a.createdAt || "").getTime())
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -92,29 +105,46 @@ export async function GET(req: NextRequest) {
     // créés dans l'app lorsque la synchro Dughu échouait.
 
     // ── Mode Dughu API : fil d'actualité (sans auteur spécifique) ──
+    // Aucun fallback Prisma : si l'API Dughu est activée, le fil vient exclusivement d'elle.
+    // Le fil = publications des pages (getPostPageUser) + posts de l'utilisateur
+    // créés directement depuis l'API (getUserPosts).
     if (!authorId && filter === "all" && userId && dughu.enabled) {
-      try {
-        const viewer = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
-        if (viewer?.dughuId) {
-          const raw = await dughuApi.getPostPageUser(viewer.dughuId, page)
-          const posts = mapPosts(raw)
-          const { hasMore, page: currentPage } = getPageInfo(raw)
-          return NextResponse.json({
-            success: true,
-            posts,
-            pinnedPosts: [],
-            boostedPost: null,
-            page: currentPage,
-            totalPages: hasMore ? currentPage + 1 : currentPage,
-            hasMore,
-          })
-        }
-        // Pas de dughuId → fallback sur les données locales Prisma
-      } catch (err) {
-        if (err instanceof Error && err.message.includes("DUGHU_API_KEY manquant")) throw err
-        console.error("DUGHU FEED ERROR:", err)
-        // fallback sur les données locales Prisma
+      const viewer = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, username: true, avatar: true, dughuId: true },
+      })
+      if (!viewer?.dughuId) {
+        return NextResponse.json(
+          { success: false, message: "Aucun compte Dughu associé à cet utilisateur." },
+          { status: 500 }
+        )
       }
+      const [pageRaw, userRaw] = await Promise.all([
+        dughuApi.getPostPageUser(viewer.dughuId, page),
+        dughuApi.getUserPosts(viewer.dughuId, viewer.dughuId, page),
+      ])
+      const posts = mergeFeedPosts(
+        mapPosts(pageRaw) as FeedPost[],
+        mapPosts(userRaw, {
+          id: viewer.id,
+          name: viewer.name,
+          username: viewer.username,
+          avatar: viewer.avatar,
+        }) as FeedPost[]
+      )
+      const pageInfo = getPageInfo(pageRaw)
+      const userInfo = getPageInfo(userRaw)
+      const hasMore = pageInfo.hasMore || userInfo.hasMore
+      const currentPage = Math.max(pageInfo.page, userInfo.page)
+      return NextResponse.json({
+        success: true,
+        posts,
+        pinnedPosts: [],
+        boostedPost: null,
+        page: currentPage,
+        totalPages: hasMore ? currentPage + 1 : currentPage,
+        hasMore,
+      })
     }
 
     const take = POSTS_PER_PAGE
@@ -294,7 +324,8 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     console.error("FEED ERROR:", error)
-    return NextResponse.json({ success: false, message: "Erreur lors du chargement du fil." }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Erreur lors du chargement du fil."
+    return NextResponse.json({ success: false, message }, { status: 500 })
   }
 }
 

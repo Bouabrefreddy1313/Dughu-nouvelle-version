@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import {
   Home, MessageCircle, Users, Heart, Image as ImageIcon, Bookmark,
-  Zap, ThumbsUp, Calendar, Play, Globe, ChevronDown, X,
-  BarChart3, ShieldAlert, Gift, UserPlus, LayoutGrid, Radio,
-  Videotape, Wallet,
+  Zap, Globe, ChevronDown, X,
+  BarChart3, ShieldAlert, Gift, UserPlus,
+  Videotape,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Card from "@/components/common/Card"
@@ -199,66 +199,63 @@ export default function LeftSidebar({
       <Card className="p-2 mt-4 rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
         <nav className="space-y-0.5">
           <SidebarItem
-            icon={<img src="/images/ia.png" alt="Satrivium IA" className="w-5 h-5 object-contain" />}
+            icon={<img src="/images/ia.png" alt="Satrivium IA" className="w-8 h-8 object-contain" />}
             label="Satrivium IA"
-            iconBg="bg-[#e3d5cc]"
-            iconColor="text-white"
+            iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<ThumbsUp size={20} />}
+            icon={<img src="/images/poke.png" alt="Pokes" className="w-8 h-8 object-contain" />}
             label="Pokes"
-            iconBg="bg-[#F5A33B]"
-            iconColor="text-white"
+            iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<Users size={20} />}
+            icon={<img src="/images/groupe.png" alt="Groupes" className="w-8 h-8 object-contain" />}
             label="Groupes"
-            iconBg="bg-[#1877F2]"
-            iconColor="text-white"
+            iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<LayoutGrid size={20} />}
+            icon={<img src="/images/page.png" alt="Espaces" className="w-8 h-8 object-contain" />}
             label="Espaces"
-            iconBg="bg-[#8B5CF6]"
-            iconColor="text-white"
+            iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<Radio size={20} />}
+            icon={<img src="/images/canal.png" alt="Canal" className="w-8 h-8 object-contain" />}
             label="Canal"
-            iconBg="bg-[#E4405F]"
-            iconColor="text-white"
+            iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<Play size={20} />}
+            icon={<img src="/images/akp.png" alt="Akwaplay" className="w-8 h-8 object-contain" />}
             label="Akwaplay"
-            iconBg="bg-[#42B72A]"
-            iconColor="text-white"
+            iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<Calendar size={20} />}
+            icon={<img src="/images/notif.png" alt="Événements" className="w-8 h-8 object-contain" />}
             label="Événements"
-            iconBg="bg-[#06B6D4]"
-            iconColor="text-white"
+            iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<img src="/images/capsule.png" alt="Satrivium IA" className="w-7 h-7 object-contain" />}
+            icon={<img src="/images/capsule.png" alt="Capsule" className="w-8 h-8 object-contain" />}
             label="Capsule"
-            iconBg="bg-[#8B5CF6]"
-            iconColor="text-white"
+            iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<Wallet size={20} />}
+            icon={<img src="/images/finance.png" alt="Finance" className="w-8 h-8 object-contain" />}
             label="Finance"
-            iconBg="bg-[#059669]"
-            iconColor="text-white"
+            iconBg="bg-transparent"
+          />
+
+          <SidebarItem
+            icon={<img src="/images/icon-dealtoo.png" alt="Dealtoo" className="w-8 h-8 object-contain" />}
+            label="Dealtoo"
+            iconBg="bg-transparent"
           />
         </nav>
       </Card>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { dughu, dughuApi } from '@/lib/dughu'
 import bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 
 export async function POST(req: NextRequest) {
   try {
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
     ])
 
     // Retourner l'utilisateur avec toutes les données nécessaires
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -133,6 +134,32 @@ export async function POST(req: NextRequest) {
       },
       redirect: '/home'
     })
+
+    // ── Session persistante ──
+    // Créer une session en base et poser un cookie à longue durée pour que
+    // l'utilisateur ne soit pas redemandé à se connecter à chaque retour sur
+    // Dughu (sauf s'il se déconnecte lui-même). Le middleware lit ce cookie.
+    try {
+      const sessionToken = randomBytes(32).toString('hex')
+      const sessionMaxAge = remember ? 365 * 24 * 60 * 60 : 30 * 24 * 60 * 60 // 1 an si "se souvenir", sinon 30 jours
+      const expires = new Date(Date.now() + sessionMaxAge * 1000)
+
+      await prisma.session.create({
+        data: { sessionToken, userId: user.id, expires },
+      })
+
+      response.cookies.set("next-auth.session-token", sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: sessionMaxAge,
+      })
+    } catch (err) {
+      console.error("SESSION CREATE ERROR:", err)
+    }
+
+    return response
 
   } catch (error) {
     console.error('LOGIN ERROR:', error)

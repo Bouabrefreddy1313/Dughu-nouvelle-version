@@ -241,26 +241,26 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
           <div className="flex items-center gap-1">
           <button
             onClick={() => imageFileRef.current?.click()}
-            className="flex items-center gap-2 text-sm font-semibold text-[#6366F1] hover:bg-[#6366F1]/10 px-3 py-2 rounded-lg transition"
+            className="flex items-center gap-2 text-sm font-semibold text-[#65676B] hover:bg-gray-100 px-3 py-2 rounded-lg transition"
           >
             <ImageIcon size={20} className="text-[#6366F1]" />
             <span>Photo</span>
           </button>
           <button
             onClick={() => videoFileRef.current?.click()}
-            className="flex items-center gap-2 text-sm font-semibold text-[#EC4899] hover:bg-[#EC4899]/10 px-3 py-2 rounded-lg transition"
+            className="flex items-center gap-2 text-sm font-semibold text-[#65676B] hover:bg-gray-100 px-3 py-2 rounded-lg transition"
           >
             <Video size={20} className="text-[#EC4899]" />
             <span>Vidéo</span>
           </button>
             <button
               onClick={() => openModal("ai")}
-              className="flex items-center gap-2 text-sm font-semibold text-[#F59E0B] hover:bg-[#F59E0B]/10 px-3 py-2 rounded-lg transition whitespace-nowrap"
+              className="flex items-center gap-2 text-sm font-semibold text-[#65676B] hover:bg-gray-100 px-3 py-2 rounded-lg transition whitespace-nowrap"
             >
               <img src="/images/ia.png" alt="Satrivium IA" className="w-5 h-5 object-contain" />
               <span>Satrivium IA</span>
             </button>
-            <button className="flex items-center gap-2 text-sm font-semibold text-[#10B981] hover:bg-[#10B981]/10 px-3 py-2 rounded-lg transition">
+            <button className="flex items-center gap-2 text-sm font-semibold text-[#65676B] hover:bg-gray-100 px-3 py-2 rounded-lg transition">
               <BarChart3 size={20} className="text-[#10B981]" />
               <span>Sondage</span>
             </button>

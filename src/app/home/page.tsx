@@ -208,6 +208,9 @@ export default function HomePage() {
   const [activeStoryIndex, setActiveStoryIndex] = useState(0)
   const [coloredPosts, setColoredPosts] = useState<any[]>(COLORS)
   const [chatOpen, setChatOpen] = useState(false)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const loadingMoreRef = useRef(false)
+  const feedReqRef = useRef(0)
 
   // Récupérer user depuis localStorage (en attendant NextAuth session complète)
   useEffect(() => {
@@ -232,12 +235,14 @@ export default function HomePage() {
 
   // Charger posts
   const loadPosts = useCallback(async (page: number, reset = false) => {
+    const reqId = ++feedReqRef.current
     setLoading(true)
     try {
       const userId = user?.id || ""
       console.log("Loading posts with userId:", userId, "user:", user?.name)
       const res = await fetch(`/api/posts?page=${page}&filter=${filter}&userId=${userId}`)
       const data = await res.json()
+      if (reqId !== feedReqRef.current) return
       if (data.success) {
         const mapped = (data.posts || []).map((p: any) => ({
           ...p,
@@ -248,11 +253,17 @@ export default function HomePage() {
         else setPosts((prev) => [...prev, ...mapped])
         setHasMore(data.hasMore !== false)
         if ((data.posts || []).length === 0) setHasMore(false)
+      } else {
+        toast.error(data.message || "Erreur lors du chargement du fil")
+        setHasMore(false)
       }
     } catch {
       toast.error("Erreur chargement posts")
     } finally {
-      setLoading(false)
+      if (reqId === feedReqRef.current) {
+        setLoading(false)
+        loadingMoreRef.current = false
+      }
     }
   }, [filter, user])
 
@@ -265,9 +276,35 @@ export default function HomePage() {
     } catch { /* silent */ }
   }, [])
 
-  // Recharger les posts quand l'utilisateur est chargé depuis localStorage
-  useEffect(() => { loadPosts(1, true) }, [loadPosts])
+  // Charger le fil uniquement quand l'utilisateur est chargé
+  // (évite le fetch au userId vide qui retomberait sur Prisma, et les écrasements de réponses)
+  useEffect(() => {
+    if (!user?.id) return
+    setPageNum(1)
+    loadPosts(1, true)
+  }, [loadPosts, user])
   useEffect(() => { loadStories() }, [loadStories])
+
+  // Chargement automatique au scroll (infinite scroll, sans bouton "Charger plus")
+  useEffect(() => {
+    const el = loadMoreRef.current
+    if (!el || !hasMore || loading || loadingMoreRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && hasMore && !loading && !loadingMoreRef.current) {
+            loadingMoreRef.current = true
+            const next = pageNum + 1
+            setPageNum(next)
+            loadPosts(next)
+          }
+        }
+      },
+      { rootMargin: "300px" }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, loading, pageNum, loadPosts])
 
   const handleCreatePost = async (formData: FormData) => {
     if (!user) { toast.error("Connectez-vous pour publier"); return }
@@ -304,14 +341,15 @@ export default function HomePage() {
     } catch { }
   }
 
-  const handleComment = async (postId: string, text: string) => {
+  const handleComment = async (postId: string, text: string, files?: File[]) => {
     if (!user) { toast.error("Connectez-vous pour commenter"); return }
     try {
-      const res = await fetch("/api/comments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user.id, content: text }),
-      })
+      const formData = new FormData()
+      formData.append("postId", postId)
+      formData.append("userId", user.id)
+      formData.append("content", text)
+      if (files && files.length > 0) files.forEach((f) => formData.append("files", f))
+      const res = await fetch("/api/comments", { method: "POST", body: formData })
       const data = await res.json()
       if (data.success) {
         setPosts((prev) => prev.map((p) =>
@@ -478,7 +516,7 @@ export default function HomePage() {
           sharesCount={post._count.reposts}
           reacted={post.reacted}
           onLike={(reactionId) => handleReaction(post.id, reactionId)}
-          onComment={(text) => handleComment(post.id, text)}
+          onComment={(text, files) => handleComment(post.id, text, files)}
           onRepost={() => handleRepost(post.id)}
           onShare={() => toast.info("Partage")}
           onMenuClick={() => toast.info("Menu du post")}
@@ -486,8 +524,8 @@ export default function HomePage() {
         />
       ))}
 
-      {/* Skeleton Loading */}
-      {loading && (
+      {/* Skeleton Loading (premier chargement uniquement) */}
+      {loading && posts.length === 0 && (
         <div className="space-y-4">
           {[1, 2].map((i) => (
             <div key={i} className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 animate-pulse">
@@ -504,14 +542,13 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Load More */}
-      {hasMore && !loading && (
-        <button
-          onClick={() => { const p = pageNum + 1; setPageNum(p); loadPosts(p) }}
-          className="w-full py-3 text-[#A35A2A] font-medium hover:underline bg-white rounded-3xl shadow-sm border border-gray-100"
-        >
-          Charger plus de posts
-        </button>
+      {/* Chargement automatique au scroll */}
+      {hasMore && (
+        <div ref={loadMoreRef} className="h-16 flex items-center justify-center">
+          {loading && posts.length > 0 && (
+            <div className="w-6 h-6 border-2 border-[#A35A2A] border-t-transparent rounded-full animate-spin" />
+          )}
+        </div>
       )}
 
       

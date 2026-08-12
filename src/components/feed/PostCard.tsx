@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { Repeat2, Share2, Image as ImageIcon, Video, FileText, Smile, Send, MoreHorizontal, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
+import { CommentBody } from "@/components/feed/CommentBody"
 
 interface Author {
   id: string
@@ -22,6 +23,10 @@ interface CommentItem {
   liked?: boolean
   likesCount?: number
   reactionType?: string | null
+  image?: string | null
+  video?: string | null
+  fileType?: string | null
+  file?: string | null
   user: {
     id: string
     name: string | null
@@ -49,7 +54,7 @@ interface PostCardProps {
   sharesCount?: number
   reacted?: string | null
   onLike?: (reactionId?: number) => void
-  onComment?: (text: string) => void
+  onComment?: (text: string, files?: File[]) => void
   onRepost?: () => void
   onShare?: () => void
   onMenuClick?: () => void
@@ -81,6 +86,158 @@ const REACTION_ID_TO_TYPE: Record<number, string> = {
   4: "wow",
   5: "sad",
   6: "angry",
+}
+
+function fileIsImage(file?: File | null, url?: string): boolean {
+  const type = (file?.type || "").toLowerCase()
+  if (type.startsWith("image/")) return true
+  if (type.startsWith("video/")) return false
+  return !type && /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|jfif)$/i.test((url || "").split("?")[0])
+}
+
+function fileIsVideo(file?: File | null, url?: string): boolean {
+  const type = (file?.type || "").toLowerCase()
+  if (type.startsWith("video/")) return true
+  return /\.(mp4|webm|ogv|mov|m4v|avi|mkv|3gp|mpeg|m3u8|wmv)$/i.test((url || "").split("?")[0])
+}
+
+function AttachmentPreview({ url, file }: { url: string; file?: File }) {
+  if (fileIsImage(file, url)) {
+    return <img src={url} alt="" className="w-full h-full object-cover" />
+  }
+  if (fileIsVideo(file, url)) {
+    return (
+      <video src={url} className="w-full h-full object-cover bg-black" muted playsInline controls preload="metadata" />
+    )
+  }
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-gray-100 px-1">
+      <div className="flex flex-col items-center gap-0.5 min-w-0">
+        <FileText size={16} className="text-[#A35A2A] shrink-0" />
+        <span className="text-[9px] text-[#65676B] truncate max-w-full">{file?.name || "Fichier"}</span>
+      </div>
+    </div>
+  )
+}
+
+function ReplyComposer({
+  parentId,
+  toLabel,
+  avatarSrc,
+  avatarName,
+  value,
+  onChange,
+  files,
+  previews,
+  onFiles,
+  onRemoveFile,
+  onSubmit,
+  onCancel,
+  nested,
+}: {
+  parentId: string
+  toLabel: string
+  avatarSrc?: string | null
+  avatarName?: string | null
+  value: string
+  onChange: (v: string) => void
+  files: File[]
+  previews: string[]
+  onFiles: (files: File[]) => void
+  onRemoveFile: (index: number) => void
+  onSubmit: () => void
+  onCancel: () => void
+  nested?: boolean
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const hasContent = value.trim().length > 0 || files.length > 0
+  const pickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onFiles(e.target.files ? Array.from(e.target.files) : [])
+    e.target.value = ""
+  }
+  return (
+    <div className="mt-2 ml-4">
+      <div className="flex items-start gap-2">
+        <Avatar src={avatarSrc} name={avatarName} size="xs" className="w-5 h-5 shrink-0" />
+        <div className={cn("flex-1 rounded-xl px-3 py-2", nested ? "bg-white" : "bg-[#F0F2F5]")}>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-[11px] text-[#65676B]">
+              <span className="font-medium">Répondre à</span>{" "}
+              <span className="font-semibold text-[#050505]">@{toLabel}</span>
+            </p>
+          </div>
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSubmit()
+              if (e.key === "Escape") onCancel()
+            }}
+            placeholder="Écrire une réponse..."
+            className="w-full bg-transparent outline-none text-[13px] text-[#050505] placeholder-[#65676B]"
+            autoFocus
+          />
+          {previews.length > 0 && (
+            <div className="flex gap-2 mt-2 overflow-x-auto">
+              {previews.map((url, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "relative shrink-0 rounded-lg overflow-hidden bg-gray-100",
+                    fileIsImage(files[i], url) || fileIsVideo(files[i], url) ? "w-16 h-16" : "w-auto min-w-[90px] max-w-[140px] h-16"
+                  )}
+                >
+                  <AttachmentPreview url={url} file={files[i]} />
+                  <button
+                    onClick={() => onRemoveFile(i)}
+                    className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 z-10"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              accept="image/*,video/*,audio/*,application/*,text/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+              className="hidden"
+              onChange={pickFiles}
+            />
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="p-1.5 rounded-full hover:bg-gray-200 transition text-[#65676B]"
+              title="Joindre une image, vidéo ou fichier"
+            >
+              <ImageIcon size={15} />
+            </button>
+            <button
+              onClick={onSubmit}
+              disabled={!hasContent}
+              className={cn(
+                "px-3 py-1 rounded-full text-[12px] font-semibold transition",
+                hasContent
+                  ? "bg-[#A35A2A] text-white hover:bg-[#8B4A1F]"
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              )}
+            >
+              Répondre
+            </button>
+            <button
+              onClick={onCancel}
+              className="px-3 py-1 rounded-full text-[12px] font-medium text-[#65676B] hover:bg-gray-100 transition"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function formatCommentTime(dateStr: string): string {
@@ -124,17 +281,22 @@ export function PostCard({
     return REACTION_TYPE_TO_ID[reacted] || null
   })
   const [commentAttachments, setCommentAttachments] = useState<string[]>([])
+  const [commentFiles, setCommentFiles] = useState<File[]>([])
   const [comments, setComments] = useState<CommentItem[]>([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [showCommentReactions, setShowCommentReactions] = useState<string | null>(null)
   const [commentReactions, setCommentReactions] = useState<Record<string, number>>({})
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState("")
+  const [replyFiles, setReplyFiles] = useState<File[]>([])
+  const [replyPreview, setReplyPreview] = useState<string[]>([])
   const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null)
   const [showAllCommentsModal, setShowAllCommentsModal] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const commentHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [contentExpanded, setContentExpanded] = useState(false)
+  const isLongContent = typeof content === "string" && content.length > 280
 
   useEffect(() => {
     if (reacted == null) {
@@ -180,6 +342,31 @@ export function PostCard({
     loadComments()
   }, [loadComments])
 
+  // Lecture automatique de la vidéo quand elle entre dans le viewport, pause sinon
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el || !video) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            el.muted = true
+            el.play().catch(() => {})
+          } else {
+            el.pause()
+          }
+        })
+      },
+      { threshold: 0.3 }
+    )
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      el.pause()
+    }
+  }, [video])
+
   const hasComment = commentText.trim().length > 0 || commentAttachments.length > 0
 
   const handleReactionSelect = (reactionId: number) => {
@@ -196,26 +383,32 @@ export function PostCard({
     }
     if (onComment) {
       try {
-        await onComment(commentText)
+        await onComment(commentText, commentFiles)
       } catch (err) {
         console.error("onComment failed:", err)
       }
     }
     setCommentText("")
     setCommentAttachments([])
+    setCommentFiles([])
     loadComments()
   }
 
-  const handleReplySubmit = async (parentId: string, parentComment: CommentItem) => {
-    if (!replyText.trim() || !currentUser?.id) return
+  const handleReplySubmit = async (parentId: string, _parentComment: CommentItem) => {
+    if (!replyText.trim() && replyFiles.length === 0) { setReplyingTo(null); return }
+    if (!currentUser?.id) return
     try {
-      const res = await fetch("/api/comments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: currentUser.id, content: replyText, parentId }),
-      })
+      const formData = new FormData()
+      formData.append("content", replyText.trim())
+      formData.append("postId", postId || "")
+      formData.append("userId", currentUser.id)
+      if (parentId) formData.append("parentId", parentId)
+      replyFiles.forEach((f) => formData.append("files", f))
+      const res = await fetch("/api/comments", { method: "POST", body: formData })
       const data = await res.json()
       if (data.success) {
+        setReplyFiles([])
+        setReplyPreview([])
         setComments((prev) => {
           const parentTopComment = prev.find((cm) => cm.id === parentId)
           if (parentTopComment) {
@@ -239,11 +432,20 @@ export function PostCard({
         })
         setReplyingTo(null)
         setReplyText("")
+        setReplyFiles([])
+        setReplyPreview([])
       }
     } catch (err) {
       console.error("Reply failed:", err)
     }
   }
+
+  const cancelReply = useCallback(() => {
+    setReplyingTo(null)
+    setReplyText("")
+    setReplyFiles([])
+    setReplyPreview([])
+  }, [])
 
   const handleDeleteComment = async () => {
     if (!deleteCommentId || !currentUser?.id) return
@@ -269,9 +471,26 @@ export function PostCard({
       Array.from(files).forEach((file) => {
         const url = URL.createObjectURL(file)
         setCommentAttachments((prev) => [...prev, url])
+        setCommentFiles((prev) => [...prev, file])
       })
     }
     e.target.value = ""
+  }
+
+  const removeCommentAttachment = (index: number) => {
+    setCommentAttachments((prev) => prev.filter((_, i) => i !== index))
+    setCommentFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const addReplyFiles = (selected: File[]) => {
+    if (!selected.length) return
+    setReplyFiles((prev) => [...prev, ...selected])
+    setReplyPreview((prev) => [...prev, ...selected.map((f) => URL.createObjectURL(f))])
+  }
+
+  const removeReplyFile = (index: number) => {
+    setReplyFiles((prev) => prev.filter((_, i) => i !== index))
+    setReplyPreview((prev) => prev.filter((_, i) => i !== index))
   }
 
   const selectedReactionDef = REACTIONS.find((r) => r.id === selectedReaction)
@@ -360,19 +579,44 @@ export function PostCard({
         </div>
       ) : content && (
         <div className="px-4 py-2">
-          <p className="text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed">{content}</p>
+          <p
+            className={cn(
+              "text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed",
+              !contentExpanded && isLongContent && "line-clamp-6"
+            )}
+          >
+            {content}
+          </p>
+          {isLongContent && (
+            <button
+              onClick={() => setContentExpanded((v) => !v)}
+              className="mt-1 text-[13px] font-medium text-[#A35A2A] hover:text-[#8B4A1F]"
+            >
+              {contentExpanded ? "Voir moins" : "Voir plus"}
+            </button>
+          )}
         </div>
       )}
 
-      {image && (
+      {image && !video && (
         <div className="w-full overflow-hidden">
-          <img src={image} alt="" className="w-full max-h-[500px] object-cover" />
+          <img src={image} alt="" className="w-full max-h-[80vh] object-cover" />
         </div>
       )}
 
       {video && (
-        <div className="w-full overflow-hidden">
-          <video src={video} controls className="w-full max-h-[500px] object-cover bg-black" />
+        <div className="w-full overflow-hidden bg-black">
+          <video
+            ref={videoRef}
+            src={video}
+            poster={image || undefined}
+            controls
+            muted
+            playsInline
+            loop
+            preload="metadata"
+            className="w-full max-h-[60vh] object-cover"
+          />
         </div>
       )}
 
@@ -487,7 +731,7 @@ export function PostCard({
                         )}
                         <span className="text-[11px] text-[#65676B]">{formatCommentTime(c.createdAt)}</span>
                       </div>
-                      <p className="text-[14px] text-[#050505] whitespace-pre-wrap">{c.content}</p>
+                      <CommentBody content={c.content} image={c.image} video={c.video} file={c.file} fileType={c.fileType} />
                       <div className="flex items-center gap-3 mt-1">
                         <button
                           onClick={() => { setReplyingTo(c.id); setReplyText("") }}
@@ -580,86 +824,53 @@ export function PostCard({
                       </div>
                       {/* Formulaire de réponse inline */}
                       {!showAllCommentsModal && replyingTo === c.id && (
-                        <div className="mt-2 ml-4">
-                          <div className="flex items-start gap-2">
-                            <Avatar src={currentUserAvatar} name={currentUser?.name} size="xs" className="w-5 h-5 shrink-0" />
-                            <div className="flex-1 bg-[#F0F2F5] rounded-xl px-3 py-2">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="text-[11px] text-[#65676B]">
-                                  <span className="font-medium">Répondre à</span>{" "}
-                                  <span className="font-semibold text-[#050505]">
-                                    @{c.user?.username || c.user?.name}
-                                  </span>
-                                </p>
-                              </div>
-                              <input
-                                type="text"
-                                value={replyText}
-                                onChange={(e) => setReplyText(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    handleReplySubmit(c.id, c)
-                                  }
-                                  if (e.key === "Escape") {
-                                    setReplyingTo(null)
-                                    setReplyText("")
-                                  }
-                                }}
-                                placeholder="Écrire une réponse..."
-                                className="w-full bg-transparent outline-none text-[13px] text-[#050505] placeholder-[#65676B]"
-                                autoFocus
-                              />
-                              <div className="flex items-center gap-2 mt-2">
-                                <button
-                                  onClick={() => handleReplySubmit(c.id, c)}
-                                  disabled={!replyText.trim()}
-                                  className={cn(
-                                    "px-3 py-1 rounded-full text-[12px] font-semibold transition",
-                                    replyText.trim()
-                                      ? "bg-[#A35A2A] text-white hover:bg-[#8B4A1F]"
-                                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                                  )}
-                                >
-                                  Répondre
-                                </button>
-                                <button
-                                  onClick={() => { setReplyingTo(null); setReplyText("") }}
-                                  className="px-3 py-1 rounded-full text-[12px] font-medium text-[#65676B] hover:bg-gray-100 transition"
-                                >
-                                  Annuler
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                        <ReplyComposer
+                          parentId={c.id}
+                          toLabel={c.user?.username || c.user?.name || ""}
+                          avatarSrc={currentUserAvatar}
+                          avatarName={currentUser?.name || author.name}
+                          value={replyText}
+                          onChange={setReplyText}
+                          files={replyFiles}
+                          previews={replyPreview}
+                          onFiles={addReplyFiles}
+                          onRemoveFile={removeReplyFile}
+                          onSubmit={() => handleReplySubmit(c.id, c)}
+                          onCancel={() => {
+                            setReplyingTo(null)
+                            setReplyText("")
+                            setReplyFiles([])
+                            setReplyPreview([])
+                          }}
+                        />
                       )}
 
-                      {/* Affichage des réponses */}
-                      {c.replies && c.replies.length > 0 && (
-                        <div className="mt-2 ml-4 space-y-1">
-                          {c.replies.slice(0, 2).map((r) => {
-                            const rIsAuthor = r.userId === author.id
-                            const rIsCurrentUser = r.userId === currentUser?.id
-                            const replyLikes = r.likesCount || 0
-                            const replyLiked = r.liked || false
-                            const parentUser = c.user
-                            return (
-                              <div key={r.id} className="flex items-start gap-2">
-                                <Avatar src={r.user?.avatar} name={r.user?.name} size="xs" className="w-5 h-5 shrink-0" />
-                                <div className="flex-1 bg-[#F0F2F5] rounded-xl px-2 py-1.5">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-[12px] font-semibold text-[#050505]">{r.user?.name}</p>
-                                    <span className="text-[10px] text-[#65676B]">
-                                      <span className="font-medium">répondu à</span>{" "}
-                                      <span className="font-semibold text-[#1877F2]">
-                                        @{parentUser?.username || parentUser?.name}
-                                      </span>
-                                    </span>
-                                    {rIsAuthor && <span className="text-[9px] bg-[#A35A2A] text-white px-1.5 py-0.5 rounded-full">Auteur</span>}
-                                    <span className="text-[10px] text-[#65676B]">{formatCommentTime(r.createdAt)}</span>
-                                  </div>
-                                  <p className="text-[13px] text-[#050505] whitespace-pre-wrap">{r.content}</p>
-                                  <div className="flex items-center gap-3 mt-1">
+{/* Affichage des réponses */}
+                       {c.replies && c.replies.length > 0 && (
+                         <div className="mt-2 ml-4 space-y-1">
+                           {c.replies.slice(0, 2).map((r) => {
+                             const rIsAuthor = r.userId === author.id
+                             const rIsCurrentUser = r.userId === currentUser?.id
+                             const replyLikes = r.likesCount || 0
+                             const replyLiked = r.liked || false
+                             const parentUser = c.user
+                             return (
+                               <div key={r.id} className="flex items-start gap-2">
+                                 <Avatar src={r.user?.avatar} name={r.user?.name} size="xs" className="w-5 h-5 shrink-0" />
+                                 <div className="flex-1 bg-[#F0F2F5] rounded-xl px-2 py-1.5">
+                                   <div className="flex items-center gap-2 flex-wrap">
+                                     <p className="text-[12px] font-semibold text-[#050505]">{r.user?.name}</p>
+                                     <span className="text-[10px] text-[#65676B]">
+                                       <span className="font-medium">répondu à</span>{" "}
+                                       <span className="font-semibold text-[#1877F2]">
+                                         @{parentUser?.username || parentUser?.name}
+                                       </span>
+                                     </span>
+                                     {rIsAuthor && <span className="text-[9px] bg-[#A35A2A] text-white px-1.5 py-0.5 rounded-full">Auteur</span>}
+                                     <span className="text-[10px] text-[#65676B]">{formatCommentTime(r.createdAt)}</span>
+                                   </div>
+                                   <CommentBody size="sm" content={r.content} image={r.image} video={r.video} file={r.file} fileType={r.fileType} />
+                                   <div className="flex items-center gap-3 mt-1">
                                     <button
                                       onClick={async () => {
                                         if (!currentUser?.id) return
@@ -844,11 +1055,11 @@ export function PostCard({
                 ) : content && (
                   <p className="text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed">{content}</p>
                 )}
-                {image && (
+                {image && !video && (
                   <img src={image} alt="" className="w-full max-h-[70vh] object-contain rounded-2xl bg-black/5" />
                 )}
                 {video && (
-                  <video src={video} controls className="w-full max-h-[70vh] object-contain bg-black rounded-2xl" />
+                  <video src={video} poster={image || undefined} controls playsInline className="w-full max-h-[70vh] object-contain bg-black rounded-2xl" />
                 )}
               </div>
 
@@ -869,7 +1080,7 @@ export function PostCard({
                         )}
                         <span className="text-[11px] text-[#65676B]">{formatCommentTime(c.createdAt)}</span>
                       </div>
-                      <p className="text-[14px] text-[#050505] whitespace-pre-wrap">{c.content}</p>
+                      <CommentBody content={c.content} image={c.image} video={c.video} file={c.file} fileType={c.fileType} />
                       <div className="flex items-center gap-3 mt-1">
                         <button
                           onClick={() => { setReplyingTo(c.id); setReplyText("") }}
@@ -1040,7 +1251,7 @@ export function PostCard({
                                     {rIsAuthor && <span className="text-[9px] bg-[#A35A2A] text-white px-1.5 py-0.5 rounded-full">Auteur</span>}
                                     <span className="text-[10px] text-[#65676B]">{formatCommentTime(r.createdAt)}</span>
                                   </div>
-                                  <p className="text-[13px] text-[#050505] whitespace-pre-wrap">{r.content}</p>
+                                  <CommentBody size="sm" content={r.content} image={r.image} video={r.video} file={r.file} fileType={r.fileType} />
                                   <div className="flex items-center gap-3 mt-1">
                                     <button
                                       onClick={async () => {
@@ -1165,7 +1376,7 @@ export function PostCard({
           <input
             ref={fileRef}
             type="file"
-            accept="image/*,video/*"
+            accept="image/*,video/*,audio/*,application/*,text/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
             multiple
             className="hidden"
             onChange={handleFileSelect}
@@ -1183,6 +1394,13 @@ export function PostCard({
             title="Ajouter une vidéo"
           >
             <Video size={16} />
+          </button>
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="p-1.5 rounded-full hover:bg-gray-200 transition text-[#65676B]"
+            title="Joindre un fichier"
+          >
+            <FileText size={16} />
           </button>
           <button
             onClick={handleCommentSubmit}
@@ -1203,11 +1421,17 @@ export function PostCard({
         {commentAttachments.length > 0 && (
           <div className="flex gap-2 mt-2 overflow-x-auto">
             {commentAttachments.map((url, i) => (
-              <div key={i} className="relative shrink-0 w-16 h-16 rounded-xl overflow-hidden">
-                <img src={url} alt="" className="w-full h-full object-cover" />
+              <div
+                key={i}
+                className={cn(
+                  "relative shrink-0 rounded-xl overflow-hidden bg-gray-100",
+                  fileIsImage(commentFiles[i], url) || fileIsVideo(commentFiles[i], url) ? "w-16 h-16" : "w-auto min-w-[100px] max-w-[160px] h-16"
+                )}
+              >
+                <AttachmentPreview url={url} file={commentFiles[i]} />
                 <button
-                  onClick={() => setCommentAttachments((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5"
+                  onClick={() => removeCommentAttachment(i)}
+                  className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 z-10"
                 >
                   <X size={10} />
                 </button>

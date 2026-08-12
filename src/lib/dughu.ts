@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const BASE_URL = (process.env.DUGHU_API_BASE_URL || "https://apitest.dughu.com/api").replace(/\/+$/, "")
 const API_TOKEN = process.env.DUGHU_API_KEY || ""
+// Origine racine du serveur Dughu (sans le suffixe /api) pour résoudre les fichiers relatifs
+const DUGHU_ORIGIN = BASE_URL.replace(/\/api\/?$/, "")
 const TIMEOUT_MS = (Number(process.env.DUGHU_API_TIMEOUT) || 15) * 1000
 const RETRY_TIMES = Number(process.env.DUGHU_API_RETRY_TIMES) || 2
 const RETRY_SLEEP_MS = Number(process.env.DUGHU_API_RETRY_SLEEP) || 200
@@ -130,8 +132,8 @@ export const dughuApi = {
   getPostPageUser: (userId: string | number, page: number) =>
     dughu.get(`getPostPageUser/${encodeURIComponent(String(userId))}`, { page }),
 
-  getComments: (postId: string | number, userId: string | number) =>
-    dughu.get(`getComments/${encodeURIComponent(String(postId))}/${encodeURIComponent(String(userId))}`),
+  getComments: (postId: string | number, userId: string | number, page = 1) =>
+    dughu.get(`getComments/${encodeURIComponent(String(postId))}/${encodeURIComponent(String(userId))}`, { page }),
 
   getUserPhotos: (username: string, page: number) =>
     dughu.get(`profile/${encodeURIComponent(username)}/photos`, { page }),
@@ -187,6 +189,33 @@ const toUrl = (v: any): string => {
   if (v.startsWith("http") || v.startsWith("/")) return v
   return v
 }
+
+// Résout un chemin média éventuellement relatif renvoyé par l'API Dughu
+// (ex. `replies/images/xxx.webp` renvoyé par replyComment) vers une URL absolue.
+// Les URLs absolues et les ressources locales de l'application sont conservées telles quelles.
+export function resolveMediaUrl(v: string): string {
+  if (!v) return ""
+  if (/^https?:\/\//i.test(v) || v.startsWith("data:") || v.startsWith("blob:")) return v
+  // Ressources locales de l'application → inchangées
+  if (v.startsWith("/uploads/") || v.startsWith("/images/") || v.startsWith("/media/")) return v
+  const clean = v.replace(/^\/+/, "")
+  // Chemins relatifs du stockage Dughu (bucket S3) renvoyés par certains endpoints
+  // (inclut `uploads/comments/...` utilisé pour les anciens commentaires média)
+  if (/^(comments|replies|videos|files|images|photos|uploads)\//i.test(clean)) {
+    return `https://dughuprod.s3.amazonaws.com/${clean}`
+  }
+  // Repli : on résout contre l'origine du serveur Dughu
+  return `${DUGHU_ORIGIN}/${clean}`
+}
+
+// Déduit le type de média à partir de l'extension de l'URL (repli si file_type absent)
+function detectMediaTypeFromUrl(url: string): string {
+  const lower = url.split("?")[0].toLowerCase()
+  if (/\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|jfif)$/.test(lower)) return "image"
+  if (/\.(mp4|webm|ogg|ogv|mov|m4v|avi|mkv|3gp|mpeg|m3u8|wmv)$/.test(lower)) return "video"
+  return "file"
+}
+
 
 function normalizeBirthday(v: any): string {
   if (typeof v !== "string") return ""
@@ -286,6 +315,19 @@ function toDate(v: any): string {
   return s
 }
 
+function isVideoUrl(v: any): boolean {
+  return /\.(mp4|m4v|webm|mkv|mov|avi|ogg|3gp|mpeg|m3u8)(\?|#|$)/i.test(String(v || ""))
+}
+
+function isVideoPost(p: any): boolean {
+  const type = String(pick(p, "postType", "post_type", "type", "media_type") || "").toLowerCase()
+  const fileName = String(pick(p, "postFileName", "post_file_name", "fileName", "filename") || "")
+  const anyMedia = toUrl(
+    pick(p, "postFile", "postFileLink", "file", "postVideoURL", "video", "videoLink", "video_url", "hls_playlist", "postYoutube", "postVimeo")
+  )
+  return type === "video" || isVideoUrl(fileName) || isVideoUrl(anyMedia)
+}
+
 function postImages(p: any): string[] {
   const urls: string[] = []
   const image = pick(p, "postFile", "postPhoto", "postFileThumb", "thumbnail_url", "image", "photo", "photoUrl", "photo_url", "postFileLink", "file", "thumb", "thumbnail")
@@ -318,7 +360,21 @@ function postImages(p: any): string[] {
 export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | null {
   if (!p || typeof p !== "object") return null
   const id = pick(p, "id", "ID", "post_id", "postId") || String(Math.random()).slice(2)
-  const images = postImages(p)
+
+  // ── Médias : distinguer image et vidéo (l'API met les vidéos dans postFile) ──
+  const mediaFile = toUrl(
+    pick(p, "postFile", "postFileLink", "file", "postVideoURL", "postYoutube", "postVimeo", "video", "videoLink", "video_url", "videoUrl")
+  )
+  const hlsPlaylist = toUrl(pick(p, "hls_playlist"))
+  const thumb = toUrl(pick(p, "postFileThumb", "fileThumb", "thumbnail_url", "thumb", "thumbnail"))
+
+  let rawImages = postImages(p)
+  let video: string | null = null
+  if (isVideoPost(p)) {
+    video = hlsPlaylist || mediaFile || null
+    // Ne pas laisser l'URL vidéo s'afficher comme image
+    rawImages = rawImages.filter((u) => !isVideoUrl(u) && u !== mediaFile)
+  }
 
   const pageAuthor = p?.page
     ? {
@@ -357,11 +413,10 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
   return {
     id: String(id),
     content: pick(p, "content", "text", "body", "description", "caption", "post_text", "postText", "message") || "",
-    image: images[0] || null,
-    images: images.map((u) => ({ url: u })),
-    video: toUrl(
-      pick(p, "video", "videoLink", "video_link", "videoUrl", "video_url", "postVideoURL", "postYoutube", "postVimeo", "hls_playlist")
-    ) || null,
+    image: rawImages[0] || (video ? thumb : null),
+    images: rawImages.map((u) => ({ url: u })),
+    video,
+    thumb: video ? thumb : null,
     createdAt: toDate(pick(p, "createdAt", "created_at", "created", "date", "post_date", "timestamp", "time")),
     author: {
       id: String(author.id),
@@ -426,6 +481,26 @@ export function mapComment(c: any, currentUserId?: string): Record<string, any> 
 
   const reactionType = pick(c, "reaction", "typeLike", "type_like", "user_reaction", "my_reaction") || null
 
+  // ── Médias du commentaire : image / vidéo / fichier générique ──
+  // Selon l'origine du commentaire, l'API Dughu renvoie la pièce jointe :
+  //  - via `file_path` + `file_type` (URL S3 absolue, cas des commentaires récents)
+  //  - via `image`/`video`/`file` avec un chemin relatif `uploads/...` (anciens commentaires)
+  const rawFilePath = pick(c, "file_path", "file", "postFile", "record", "c_file")
+  const filePath = rawFilePath ? resolveMediaUrl(toUrl(rawFilePath)) : null
+  const rawFileType = String(pick(c, "file_type", "fileType") || "").toLowerCase()
+
+  const explicitImage = toUrl(pick(c, "image", "file_thumbnail", "thumbnail_url"))
+  const explicitVideo = toUrl(pick(c, "video", "postVideoURL", "postYoutube", "postVimeo"))
+
+  // Type déduit des champs image/video/file méme quand file_type est absent
+  const fileType = rawFileType || detectMediaTypeFromUrl(explicitImage || explicitVideo || filePath || "")
+  const isImage = fileType.startsWith("image")
+  const isVideo = fileType.startsWith("video")
+
+  const image = (explicitImage ? resolveMediaUrl(explicitImage) : "") || (isImage && filePath ? filePath : null)
+  const video = (explicitVideo ? resolveMediaUrl(explicitVideo) : "") || (isVideo && filePath ? filePath : null)
+  const file = !isImage && !isVideo && filePath ? filePath : null
+
   return {
     id: String(id),
     content: String(text),
@@ -435,7 +510,10 @@ export function mapComment(c: any, currentUserId?: string): Record<string, any> 
     liked,
     likesCount: likes,
     reactionType: Array.isArray(reactionType) ? null : reactionType,
-    image: toUrl(pick(c, "image", "file", "file_thumbnail", "file_path", "thumbnail_url")) || null,
+    image,
+    video,
+    file,
+    fileType,
     replies,
     user: {
       id: String(rawUser.id),
