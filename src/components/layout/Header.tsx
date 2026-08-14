@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Home, Video, Zap, Play, Bell, MessageCircle, Search, X, LayoutGrid, LogOut } from "lucide-react"
+import { Home, Video, Zap, Play, Users, Bell, MessageCircle, Search, X, LayoutGrid, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
 import Badge from "@/components/common/Badge"
@@ -47,18 +47,19 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
     { icon: <Video size={24} />, label: "Vidéos", href: "/videos" },
     { icon: <Zap size={24} />, label: "Tendances", href: "/tendances" },
     { icon: <Play size={24} />, label: "Akwaplay", href: "/akwaplay" },
+    { icon: <Users size={24} />, label: "Groupes", href: "/groupes" },
   ]
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-[56px] bg-white shadow-sm z-50 flex items-center justify-between px-4">
+    <header className="fixed top-0 left-0 right-0 h-[56px] bg-white shadow-sm z-50 flex items-center justify-between pl-0 pr-4">
       {/* ═════ GAUCHE : Logo + Recherche ═════ */}
-      <div className="flex items-center gap-2 w-[320px] shrink-0">
-        <a href="/home" className="shrink-0">
+      <div className="flex items-center gap-1 w-[380px] lg:w-[440px] shrink-0">
+        <a href="/home" className="shrink-0 -ml-1">
           <img src="/images/logo.png" alt="Dughu" className="h-10 w-auto object-contain" />
         </a>
         
         {/* Barre de recherche AGRANDIE */}
-        <div className="hidden md:flex items-center bg-[#F0F2F5] rounded-full px-3 py-2 w-[280px] lg:w-[320px]">
+        <div className="hidden md:flex items-center bg-[#F0F2F5] rounded-full px-3 py-2 w-[160px] lg:w-[200px] -ml-1">
           <Search size={16} className="text-[#65676B] mr-2 shrink-0" />
           <input
             type="text"
@@ -72,13 +73,13 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
       </div>
 
       {/* ═════ CENTRE : Navigation ═════ */}
-      <div className="hidden md:flex items-center h-full absolute left-1/2 -translate-x-1/2">
+      <div className="hidden md:flex items-center h-full absolute left-1/2 -translate-x-[calc(50%+100px)]">
         {navItems.map((item, i) => (
           <a
             key={i}
             href={item.href}
             className={cn(
-              "relative flex items-center justify-center h-full px-8 lg:px-10 cursor-pointer transition-colors duration-200",
+              "relative flex items-center justify-center h-full px-10 lg:px-14 cursor-pointer transition-colors duration-200",
               item.active
                 ? "text-[#A35A2A]"
                 : "text-[#65676B] hover:bg-[#F0F2F5] hover:text-[#050505] rounded-lg mx-1"
@@ -88,7 +89,7 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
             {item.icon}
             {/* Indicateur actif en dessous */}
             {item.active && (
-              <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#A35A2A] rounded-t-full" />
+              <div className="absolute bottom-0 -left-3 -right-3 h-[3px] bg-[#A35A2A] rounded-t-full" />
             )}
           </a>
         ))}
@@ -97,7 +98,7 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
       {/* ═════ DROITE : Menu + Notifs + Chat + Profil ═════ */}
       <div className="flex items-center gap-2 w-[320px] justify-end shrink-0">
         {/* Menu / Grid */}
-        <button className="w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-[#050505] hover:bg-[#E4E6EB] transition">
+        <button className="w-10 h-10 rounded-full flex items-center justify-center text-[#050505] transition">
           <LayoutGrid size={20} />
         </button>
 
@@ -108,7 +109,7 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
             "relative w-10 h-10 rounded-full flex items-center justify-center transition",
             chatOpen
               ? "bg-[#DBEAFE] text-[#A35A2A]"
-              : "bg-[#F0F2F5] text-[#050505] hover:bg-[#E4E6EB]"
+              : "text-[#050505]"
           )}
         >
           <img src="/images/msg.png" alt="Messagerie" className="w-8 h-8 object-contain" />
@@ -116,7 +117,7 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
         </button>
 
         {/* Notifications */}
-        <button className="relative w-10 h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-[#050505] hover:bg-[#E4E6EB] transition">
+        <button className="relative w-10 h-10 rounded-full flex items-center justify-center text-[#050505] transition">
           <img src="/images/notif.png" alt="Notifications" className="w-6 h-6 object-contain" />
           <Badge className="absolute -top-1 -right-1 bg-[#FF4444] text-white text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white">
             3
@@ -134,7 +135,8 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
               src={user?.avatar || user?.image}
               name={user?.name}
               size="sm"
-              className="w-9 h-9 ring-2 ring-[#A35A2A]/20"
+              bare
+              className="w-10 h-10"
             />
           </button>
 
@@ -145,7 +147,7 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
                 onClick={() => setProfileMenuOpen(false)}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition"
               >
-                <Avatar src={user?.avatar || user?.image} name={user?.name} size="sm" />
+                <Avatar src={user?.avatar || user?.image} name={user?.name} size="sm" bare />
                 <div className="min-w-0">
                   <p className="text-[13px] font-semibold text-[#050505] truncate">{user?.name || "Utilisateur"}</p>
                   <p className="text-[12px] text-[#65676B] truncate">Voir mon profil</p>

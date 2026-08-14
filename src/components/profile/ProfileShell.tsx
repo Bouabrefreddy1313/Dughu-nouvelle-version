@@ -24,6 +24,16 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
         } catch {
           setUser(null)
         }
+      } else {
+        fetch("/api/auth/me")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data?.success && data.user) {
+              localStorage.setItem("dughu_user", JSON.stringify(data.user))
+              setUser(data.user)
+            }
+          })
+          .catch(() => {})
       }
     }
   }, [])
@@ -47,7 +57,7 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
       : { userId: userId || "" }
 
   return (
-    <MainLayout user={user} onLogout={handleLogout} onSearch={handleSearch} wide>
+    <MainLayout user={user} onLogout={handleLogout} onSearch={handleSearch} wide noRightSidebar>
       <ProfilePage target={target} />
     </MainLayout>
   )

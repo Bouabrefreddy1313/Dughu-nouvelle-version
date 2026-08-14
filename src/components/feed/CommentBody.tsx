@@ -16,6 +16,9 @@ const VIDEO_RE = /\.(mp4|webm|ogg|ogv|mov|m4v|avi|mkv|3gp|mpeg|m3u8|wmv)$/i
 /**
  * Déduit le type d'un média à partir de son URL/chemin.
  * Le `fileType` renvoyé par l'API (image/video/file) est prioritaire s'il est exploitable.
+ * N'est utilisé QUE pour les médias détectés dans le texte brut (`/uploads/...`),
+ * où l'on n'a pas d'autre info que fileType. Pour les champs image/video/file
+ * dédiés, le type est passé explicitement — voir pushMedia dans parseCommentContent.
  */
 export function detectMediaType(src: string, fileType?: string | null): "image" | "video" | "file" {
   const ft = (fileType || "").toLowerCase().trim()
@@ -41,6 +44,13 @@ function mediaFileName(src: string): string {
  * - Les fichiers uploadés localement sont stockés comme lignes `/uploads/...` dans le champ `content`.
  * - Les commentaires Dughu fournissent `image` / `video` / `file` séparément
  *   (champs `file_path` + `file_type` normalisés dans `mapComment`).
+ *
+ * IMPORTANT : `image`, `video` et `file` sont des champs distincts et typés par construction
+ * (ex: `image` peut être la miniature d'une vidéo, mais reste un fichier de type "image").
+ * On ne doit donc JAMAIS leur appliquer `fileType` (qui décrit le média "principal" du commentaire,
+ * typiquement la vidéo) — sinon la miniature vidéo est elle-même classée "video" et s'affiche
+ * en double à côté de la vraie vidéo. `fileType` ne sert qu'à désambiguïser les lignes
+ * `/uploads/...` trouvées dans le texte brut, où le type n'est pas connu autrement.
  */
 export function parseCommentContent(
   content?: string,
@@ -51,25 +61,29 @@ export function parseCommentContent(
 ): { text: string; media: CommentMediaEntry[] } {
   const media: CommentMediaEntry[] = []
   const seen = new Set<string>()
-  const ft = (fileType || "").toLowerCase()
-  const pushMedia = (src: string) => {
+
+  const pushMedia = (src: string, type: "image" | "video" | "file") => {
     // Déduplique les médias par URL : un même fichier peut apparaître à la fois
     // dans les champs image/video et dans le texte (commentaires plus anciens).
     if (!src || seen.has(src)) return
     seen.add(src)
-    media.push({ src, type: detectMediaType(src, ft), name: mediaFileName(src) })
+    media.push({ src, type, name: mediaFileName(src) })
   }
 
-  if (image) pushMedia(image)
-  if (video) pushMedia(video)
-  if (file) pushMedia(file)
+  // Types explicites : ces champs sont sans ambiguïté, pas besoin de deviner.
+  if (image) pushMedia(image, "image")
+  if (video) pushMedia(video, "video")
+  if (file) pushMedia(file, detectMediaType(file, fileType))
 
   const textParts: string[] = []
   const raw = content || ""
   for (const line of raw.split("\n")) {
     const t = line.trim()
     if (t.startsWith("/uploads/") || t.startsWith("/media/")) {
-      pushMedia(t)
+      // Ici on ne connaît pas le type autrement, donc on déduit à partir de l'extension
+      // (fileType n'est volontairement pas passé : il décrirait le média principal,
+      // pas forcément celui de cette ligne).
+      pushMedia(t, detectMediaType(t))
     } else {
       textParts.push(line)
     }
@@ -102,7 +116,11 @@ export function CommentBody({
 }) {
   const { text, media } = parseCommentContent(content, image, video, file, fileType)
   const videos = media.filter((m) => m.type === "video")
-  const images = media.filter((m) => m.type === "image")
+  // Quand une vidéo est présente, le champ image correspond à son thumbnail :
+  // on ne l'affiche pas pour éviter d'avoir deux cadres (image + vidéo).
+  const images = videos.length > 0
+    ? []
+    : media.filter((m) => m.type === "image")
   const files = media.filter((m) => m.type === "file")
 
   return (
@@ -119,11 +137,13 @@ export function CommentBody({
       )}
 
       {images.map((img, i) => (
-        <MediaDisplay key={`img-${i}`} image={img.src} fileType="image" className="max-w-[220px]" maxHeight="150px" />
+        <MediaDisplay key={`img-${i}`} image={img.src} fileType="image" className="max-w-[180px]" maxHeight="120px" />
       ))}
 
       {videos.map((v, i) => (
-        <MediaDisplay key={`vid-${i}`} video={v.src} fileType="video" className="max-w-[220px]" maxHeight="150px" />
+        // `image` est la miniature associée à la vidéo (thumbnail) : on la passe en poster,
+        // elle ne s'affiche jamais comme média séparé (cf. filtre `images` ci-dessus).
+        <MediaDisplay key={`vid-${i}`} video={v.src} image={image} fileType="video" className="max-w-[180px]" maxHeight="120px" />
       ))}
 
       {files.map((f, i) => (

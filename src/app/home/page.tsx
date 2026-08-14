@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { PostComposer } from "@/components/composer/PostComposer"
 import { PostCard } from "@/components/feed/PostCard"
+import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import MiniStories from "@/components/stories/MiniStories"
 import MainLayout from "@/components/layout/MainLayout"
 
@@ -97,6 +98,7 @@ interface Post {
   comments: CommentItem[]
   likes: Reaction[]
   reactionsCount: number
+  reactions?: { type: string; count: number }[]
   _count: { comments: number; likes: number; reposts: number; views: number }
   timeLabel?: string
   isBoosted?: boolean
@@ -104,7 +106,15 @@ interface Post {
   isHidden?: boolean
   commentsDisabled?: boolean
   sensitive?: boolean
-  parentPost?: Post | null
+  parentPost?: {
+    id: string
+    author: Author
+    content?: string | null
+    image?: string | null
+    video?: string | null
+    color?: string | null
+    timeAgo?: string
+  } | null
   akwaplay?: any | null
   isLiked?: boolean
   reacted?: string | null
@@ -229,6 +239,24 @@ export default function HomePage() {
         setUser(updatedUser)
         // Mettre à jour le localStorage avec les valeurs par défaut
         localStorage.setItem("dughu_user", JSON.stringify(updatedUser))
+      } else {
+        // Pas de user en localStorage (ex: connexion Google via NextAuth) → session cookie
+        fetch("/api/auth/me")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data?.success && data.user) {
+              const u = {
+                ...data.user,
+                avatar: data.user.avatar || '/images/avatar.png',
+                image: data.user.image || '/images/avatar.png',
+                cover: data.user.cover || '/images/group/default-cover.jpg',
+                _count: data.user._count || { posts: 0, followers: 0, following: 0 },
+              }
+              localStorage.setItem("dughu_user", JSON.stringify(u))
+              setUser(u)
+            }
+          })
+          .catch(() => {})
       }
     }
   }, [])
@@ -244,10 +272,15 @@ export default function HomePage() {
       const data = await res.json()
       if (reqId !== feedReqRef.current) return
       if (data.success) {
+        const reactionsCache = readMyReactions()
         const mapped = (data.posts || []).map((p: any) => ({
           ...p,
           timeLabel: timeAgo(p.createdAt),
+          reacted: reactionsCache[p.id] || p.reacted || null,
           _count: p._count || { comments: 0, likes: 0, reposts: 0, views: 0 },
+          parentPost: p.parentPost
+            ? { ...p.parentPost, timeAgo: timeAgo(p.parentPost?.createdAt) }
+            : null,
         }))
         if (reset || page === 1) setPosts(mapped)
         else setPosts((prev) => [...prev, ...mapped])
@@ -323,6 +356,41 @@ export default function HomePage() {
   const handleReaction = async (postId: string, reactionId?: number) => {
     if (!user) return
     const reactionType = REACTION_ID_TO_TYPE[reactionId || 1] || "like"
+    const cache = readMyReactions()
+    const previousType = cache[postId] || null
+
+    // Détermine le nouvel état à partir de la réaction actuelle :
+    // - aucune réaction → like avec la réaction choisie (+1)
+    // - même réaction → unlike (-1)
+    // - autre réaction → changement de réaction (compte inchangé)
+    let newReacted: string | null
+    if (!previousType) newReacted = reactionType
+    else if (previousType === reactionType) newReacted = null
+    else newReacted = reactionType
+    const countDelta = newReacted ? (previousType ? 0 : 1) : -1
+
+    const applyToPost = (fn: (p: any) => any) =>
+      setPosts((prev) =>
+        prev.map((p) => (p.id !== postId ? p : fn(p)))
+      )
+
+    // Mise à jour optimiste (compteur en live + emoji sur le bouton)
+    applyToPost((p) => ({
+      ...p,
+      reacted: newReacted,
+      _count: {
+        ...p._count,
+        likes: Math.max(0, p._count.likes + countDelta),
+      },
+    }))
+
+    // Persiste la réaction immédiatement (cache local) pour qu'elle survive au rechargement,
+    // même si la réponse de l'API Dughu ne renvoie pas un champ fiable.
+    const newCache = { ...cache }
+    if (newReacted) newCache[postId] = newReacted
+    else delete newCache[postId]
+    writeMyReactions(newCache)
+
     try {
       const res = await fetch("/api/reactions", {
         method: "POST",
@@ -331,14 +399,40 @@ export default function HomePage() {
       })
       const data = await res.json()
       if (data.success) {
-        setPosts((prev) => prev.map((p) => {
-          if (p.id !== postId) return p
-          const newReacted = data.reacted ? reactionType : null
-          const newCount = data.count ?? p._count.likes
-          return { ...p, reacted: newReacted, likes: p.likes, _count: { ...p._count, likes: newCount } }
+        if (typeof data.count === "number") {
+          applyToPost((p) => ({
+            ...p,
+            reacted: newReacted,
+            _count: { ...p._count, likes: data.count },
+          }))
+        }
+        if (newReacted) {
+          toast.success(`Réaction ${newReacted} ajoutée`)
+        }
+      } else {
+        toast.error(data.message || "Impossible de réagir à cette publication")
+        applyToPost((p) => ({
+          ...p,
+          reacted: previousType,
+          _count: {
+            ...p._count,
+            likes: Math.max(0, p._count.likes - countDelta),
+          },
         }))
+        writeMyReactions(cache)
       }
-    } catch { }
+    } catch {
+      toast.error("Erreur réseau lors de la réaction")
+      applyToPost((p) => ({
+        ...p,
+        reacted: previousType,
+        _count: {
+          ...p._count,
+          likes: Math.max(0, p._count.likes - countDelta),
+        },
+      }))
+      writeMyReactions(cache)
+    }
   }
 
   const handleComment = async (postId: string, text: string, files?: File[]) => {
@@ -377,11 +471,40 @@ export default function HomePage() {
       const res = await fetch("/api/posts", { method: "POST", body: formData })
       const data = await res.json()
       if (data.success) {
-        setPosts((prev) => prev.map((p) =>
-          p.id === postId
-            ? { ...p, _count: { ...p._count, reposts: (p._count.reposts || 0) + 1 } }
-            : p
-        ))
+        // Ajoute immédiatement la carte de republication en tête du fil,
+        // avec le post d'origine embarqué (disponible localement).
+        const original = posts.find((p) => p.id === postId)
+        setPosts((prev) => [
+          {
+            ...data.post,
+            timeLabel: timeAgo(data.post?.createdAt),
+            _count: data.post?._count || { comments: 0, likes: 0, reposts: 0, views: 0 },
+            parentPost: original
+              ? {
+                  id: original.id,
+                  author: original.author,
+                  content: original.content,
+                  image: original.image || original.images?.[0]?.url,
+                  video:
+                    typeof original.video === "string"
+                      ? original.video
+                      : (original.video as any)?.url || null,
+                  color:
+                    original.color && typeof original.color === "string"
+                      ? original.color
+                      : original.color
+                        ? JSON.stringify(original.color)
+                        : null,
+                  timeAgo: original.timeLabel,
+                }
+              : null,
+          },
+          ...prev.map((p) =>
+            p.id === postId
+              ? { ...p, _count: { ...p._count, reposts: (p._count.reposts || 0) + 1 } }
+              : p
+          ),
+        ])
         toast.success("Repost effectué !")
       } else {
         toast.error(data.message || "Erreur repost")
@@ -515,11 +638,17 @@ export default function HomePage() {
           commentsCount={post._count.comments}
           sharesCount={post._count.reposts}
           reacted={post.reacted}
+          reactions={post.reactions}
+          parentPost={post.parentPost}
           onLike={(reactionId) => handleReaction(post.id, reactionId)}
           onComment={(text, files) => handleComment(post.id, text, files)}
           onRepost={() => handleRepost(post.id)}
           onShare={() => toast.info("Partage")}
-          onMenuClick={() => toast.info("Menu du post")}
+          onDelete={() => handleDelete(post.id)}
+          canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId || user?.dughuId)}
+          onSave={() => handleSave(post.id)}
+          onHide={() => handleHide(post.id)}
+          isSaved={post.isSaved}
           className="mb-4"
         />
       ))}

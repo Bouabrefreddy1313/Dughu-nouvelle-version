@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { dughu, dughuApi } from '@/lib/dughu'
-import bcrypt from 'bcryptjs'
+import { dughu, dughuApi, pick } from '@/lib/dughu'
 import { randomBytes } from 'crypto'
 
 export async function POST(req: NextRequest) {
@@ -12,67 +11,110 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Identifiants requis.' }, { status: 422 })
     }
 
-    // Déterminer le type de login
-    let user = null
+    if (!dughu.enabled) {
+      return NextResponse.json(
+        { success: false, message: 'L\'authentification Dughu n\'est pas configurée.' },
+        { status: 500 }
+      )
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     const phoneRegex = /^[0-9]{8,}$/
 
-    if (emailRegex.test(login)) {
+    // ── 1. Authentification obligatoire via l'API Dughu ──
+    let auth: any = null
+    try {
+      auth = await dughuApi.login(login, password)
+    } catch (err) {
+      console.error('DUGHU LOGIN ERROR:', err)
+      return NextResponse.json(
+        { success: false, message: 'Impossible de joindre l\'API Dughu.' },
+        { status: 502 }
+      )
+    }
+
+    if (!auth?.success) {
+      const message =
+        (auth?.message && String(auth.message)) ||
+        (auth?.messages && Object.values(auth.messages).flat().join(' ')) ||
+        'Identifiants incorrects.'
+      return NextResponse.json({ success: false, message }, { status: 401 })
+    }
+
+    const result = auth.result || auth || {}
+    const dughuUserId = String(pick(result, "user_id", "userId", "id", "ID") || "")
+    if (!dughuUserId) {
+      return NextResponse.json({ success: false, message: 'Réponse Dughu invalide.' }, { status: 502 })
+    }
+
+    const dughuUsername = String(pick(result, "username", "user_name", "userName", "slug") || "")
+    const dughuToken = String(pick(result, "token", "access_token", "api_token") || "")
+    const dughuProfile: Record<string, any> = result
+
+    // ── 2. Résolution du compte local lié au compte Dughu ──
+    let user = await prisma.user.findUnique({ where: { dughuId: dughuUserId } })
+
+    if (!user && emailRegex.test(login)) {
       user = await prisma.user.findUnique({ where: { email: login } })
-    } else if (phoneRegex.test(login.replace(/\s/g, ''))) {
-      const cleanPhone = login.replace(/\s/g, '').replace('+', '')
-      user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { phoneNumber: login.replace(/\s/g, '') },
-            { phoneNumber: cleanPhone }
-          ]
-        }
-      })
-    } else {
+    }
+    if (!user && dughuProfile) {
+      const pEmail = String(pick(dughuProfile, "email", "mail", "user_email", "emailAddress") || "")
+      if (pEmail && emailRegex.test(pEmail)) {
+        user = await prisma.user.findUnique({ where: { email: pEmail } })
+      }
+    }
+    if (!user && !phoneRegex.test(login.replace(/\s/g, ''))) {
       user = await prisma.user.findUnique({ where: { username: login } })
     }
-
-    if (!user || !user.password) {
-      return NextResponse.json({ success: false, message: 'Identifiants incorrects.' }, { status: 422 })
+    if (!user && dughuUsername) {
+      user = await prisma.user.findUnique({ where: { username: dughuUsername } })
     }
 
-    // Vérification mot de passe
-    const valid = await bcrypt.compare(password, user.password)
-    if (!valid) {
-      return NextResponse.json({ success: false, message: 'Identifiants incorrects.' }, { status: 422 })
-    }
+    // 2b. Aucun compte local → créer un compte local lié au compte Dughu
+    if (!user) {
+      const pEmail = String(pick(dughuProfile, "email", "mail", "user_email", "emailAddress") || "")
+      const pFirstName = String(pick(dughuProfile, "first_name", "firstName", "firstname", "prenom", "prenoms") || "")
+      const pLastName = String(pick(dughuProfile, "last_name", "lastName", "lastname", "nom") || "")
+      const pName = String(pick(dughuProfile, "name", "full_name", "fullName", "nickname") || "")
+      const pAvatar = String(pick(dughuProfile, "avatar", "profile_image", "profile_picture", "profileImage", "photo", "image") || "")
 
-    // Vérification compte actif
-    if (user.active === '0' && !user.emailVerified) {
-      // Renvoyer OTP automatiquement
-      const { generateOtp } = await import('@/lib/utils')
-      const { sendOtpEmail } = await import('@/lib/mail')
-      
-      const otp = generateOtp()
-      await prisma.otp.upsert({
-        where: { userId: user.id },
-        update: { otp, expiresAt: new Date(Date.now() + 3 * 60 * 1000) },
-        create: {
-          userId: user.id,
-          otp,
-          expiresAt: new Date(Date.now() + 3 * 60 * 1000)
-        }
+      const finalEmail =
+        pEmail && emailRegex.test(pEmail)
+          ? pEmail
+          : emailRegex.test(login)
+            ? login
+            : `${dughuUserId}@dughu.local`
+
+      let localUsername = dughuUsername || login
+      if (!phoneRegex.test(localUsername.replace(/\s/g, '')) && emailRegex.test(localUsername)) {
+        localUsername = pName || (pFirstName && pLastName ? `${pFirstName}-${pLastName}` : "") || `user-${dughuUserId}`
+      }
+      if (await prisma.user.findUnique({ where: { username: localUsername } })) {
+        localUsername = `${localUsername}-${dughuUserId}`
+      }
+
+      user = await prisma.user.create({
+        data: {
+          email: finalEmail,
+          username: localUsername,
+          slug: localUsername,
+          firstName: pFirstName || null,
+          lastName: pLastName || null,
+          name: pName || `${pFirstName} ${pLastName}`.trim() || localUsername,
+          avatar: pAvatar || '/images/avatar.png',
+          dughuId: dughuUserId,
+          active: '1',
+          emailVerified: new Date(),
+        },
       })
-      
-      await sendOtpEmail(user.email, otp, user.firstName)
-
-      return NextResponse.json(
-        { success: false, message: 'Compte non vérifié. Un nouveau OTP a été envoyé.', redirect: '/otp?email=' + encodeURIComponent(user.email) },
-        { status: 403 }
-      )
     }
 
-    if (user.active === '0') {
-      return NextResponse.json(
-        { success: false, message: 'Ce compte a été désactivé.' },
-        { status: 403 }
-      )
+    // 2c. Lier le dughuId si le compte local n'en avait pas
+    if (!user.dughuId) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { dughuId: dughuUserId },
+      })
     }
 
     // Mise à jour lastSeen
@@ -81,25 +123,11 @@ export async function POST(req: NextRequest) {
       data: { lastSeen: new Date(), lastseen: new Date() }
     })
 
-    // ── Synchronisation avec l'API Dughu (best-effort) ──
-    let dughuInfo: Record<string, unknown> | null = null
-    if (dughu.enabled) {
-      try {
-        const auth = await dughuApi.login(login, password)
-        if (auth?.success && auth?.result?.user_id) {
-          const dughuId = String(auth.result.user_id)
-          await prisma.user.update({ where: { id: user.id }, data: { dughuId } })
-          dughuInfo = {
-            userId: dughuId,
-            token: auth.result.token || "",
-            username: auth.result.username || user.username || "",
-          }
-        } else {
-          console.error('DUGHU LOGIN FAILED:', auth)
-        }
-      } catch (err) {
-        console.error('DUGHU LOGIN ERROR:', err)
-      }
+    // ── 3. Infos Dughu pour la réponse ──
+    const dughuInfo: Record<string, unknown> = {
+      userId: dughuUserId,
+      token: dughuToken || "",
+      username: dughuUsername || user.username || "",
     }
 
     // Compter followers et following

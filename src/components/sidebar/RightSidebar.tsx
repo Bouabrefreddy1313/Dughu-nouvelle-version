@@ -163,7 +163,7 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
   return (
     <aside className={cn(
       "hidden xl:flex flex-col fixed top-[72px] lg:top-[88px] bottom-0 w-[240px] overflow-y-auto scrollbar-hide space-y-5 pb-10 pl-2 pr-3 z-30 transition-[right] duration-300 ease-in-out",
-      chatOpen ? "right-[340px]" : "right-[280px]"
+      chatOpen ? "right-[400px]" : "right-[340px]"
     )}>
       {/* Mini profil */}
       <MiniProfileCard user={user} />

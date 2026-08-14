@@ -1,13 +1,36 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { dughu, dughuApi } from "@/lib/dughu"
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const { userId } = await req.json()
+    const body = await req.json().catch(() => ({ userId: "", isReply: false }))
+    const { userId, isReply } = body
 
     if (!userId) {
       return NextResponse.json({ success: false, message: "userId requis." }, { status: 422 })
+    }
+
+    // ── Mode Dughu API : les commentaires Dughu ont un ID numérique ──
+    if (dughu.enabled && /^\d+$/.test(String(id))) {
+      const actingUser = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
+      if (!actingUser?.dughuId) {
+        return NextResponse.json({ success: false, message: "Compte Dughu requis." }, { status: 404 })
+      }
+      try {
+        const raw = isReply
+          ? await dughuApi.destroyReply(id)
+          : await dughuApi.destroyComment(id)
+        if (raw?.success || (raw && Object.keys(raw).length === 0)) {
+          return NextResponse.json({ success: true })
+        }
+        return NextResponse.json({ success: false, message: raw?.message || "Erreur de suppression (API Dughu)." }, { status: 502 })
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("DUGHU_API_KEY manquant")) throw err
+        console.error("DUGHU DESTROY COMMENT ERROR:", err)
+        return NextResponse.json({ success: false, message: "Erreur de suppression (API Dughu)." }, { status: 502 })
+      }
     }
 
     const comment = await prisma.comment.findUnique({ where: { id } })

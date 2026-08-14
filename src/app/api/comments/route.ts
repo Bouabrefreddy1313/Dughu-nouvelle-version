@@ -42,6 +42,75 @@ async function fetchAllDughuComments(postId: string, viewerDughuId: string) {
   })
 }
 
+/**
+ * L'API Dughu ne supporte qu'un seul niveau de réponses : `storeCommentReplique`
+ * n'accepte que l'id d'un COMMENTAIRE racine. Si `parentId` est une réponse
+ * (replique), on résout l'id du commentaire racine qui la contient.
+ */
+async function resolveRootCommentId(postId: string, parentId: string, viewerDughuId: string): Promise<string> {
+  try {
+    const all = await fetchAllDughuComments(postId, viewerDughuId)
+    for (const c of all) {
+      const id = String(c?.id ?? "")
+      if (id === parentId) return id
+      const rawReplies =
+        (Array.isArray(c?.reponses) && c?.reponses) ||
+        (Array.isArray(c?.replies) && c?.replies) ||
+        (Array.isArray(c?.children) && c?.children) ||
+        (Array.isArray(c?.answers) && c?.answers)
+      if (rawReplies) {
+        for (const r of rawReplies) {
+          if (String(r?.id ?? "") === parentId) return id
+        }
+      }
+    }
+  } catch { /* on retombe sur parentId en fallback */ }
+  return parentId
+}
+
+/**
+ * Ré-imbrique les réponses selon les liens logiques enregistrés (ReplyLink).
+ * L'API Dughu renvoie toutes les réponses à plat sous leur commentaire racine ;
+ * on reconstruit ici l'arbre réponse→réponse à partir des liens créés au POST.
+ */
+async function applyReplyLinks(comments: Record<string, any>[], postId: string): Promise<Record<string, any>[]> {
+  try {
+    const links = await prisma.replyLink.findMany({ where: { postId } })
+    if (!links.length) return comments
+
+    const parentOf = new Map<string, string>()
+    for (const link of links) parentOf.set(String(link.replyId), String(link.parentReplyId))
+
+    const nest = (flat: Record<string, any>[]): Record<string, any>[] => {
+      const byId = new Map<string, Record<string, any>>()
+      for (const r of flat) byId.set(String(r.id), r)
+
+      const childrenOf = new Map<string, Record<string, any>[]>()
+      const isChild = new Set<string>()
+      for (const r of flat) {
+        const p = parentOf.get(String(r.id))
+        if (p && byId.has(p)) {
+          isChild.add(String(r.id))
+          childrenOf.set(p, [...(childrenOf.get(p) || []), r])
+        }
+      }
+
+      const withKids = (r: Record<string, any>): Record<string, any> => ({
+        ...r,
+        replies: [...(r.replies || []), ...(childrenOf.get(String(r.id)) || []).map(withKids)],
+      })
+
+      return flat.filter((r) => !isChild.has(String(r.id))).map(withKids)
+    }
+
+    return comments.map((c) => ({
+      ...c,
+      replies: nest(c.replies || []),
+    }))
+  } catch { /* silencieux : on garde la structure plate en cas d'erreur */ }
+  return comments
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -61,7 +130,8 @@ export async function GET(req: NextRequest) {
         }
         const rawList = await fetchAllDughuComments(String(postId), viewerDughuId)
         const comments = mapComments({ data: rawList }, viewerDughuId || "")
-        return NextResponse.json({ success: true, comments })
+        const nested = await applyReplyLinks(comments, String(postId))
+        return NextResponse.json({ success: true, comments: nested })
       } catch (err) {
         if (err instanceof Error && err.message.includes("DUGHU_API_KEY manquant")) throw err
         console.error("DUGHU GET COMMENTS ERROR:", err)
@@ -80,30 +150,38 @@ export async function GET(req: NextRequest) {
           include: {
             user: { select: { id: true, name: true, username: true, avatar: true } },
             likes: { select: { id: true, userId: true, type: true } },
+            replies: {
+              orderBy: { createdAt: "desc" },
+              include: {
+                user: { select: { id: true, name: true, username: true, avatar: true } },
+                likes: { select: { id: true, userId: true, type: true } },
+                replies: {
+                  orderBy: { createdAt: "desc" },
+                  include: {
+                    user: { select: { id: true, name: true, username: true, avatar: true } },
+                    likes: { select: { id: true, userId: true, type: true } },
+                  },
+                },
+              },
+            },
           },
         },
       },
     })
 
-    // Enrichir avec le flag "liked", le type de réaction et le compte de likes pour l'utilisateur courant
-    const enriched = comments.map((c) => {
-      const myLike = currentUserId ? c.likes.find((l) => l.userId === currentUserId) : null
+    // Enrichir récursivement avec le flag "liked", le type de réaction et le compte de likes
+    const enrichComment = (c: any): any => {
+      const myLike = currentUserId ? c.likes.find((l: any) => l.userId === currentUserId) : null
       return {
         ...c,
+        isMine: currentUserId ? c.userId === currentUserId : false,
         liked: !!myLike,
         reactionType: myLike?.type || null,
         likesCount: c.likes.length,
-        replies: c.replies.map((r) => {
-          const myReplyLike = currentUserId ? r.likes.find((l) => l.userId === currentUserId) : null
-          return {
-            ...r,
-            liked: !!myReplyLike,
-            reactionType: myReplyLike?.type || null,
-            likesCount: r.likes.length,
-          }
-        }),
+        replies: (c.replies || []).map(enrichComment),
       }
-    })
+    }
+    const enriched = comments.map(enrichComment)
 
     return NextResponse.json({ success: true, comments: enriched })
   } catch (error) {
@@ -157,7 +235,7 @@ export async function POST(req: NextRequest) {
 
     // ── Mode Dughu API : les posts Dughu ont un ID numérique ──
     if (dughu.enabled && /^\d+$/.test(String(postId))) {
-      const actingUser = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
+      const actingUser = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, dughuId: true, name: true, username: true, avatar: true } })
       if (!actingUser?.dughuId) {
         return NextResponse.json({ success: false, message: "Compte Dughu requis." }, { status: 404 })
       }
@@ -166,7 +244,13 @@ export async function POST(req: NextRequest) {
         dForm.append("user_id", String(actingUser.dughuId))
         dForm.append("post_id", String(postId))
         if (content?.trim()) dForm.append("text", content.trim())
-        if (parentId) dForm.append("comment_id", String(parentId))
+        // L'API Dughu n'accepte que les commentaires racines : si on répond à une
+        // réponse, on remonte au commentaire racine (les réponses restent plates).
+        let resolvedParentId = parentId ? String(parentId) : null
+        if (parentId) {
+          resolvedParentId = await resolveRootCommentId(String(postId), String(parentId), String(actingUser.dughuId))
+          dForm.append("comment_id", String(resolvedParentId))
+        }
         if (file) dForm.append("file", file, file.name)
 
         const raw = parentId ? await dughuApi.replyComment(dForm) : await dughuApi.addComment(dForm)
@@ -177,16 +261,34 @@ export async function POST(req: NextRequest) {
           const ft = String(r?.file_type || r?.fileType || "").toLowerCase()
           const isImage = ft.startsWith("image")
           const isVideo = ft.startsWith("video")
+          const newReplyId = String(r?.id ?? "")
+          // Réponse à une réponse : l'API Dughu la stocke à plat sous le commentaire
+          // racine. On enregistre le lien logique pour la ré-imbriquer côté affichage.
+          if (parentId && resolvedParentId !== String(parentId) && newReplyId) {
+            try {
+              await prisma.replyLink.upsert({
+                where: { replyId_parentReplyId: { replyId: newReplyId, parentReplyId: String(parentId) } },
+                update: {},
+                create: { postId: String(postId), replyId: newReplyId, parentReplyId: String(parentId) },
+              })
+            } catch { /* non bloquant */ }
+          }
           return NextResponse.json({
             success: true,
             comment: {
-              id: r?.id || String(Date.now()),
+              id: newReplyId || String(Date.now()),
               content: r?.text ?? content.trim(),
               userId,
               postId: String(postId),
-              parentId: parentId || null,
+              parentId: resolvedParentId || null,
               createdAt: r?.created_at || new Date().toISOString(),
-              user: { id: userId, name: "", username: "", avatar: "/images/avatar.png" },
+              isMine: true,
+              user: { 
+                id: actingUser.id, 
+                name: actingUser.name || userId, 
+                username: actingUser.username || "", 
+                avatar: actingUser.avatar || "/images/avatar.png" 
+              },
               liked: false,
               likesCount: 0,
               image: isImage ? filePath : null,
@@ -308,6 +410,7 @@ export async function POST(req: NextRequest) {
       success: true,
       comment: {
         ...comment,
+        isMine: true,
         liked: false,
         likesCount: 0,
       },

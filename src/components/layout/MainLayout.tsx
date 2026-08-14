@@ -15,6 +15,8 @@ interface MainLayoutProps {
   filter?: "all" | "following"
   onFilterChange?: (f: "all" | "following") => void
   wide?: boolean
+  /** Masque la sidebarre droite (RightSidebar + ConversationSidebar). */
+  noRightSidebar?: boolean
 }
 
 export default function MainLayout({
@@ -25,6 +27,7 @@ export default function MainLayout({
   filter = "all",
   onFilterChange,
   wide = false,
+  noRightSidebar = false,
 }: MainLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -95,23 +98,29 @@ export default function MainLayout({
       </div>
 
       {/* Colonnes fixes à droite (RightSidebar + ConversationSidebar) */}
-      <div className="hidden xl:block">
-        <RightSidebar user={user} chatOpen={chatOpen} />
-        <ConversationSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
-      </div>
+      {!noRightSidebar && (
+        <div className="hidden xl:block">
+          <RightSidebar user={user} chatOpen={chatOpen} />
+          <ConversationSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
+        </div>
+      )}
 
       {/* Contenu central (feed) */}
       <main
         className={cn(
           "pt-[80px] sm:pt-[88px] pb-16 lg:pb-12 flex justify-center transition-[margin] duration-300 ease-in-out w-full",
-          "lg:ml-[-140px] xl:ml-[-140px]",
-          chatOpen ? "xl:mr-[600px]" : "xl:mr-[460px]"
+          "lg:ml-[-200px] xl:ml-[-100px]",
+          noRightSidebar
+            ? ""
+            : chatOpen
+              ? "xl:mr-[600px]"
+              : "xl:mr-[460px]"
         )}
       >
         <div className={cn(
           wide
-            ? "w-full max-w-[980px] space-y-4 px-2 sm:px-4 lg:px-6"
-            : "w-full max-w-[800px] sm:max-w-[900px] space-y-3 sm:space-y-4 px-2 sm:px-4 lg:px-6"
+            ? "w-full max-w-[1100px] space-y-4 px-2 sm:px-4 lg:px-6"
+            : "w-full max-w-[800px] sm:max-w-[800px] space-y-3 sm:space-y-4 px-2 sm:px-4 lg:px-6"
         )}>
           {children}
         </div>

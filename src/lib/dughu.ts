@@ -117,14 +117,42 @@ export const dughuApi = {
 
   createPost: (formData: FormData) => dughu.multipart("post", formData),
 
+  // Endpoint dédié aux publications de texte coloré (contrat : GET)
+  // GET /colored_posts?post_id=&user_id=&boost_days=   → header X-AppApiToken
+  getColoredPosts: (params: {
+    post_id?: string | number
+    user_id?: string | number
+    boost_days?: string | number
+  }) => dughu.get("colored_posts", params),
+
   addComment: (formData: FormData) => dughu.multipart("add_comment", formData),
 
-  replyComment: (formData: FormData) => dughu.multipart("replyComment", formData),
+  replyComment: (formData: FormData) => dughu.multipart("storeCommentReplique", formData),
 
   toggleLikePost: (formData: FormData) => dughu.multipart("toggleLikePost", formData),
 
+  // ── Gestion du menu des posts ──
+  deletePost: (postId: string | number) =>
+    dughuFetch(`deletePost/${encodeURIComponent(String(postId))}`, { method: "DELETE" }),
+
+  savePost: (userId: string | number, postId: string | number) =>
+    dughu.form("store-save", { user_id: String(userId), post_id: String(postId) }),
+
+  hidePost: (userId: string | number, postId: string | number) =>
+    dughu.form("hidePost", { user_id: String(userId), post_id: String(postId) }),
+
   getUser: (identifier: string | number, viewer: string | number) =>
     dughu.get(`getSpecificUser/${encodeURIComponent(String(identifier))}/${encodeURIComponent(String(viewer))}`),
+
+  getAllUsers: (page = 1) => dughu.get("getAllUsers", { page }),
+
+  searchUsers: (params: { search?: string; username?: string; user_id?: string; page?: number }) =>
+    dughu.form("searchUsers", {
+      search: params.search || "",
+      username: params.username || "",
+      user_id: params.user_id || "",
+      page: String(params.page || 1),
+    }),
 
   getUserPosts: (userId: string | number, authUserId: string | number, page: number) =>
     dughu.form("userPost", { user_id: String(userId), auth_user_id: String(authUserId), page: String(page) }),
@@ -132,11 +160,48 @@ export const dughuApi = {
   getPostPageUser: (userId: string | number, page: number) =>
     dughu.get(`getPostPageUser/${encodeURIComponent(String(userId))}`, { page }),
 
+  searchAll: (params: { search?: string; q?: string; type?: string; page?: number }) =>
+    dughu.form("searchAll", {
+      search: params.search || params.q || "",
+      type: params.type || "",
+      page: String(params.page || 1),
+    }),
+
   getComments: (postId: string | number, userId: string | number, page = 1) =>
     dughu.get(`getComments/${encodeURIComponent(String(postId))}/${encodeURIComponent(String(userId))}`, { page }),
 
+  getCommentReactions: (commentId: string | number) =>
+    dughu.get(`getCommentReactions/${encodeURIComponent(String(commentId))}`),
+
+  toggleLikeComment: (formData: FormData) => dughu.multipart("toggleLike_comment", formData),
+
+  toggleLikeResponseComment: (formData: FormData) => dughu.multipart("toggleLikeResponseComment", formData),
+
+  updateComment: (commentId: string | number, formData: FormData) =>
+    dughu.multipart(`update/${encodeURIComponent(String(commentId))}`, formData),
+
+  destroyComment: (commentId: string | number) =>
+    dughuFetch(`destroy_comment/${encodeURIComponent(String(commentId))}`, { method: "DELETE" }),
+
+  getReplies: (commentId: string | number) =>
+    dughu.get(`getReplies/${encodeURIComponent(String(commentId))}`),
+
+  getReplayReactions: (replyId: string | number) =>
+    dughu.get(`getReplayReactions/${encodeURIComponent(String(replyId))}`),
+
+  toggleLikeReply: (formData: FormData) => dughu.multipart("toggleLikeResponseComment", formData),
+
+  updateReply: (replyId: string | number, formData: FormData) =>
+    dughu.multipart(`update_reply/${encodeURIComponent(String(replyId))}`, formData),
+
+  destroyReply: (replyId: string | number) =>
+    dughuFetch(`destroy_reply/${encodeURIComponent(String(replyId))}`, { method: "DELETE" }),
+
   getUserPhotos: (username: string, page: number) =>
     dughu.get(`profile/${encodeURIComponent(username)}/photos`, { page }),
+
+  getUserVideos: (username: string, page: number) =>
+    dughu.get(`profile/${encodeURIComponent(username)}/videos`, { page }),
 
   getUserActivities: (username: string, page: number) =>
     dughu.get(`profile/${encodeURIComponent(username)}/activites`, { page }),
@@ -149,18 +214,54 @@ export const dughuApi = {
   getFollowing: (userId: string | number, authUserId: string | number) =>
     dughu.get(`listFollowing/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(authUserId))}`),
 
+  getUserFollowerInfo: (userId: string | number) =>
+    dughu.get(`info/user/follower/${encodeURIComponent(String(userId))}`),
+
   follow: (authUserId: string | number, userId: string | number) =>
     dughu.form("follow", { auth_user_id: String(authUserId), user_id: String(userId) }),
 
   unfollow: (authUserId: string | number, userId: string | number) =>
     dughu.form("unfollow", { auth_user_id: String(authUserId), user_id: String(userId) }),
 
+  blockUser: (authUserId: string | number, userId: string | number) =>
+    dughu.form("block_user", { auth_user_id: String(authUserId), user_id: String(userId) }),
+
+  listBlockUser: (authUserId: string | number) =>
+    dughu.form("list_block_user", { auth_user_id: String(authUserId) }),
+
+  getUsersWithBadges: () => dughu.get("usersWithBadges"),
+
+  fraternise: (userId: string | number) => dughu.get(`fraternise/${encodeURIComponent(String(userId))}`),
+
+  getOnline: (userId: string | number, token: string) =>
+    dughu.get(`getOnline/${encodeURIComponent(String(userId))}/${encodeURIComponent(token)}`),
+
   updateProfile: (formData: FormData) => dughu.multipart("updateProfile", formData),
+
+  updatePrivacySettings: (formData: FormData) => dughu.multipart("updatePrivacySettings", formData),
+
+  deleteUser: (formData: FormData) => dughu.multipart("deleteUser", formData),
+
+  sendCustomNotification: (formData: FormData) => dughu.multipart("sendCustomNotification", formData),
 
   getLikedPosts: (userId: string | number) => dughu.get(`postLikeToUser/${encodeURIComponent(String(userId))}`),
 
   getReferrals: (userId: string | number) => dughu.get(`getUserReferer/${encodeURIComponent(String(userId))}`),
+
+  // ── Authentification / session Dughu ──
+  mobileTokenUser: (userId: string | number, mobileToken: string) =>
+    dughu.form("mobileTokenUser", { user_id: String(userId), mobileToken }),
+
+  submitVerification: (formData: FormData) => dughu.multipart("submitVerification", formData),
+
+  getVerificationRequests: (userId: string | number) =>
+    dughu.get(`getVerificationRequests/${encodeURIComponent(String(userId))}`),
+
+  sessionsDestroy: () => dughu.form("sessionsDestroy", {}),
 }
+
+// Export interne pour les endpoints DELETE simples (destroy_comment, destroy_reply)
+export { dughuFetch }
 
 // ── Helpers de normalisation (défensifs, l'API renvoie des noms de champs variés) ──
 export function pick(obj: any, ...keys: Array<string | string[] | number | boolean>): any {
@@ -261,10 +362,10 @@ export function parseCounts(details: string | any): Record<string, number> {
     try {
       raw = JSON.parse(details)
     } catch {
-      return {}
+      raw = {}
     }
   }
-  if (!raw || typeof raw !== "object") return {}
+  if (!raw || typeof raw !== "object") raw = {}
   const num = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0)
   return {
     posts: num(pick(raw, ["posts", "post_count", "postCount", "publications"], 0)),
@@ -357,6 +458,70 @@ function postImages(p: any): string[] {
   return urls
 }
 
+// Mapping des IDs de réaction de l'API Dughu vers les types utilisés par l'app
+const REACTION_ID_TO_TYPE_NAME: Record<number, string> = {
+  1: "like",
+  2: "love",
+  3: "haha",
+  4: "wow",
+  5: "sad",
+  6: "angry",
+}
+const KNOWN_REACTION_TYPES = ["like", "love", "haha", "wow", "sad", "angry"]
+
+// Convertit une valeur de réaction (id numérique "1" ou type "like") en type
+function toReactionTypeName(v: any): string | null {
+  if (typeof v === "number") return REACTION_ID_TO_TYPE_NAME[v] || null
+  const s = String(v || "").toLowerCase().trim()
+  if (/^\d+$/.test(s)) return REACTION_ID_TO_TYPE_NAME[Number(s)] || null
+  if (KNOWN_REACTION_TYPES.includes(s)) return s
+  return null
+}
+
+/**
+ * Extrait la répartition des réactions d'un post renvoyé par l'API Dughu,
+ * sous la forme [{ type, count }]. Gère plusieurs formes possibles :
+ *  - p.reactions = [{ reaction: 1, ... }, ...]  (liste de réactions utilisateurs)
+ *  - p.reactions = { like: 3, love: 1 } ou { 1: 3, 2: 1 }  (compteur par type)
+ *  - p.reaction_counts / p.reactionStats / p.reactions_count  (objet compteur)
+ * Retourne null si aucune répartition n'est disponible.
+ */
+function extractReactionSummary(p: any): { type: string; count: number }[] | null {
+  if (!p || typeof p !== "object") return null
+
+  const counts: Record<string, number> = {}
+
+  const rawList = pick(p, "reactions", "reactionList", "reaction_list")
+  if (Array.isArray(rawList)) {
+    for (const item of rawList) {
+      if (!item || typeof item !== "object") continue
+      const type = toReactionTypeName(
+        pick(item, "reaction", "reaction_id", "reactionId", "type", "typeLike", "type_like", "reaction_type")
+      )
+      if (type) counts[type] = (counts[type] || 0) + 1
+    }
+  } else if (rawList && typeof rawList === "object") {
+    for (const [k, v] of Object.entries(rawList)) {
+      const type = toReactionTypeName(k)
+      const n = Number(v)
+      if (type && Number.isFinite(n) && n > 0) counts[type] = n
+    }
+  }
+
+  const rawCounts = pick(p, "reaction_counts", "reactionCounts", "reactionStats", "reaction_stats", "reactions_count", "reactionsCount")
+  if (rawCounts && typeof rawCounts === "object") {
+    for (const [k, v] of Object.entries(rawCounts)) {
+      const type = toReactionTypeName(k)
+      const n = Number(v)
+      if (type && Number.isFinite(n) && n > 0) counts[type] = (counts[type] || 0) + n
+    }
+  }
+
+  const entries = Object.entries(counts)
+  if (entries.length === 0) return null
+  return entries.map(([type, count]) => ({ type, count }))
+}
+
 export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | null {
   if (!p || typeof p !== "object") return null
   const id = pick(p, "id", "ID", "post_id", "postId") || String(Math.random()).slice(2)
@@ -395,9 +560,9 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       avatar: toUrl(fallbackAuthor?.avatar) || "/images/avatar.png",
     }
 
-  const likes = Number(
-    pick(p, "likes", "like_count", "likeCount", "nombre_likes", "total_likes", "reaction_count", "count_likes")
-  ) || 0
+  const rawLikes = pick(p, "likes", "like_count", "likeCount", "nombre_likes", "total_likes", "reaction_count", "count_likes")
+  // Si l'API renvoie la liste des réactions (tableau), on compte les éléments
+  const likes = Array.isArray(rawLikes) ? rawLikes.length : Number(rawLikes) || 0
   const comments = Number(
     pick(p, "comments", "comment_count", "commentCount", "nombre_comments", "total_comments")
   ) || 0
@@ -409,6 +574,32 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
   const isLiked = pick(p, "is_like", "isLike", "liked") === true ||
     pick(p, "is_like", "isLike", "liked") === "1" ||
     pick(p, "is_like", "isLike") === 1
+
+  // Post d'origine d'une republication (repost). L'API Dughu renvoie le post
+  // d'origine imbriqué dans `post_base` (ex. postType="repost" + parent_id=X).
+  // On gère aussi d'autres noms de champs possibles selon la version.
+  const parentRaw = pick(
+    p,
+    "post_base",
+    "postBase",
+    "parentPost",
+    "parent_post",
+    "subPost",
+    "sub_post",
+    "repost",
+    "reposted_post",
+    "repostedPost",
+    "originalPost",
+    "original_post",
+    "sharedPost",
+    "shared_post",
+    "source_post",
+    "sourcePost",
+    "quoted_post",
+    "quotedPost"
+  )
+  const parentPost =
+    parentRaw && typeof parentRaw === "object" ? mapPost(parentRaw) : null
 
   return {
     id: String(id),
@@ -430,6 +621,8 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     color: pick(p, "color", "background_color") || null,
     reacted: isLiked ? (myReaction || "like") : (myReaction || null),
     isLiked,
+    parentPost,
+    reactions: extractReactionSummary(p),
     _count: {
       comments,
       likes,
@@ -505,6 +698,7 @@ export function mapComment(c: any, currentUserId?: string): Record<string, any> 
     id: String(id),
     content: String(text),
     userId: String(rawUser.id),
+    isMine: currentUserId ? String(rawUser.id) === String(currentUserId) : false,
     parentId: parentId ? String(parentId) : null,
     createdAt: toDate(pick(c, "createdAt", "created_at", "created", "date", "timestamp", "time")),
     liked,

@@ -8,6 +8,8 @@ interface AvatarProps {
   size?: "xs" | "sm" | "md" | "lg" | "xl"
   className?: string
   verified?: boolean
+  /** Supprime le cercle de fond coloré : cache la photo sans anneau/ronde coloré autour. */
+  bare?: boolean
 }
 
 const SIZES = {
@@ -18,12 +20,14 @@ const SIZES = {
   xl: "w-20 h-20 text-2xl",
 }
 
-export default function Avatar({ src, name, size = "md", className, verified }: AvatarProps) {
+export default function Avatar({ src, name, size = "md", className, verified, bare }: AvatarProps) {
   return (
     <div className={cn("relative shrink-0", className)}>
       <div className={cn(
         SIZES[size],
-        "rounded-full bg-gradient-to-br from-[#A35A2A] to-[#B87333] flex items-center justify-center text-white font-bold overflow-hidden select-none"
+        bare
+          ? "rounded-full overflow-hidden select-none bg-transparent"
+          : "rounded-full bg-gradient-to-br from-[#A35A2A] to-[#B87333] flex items-center justify-center text-white font-bold overflow-hidden select-none"
       )}>
         {src ? (
           <img src={src} alt={name || ""} className="w-full h-full object-cover" />

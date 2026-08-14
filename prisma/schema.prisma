@@ -231,6 +231,18 @@ model CommentLike {
   @@unique([userId, commentId])
 }
 
+// Lie une réponse Dughu à sa réponse parente (l'API Dughu stocke les réponses
+// à plat ; cette table permet de reconstituer l'imbrication réponse→réponse).
+model ReplyLink {
+  id            String   @id @default(cuid())
+  postId        String
+  replyId       String
+  parentReplyId String
+  createdAt     DateTime @default(now())
+  @@unique([replyId, parentReplyId])
+  @@index([postId])
+}
+
 model Follow {
   id          String   @id @default(cuid())
   follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)

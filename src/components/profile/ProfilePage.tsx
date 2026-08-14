@@ -6,6 +6,7 @@ import { Sparkles, Images, UserRound, Loader2, RefreshCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PostComposer } from "@/components/composer/PostComposer"
 import { PostCard } from "@/components/feed/PostCard"
+import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import { ProfileHeader } from "./ProfileHeader"
 import { ProfileAbout, type ProfileInfo } from "./ProfileAbout"
 import { ProfilePhotos } from "./ProfilePhotos"
@@ -47,6 +48,17 @@ interface Post {
   author: { id: string; name: string | null; username: string | null; avatar: string | null }
   color?: string | null
   reacted?: string | null
+  isSaved?: boolean
+  reactions?: { type: string; count: number }[]
+  parentPost?: {
+    id: string
+    author: { id: string; name: string | null; username: string | null; avatar: string | null }
+    content?: string | null
+    image?: string | null
+    video?: string | null
+    color?: string | null
+    timeAgo?: string
+  } | null
   _count: { comments: number; likes: number; reposts: number }
 }
 
@@ -79,6 +91,16 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
         } catch {
           setCurrentUser(null)
         }
+      } else {
+        fetch("/api/auth/me")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data?.success && data.user) {
+              localStorage.setItem("dughu_user", JSON.stringify(data.user))
+              setCurrentUser(data.user)
+            }
+          })
+          .catch(() => {})
       }
     }
   }, [])
@@ -117,10 +139,15 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       )
       const data = await res.json()
       if (data.success) {
+        const reactionsCache = readMyReactions()
         const mapped: Post[] = (data.posts || []).map((p: any) => ({
           ...p,
           timeLabel: timeAgo(p.createdAt),
+          reacted: reactionsCache[p.id] || p.reacted || null,
           _count: p._count || { comments: 0, likes: 0, reposts: 0 },
+          parentPost: p.parentPost
+            ? { ...p.parentPost, timeAgo: timeAgo(p.parentPost?.createdAt) }
+            : null,
         }))
         if (reset || page === 1) setPosts(mapped)
         else setPosts((prev) => [...prev, ...mapped])
@@ -178,6 +205,36 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
   const handleReaction = async (postId: string, reactionId?: number) => {
     if (!currentUser) return
     const type = REACTION_ID_TO_TYPE[reactionId || 1] || "like"
+    const cache = readMyReactions()
+    const previousType = cache[postId] || null
+
+    // - aucune réaction → like (+1)
+    // - même réaction → unlike (-1)
+    // - autre réaction → changement (compte inchangé)
+    let newReacted: string | null
+    if (!previousType) newReacted = type
+    else if (previousType === type) newReacted = null
+    else newReacted = type
+    const countDelta = newReacted ? (previousType ? 0 : 1) : -1
+
+    const applyToPost = (fn: (p: any) => any) =>
+      setPosts((prev) =>
+        prev.map((p) => (p.id !== postId ? p : fn(p)))
+      )
+
+    // Mise à jour optimiste (compteur en live + emoji sur le bouton)
+    applyToPost((p) => ({
+      ...p,
+      reacted: newReacted,
+      _count: { ...p._count, likes: Math.max(0, p._count.likes + countDelta) },
+    }))
+
+    // Persiste la réaction immédiatement (cache local) pour qu'elle survive au rechargement
+    const newCache = { ...cache }
+    if (newReacted) newCache[postId] = newReacted
+    else delete newCache[postId]
+    writeMyReactions(newCache)
+
     try {
       const res = await fetch("/api/reactions", {
         method: "POST",
@@ -186,15 +243,34 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       })
       const data = await res.json()
       if (data.success) {
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.id === postId
-              ? { ...p, reacted: data.reacted ? type : null, _count: { ...p._count, likes: data.count ?? p._count.likes } }
-              : p
-          )
-        )
+        if (typeof data.count === "number") {
+          applyToPost((p) => ({
+            ...p,
+            reacted: newReacted,
+            _count: { ...p._count, likes: data.count },
+          }))
+        }
+        if (newReacted) {
+          toast.success(`Réaction ${newReacted} ajoutée`)
+        }
+      } else {
+        toast.error(data.message || "Impossible de réagir à cette publication")
+        applyToPost((p) => ({
+          ...p,
+          reacted: previousType,
+          _count: { ...p._count, likes: Math.max(0, p._count.likes - countDelta) },
+        }))
+        writeMyReactions(cache)
       }
-    } catch { /* silent */ }
+    } catch {
+      toast.error("Erreur réseau lors de la réaction")
+      applyToPost((p) => ({
+        ...p,
+        reacted: previousType,
+        _count: { ...p._count, likes: Math.max(0, p._count.likes - countDelta) },
+      }))
+      writeMyReactions(cache)
+    }
   }
 
   const handleComment = async (postId: string, text: string) => {
@@ -255,6 +331,43 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       }
     } catch {
       toast.error("Erreur suppression")
+    }
+  }
+
+  const handleSave = async (postId: string) => {
+    try {
+      const res = await fetch("/api/store-save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId, userId: currentUser?.id }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setPosts((prev) =>
+          prev.map((p) => (p.id === postId ? { ...p, isSaved: !p.isSaved } : p))
+        )
+        toast.success(data.saved ? "Post enregistré !" : "Enregistrement annulé")
+      }
+    } catch {
+      toast.error("Erreur d'enregistrement")
+    }
+  }
+
+  const handleHide = async (postId: string) => {
+    try {
+      const res = await fetch("/api/hidePost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId, userId: currentUser?.id }),
+      })
+      if (res.ok) {
+        setPosts((prev) => prev.filter((p) => p.id !== postId))
+        toast.success("Post masqué")
+      } else {
+        toast.error("Erreur lors du masquage")
+      }
+    } catch {
+      toast.error("Erreur lors du masquage")
     }
   }
 
@@ -378,7 +491,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
 
       <div className="flex flex-col lg:flex-row gap-4 lg:items-start">
         {/* ═════ COUCHE GAUCHE ═════ */}
-        <div className="w-full lg:w-[320px] shrink-0 space-y-4">
+        <div className="w-full lg:w-[260px] shrink-0 space-y-4">
           <ProfileAbout
             user={user}
             info={profile.info as ProfileInfo}
@@ -421,11 +534,17 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
                   commentsCount={post._count.comments}
                   sharesCount={post._count.reposts}
                   reacted={post.reacted}
+                  reactions={post.reactions}
+                  parentPost={post.parentPost}
                   onLike={(r) => handleReaction(post.id, r)}
                   onComment={(text) => handleComment(post.id, text)}
                   onRepost={() => handleRepost(post.id)}
                   onShare={() => toast.info("Partage")}
-                  onMenuClick={() => toast.info("Menu du post")}
+                  onDelete={() => handleDelete(post.id)}
+                  canDelete={!!currentUser && String(post.author?.id) === String(currentUser?.dughu?.userId || currentUser?.dughuId)}
+                  onSave={() => handleSave(post.id)}
+                  onHide={() => handleHide(post.id)}
+                  isSaved={post.isSaved}
                   className="mb-4"
                 />
               ))}

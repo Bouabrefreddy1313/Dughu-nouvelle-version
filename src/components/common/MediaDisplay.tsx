@@ -16,78 +16,81 @@ export function MediaDisplay({ image, video, fileType, className, maxHeight = "1
   const [showFullscreen, setShowFullscreen] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  // Quand une vidéo est présente, on affiche UNIQUEMENT la vidéo : le thumbnail
-  // (première image / champ image des commentaires Dughu) n'est jamais affiché.
-  // Un bouton de lecture est affiché tant que l'utilisateur n'a pas cliqué.
+  // Quand une vidéo est présente, on affiche la vidéo (avec sa miniature en poster
+  // si elle est fournie via `image`). Le champ `image` sert alors de thumbnail,
+  // pas d'affichage séparé — pas de doublon.
   const isVideo = !!video || !!fileType?.startsWith("video")
   const isImage = !isVideo && (!!image || !!fileType?.startsWith("image"))
   const mediaUrl = video || image
 
   const handleClick = () => {
-    if (mediaUrl) {
+    if (mediaUrl && !isVideo) {
       setShowFullscreen(true)
     }
+  }
+
+  const startPlayback = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setVideoStarted(true)
+    // On laisse le navigateur lancer la lecture une fois `controls`/`autoPlay` posés
+    // au rendu suivant ; on force aussi un play() explicite pour les navigateurs
+    // qui n'auto-jouent pas au premier rendu du même <video>.
+    requestAnimationFrame(() => {
+      videoRef.current?.play().catch(() => {})
+    })
   }
 
   if (!isImage && !isVideo) return null
 
   return (
     <>
-      <div className={cn("rounded-xl overflow-hidden cursor-pointer", className)} onClick={handleClick}>
-        {isVideo && video && !videoStarted && (
+      <div className={cn("rounded-xl overflow-hidden", className)}>
+        {isVideo && video && (
           <div
-            className="relative flex items-center justify-center bg-black"
+            className="relative bg-black flex items-center justify-center"
             style={{ minHeight: "110px", maxHeight }}
           >
-            <button
-              type="button"
-              aria-label="Lire la vidéo"
-              onClick={(e) => {
-                e.stopPropagation()
-                setVideoStarted(true)
-              }}
-              className="w-11 h-11 rounded-full bg-white/95 flex items-center justify-center shadow-lg hover:scale-105 transition"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="#050505">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </button>
+            <video
+              ref={videoRef}
+              src={video}
+              poster={image || undefined}
+              controls={videoStarted}
+              autoPlay={videoStarted}
+              muted={videoStarted}
+              playsInline
+              loop
+              preload="metadata"
+              className="w-full object-cover"
+              style={{ maxHeight }}
+              onClick={(e) => e.stopPropagation()}
+            />
+            {!videoStarted && (
+              <button
+                type="button"
+                aria-label="Lire la vidéo"
+                onClick={startPlayback}
+                className="absolute w-11 h-11 rounded-full bg-white/95 flex items-center justify-center shadow-lg hover:scale-105 transition"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#050505">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </button>
+            )}
           </div>
-        )}
-        {isVideo && video && videoStarted && (
-          <video
-            ref={videoRef}
-            src={video}
-            controls
-            autoPlay
-            muted
-            playsInline
-            loop
-            preload="none"
-            className="w-full object-cover bg-black"
-            style={{ maxHeight }}
-          />
         )}
         {isImage && image && (
           <img
             src={image}
             alt=""
-            className="w-full object-cover"
+            className="w-full object-cover cursor-pointer"
             style={{ maxHeight }}
+            onClick={handleClick}
           />
         )}
       </div>
 
       {showFullscreen && mediaUrl && (
         <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[9999]" onClick={() => setShowFullscreen(false)}>
-          {isVideo && video && (
-            <video
-              src={video}
-              controls
-              autoPlay
-              className="max-w-full max-h-full object-contain"
-            />
-          )}
           {isImage && image && (
             <img src={image} alt="" className="max-w-full max-h-full object-contain" />
           )}

@@ -10,12 +10,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: false, message: "userId requis." }, { status: 422 })
     }
 
-    const comment = await prisma.comment.findUnique({ where: { id } })
-    if (!comment) {
-      return NextResponse.json({ success: false, message: "Commentaire introuvable." }, { status: 404 })
-    }
-
-    if (comment.userId === userId) {
+    const comment = await prisma.comment.findUnique({ where: { id } }).catch(() => null)
+    if (comment && comment.userId === userId) {
       return NextResponse.json({ success: false, message: "Vous ne pouvez pas signaler votre propre commentaire." }, { status: 422 })
     }
 
@@ -25,7 +21,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         data: {
           userId: admin.id,
           type: "report_comment",
-          content: "Un commentaire a été signalé: ",
+          content: comment
+            ? `Un commentaire a été signalé: ${reason || ""}`
+            : `Un commentaire (ID ${id}) a été signalé: ${reason || ""}`,
         },
       })
     }

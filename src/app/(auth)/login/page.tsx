@@ -59,22 +59,12 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen w-full bg-[#f5f5f5]">
       {/* Partie gauche */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-[#B87333] overflow-hidden rounded-r-[40px] flex-col">
-        {/* Slogan centré verticalement */}
-        <div className="flex-1 flex items-end justify-center px-10 z-10 mb-20">
-          <h1 className="text-white text-3xl xl:text-4xl font-bold leading-tight text-center">
-            Le monde change. Les réseaux aussi
-          </h1>
-        </div>
-
-        {/* Image bien grande en bas, alignée à gauche */}
-        <div className="flex justify-start items-end w-full">
-          <img
-            src="/images/register-img.png"
-            alt="Jeunes sur leur téléphone"
-            className="w-full max-w-full object-contain"
-          />
-        </div>
+      <div className="hidden lg:flex lg:w-1/2 h-screen lg:sticky lg:top-0 overflow-hidden">
+        <img
+          src="/images/imglo.jpeg"
+          alt="Dughu"
+          className="w-full h-full object-cover rounded-r-[40px]"
+        />
       </div>
 
       {/* Partie droite */}
