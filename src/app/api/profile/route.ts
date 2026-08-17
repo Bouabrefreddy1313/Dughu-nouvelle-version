@@ -78,7 +78,10 @@ export async function GET(req: NextRequest) {
     const details = parseCounts(resultObj?.details ?? raw?.details ?? raw?.user?.details ?? userObj.details)
     const username = userObj.username || userObj.slug || ""
     const [photos, friends] = await Promise.all([
-      username ? dughuApi.getUserPhotos(username, 1).then(mapPhotos).catch(() => []) : Promise.resolve([]),
+      username ? dughuApi.getUserPhotos(username, 1).then((raw) => {
+        console.log("DUGHU PHOTOS RAW:", JSON.stringify(raw).slice(0, 500))
+        return mapPhotos(raw)
+      }).catch((e) => { console.error("DUGHU PHOTOS ERROR:", e); return [] }) : Promise.resolve([]),
       userObj.id ? dughuApi.getUserFriends(userObj.id).then(mapFriends).catch(() => []) : Promise.resolve([]),
     ])
 

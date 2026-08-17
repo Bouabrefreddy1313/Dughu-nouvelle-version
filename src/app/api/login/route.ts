@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { dughu, dughuApi, pick } from '@/lib/dughu'
+import { dughu, dughuApi, pick, DughuApiError } from '@/lib/dughu'
 import { randomBytes } from 'crypto'
 
 export async function POST(req: NextRequest) {
@@ -27,8 +27,22 @@ export async function POST(req: NextRequest) {
       auth = await dughuApi.login(login, password)
     } catch (err) {
       console.error('DUGHU LOGIN ERROR:', err)
+      // Si l'API Dughu répond avec une erreur métier (ex: mauvais mot de passe),
+      // on renvoie le vrai message au lieu d'un message générique.
+      if (err instanceof DughuApiError) {
+        const data = err.data as any
+        const msg =
+          (Array.isArray(data?.messages) && data.messages.join(' ')) ||
+          (data?.message && String(data.message)) ||
+          (typeof data === 'string' ? data : null) ||
+          err.message
+        return NextResponse.json(
+          { success: false, message: msg },
+          { status: err.status || 502 }
+        )
+      }
       return NextResponse.json(
-        { success: false, message: 'Impossible de joindre l\'API Dughu.' },
+        { success: false, message: "Impossible de joindre l'API Dughu." },
         { status: 502 }
       )
     }
@@ -53,25 +67,31 @@ export async function POST(req: NextRequest) {
 
     // ── 2. Résolution du compte local lié au compte Dughu ──
     let user = await prisma.user.findUnique({ where: { dughuId: dughuUserId } })
+    console.log("LOGIN: dughuUserId =", dughuUserId, "| found by dughuId:", !!user)
 
     if (!user && emailRegex.test(login)) {
       user = await prisma.user.findUnique({ where: { email: login } })
+      console.log("LOGIN: looking by login email:", login, "| found:", !!user)
     }
     if (!user && dughuProfile) {
       const pEmail = String(pick(dughuProfile, "email", "mail", "user_email", "emailAddress") || "")
       if (pEmail && emailRegex.test(pEmail)) {
         user = await prisma.user.findUnique({ where: { email: pEmail } })
+        console.log("LOGIN: looking by profile email:", pEmail, "| found:", !!user)
       }
     }
     if (!user && !phoneRegex.test(login.replace(/\s/g, ''))) {
       user = await prisma.user.findUnique({ where: { username: login } })
+      console.log("LOGIN: looking by username login:", login, "| found:", !!user)
     }
     if (!user && dughuUsername) {
       user = await prisma.user.findUnique({ where: { username: dughuUsername } })
+      console.log("LOGIN: looking by dughuUsername:", dughuUsername, "| found:", !!user)
     }
 
     // 2b. Aucun compte local → créer un compte local lié au compte Dughu
     if (!user) {
+      console.log("LOGIN: No local user found, creating one for dughuUserId:", dughuUserId)
       const pEmail = String(pick(dughuProfile, "email", "mail", "user_email", "emailAddress") || "")
       const pFirstName = String(pick(dughuProfile, "first_name", "firstName", "firstname", "prenom", "prenoms") || "")
       const pLastName = String(pick(dughuProfile, "last_name", "lastName", "lastname", "nom") || "")
@@ -107,6 +127,7 @@ export async function POST(req: NextRequest) {
           emailVerified: new Date(),
         },
       })
+      console.log("LOGIN: Local user created:", user.id, "with dughuId:", user.dughuId)
     }
 
     // 2c. Lier le dughuId si le compte local n'en avait pas
@@ -151,6 +172,7 @@ export async function POST(req: NextRequest) {
         image: user.image || '/images/avatar.png',
         cover: user.cover || '/images/group/default-cover.jpg',
         bio: user.bio,
+        dughuId: user.dughuId || dughuUserId,
         _count: {
           posts: postsCount,
           followers: followersCount,

@@ -87,31 +87,23 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // ── Fil d'actualité : publications des pages (getPostPageUser) + posts de l'utilisateur ──
-    const [pageRaw, userRaw] = await Promise.all([
-      dughuApi.getPostPageUser(viewer.dughuId, page),
-      dughuApi.getUserPosts(viewer.dughuId, viewer.dughuId, page),
-    ])
-    const posts = mergeFeedPosts(
-      mapPosts(pageRaw) as any[],
-      mapPosts(userRaw, {
-        id: viewer.id,
-        name: viewer.name,
-        username: viewer.username,
-        avatar: viewer.avatar,
-      }) as any[]
-    )
-    const pageInfo = getPageInfo(pageRaw)
-    const userInfo = getPageInfo(userRaw)
-    const hasMore = pageInfo.hasMore || userInfo.hasMore
-    const currentPage = Math.max(pageInfo.page, userInfo.page)
+    // ── Fil d'actualité : endpoint getPostAllRepost (officiel v1/v2) ──
+    const raw = await dughuApi.getPostAllRepost(viewer.dughuId, page)
+    const posts = mapPosts(raw, {
+      id: viewer.id,
+      name: viewer.name,
+      username: viewer.username,
+      avatar: viewer.avatar,
+    }) as any[]
+    const info = getPageInfo(raw)
+    const hasMore = info.hasMore
     return NextResponse.json({
       success: true,
       posts,
       pinnedPosts: [],
       boostedPost: null,
-      page: currentPage,
-      totalPages: hasMore ? currentPage + 1 : currentPage,
+      page,
+      totalPages: hasMore ? page + 1 : page,
       hasMore,
     })
   } catch (error) {
@@ -155,6 +147,14 @@ export async function POST(req: NextRequest) {
       const parentId = (formData.get("parentId") as string) || ""
       if (content.trim()) dForm.append("postText", content.trim())
       if (color) dForm.append("color", color)
+      const color_id = (formData.get("color_id") as string) || ""
+      const color_1 = (formData.get("color_1") as string) || ""
+      const color_2 = (formData.get("color_2") as string) || ""
+      const text_color = (formData.get("text_color") as string) || ""
+      if (color_id) dForm.append("color_id", color_id)
+      if (color_1) dForm.append("color_1", color_1)
+      if (color_2) dForm.append("color_2", color_2)
+      if (text_color) dForm.append("text_color", text_color)
       if (location) dForm.append("location", location)
       if (feeling) dForm.append("postFeeling", feeling)
       if (postType) dForm.append("postType", postType)

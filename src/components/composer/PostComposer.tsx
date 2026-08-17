@@ -102,6 +102,9 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [fileInputKey, setFileInputKey] = useState(0)
 
+  // Couleurs dynamiques depuis l'API Dughu
+  const [apiColors, setApiColors] = useState<BackgroundColor[]>([])
+
   const imageFileRef = useRef<HTMLInputElement>(null)
   const videoFileRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -118,6 +121,24 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
   useEffect(() => setMounted(true), [])
 
   // ---------- helpers ----------
+
+  // Récupérer les couleurs dynamiques depuis l'API Dughu
+  useEffect(() => {
+    let cancelled = false
+    const fetchColors = async () => {
+      try {
+        const res = await fetch("/api/colors")
+        const data = await res.json()
+        if (!cancelled && data.success && data.colors?.length) {
+          setApiColors(data.colors)
+        }
+      } catch {
+        // fallback silencieux, on utilisera DEFAULT_COLORS
+      }
+    }
+    fetchColors()
+    return () => { cancelled = true }
+  }, [])
 
   const autosize = (el: HTMLTextAreaElement | null) => {
     if (!el) return
@@ -317,8 +338,16 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
     )
   }
 
-  const solidColors = DEFAULT_COLORS.filter((c) => !isGradient(c.bg))
-  const gradientColors = DEFAULT_COLORS.filter((c) => isGradient(c.bg))
+  const allColors = apiColors.length > 0 ? apiColors : DEFAULT_COLORS
+  const solidColors = allColors.filter((c) => !isGradient(c.bg) && !c.isImage)
+  const gradientColors = allColors.filter((c) => isGradient(c.bg) && !c.isImage)
+  const imageColors = allColors.filter((c) => c.isImage)
+
+  const isSameColor = (a: BackgroundColor | null, b: BackgroundColor) => {
+    if (!a) return false
+    if (a.id != null && b.id != null) return a.id === b.id
+    return a.bg === b.bg
+  }
 
   const Swatch = ({ c, label }: { c: BackgroundColor; label: string }) => (
     <button
@@ -328,13 +357,17 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
       }}
       className={cn(
         "relative aspect-square rounded-xl border-2 hover:scale-105 transition shadow-sm",
-        selectedColor?.bg === c.bg ? "border-[#A35A2A] ring-2 ring-[#A35A2A]/30" : "border-transparent"
+        isSameColor(selectedColor, c) ? "border-[#A35A2A] ring-2 ring-[#A35A2A]/30" : "border-transparent"
       )}
-      style={{ background: c.bg }}
+      style={
+        c.isImage
+          ? { backgroundImage: `url(${c.bg})`, backgroundSize: "cover", backgroundPosition: "center" }
+          : { background: c.bg }
+      }
       aria-label={label}
       title={label}
     >
-      {selectedColor?.bg === c.bg && (
+      {isSameColor(selectedColor, c) && (
         <span className="absolute inset-0 flex items-center justify-center">
           <span className="bg-white/90 rounded-full p-1">
             <Check size={14} style={{ color: c.text }} />
@@ -371,7 +404,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
             )}
             aria-label="Aucun arrière-plan"
           >
-            <Type size={20} className="text-gray-500" />
+            <ColorfulTextIcon size={28} />
           </button>
         </div>
 
@@ -392,6 +425,17 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
             <div className="grid grid-cols-5 gap-2.5">
               {gradientColors.map((c, i) => (
                 <Swatch key={`gradient-${i}`} c={c} label={`Dégradé ${i + 1}`} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {imageColors.length > 0 && (
+          <div>
+            <p className="text-[12px] font-semibold text-[#65676B] uppercase tracking-wide mb-2">Photos</p>
+            <div className="grid grid-cols-5 gap-2.5">
+              {imageColors.map((c, i) => (
+                <Swatch key={`image-${i}`} c={c} label={`Photo ${i + 1}`} />
               ))}
             </div>
           </div>
@@ -470,7 +514,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
           aria-label="Ajouter une couleur d'arrière-plan"
           title={hasMedia ? "Indisponible avec des médias" : "Arrière-plan coloré"}
         >
-          <Type size={16} className="text-gray-600" />
+          <ColorfulTextIcon size={20} />
         </button>
       </div>
 
@@ -478,9 +522,25 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
       <div className="relative">
         {selectedColor ? (
           <div
-            className="rounded-2xl min-h-[220px] p-6 flex items-center justify-center text-center transition-colors"
-            style={{ background: selectedColor.bg, color: selectedColor.text }}
+            className="rounded-2xl min-h-[220px] p-6 flex items-center justify-center text-center transition-colors relative overflow-hidden"
+            style={
+              selectedColor.isImage
+                ? {
+                    backgroundImage: `url(${selectedColor.bg})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    color: selectedColor.text,
+                  }
+                : { background: selectedColor.bg, color: selectedColor.text }
+            }
           >
+            {/* Voile semi-transparent pour la lisibilité du texte sur les fonds image */}
+            {selectedColor.isImage && (
+              <div
+                className="absolute inset-0"
+                style={{ backgroundColor: selectedColor.color_1 || "rgba(0,0,0,0.3)", opacity: 0.35 }}
+              />
+            )}
             <textarea
               ref={modalTextareaRef}
               value={text}
@@ -490,7 +550,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
               }}
               placeholder="Écrivez ici..."
               maxLength={charLimit}
-              className="w-full bg-transparent resize-none outline-none text-center text-[26px] leading-snug font-bold placeholder-white/70"
+              className="relative z-10 w-full bg-transparent resize-none outline-none text-center text-[26px] leading-snug font-bold placeholder-white/70"
               rows={3}
             />
           </div>
@@ -678,7 +738,13 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
           <TriggerAction icon={ImageIcon} color="#45BD62" label="Photo" onClick={() => imageFileRef.current?.click()} />
           <TriggerAction icon={Video} color="#EC4899" label="Vidéo" onClick={() => videoFileRef.current?.click()} />
           <TriggerAction icon={BarChart3} color="#10B981" label="Sondage" onClick={openModal} />
-          <TriggerAction icon={Type} color="#A35A2A" label="Texte coloré" onClick={openModal} />
+          <button
+            onClick={openModal}
+            className="flex-1 flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#65676B] hover:bg-gray-100 px-2 py-2 rounded-xl transition mx-1"
+          >
+            <ColorfulTextIcon size={18} />
+            <span className="hidden xs:inline sm:inline">Texte coloré</span>
+          </button>
         </div>
       </div>
 
@@ -762,5 +828,28 @@ function ToolbarIcon({
     >
       <Icon size={19} style={{ color }} />
     </button>
+  )
+}
+
+// Icône "Aa" carrée multicolore, façon sélecteur d'arrière-plan texte
+// (comme le picto de composition de post coloré type Facebook)
+function ColorfulTextIcon({ size = 20 }: { size?: number }) {
+  return (
+    <span
+      className="flex items-center justify-center rounded-[7px] font-extrabold select-none shrink-0"
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.5,
+        lineHeight: 1,
+        letterSpacing: "-0.5px",
+        color: "#fff",
+        background:
+          "linear-gradient(135deg, #F59E0B 0%, #F5533D 25%, #EC4899 50%, #A855F7 75%, #3B82F6 100%)",
+        textShadow: "0 1px 1px rgba(0,0,0,0.15)",
+      }}
+    >
+      Aa
+    </span>
   )
 }

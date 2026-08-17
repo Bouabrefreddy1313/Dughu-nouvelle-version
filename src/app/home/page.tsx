@@ -545,7 +545,13 @@ export default function HomePage() {
     const formData = new FormData()
     formData.append("content", data.content)
     formData.append("userId", user?.id)
-    if (data.color) formData.append("color", JSON.stringify(data.color))
+    if (data.color) {
+      formData.append("color", JSON.stringify(data.color))
+      if (data.color.id != null) formData.append("color_id", String(data.color.id))
+      if (data.color.color_1) formData.append("color_1", data.color.color_1)
+      if (data.color.color_2) formData.append("color_2", data.color.color_2)
+      if (data.color.text) formData.append("text_color", data.color.text)
+    }
     if (data.images) data.images.forEach((img) => formData.append("images", img))
     if (data.videos) data.videos.forEach((vid) => formData.append("videos", vid))
     await handleCreatePost(formData)

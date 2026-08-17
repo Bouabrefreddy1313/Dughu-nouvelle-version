@@ -160,6 +160,10 @@ export const dughuApi = {
   getPostPageUser: (userId: string | number, page: number) =>
     dughu.get(`getPostPageUser/${encodeURIComponent(String(userId))}`, { page }),
 
+  // Fil d'actualité principal (endpoint v1 / v2)
+  getPostAllRepost: (userId: string | number, page: number) =>
+    dughu.get(`getPostAllRepost/${encodeURIComponent(String(userId))}`, { page }),
+
   searchAll: (params: { search?: string; q?: string; type?: string; page?: number }) =>
     dughu.form("searchAll", {
       search: params.search || params.q || "",
@@ -360,10 +364,10 @@ export function normalizeUser(u: any): Record<string, any> | null {
     username: pick(u, ["username", "user_name", "userName", "slug"], ""),
     slug: pick(u, ["slug", "username", "user_name"], ""),
     email: pick(u, ["email", "mail"], ""),
-    avatar: toUrl(pick(u, ["avatar", "profileImage", "profile_image", "profile_image_url", "profile_picture", "profilePicture", "photo", "image"], "")) || "/images/avatar.png",
-    cover: toUrl(
+    avatar: resolveMediaUrl(toUrl(pick(u, ["avatar", "profileImage", "profile_image", "profile_image_url", "profile_picture", "profilePicture", "photo", "image"], ""))) || "/images/avatar.png",
+    cover: resolveMediaUrl(toUrl(
       pick(u, ["cover", "cover_image", "coverImage", "background", "banner", "coverImageUrl"], "")
-    ) || "/images/group/default-cover.jpg",
+    )) || "/images/group/default-cover.jpg",
     bio: pick(u, ["bio", "about", "description", "about_me"], ""),
     gender: pick(u, ["gender", "sexe", "sex"], ""),
     phone: pick(u, ["phone", "phone_number", "phoneNumber", "telephone"], ""),
@@ -395,17 +399,29 @@ export function parseCounts(details: string | any): Record<string, number> {
 export function normalizePhoto(p: any): Record<string, any> | null {
   if (!p || typeof p !== "object") return null
   const id = pick(p, ["id", "ID", "post_id", "postId", "photo_id"], "") || String(Math.random()).slice(2)
-  const url = toUrl(pick(p, ["postFileLink", "file", "fileLink", "image", "photo", "url", "link"], ""))
+  // Chercher l'URL dans tous les champs possibles (l'API Dughu utilise postFile principalement)
+  const raw = toUrl(pick(p, [
+    "postFile", "postFileLink", "postPhoto", "file", "fileLink",
+    "file_path", "image", "photo", "photoUrl", "photo_url",
+    "url", "link", "thumb", "thumbnail",
+  ], ""))
+  const url = raw ? resolveMediaUrl(raw) : ""
   if (!url) return null
   return {
     id: String(id),
     url,
-    createdAt: pick(p, ["createdAt", "created_at", "date", "uploaded_at"], "") || "",
+    createdAt: pick(p, ["createdAt", "created_at", "date", "uploaded_at", "time", "post_time"], "") || "",
   }
 }
 
 export function mapPhotos(raw: any): Record<string, any>[] {
-  const arr = Array.isArray(raw) ? raw : raw?.data || raw?.photos || raw?.items || []
+  // L'API Dughu peut wrapper la réponse de différentes façons
+  const arr = Array.isArray(raw)
+    ? raw
+    : raw?.data || raw?.photos || raw?.items
+      || raw?.result?.data || raw?.result?.photos || raw?.result?.items || raw?.result?.posts
+      || (Array.isArray(raw?.result) ? raw.result : null)
+      || []
   if (!Array.isArray(arr)) return []
   return arr.map(normalizePhoto).filter((x): x is Record<string, any> => x !== null)
 }
@@ -621,10 +637,10 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
   return {
     id: String(id),
     content: pick(p, "content", "text", "body", "description", "caption", "post_text", "postText", "message") || "",
-    image: rawImages[0] || (video ? thumb : null),
-    images: rawImages.map((u) => ({ url: u })),
-    video,
-    thumb: video ? thumb : null,
+    image: rawImages[0] ? resolveMediaUrl(rawImages[0]) : (video ? (thumb ? resolveMediaUrl(thumb) : null) : null),
+    images: rawImages.map((u) => ({ url: resolveMediaUrl(u) })),
+    video: video ? resolveMediaUrl(video) : null,
+    thumb: video ? (thumb ? resolveMediaUrl(thumb) : null) : null,
     createdAt: toDate(pick(p, "createdAt", "created_at", "created", "date", "post_date", "timestamp", "time")),
     author: {
       id: String(author.id),

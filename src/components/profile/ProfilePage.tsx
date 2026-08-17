@@ -7,6 +7,7 @@ import dynamic from "next/dynamic"
 import { useQueryClient, useMutation } from "@tanstack/react-query"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { resolveMediaUrl } from "@/lib/dughu"
 import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import { readPostColors, writePostColor } from "@/lib/postColorCache"
 import { REACTION_ID_TO_TYPE } from "@/lib/constants"
@@ -141,7 +142,13 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       formData.append("content", data.content)
       formData.append("userId", currentUser.id)
       const colorRaw = data.color ? JSON.stringify(data.color) : null
-      if (colorRaw) formData.append("color", colorRaw)
+      if (colorRaw) {
+        formData.append("color", colorRaw)
+        if (data.color.id != null) formData.append("color_id", String(data.color.id))
+        if (data.color.color_1) formData.append("color_1", data.color.color_1)
+        if (data.color.color_2) formData.append("color_2", data.color.color_2)
+        if (data.color.text) formData.append("text_color", data.color.text)
+      }
       if (data.images) data.images.forEach((img) => formData.append("images", img))
       if (data.videos) data.videos.forEach((vid) => formData.append("videos", vid))
       const res = await fetch("/api/posts", { method: "POST", body: formData })
@@ -589,11 +596,14 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
                 <p className="text-center text-[13px] text-[#65676B] py-8">Aucune photo pour le moment.</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {photos.map((p: any) => (
-                    <a key={p.id} href={`/post/${p.id}`} className="aspect-square overflow-hidden rounded-xl hover:opacity-90 transition">
-                      <Image src={p.url} alt="" width={300} height={300} className="w-full h-full object-cover" />
-                    </a>
-                  ))}
+                  {photos.map((p: any) => {
+                    const photoUrl = p.url ? resolveMediaUrl(p.url) : ""
+                    return (
+                      <a key={p.id} href={`/post/${p.id}`} className="aspect-square overflow-hidden rounded-xl hover:opacity-90 transition">
+                        <Image src={photoUrl || ""} alt="" width={300} height={300} className="w-full h-full object-cover" />
+                      </a>
+                    )
+                  })}
                 </div>
               )}
             </div>

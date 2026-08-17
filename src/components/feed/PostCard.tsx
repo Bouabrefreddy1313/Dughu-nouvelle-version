@@ -1774,6 +1774,8 @@ export function PostCard({
   let postColor: {
     background?: string
     text?: string
+    isImage?: boolean
+    overlayColor?: string
   } | null = null
 
   if (color) {
@@ -1785,6 +1787,8 @@ export function PostCard({
         postColor = {
           background: parsed.bg || parsed.background,
           text: parsed.text || parsed.textColor || "#FFFFFF",
+          isImage: parsed.isImage || false,
+          overlayColor: parsed.color_1 || undefined,
         }
       } else if (typeof parsed === "string") {
         postColor = {
@@ -1907,13 +1911,32 @@ export function PostCard({
 
       {content && postColor?.background ? (
         <div
-          className="w-full min-h-[280px] py-8 px-6 flex items-center justify-center"
-          style={{
-            background: postColor.background,
-            color: postColor.text,
-          }}
+          className="w-full min-h-[280px] py-8 px-6 flex items-center justify-center relative overflow-hidden"
+          style={
+            postColor.isImage
+              ? {
+                  backgroundImage: `url(${postColor.background})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  color: postColor.text,
+                }
+              : {
+                  background: postColor.background,
+                  color: postColor.text,
+                }
+          }
         >
-          <p className="text-[28px] font-bold text-center whitespace-pre-wrap leading-relaxed max-w-[85%]">
+          {/* Voile pour lisibilité sur fond image */}
+          {postColor.isImage && (
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundColor: postColor.overlayColor || "rgba(0,0,0,0.3)",
+                opacity: 0.35,
+              }}
+            />
+          )}
+          <p className="relative z-10 text-[28px] font-bold text-center whitespace-pre-wrap leading-relaxed max-w-[85%]">
             {content}
           </p>
         </div>
@@ -2051,12 +2074,12 @@ export function PostCard({
         >
           <Image
             src="/images/dixip.png"
-            alt="Dixip"
+            alt="Gracier"
             width={20}
             height={20}
             className="w-5 h-5 object-contain"
           />
-          Dixip
+          Gracier
         </button>
 
         <button

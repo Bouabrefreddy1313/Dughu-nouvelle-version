@@ -5,6 +5,7 @@ import { Images, X } from "lucide-react"
 import Image from "next/image"
 import Card from "@/components/common/Card"
 import { cn } from "@/lib/utils"
+import { resolveMediaUrl } from "@/lib/dughu"
 
 export interface ProfilePhoto {
   id: string
@@ -21,7 +22,12 @@ interface ProfilePhotosProps {
 export function ProfilePhotos({ photos = [], onSeeAll }: ProfilePhotosProps) {
   const [lightbox, setLightbox] = useState<number | null>(null)
 
-  const visible = photos.slice(0, 9)
+  const resolvedPhotos = photos.map((p) => ({
+    ...p,
+    resolvedUrl: p.url ? resolveMediaUrl(p.url) : null,
+  }))
+
+  const visible = resolvedPhotos.slice(0, 9)
 
   return (
     <Card className="p-4">
@@ -51,7 +57,7 @@ export function ProfilePhotos({ photos = [], onSeeAll }: ProfilePhotosProps) {
               className="aspect-square overflow-hidden hover:opacity-90 transition rounded-md"
               aria-label="Voir la photo"
             >
-              <Image src={p.url || ""} alt="" width={200} height={200} className="w-full h-full object-cover" />
+              <Image src={p.resolvedUrl || ""} alt="" width={200} height={200} className="w-full h-full object-cover" />
             </button>
           ))}
         </div>
@@ -70,7 +76,7 @@ export function ProfilePhotos({ photos = [], onSeeAll }: ProfilePhotosProps) {
             <X size={28} />
           </button>
           <Image
-            src={visible[lightbox].url || ""}
+            src={visible[lightbox].resolvedUrl || ""}
             alt=""
             width={1200}
             height={900}

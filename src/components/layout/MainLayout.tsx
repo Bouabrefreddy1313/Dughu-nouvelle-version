@@ -101,9 +101,11 @@ export default function MainLayout({
       {!noRightSidebar && (
         <div className="hidden xl:block">
           <RightSidebar user={user} chatOpen={chatOpen} />
-          <ConversationSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
         </div>
       )}
+
+      {/* ConversationSidebar : toujours accessible via le bouton messagerie du header, même sans RightSidebar */}
+      <ConversationSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
 
       {/* Contenu central (feed) */}
       <main
@@ -111,7 +113,9 @@ export default function MainLayout({
           "pt-[80px] sm:pt-[88px] pb-16 lg:pb-12 flex justify-center transition-[margin] duration-300 ease-in-out w-full",
           "lg:ml-[-200px] xl:ml-[-100px]",
           noRightSidebar
-            ? ""
+            ? chatOpen
+              ? "xl:mr-[400px]"
+              : ""
             : chatOpen
               ? "xl:mr-[600px]"
               : "xl:mr-[460px]"
