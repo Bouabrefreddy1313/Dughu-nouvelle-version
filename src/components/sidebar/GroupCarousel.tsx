@@ -2,6 +2,7 @@
 
 import { useRef, type ReactNode } from "react"
 import { ChevronLeft, ChevronRight, Users, ThumbsUp } from "lucide-react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 interface GroupItem {
@@ -75,20 +76,24 @@ export default function GroupCarousel({
             >
               {/* Cover */}
               <div className="h-[70px] relative">
-                <img
+                <Image
                   src={item.cover || defaultCover}
                   alt={item.name}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="160px"
                 />
               </div>
 
               {/* Avatar au centre - chevauche la cover */}
               <div className="relative flex justify-center -mt-5 mb-1">
-                <div className="w-[52px] h-[52px] rounded-full border-3 border-white overflow-hidden shadow-md">
-                  <img
+                <div className="w-[52px] h-[52px] rounded-full border-3 border-white overflow-hidden shadow-md relative">
+                  <Image
                     src={item.avatar || defaultAvatar}
                     alt={item.name}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="52px"
                   />
                 </div>
               </div>

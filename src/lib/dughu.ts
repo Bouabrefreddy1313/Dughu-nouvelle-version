@@ -258,6 +258,23 @@ export const dughuApi = {
     dughu.get(`getVerificationRequests/${encodeURIComponent(String(userId))}`),
 
   sessionsDestroy: () => dughu.form("sessionsDestroy", {}),
+  // ── Mot de passe oublié ──
+  sendResetLink: (email: string) =>
+    dughu.form("password/sendResetLink", { email }),
+
+  resetPassword: (data: {
+    email: string
+    otp: string
+    password: string
+    password_confirmation: string
+  }) =>
+    dughu.form("resetPassword", {
+      email: data.email,
+      otp: data.otp,
+      password: data.password,
+      password_confirmation: data.password_confirmation,
+    }),
+
 }
 
 // Export interne pour les endpoints DELETE simples (destroy_comment, destroy_reply)

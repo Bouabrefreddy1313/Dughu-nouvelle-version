@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { dughu, dughuApi, pick } from '@/lib/dughu'
+import { dughu, dughuApi, DughuApiError, pick } from '@/lib/dughu'
 import { slugify, generateOtp } from '@/lib/utils'
 import { sendOtpEmail } from '@/lib/mail'
 
@@ -45,6 +45,20 @@ export async function POST(req: NextRequest) {
       })
     } catch (err) {
       console.error('DUGHU REGISTER ERROR:', err)
+      // Si l'API Dughu a répondu mais avec une erreur métier (ex: email déjà utilisé),
+      // on renvoie le message de Dughu plutôt qu'un message générique.
+      if (err instanceof DughuApiError) {
+        const data = err.data as any
+        const msg =
+          (Array.isArray(data?.messages) && data.messages.join(' ')) ||
+          (data?.message && String(data.message)) ||
+          (typeof data === 'string' ? data : null) ||
+          err.message
+        return NextResponse.json(
+          { success: false, message: msg },
+          { status: err.status || 502 }
+        )
+      }
       return NextResponse.json(
         { success: false, message: "Impossible de joindre l'API Dughu." },
         { status: 502 }

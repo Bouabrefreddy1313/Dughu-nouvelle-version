@@ -1,6 +1,9 @@
 "use client"
 
+import Image from "next/image"
+import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { resolveMediaUrl } from "@/lib/dughu"
 
 interface AvatarProps {
   src?: string | null
@@ -8,7 +11,7 @@ interface AvatarProps {
   size?: "xs" | "sm" | "md" | "lg" | "xl"
   className?: string
   verified?: boolean
-  /** Supprime le cercle de fond coloré : cache la photo sans anneau/ronde coloré autour. */
+  /** Supprime le cercle de fond colore : cache la photo sans anneau/ronde colore autour. */
   bare?: boolean
 }
 
@@ -20,7 +23,22 @@ const SIZES = {
   xl: "w-20 h-20 text-2xl",
 }
 
+const DIMENSIONS: Record<string, number> = {
+  xs: 24,
+  sm: 32,
+  md: 40,
+  lg: 56,
+  xl: 80,
+}
+
+const FALLBACK_AVATAR = "/images/avatar.png"
+
 export default function Avatar({ src, name, size = "md", className, verified, bare }: AvatarProps) {
+  const [failed, setFailed] = useState(false)
+  const dim = DIMENSIONS[size] || 40
+  const resolved = src ? resolveMediaUrl(src) : ""
+  const avatarSrc = (failed || !resolved) ? FALLBACK_AVATAR : resolved
+
   return (
     <div className={cn("relative shrink-0", className)}>
       <div className={cn(
@@ -29,11 +47,15 @@ export default function Avatar({ src, name, size = "md", className, verified, ba
           ? "rounded-full overflow-hidden select-none bg-transparent"
           : "rounded-full bg-gradient-to-br from-[#A35A2A] to-[#B87333] flex items-center justify-center text-white font-bold overflow-hidden select-none"
       )}>
-        {src ? (
-          <img src={src} alt={name || ""} className="w-full h-full object-cover" />
-        ) : (
-          <img src="/images/avatar.png" alt="Avatar par défaut" className="w-full h-full object-cover" />
-        )}
+        <Image
+          src={avatarSrc}
+          alt={name || ""}
+          width={dim}
+          height={dim}
+          className="w-full h-full object-cover"
+          sizes={`${dim}px`}
+          onError={() => setFailed(true)}
+        />
       </div>
       {verified && (
         <div className="absolute -bottom-0.5 -right-0.5 bg-[#A35A2A] rounded-full p-0.5 border-2 border-white">

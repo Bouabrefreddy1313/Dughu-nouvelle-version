@@ -2,11 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { Sparkles, Images, UserRound, Loader2, RefreshCcw } from "lucide-react"
+import { Sparkles, Images, UserRound, RefreshCcw } from "lucide-react"
+import dynamic from "next/dynamic"
+import { useQueryClient, useMutation } from "@tanstack/react-query"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { PostComposer } from "@/components/composer/PostComposer"
-import { PostCard } from "@/components/feed/PostCard"
 import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
+import { readPostColors, writePostColor } from "@/lib/postColorCache"
+import { REACTION_ID_TO_TYPE } from "@/lib/constants"
+import { timeAgo } from "@/lib/helpers"
+import { useAuth } from "@/hooks/queries/use-auth"
+import { useProfile } from "@/hooks/queries/use-profile"
 import { ProfileHeader } from "./ProfileHeader"
 import { ProfileAbout, type ProfileInfo } from "./ProfileAbout"
 import { ProfilePhotos } from "./ProfilePhotos"
@@ -14,29 +20,22 @@ import { ProfileFriends } from "./ProfileFriends"
 import { ProfileGroupsPages, type ProfileGroup, type ProfilePage as ProfilePageType } from "./ProfileGroupsPages"
 import { EditProfileModal } from "./EditProfileModal"
 import { ImageEditModal } from "./ImageEditModal"
+import { PostComposer } from "@/components/composer/PostComposer"
 
-const REACTION_ID_TO_TYPE: Record<number, string> = {
-  1: "like",
-  2: "love",
-  3: "haha",
-  4: "wow",
-  5: "sad",
-  6: "angry",
-}
-
-function timeAgo(date: string) {
-  const s = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
-  if (s < 60) return "à l'instant"
-  const m = Math.floor(s / 60)
-  if (m < 60) return `il y a ${m} min`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `il y a ${h}h`
-  const d = Math.floor(h / 24)
-  if (d < 30) return `il y a ${d}j`
-  const mo = Math.floor(d / 30)
-  if (mo < 12) return `il y a ${mo} mois`
-  return `il y a ${Math.floor(mo / 12)} an(s)`
-}
+const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })), {
+  loading: () => (
+    <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 animate-pulse mb-4">
+      <div className="flex gap-3 mb-3">
+        <div className="w-10 h-10 rounded-full bg-gray-200" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-gray-200 rounded w-1/3" />
+          <div className="h-3 bg-gray-200 rounded w-1/4" />
+        </div>
+      </div>
+      <div className="h-40 bg-gray-200 rounded-2xl" />
+    </div>
+  ),
+})
 
 interface Post {
   id: string
@@ -65,11 +64,7 @@ interface Post {
 type Tab = "publications" | "photos" | "apropos"
 
 export function ProfilePage({ target }: { target: { userId?: string; slug?: string } }) {
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
-
+  const queryClient = useQueryClient()
   const [posts, setPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(false)
   const [pageNum, setPageNum] = useState(1)
@@ -78,57 +73,24 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
   const [tab, setTab] = useState<Tab>("publications")
   const [editOpen, setEditOpen] = useState(false)
   const [imageEdit, setImageEdit] = useState<null | "avatar" | "cover">(null)
-  const [isFollowing, setIsFollowing] = useState(false)
-  const [profileId, setProfileId] = useState("")
 
-  // Utilisateur connecté depuis localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("dughu_user")
-      if (stored) {
-        try {
-          setCurrentUser(JSON.parse(stored))
-        } catch {
-          setCurrentUser(null)
-        }
-      } else {
-        fetch("/api/auth/me")
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (data?.success && data.user) {
-              localStorage.setItem("dughu_user", JSON.stringify(data.user))
-              setCurrentUser(data.user)
-            }
-          })
-          .catch(() => {})
-      }
-    }
-  }, [])
+  // Utilisateur connecté via TanStack Query
+  const { data: currentUser } = useAuth()
 
-  const loadProfile = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, string> = {}
-      if (target.userId) params.userId = target.userId
-      else if (target.slug) params.slug = target.slug
-      if (currentUser?.id) params.currentUserId = currentUser.id
-      const qs = new URLSearchParams(params).toString()
-      const res = await fetch(`/api/profile?${qs}`)
-      const data = await res.json()
-      if (data.success) {
-        setProfile(data)
-        setIsFollowing(!!data.isFollowing)
-        setNotFound(false)
-        setProfileId(data.user.id)
-      } else {
-        setNotFound(true)
-      }
-    } catch {
-      setNotFound(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [target.userId, target.slug, currentUser?.id])
+  // Profil via TanStack Query
+  const profileParams = target.userId
+    ? { userId: target.userId, currentUserId: currentUser?.id }
+    : target.slug
+      ? { slug: target.slug, currentUserId: currentUser?.id }
+      : { userId: "" }
+  const {
+    data: profileData,
+    isLoading: loading,
+    isError: notFound,
+  } = useProfile(profileParams)
+  const profile = profileData ?? null
+  const profileId = profile?.user?.id || ""
+  const isOwn = !!profileId && !!currentUser?.id && profileId === currentUser.id
 
   const loadPosts = useCallback(async (page: number, reset = false) => {
     if (!profileId) return
@@ -140,10 +102,12 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       const data = await res.json()
       if (data.success) {
         const reactionsCache = readMyReactions()
+        const colorCache = readPostColors()
         const mapped: Post[] = (data.posts || []).map((p: any) => ({
           ...p,
           timeLabel: timeAgo(p.createdAt),
           reacted: reactionsCache[p.id] || p.reacted || null,
+          color: p.color || colorCache[p.id] || null,
           _count: p._count || { comments: 0, likes: 0, reposts: 0 },
           parentPost: p.parentPost
             ? { ...p.parentPost, timeAgo: timeAgo(p.parentPost?.createdAt) }
@@ -158,23 +122,14 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
     } finally {
       setPostsLoading(false)
     }
-  }, [currentUser?.id])
-
-  useEffect(() => {
-    if (currentUser) {
-      loadProfile()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, target.userId, target.slug])
+  }, [currentUser?.id, profileId])
 
   useEffect(() => {
     if (profileId) loadPosts(1, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId, currentUser?.id])
 
-  const isOwn = useMemo(() => {
-    return !!(currentUser?.id && profile?.user?.id && currentUser.id === profile.user.id)
-  }, [currentUser?.id, profile?.user?.id])
+  const isFollowing = !!profile?.isFollowing
 
   const handleCreatePost = async (data: { content: string; color?: any; images?: File[]; videos?: File[] }) => {
     if (!currentUser) {
@@ -185,15 +140,18 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       const formData = new FormData()
       formData.append("content", data.content)
       formData.append("userId", currentUser.id)
-      if (data.color) formData.append("color", JSON.stringify(data.color))
+      const colorRaw = data.color ? JSON.stringify(data.color) : null
+      if (colorRaw) formData.append("color", colorRaw)
       if (data.images) data.images.forEach((img) => formData.append("images", img))
       if (data.videos) data.videos.forEach((vid) => formData.append("videos", vid))
       const res = await fetch("/api/posts", { method: "POST", body: formData })
       const resp = await res.json()
       if (resp.success) {
+        // L'API Dughu ne persiste pas la couleur → on la mémorise côté client.
+        if (colorRaw && resp.post?.id) writePostColor(String(resp.post.id), colorRaw)
         toast.success("Publication créée !")
         loadPosts(1, true)
-        loadProfile()
+        queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
       } else {
         toast.error(resp.message || "Erreur création")
       }
@@ -327,7 +285,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       if (res.ok) {
         setPosts((prev) => prev.filter((p) => p.id !== postId))
         toast.success("Publication supprimée")
-        loadProfile()
+        queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
       }
     } catch {
       toast.error("Erreur suppression")
@@ -371,49 +329,80 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
     }
   }
 
-  const handleToggleFollow = async () => {
-    if (!currentUser || !profile) return
-    if (currentUser.id === profile.user.id) return
-    try {
+  const followMutation = useMutation({
+    mutationFn: async () => {
       const res = await fetch("/api/profile/follow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUser.id, targetId: profile.user.id }),
+        body: JSON.stringify({ userId: currentUser?.id, targetId: profile?.user?.id }),
       })
       const data = await res.json()
-      if (data.success) {
-        setIsFollowing(data.following)
-        setProfile((prev: any) => ({
-          ...prev,
-          isFollowing: data.following,
-          stats: { ...prev.stats, followers: data.followers },
-        }))
-        toast.success(data.following ? "Vous suivez maintenant ce profil" : "Vous ne suivez plus ce profil")
-      }
-    } catch {
-      toast.error("Erreur réseau")
-    }
+      if (!data.success) throw new Error(data.message || "Erreur")
+      return data
+    },
+    onMutate: async () => {
+      // Optimistic : toggle immédiatement
+      await queryClient.cancelQueries({ queryKey: ["profile", profileId] })
+      const prev = queryClient.getQueryData(["profile", profileId])
+      queryClient.setQueryData(["profile", profileId], (old: any) => {
+        if (!old) return old
+        const newFollowing = !old.isFollowing
+        return { ...old, isFollowing: newFollowing, stats: { ...old.stats, followers: old.stats.followers + (newFollowing ? 1 : -1) } }
+      })
+      return { prev }
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(["profile", profileId], context?.prev)
+      toast.error("Erreur lors du suivi")
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
+    },
+  })
+
+  const handleToggleFollow = () => {
+    if (!currentUser || !profile?.user?.id) return
+    if (currentUser.id === profile.user.id) return
+    followMutation.mutate()
   }
 
   const handleProfileUpdated = (updated: any) => {
-    setProfile((prev: any) => ({
-      ...prev,
-      user: { ...prev.user, ...updated },
-    }))
-    // Mettre à jour localStorage si c'est son propre profil
-    if (currentUser) {
-      const stored = { ...currentUser, ...updated }
-      void stored
-      localStorage.setItem("dughu_user", JSON.stringify(stored))
-      setCurrentUser(stored)
-    }
+    // Propager dans localStorage (source de useAuth)
+    let cached = {}
+    try { cached = JSON.parse(localStorage.getItem("dughu_user") || "{}") } catch {}
+    const newUser = { ...cached, ...(updated || {}) }
+    localStorage.setItem("dughu_user", JSON.stringify(newUser))
+    queryClient.setQueryData(["auth", "me"], newUser)
+    queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
+    queryClient.invalidateQueries({ queryKey: ["auth", "me"] })
   }
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24">
-        <Loader2 size={36} className="text-[#A35A2A] animate-spin" />
-        <p className="mt-3 text-[14px] text-[#65676B]">Chargement du profil...</p>
+      <div className="space-y-4">
+        {/* Skeleton couverture */}
+        <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 overflow-hidden">
+          <div className="h-48 sm:h-64 lg:h-80 w-full animate-pulse bg-gray-200" />
+          <div className="relative px-4 pb-6">
+            <div className="absolute -top-12 left-4 sm:left-6 w-28 h-28 sm:w-36 sm:h-36 rounded-full border-4 border-white shadow-lg animate-pulse bg-gray-200" />
+            <div className="pt-16 flex-1 space-y-3">
+              <div className="h-5 bg-gray-200 rounded w-40 animate-pulse" />
+              <div className="h-3 bg-gray-200 rounded w-56 animate-pulse" />
+              <div className="h-3 bg-gray-200 rounded w-48 animate-pulse" />
+            </div>
+          </div>
+        </div>
+        {/* Skeleton posts */}
+        <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 animate-pulse">
+          <div className="flex gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full bg-gray-200" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-gray-200 rounded w-1/3" />
+              <div className="h-3 bg-gray-200 rounded w-1/4" />
+            </div>
+          </div>
+          <div className="h-32 bg-gray-200 rounded-2xl" />
+        </div>
       </div>
     )
   }
@@ -421,7 +410,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
   if (notFound || !profile || !profile.user) {
     return (
       <div className="bg-white rounded-3xl p-10 shadow-sm border border-gray-100 text-center my-8">
-        <img src="/images/avatar.png" alt="" className="w-20 h-20 rounded-full mx-auto opacity-40" />
+        <Image src="/images/avatar.png" alt="" width={80} height={80} className="w-20 h-20 rounded-full mx-auto opacity-40" />
         <p className="mt-4 text-lg font-semibold text-[#050505]">Profil introuvable</p>
         <p className="text-[13px] text-[#65676B] mt-1">Cet utilisateur n'existe pas ou a quitté Dughu.</p>
         <a
@@ -602,7 +591,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {photos.map((p: any) => (
                     <a key={p.id} href={`/post/${p.id}`} className="aspect-square overflow-hidden rounded-xl hover:opacity-90 transition">
-                      <img src={p.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <Image src={p.url} alt="" width={300} height={300} className="w-full h-full object-cover" />
                     </a>
                   ))}
                 </div>
@@ -649,12 +638,16 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
         currentUrl={user.avatar}
         onClose={() => setImageEdit(null)}
         onSaved={(url) => {
-          setProfile((prev: any) => ({ ...prev, user: { ...prev.user, avatar: url } }))
-          if (currentUser) {
-            const stored = { ...currentUser, avatar: url }
-            localStorage.setItem("dughu_user", JSON.stringify(stored))
-            setCurrentUser(stored)
-          }
+          // Mettre a jour localStorage (source de useAuth pour header/sidebar/composer)
+          let cached = {}
+          try { cached = JSON.parse(localStorage.getItem("dughu_user") || "{}") } catch {}
+          const newUser = { ...cached, avatar: url }
+          localStorage.setItem("dughu_user", JSON.stringify(newUser))
+          // Mettre a jour le cache React Query instantanement (tous les composants)
+          queryClient.setQueryData(["auth", "me"], newUser)
+          // Rafraichir le profil et l'auth
+          queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
+          queryClient.invalidateQueries({ queryKey: ["auth", "me"] })
         }}
       />
       <ImageEditModal
@@ -664,12 +657,13 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
         currentUrl={user.cover}
         onClose={() => setImageEdit(null)}
         onSaved={(url) => {
-          setProfile((prev: any) => ({ ...prev, user: { ...prev.user, cover: url } }))
-          if (currentUser) {
-            const stored = { ...currentUser, cover: url }
-            localStorage.setItem("dughu_user", JSON.stringify(stored))
-            setCurrentUser(stored)
-          }
+          let cached = {}
+          try { cached = JSON.parse(localStorage.getItem("dughu_user") || "{}") } catch {}
+          const newUser = { ...cached, cover: url }
+          localStorage.setItem("dughu_user", JSON.stringify(newUser))
+          queryClient.setQueryData(["auth", "me"], newUser)
+          queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
+          queryClient.invalidateQueries({ queryKey: ["auth", "me"] })
         }}
       />
     </div>

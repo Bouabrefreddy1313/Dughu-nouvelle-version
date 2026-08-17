@@ -1,6 +1,7 @@
 "use client"
 
 import { Users, Globe, UserPlus, Heart, Plus } from "lucide-react"
+import Image from "next/image"
 import Card from "@/components/common/Card"
 
 export interface ProfileGroup {
@@ -49,9 +50,9 @@ export function ProfileGroupsPages({ groups = [], pages, isOwn }: ProfileGroupsP
       <div className="space-y-2.5">
         {groups.slice(0, 5).map((g) => (
           <a key={g.id} href={`/groups/${g.id}`} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#F0F2F5] transition">
-            <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#1877F2] to-[#00C6FF] shrink-0">
+            <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#1877F2] to-[#00C6FF] shrink-0 relative">
               {g.image ? (
-                <img src={g.image} alt={g.name} className="w-full h-full object-cover" />
+                <Image src={g.image} alt={g.name} fill className="object-cover" sizes="44px" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white">
                   <Users size={18} />
@@ -89,9 +90,9 @@ export function ProfileGroupsPages({ groups = [], pages, isOwn }: ProfileGroupsP
               ...likedPages.map((p) => ({ ...p, tag: "Aimée" })),
             ].slice(0, 5).map((p) => (
               <a key={`${p.id}-${p.tag}`} href={`/pages/${p.id}`} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#F0F2F5] transition">
-                <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#E4405F] to-[#F5A33B] shrink-0">
+                <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#E4405F] to-[#F5A33B] shrink-0 relative">
                   {p.image ? (
-                    <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                    <Image src={p.image} alt={p.name} fill className="object-cover" sizes="44px" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-white">
                       <Heart size={18} />

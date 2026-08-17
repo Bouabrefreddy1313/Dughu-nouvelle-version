@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import Image from "next/image"
 import {
   Home, MessageCircle, Users, Heart, Image as ImageIcon, Bookmark,
   Zap, Globe, ChevronDown, X,
@@ -199,61 +200,61 @@ export default function LeftSidebar({
       <Card className="p-2 mt-4 rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
         <nav className="space-y-0.5">
           <SidebarItem
-            icon={<img src="/images/ia.png" alt="Satrivium IA" className="w-7 h-7 object-contain" />}
+            icon={<Image src="/images/ia.png" alt="Satrivium IA" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Satrivium IA"
             iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<img src="/images/poke.png" alt="Pokes" className="w-7 h-7 object-contain" />}
+            icon={<Image src="/images/poke.png" alt="Pokes" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Pokes"
             iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<img src="/images/groupe.png" alt="Groupes" className="w-7 h-7 object-contain" />}
+            icon={<Image src="/images/groupe.png" alt="Groupes" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Groupes"
             iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<img src="/images/page.png" alt="Espaces" className="w-7 h-7 object-contain" />}
+            icon={<Image src="/images/page.png" alt="Espaces" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Espaces"
             iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<img src="/images/canal.png" alt="Canal" className="w-7 h-7 object-contain" />}
+            icon={<Image src="/images/canal.png" alt="Canal" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Canal"
             iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<img src="/images/akp.png" alt="Akwaplay" className="w-7 h-7 object-contain" />}
+            icon={<Image src="/images/akp.png" alt="Akwaplay" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Akwaplay"
             iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<img src="/images/notif.png" alt="Événements" className="w-7 h-7 object-contain" />}
+            icon={<Image src="/images/notif.png" alt="Événements" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Événements"
             iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<img src="/images/capsule.png" alt="Capsule" className="w-7 h-7 object-contain" />}
+            icon={<Image src="/images/capsule.png" alt="Capsule" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Capsule"
             iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<img src="/images/finance.png" alt="Finance" className="w-7 h-7 object-contain" />}
+            icon={<Image src="/images/finance.png" alt="Finance" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Finance"
             iconBg="bg-transparent"
           />
 
           <SidebarItem
-            icon={<img src="/images/icon-dealtoo.png" alt="Dealtoo" className="w-7 h-7 object-contain" />}
+            icon={<Image src="/images/icon-dealtoo.png" alt="Dealtoo" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Dealtoo"
             iconBg="bg-transparent"
           />

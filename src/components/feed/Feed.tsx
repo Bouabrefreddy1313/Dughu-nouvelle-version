@@ -1,5 +1,3 @@
-"use client"
-
 import { FeedHeader } from "./FeedHeader"
 import { FeedBody } from "./FeedBody"
 import { FeedFooter } from "./FeedFooter"

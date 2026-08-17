@@ -409,7 +409,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
     </div>
   )
 
-  const ComposerBody = () => (
+  const composerBody = () => (
     <>
       {/* identity + privacy row */}
       <div className="flex items-center gap-2.5 mb-3">
@@ -702,7 +702,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
               </button>
             </div>
             <div className="p-4">
-              <ComposerBody />
+              {composerBody()}
             </div>
           </div>
         </div>

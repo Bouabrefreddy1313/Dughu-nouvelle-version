@@ -26,13 +26,23 @@ async function fetchAllDughuComments(postId: string, viewerDughuId: string) {
     : first
   const lastPage = Number(firstUnwrapped?.last_page || 1) || 1
 
-  let all: any[] = readPage(first)
-  for (let p = 2; p <= lastPage; p++) {
-    const pageRaw = await dughuApi.getComments(postId, viewerDughuId, p)
-    all = all.concat(readPage(pageRaw))
+  // Page 1 déjà chargée, pages 2..lastPage en parallèle (batch de 3)
+  const remainingPages: number[] = []
+  for (let p = 2; p <= lastPage; p++) remainingPages.push(p)
+
+  const BATCH_SIZE = 3
+  const results: any[][] = [readPage(first)]
+  for (let i = 0; i < remainingPages.length; i += BATCH_SIZE) {
+    const batch = remainingPages.slice(i, i + BATCH_SIZE)
+    const batchResults = await Promise.all(
+      batch.map((p) => dughuApi.getComments(postId, viewerDughuId, p))
+    )
+    for (const r of batchResults) results.push(readPage(r))
   }
 
-  // Déduplication par id (au cas où l'API renverrait un chevauchement entre pages)
+  const all = results.flat()
+
+  // Déduplication par id
   const seen = new Set<string>()
   return all.filter((c: any) => {
     const id = String(c?.id ?? "")

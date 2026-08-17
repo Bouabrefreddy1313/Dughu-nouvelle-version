@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
 import {
   Home, Video, Zap, Play, Bell, MessageCircle, Search,
   Image as ImageIcon, BarChart3, MoreHorizontal, ThumbsUp,
@@ -15,11 +16,35 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { PostComposer } from "@/components/composer/PostComposer"
-import { PostCard } from "@/components/feed/PostCard"
+import { cn } from "@/lib/utils"
 import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
+import { readPostColors, writePostColor } from "@/lib/postColorCache"
+import { REACTION_ID_TO_TYPE, POST_COLORS } from "@/lib/constants"
+import { timeAgo, formatNumber } from "@/lib/helpers"
+import { useAuth } from "@/hooks/queries/use-auth"
+import { useFeed } from "@/hooks/queries/use-feed"
+import { useStories } from "@/hooks/queries/use-stories"
 import MiniStories from "@/components/stories/MiniStories"
 import MainLayout from "@/components/layout/MainLayout"
+
+const PostComposer = dynamic(() => import("@/components/composer/PostComposer").then((mod) => ({ default: mod.PostComposer })), {
+  loading: () => null,
+})
+
+const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })), {
+  loading: () => (
+    <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 animate-pulse mb-4">
+      <div className="flex gap-3 mb-3">
+        <div className="w-10 h-10 rounded-full bg-gray-200" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-gray-200 rounded w-1/3" />
+          <div className="h-3 bg-gray-200 rounded w-1/4" />
+        </div>
+      </div>
+      <div className="h-40 bg-gray-200 rounded-2xl" />
+    </div>
+  ),
+})
 
 /* ============================================================
    TYPES
@@ -34,13 +59,6 @@ interface Author {
   verified?: boolean
   isAdmin?: boolean
   isModerator?: boolean
-}
-
-interface ReactionTypeDef {
-  id: number
-  name: string
-  icon: string
-  color: string
 }
 
 interface Reaction {
@@ -140,143 +158,63 @@ interface Story {
 }
 
 /* ============================================================
-   HELPERS
-   ============================================================ */
-
-  const REACTIONS: ReactionTypeDef[] = [
-    { id: 1, name: "J'aime", icon: "👍", color: "#1877F2" },
-    { id: 2, name: "J'adore", icon: "❤️", color: "#E4405F" },
-    { id: 3, name: "Haha", icon: "😂", color: "#F5C33B" },
-    { id: 4, name: "Wow", icon: "😮", color: "#F5A33B" },
-    { id: 5, name: "Triste", icon: "😢", color: "#F5A33B" },
-    { id: 6, name: "Grrr", icon: "😡", color: "#E4405F" },
-  ]
-
-  // Mapping entre les IDs de réaction du composant et les types de l'API
-  const REACTION_ID_TO_TYPE: Record<number, string> = {
-    1: "like",
-    2: "love",
-    3: "haha",
-    4: "wow",
-    5: "sad",
-    6: "angry",
-  }
-
-const COLORS = [
-  { bg: "linear-gradient(45deg, #ff9a9e 0%, #fecfef 100%)", text: "#fff" },
-  { bg: "linear-gradient(45deg, #a18cd1 0%, #fbc2eb 100%)", text: "#fff" },
-  { bg: "linear-gradient(45deg, #84fab0 0%, #8fd3f4 100%)", text: "#fff" },
-  { bg: "#B87333", text: "#fff" },
-  { bg: "linear-gradient(45deg, #ffecd2 0%, #fcb69f 100%)", text: "#333" },
-  { bg: "linear-gradient(45deg, #667eea 0%, #764ba2 100%)", text: "#fff" },
-  { bg: "#F5C33B", text: "#333" },
-  { bg: "linear-gradient(45deg, #f093fb 0%, #f5576c 100%)", text: "#fff" },
-  { bg: "linear-gradient(45deg, #4facfe 0%, #00f2fe 100%)", text: "#fff" },
-  { bg: "#333", text: "#fff" },
-  { bg: "linear-gradient(45deg, #43e97b 0%, #38f9d7 100%)", text: "#333" },
-  { bg: "linear-gradient(45deg, #fa709a 0%, #fee140 100%)", text: "#fff" },
-]
-
-function timeAgo(date: string) {
-  const s = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
-  if (s < 60) return "à l'instant"
-  const m = Math.floor(s / 60)
-  if (m < 60) return `il y a ${m} min`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `il y a ${h}h`
-  const d = Math.floor(h / 24)
-  if (d < 30) return `il y a ${d}j`
-  const mo = Math.floor(d / 30)
-  if (mo < 12) return `il y a ${mo} mois`
-  return `il y a ${Math.floor(mo / 12)} an(s)`
-}
-
-function formatNumber(n: number) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M"
-  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "k"
-  return String(n)
-}
-
-function classNames(...c: (string | false | undefined)[]) {
-  return c.filter(Boolean).join(" ")
-}
-
-/* ============================================================
    PAGE PRINCIPALE
    ============================================================ */
 
 export default function HomePage() {
   const router = useRouter()
   const [posts, setPosts] = useState<Post[]>([])
-  const [stories, setStories] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
   const [pageNum, setPageNum] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [filter, setFilter] = useState<"all" | "following">("all")
-  const [user, setUser] = useState<any>(null)
   const [showStoryViewer, setShowStoryViewer] = useState(false)
   const [activeStoryIndex, setActiveStoryIndex] = useState(0)
-  const [coloredPosts, setColoredPosts] = useState<any[]>(COLORS)
+  const [coloredPosts, setColoredPosts] = useState<any[]>([...POST_COLORS])
   const [chatOpen, setChatOpen] = useState(false)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const loadingMoreRef = useRef(false)
   const feedReqRef = useRef(0)
 
-  // Récupérer user depuis localStorage (en attendant NextAuth session complète)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("dughu_user")
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        // S'assurer que les champs avatar et cover ont des valeurs par défaut
-        const updatedUser = {
-          ...parsed,
-          avatar: parsed.avatar || '/images/avatar.png',
-          image: parsed.image || '/images/avatar.png',
-          cover: parsed.cover || '/images/group/default-cover.jpg',
-          _count: parsed._count || { posts: 0, followers: 0, following: 0 },
-        }
-        setUser(updatedUser)
-        // Mettre à jour le localStorage avec les valeurs par défaut
-        localStorage.setItem("dughu_user", JSON.stringify(updatedUser))
-      } else {
-        // Pas de user en localStorage (ex: connexion Google via NextAuth) → session cookie
-        fetch("/api/auth/me")
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (data?.success && data.user) {
-              const u = {
-                ...data.user,
-                avatar: data.user.avatar || '/images/avatar.png',
-                image: data.user.image || '/images/avatar.png',
-                cover: data.user.cover || '/images/group/default-cover.jpg',
-                _count: data.user._count || { posts: 0, followers: 0, following: 0 },
-              }
-              localStorage.setItem("dughu_user", JSON.stringify(u))
-              setUser(u)
-            }
-          })
-          .catch(() => {})
-      }
-    }
-  }, [])
+  // Utilisateur via TanStack Query (cache automatique)
+  const { data: rawUser, isLoading: authLoading } = useAuth()
+  // useMemo : reference stable pour ne pas recréer l'objet a chaque rendu
+  // (evite de re-declencher loadPosts en boucle via la dependance de l'effet)
+  const user = useMemo(() => rawUser ? {
+    ...rawUser,
+    avatar: rawUser.avatar || '/images/avatar.png',
+    image: rawUser.image || '/images/avatar.png',
+    cover: rawUser.cover || '/images/group/default-cover.jpg',
+    _count: rawUser._count || { posts: 0, followers: 0, following: 0 },
+  } : null, [rawUser])
 
   // Charger posts
   const loadPosts = useCallback(async (page: number, reset = false) => {
     const reqId = ++feedReqRef.current
     setLoading(true)
+    const controller = new AbortController()
+    // Timeout cote client : evite que le spinner tourne indefiniment si l'API tarde
+    const timer = setTimeout(() => controller.abort(), 15000)
     try {
       const userId = user?.id || ""
-      console.log("Loading posts with userId:", userId, "user:", user?.name)
-      const res = await fetch(`/api/posts?page=${page}&filter=${filter}&userId=${userId}`)
-      const data = await res.json()
+      const res = await fetch(`/api/posts?page=${page}&filter=${filter}&userId=${userId}`, {
+        signal: controller.signal,
+      })
+      let data: any
+      try {
+        data = await res.json()
+      } catch {
+        data = { success: false, message: `Reponse invalide du serveur (${res.status}).` }
+      }
       if (reqId !== feedReqRef.current) return
       if (data.success) {
         const reactionsCache = readMyReactions()
+        const colorCache = readPostColors()
         const mapped = (data.posts || []).map((p: any) => ({
           ...p,
           timeLabel: timeAgo(p.createdAt),
           reacted: reactionsCache[p.id] || p.reacted || null,
+          color: p.color || colorCache[p.id] || null,
           _count: p._count || { comments: 0, likes: 0, reposts: 0, views: 0 },
           parentPost: p.parentPost
             ? { ...p.parentPost, timeAgo: timeAgo(p.parentPost?.createdAt) }
@@ -287,12 +225,17 @@ export default function HomePage() {
         setHasMore(data.hasMore !== false)
         if ((data.posts || []).length === 0) setHasMore(false)
       } else {
+        if (page > 1) setHasMore(false) // arrete l'infinite scroll pour ne pas re-essayer en boucle
         toast.error(data.message || "Erreur lors du chargement du fil")
-        setHasMore(false)
       }
-    } catch {
-      toast.error("Erreur chargement posts")
+    } catch (error) {
+      if (page > 1) setHasMore(false)
+      console.error("loadPosts error:", error)
+      toast.error(error instanceof DOMException && error.name === "AbortError"
+        ? "Chargement trop long, reessayez."
+        : "Erreur chargement posts. Reessayez.")
     } finally {
+      clearTimeout(timer)
       if (reqId === feedReqRef.current) {
         setLoading(false)
         loadingMoreRef.current = false
@@ -300,14 +243,8 @@ export default function HomePage() {
     }
   }, [filter, user])
 
-  // Charger stories
-  const loadStories = useCallback(async () => {
-    try {
-      const res = await fetch("/api/stories")
-      const data = await res.json()
-      if (data.success) setStories(data.stories || [])
-    } catch { /* silent */ }
-  }, [])
+  // Stories via TanStack Query
+  const { data: stories = [] } = useStories(!!user?.id)
 
   // Charger le fil uniquement quand l'utilisateur est chargé
   // (évite le fetch au userId vide qui retomberait sur Prisma, et les écrasements de réponses)
@@ -316,7 +253,6 @@ export default function HomePage() {
     setPageNum(1)
     loadPosts(1, true)
   }, [loadPosts, user])
-  useEffect(() => { loadStories() }, [loadStories])
 
   // Chargement automatique au scroll (infinite scroll, sans bouton "Charger plus")
   useEffect(() => {
@@ -341,11 +277,23 @@ export default function HomePage() {
 
   const handleCreatePost = async (formData: FormData) => {
     if (!user) { toast.error("Connectez-vous pour publier"); return }
+    const colorRaw = (formData.get("color") as string) || null
     try {
       const res = await fetch("/api/posts", { method: "POST", body: formData })
       const data = await res.json()
       if (data.success) {
-        setPosts((prev) => [{ ...data.post, timeLabel: timeAgo(data.post.createdAt), _count: { comments: 0, likes: 0, reposts: 0, views: 0 } }, ...prev])
+        // L'API Dughu ne persiste pas la couleur → on la mémorise côté client.
+        const postColor = colorRaw || data.post?.color || null
+        if (postColor && data.post?.id) writePostColor(String(data.post.id), postColor)
+        setPosts((prev) => [
+          {
+            ...data.post,
+            timeLabel: timeAgo(data.post.createdAt),
+            _count: { comments: 0, likes: 0, reposts: 0, views: 0 },
+            color: postColor,
+          },
+          ...prev,
+        ])
         toast.success("Publication créée !")
       }
     } catch {
@@ -653,10 +601,10 @@ export default function HomePage() {
         />
       ))}
 
-      {/* Skeleton Loading (premier chargement uniquement) */}
-      {loading && posts.length === 0 && (
+      {/* Skeleton Loading (premier chargement / auth en cours) */}
+      {(loading || authLoading) && posts.length === 0 && (
         <div className="space-y-4">
-          {[1, 2].map((i) => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 animate-pulse">
               <div className="flex gap-3 mb-3">
                 <div className="w-10 h-10 rounded-full bg-gray-200" />
@@ -671,18 +619,31 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Chargement automatique au scroll */}
+      {/* Chargement automatique au scroll : skeleton de derniere page */}
       {hasMore && (
-        <div ref={loadMoreRef} className="h-16 flex items-center justify-center">
+        <div ref={loadMoreRef} className="min-h-16">
           {loading && posts.length > 0 && (
-            <div className="w-6 h-6 border-2 border-[#A35A2A] border-t-transparent rounded-full animate-spin" />
+            <div className="space-y-4">
+              {[1, 2].map((i) => (
+                <div key={`more-${i}`} className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 animate-pulse">
+                  <div className="flex gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-200" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-1/3" />
+                      <div className="h-3 bg-gray-200 rounded w-1/4" />
+                    </div>
+                  </div>
+                  <div className="h-28 bg-gray-200 rounded-2xl" />
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
 
       
 
-      {posts.length === 0 && !loading && (
+      {posts.length === 0 && !loading && !authLoading && (
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
           <p className="text-[#65676B]">Aucune publication pour l'instant.</p>
           <Button onClick={() => loadPosts(1, true)} className="mt-3 bg-[#A35A2A] text-white rounded-full">Actualiser</Button>
@@ -694,9 +655,9 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black z-[60] flex flex-col">
           {/* Progress bars */}
           <div className="flex gap-1 p-2 pt-4">
-            {stories.map((_, i) => (
+            {stories.map((_: any, i: number) => (
               <div key={i} className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
-                <div className={classNames("h-full bg-white transition-all duration-300", i < activeStoryIndex ? "w-full" : i === activeStoryIndex ? "w-1/2" : "w-0")} />
+                <div className={cn("h-full bg-white transition-all duration-300", i < activeStoryIndex ? "w-full" : i === activeStoryIndex ? "w-1/2" : "w-0")} />
               </div>
             ))}
           </div>
@@ -718,7 +679,7 @@ export default function HomePage() {
             ) : stories[activeStoryIndex].video ? (
               <video src={stories[activeStoryIndex].video} className="max-w-full max-h-full rounded-lg" controls autoPlay />
             ) : (
-              <div className="w-full h-full flex items-center justify-center rounded-xl p-8 text-center" style={{ background: stories[activeStoryIndex].bg || COLORS[0].bg }}>
+              <div className="w-full h-full flex items-center justify-center rounded-xl p-8 text-center" style={{ background: stories[activeStoryIndex].bg || POST_COLORS[0].bg }}>
                 <p className="text-2xl font-bold text-white whitespace-pre-wrap">{stories[activeStoryIndex].text}</p>
               </div>
             )}

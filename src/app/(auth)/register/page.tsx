@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -103,11 +104,14 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen w-full bg-[#f5f5f5]">
       {/* Partie gauche */}
-      <div className="hidden lg:flex lg:w-1/2 h-screen lg:sticky lg:top-0 overflow-hidden">
-        <img
+      <div className="hidden lg:flex lg:w-1/2 h-screen lg:sticky lg:top-0 overflow-hidden relative">
+        <Image
           src="/images/imglo.jpeg"
           alt="Dughu"
-          className="w-full h-full object-cover rounded-r-[40px]"
+          fill
+          className="object-cover rounded-r-[40px]"
+          priority
+          sizes="50vw"
         />
       </div>
 

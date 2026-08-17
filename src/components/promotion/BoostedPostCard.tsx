@@ -1,6 +1,5 @@
-"use client"
-
 import { Eye } from "lucide-react"
+import Image from "next/image"
 import Badge from "@/components/common/Badge"
 import Avatar from "@/components/common/Avatar"
 
@@ -28,12 +27,14 @@ export default function BoostedPostCard({
       </Badge>
 
       {/* Photo du post */}
-      <div className="w-full h-28 bg-gray-100 overflow-hidden">
+      <div className="w-full h-28 bg-gray-100 overflow-hidden relative">
         {image ? (
-          <img
+          <Image
             src={image}
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 640px) 100vw, 300px"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#A35A2A] to-[#8B5A2B]">

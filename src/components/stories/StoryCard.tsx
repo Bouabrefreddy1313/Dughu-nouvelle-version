@@ -1,6 +1,7 @@
 "use client"
 
 import { Plus } from "lucide-react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 interface StoryCardProps {
@@ -33,7 +34,7 @@ export default function StoryCard({ image, name, onClick, isAdd, viewed }: Story
     >
       {/* Image */}
       {image ? (
-        <img src={image} alt={name || ""} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+        <Image src={image} alt={name || ""} fill className="object-cover transition-transform duration-300 group-hover:scale-105" sizes="115px" />
       ) : (
         <div className="w-full h-full bg-gradient-to-br from-[#A35A2A] to-[#8B5A2B] flex items-center justify-center">
           <span className="text-white font-bold text-2xl">{name?.charAt(0) || "U"}</span>

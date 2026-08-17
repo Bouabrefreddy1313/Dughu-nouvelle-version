@@ -23,10 +23,12 @@ import {
   Bookmark,
   EyeOff,
 } from "lucide-react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
 import { CommentBody } from "@/components/feed/CommentBody"
 import { toast } from "sonner"
+import { REACTIONS, REACTION_ID_TO_TYPE, REACTION_TYPE_TO_ID } from "@/lib/constants"
 
 interface Author {
   id: string
@@ -116,33 +118,6 @@ interface PostCardProps {
   className?: string
 }
 
-const REACTIONS = [
-  { id: 1, name: "J'aime", icon: "👍" },
-  { id: 2, name: "J'adore", icon: "😍" },
-  { id: 3, name: "Haha", icon: "🤣" },
-  { id: 4, name: "Wow", icon: "🤩" },
-  { id: 5, name: "Triste", icon: "🥺" },
-  { id: 6, name: "Grrr", icon: "😤" },
-]
-
-const REACTION_TYPE_TO_ID: Record<string, number> = {
-  like: 1,
-  love: 2,
-  haha: 3,
-  wow: 4,
-  sad: 5,
-  angry: 6,
-}
-
-const REACTION_ID_TO_TYPE: Record<number, string> = {
-  1: "like",
-  2: "love",
-  3: "haha",
-  4: "wow",
-  5: "sad",
-  6: "angry",
-}
-
 function getUserName(user?: CommentUser | null): string {
   return user?.name || user?.username || "Utilisateur"
 }
@@ -181,10 +156,13 @@ function AttachmentPreview({
 }) {
   if (fileIsImage(file, url)) {
     return (
-      <img
+      <Image
         src={url}
         alt=""
+        width={400}
+        height={300}
         className="w-full h-full object-cover"
+        sizes="(max-width: 640px) 100vw, 400px"
       />
     )
   }
@@ -390,10 +368,13 @@ function ParentPostCard({
 
       {parentPost.image && !parentPost.video && (
         <div className="w-full overflow-hidden">
-          <img
+          <Image
             src={parentPost.image}
             alt=""
+            width={600}
+            height={300}
             className="w-full max-h-[300px] object-cover"
+            sizes="(max-width: 640px) 100vw, 600px"
           />
         </div>
       )}
@@ -802,10 +783,13 @@ function ModalPostPreview({
 
       {image && !video && (
         <div className="w-full overflow-hidden">
-          <img
+          <Image
             src={image}
             alt=""
+            width={800}
+            height={450}
             className="w-full max-h-[50vh] object-cover"
+            sizes="(max-width: 640px) 100vw, 800px"
           />
         </div>
       )}
@@ -1962,10 +1946,13 @@ export function PostCard({
 
       {image && !video && (
         <div className="w-full overflow-hidden">
-          <img
+          <Image
             src={image}
             alt=""
+            width={1200}
+            height={675}
             className="w-full max-h-[80vh] object-cover"
+            sizes="100vw"
           />
         </div>
       )}
@@ -2062,9 +2049,11 @@ export function PostCard({
           onClick={() => onLike?.(selectedReaction || 1)}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
         >
-          <img
+          <Image
             src="/images/dixip.png"
             alt="Dixip"
+            width={20}
+            height={20}
             className="w-5 h-5 object-contain"
           />
           Dixip

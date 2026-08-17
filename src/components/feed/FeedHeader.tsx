@@ -1,5 +1,3 @@
-"use client"
-
 import { MoreHorizontal } from "lucide-react"
 import Avatar from "@/components/common/Avatar"
 import IconButton from "@/components/common/IconButton"

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Images, X } from "lucide-react"
+import Image from "next/image"
 import Card from "@/components/common/Card"
 import { cn } from "@/lib/utils"
 
@@ -50,7 +51,7 @@ export function ProfilePhotos({ photos = [], onSeeAll }: ProfilePhotosProps) {
               className="aspect-square overflow-hidden hover:opacity-90 transition rounded-md"
               aria-label="Voir la photo"
             >
-              <img src={p.url || ""} alt="" className="w-full h-full object-cover" loading="lazy" />
+              <Image src={p.url || ""} alt="" width={200} height={200} className="w-full h-full object-cover" />
             </button>
           ))}
         </div>
@@ -68,9 +69,11 @@ export function ProfilePhotos({ photos = [], onSeeAll }: ProfilePhotosProps) {
           >
             <X size={28} />
           </button>
-          <img
+          <Image
             src={visible[lightbox].url || ""}
             alt=""
+            width={1200}
+            height={900}
             className={cn("max-w-full max-h-[85vh] object-contain rounded-xl")}
             onClick={(e) => e.stopPropagation()}
           />

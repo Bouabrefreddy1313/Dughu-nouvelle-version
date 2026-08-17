@@ -1,4 +1,4 @@
-"use client"
+import Image from "next/image"
 
 interface FeedBodyProps {
   content?: string
@@ -15,11 +15,16 @@ export function FeedBody({ content, image, className }: FeedBodyProps) {
         </p>
       )}
       {image && (
-        <img
-          src={image}
-          alt=""
-          className="w-full object-cover rounded-2xl max-h-[500px]"
-        />
+        <div className="w-full rounded-2xl overflow-hidden max-h-[500px] relative">
+          <Image
+            src={image}
+            alt=""
+            width={800}
+            height={500}
+            className="w-full object-cover"
+            style={{ maxHeight: 500 }}
+          />
+        </div>
       )}
     </div>
   )

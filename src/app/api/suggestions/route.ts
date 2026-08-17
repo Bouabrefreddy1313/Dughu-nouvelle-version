@@ -30,15 +30,23 @@ export async function GET(req: NextRequest) {
         : Promise.resolve([]),
     ])
     const joinedGroupIds = new Set(memberships.map((m) => m.groupId))
-    const suggestedGroups = await Promise.all(
-      groups
-        .filter((g) => !joinedGroupIds.has(g.id))
-        .slice(0, 15)
-        .map(async (g) => ({
-          ...g,
-          memberCount: await prisma.groupMember.count({ where: { groupId: g.id } }),
-        }))
-    )
+    const filteredGroups = groups.filter((g) => !joinedGroupIds.has(g.id)).slice(0, 15)
+
+    // Count membres en une seule requête groupBy (au lieu de N count() individuels)
+    const groupIds = filteredGroups.map((g) => g.id)
+    const memberCounts = groupIds.length > 0
+      ? await prisma.groupMember.groupBy({
+          by: ["groupId"],
+          where: { groupId: { in: groupIds } },
+          _count: { groupId: true },
+        })
+      : []
+    const countMap = new Map(memberCounts.map((m) => [m.groupId, m._count.groupId]))
+
+    const suggestedGroups = filteredGroups.map((g) => ({
+      ...g,
+      memberCount: countMap.get(g.id) || 0,
+    }))
 
     // Utilisateurs suggérés : 5 actifs, non suivis
     const [suggestedUsersRaw, follows] = await Promise.all([
@@ -80,14 +88,20 @@ export async function GET(req: NextRequest) {
       orderBy: { trendUseNum: "desc" },
       take: 4,
     })
-    const hashtagsWithCount = await Promise.all(
-      hashtags.map(async (h) => ({
-        ...h,
-        postCount: await prisma.post.count({
-          where: { active: "1", content: { contains: `#${h.tag}`, mode: "insensitive" as const } },
-        }),
-      }))
-    )
+    const tagNames = hashtags.map((h) => h.tag)
+    const tagCounts = tagNames.length > 0
+      ? await Promise.all(
+          tagNames.map((tag) =>
+            prisma.post.count({
+              where: { active: "1", content: { contains: `#${tag}`, mode: "insensitive" as const } },
+            })
+          )
+        )
+      : []
+    const hashtagsWithCount = hashtags.map((h, i) => ({
+      ...h,
+      postCount: tagCounts[i] || 0,
+    }))
 
     // Activités récentes : 10 dernières
     const activities = await prisma.activity.findMany({

@@ -1,6 +1,8 @@
 "use client"
 
 import { Camera, MapPin, Pencil, UserPlus, UserCheck, MessageCircle, MoreHorizontal, BadgeCheck } from "lucide-react"
+import Image from "next/image"
+import { resolveMediaUrl } from "@/lib/dughu"
 
 export interface ProfileUser {
   id: string
@@ -62,8 +64,8 @@ export function ProfileHeader({
   onEditProfile,
   onMore,
 }: ProfileHeaderProps) {
-  const coverSrc = user.cover || "/images/group/default-cover.jpg"
-  const avatarSrc = user.avatar || "/images/avatar.png"
+  const coverSrc = user.cover ? resolveMediaUrl(user.cover) : "/images/group/default-cover.jpg"
+  const avatarSrc = user.avatar ? resolveMediaUrl(user.avatar) : "/images/avatar.png"
   const name = displayName(user)
   const metaLine = [user.username ? `@${user.username}` : null, user.location || user.countryCode]
     .filter(Boolean)
@@ -73,7 +75,7 @@ export function ProfileHeader({
     <div className="bg-white rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
       {/* ═══════ COUVERTURE ═══════ */}
       <div className="relative h-48 sm:h-64 lg:h-80 w-full bg-gradient-to-br from-[#A35A2A] to-[#B87333]">
-        <img src={coverSrc} alt="Photo de couverture" className="w-full h-full object-cover" />
+        <Image src={coverSrc} alt="Photo de couverture" fill className="object-cover" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 70vw" priority />
 
         {isOwn && (
           <button
@@ -89,8 +91,8 @@ export function ProfileHeader({
         {/* Avatar en chevauchement bas-gauche de la couverture */}
         <div className="absolute -bottom-14 sm:-bottom-[72px] left-4 sm:left-6">
           <div className="relative">
-            <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full border-4 border-white shadow-lg overflow-hidden bg-[#F0F2F5]">
-              <img src={avatarSrc} alt={name} className="w-full h-full object-cover" />
+            <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full border-4 border-white shadow-lg overflow-hidden bg-[#F0F2F5] relative">
+              <Image src={avatarSrc} alt={name} fill className="object-cover" sizes="(max-width: 640px) 112px, 144px" />
             </div>
             {user.online && (
               <span className="absolute bottom-1.5 right-1.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#31A24C] border-[3px] border-white" />

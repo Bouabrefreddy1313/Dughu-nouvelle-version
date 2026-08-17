@@ -1,6 +1,7 @@
 "use client"
 
 import { MoreHorizontal } from "lucide-react"
+import Image from "next/image"
 import Avatar from "@/components/common/Avatar"
 import IconButton from "@/components/common/IconButton"
 
@@ -73,10 +74,13 @@ export function FeedCard({
           </p>
         )}
         {image && (
-          <img
+          <Image
             src={image}
             alt=""
+            width={800}
+            height={500}
             className="w-full object-cover rounded-2xl max-h-[500px]"
+            sizes="(max-width: 640px) 100vw, 800px"
           />
         )}
       </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Users, X } from "lucide-react"
+import Image from "next/image"
 import Card from "@/components/common/Card"
 
 export interface ProfileFriend {
@@ -49,12 +50,13 @@ export function ProfileFriends({ friends = [], total = friends.length, userId: _
               href={`/profile/${f.username || f.id}`}
               className="group flex flex-col items-center gap-1.5 p-1.5 rounded-lg hover:bg-[#F0F2F5] transition"
             >
-              <div className="w-16 h-16 rounded-full overflow-hidden bg-[#F0F2F5]">
-                <img
+              <div className="w-16 h-16 rounded-full overflow-hidden bg-[#F0F2F5] relative">
+                <Image
                   src={f.avatar || "/images/avatar.png"}
                   alt={f.name || "Ami"}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
+                  fill
+                  className="object-cover"
+                  sizes="64px"
                 />
               </div>
               <span className="text-[12px] text-[#2D2D2D] text-center leading-tight line-clamp-2 group-hover:underline">
@@ -85,8 +87,8 @@ export function ProfileFriends({ friends = [], total = friends.length, userId: _
                   href={`/profile/${f.username || f.id}`}
                   className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-[#F0F2F5] transition"
                 >
-                  <div className="w-11 h-11 rounded-full overflow-hidden bg-[#F0F2F5] shrink-0">
-                    <img src={f.avatar || "/images/avatar.png"} alt={f.name || "Ami"} className="w-full h-full object-cover" />
+                  <div className="w-11 h-11 rounded-full overflow-hidden bg-[#F0F2F5] shrink-0 relative">
+                    <Image src={f.avatar || "/images/avatar.png"} alt={f.name || "Ami"} fill className="object-cover" sizes="44px" />
                   </div>
                   <span className="text-[13px] font-medium text-[#050505] truncate">{f.name}</span>
                 </a>

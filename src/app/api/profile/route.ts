@@ -74,12 +74,20 @@ export async function GET(req: NextRequest) {
       throw new Error("Profil Dughu introuvable")
     }
 
-    const details = parseCounts(raw?.result?.details ?? raw?.details ?? raw?.user?.details ?? userObj.details)
+    const resultObj = raw?.result ?? raw
+    const details = parseCounts(resultObj?.details ?? raw?.details ?? raw?.user?.details ?? userObj.details)
     const username = userObj.username || userObj.slug || ""
     const [photos, friends] = await Promise.all([
       username ? dughuApi.getUserPhotos(username, 1).then(mapPhotos).catch(() => []) : Promise.resolve([]),
       userObj.id ? dughuApi.getUserFriends(userObj.id).then(mapFriends).catch(() => []) : Promise.resolve([]),
     ])
+
+    // Les vrais compteurs sont des champs numériques au niveau supérieur de la
+    // réponse Dughu (NbrPostsTotal, followersNbr, followingsNbr), pas `details`.
+    const pickNbr = (primary: any, fallback: number) => {
+      const n = Number(primary)
+      return Number.isFinite(n) ? n : fallback
+    }
 
     const isFollowing =
       !!pick(raw, "is_following", "isFollowing", "follow_status", "followStatus") ||
@@ -108,10 +116,10 @@ export async function GET(req: NextRequest) {
         registered: pick(raw, "createdAt", "created_at", "dateCreation", "registered") || "",
       },
       stats: {
-        posts: details.posts,
-        followers: details.followers,
-        following: details.following,
-        friends: details.friends,
+        posts: pickNbr(resultObj?.NbrPostsTotal, details.posts),
+        followers: pickNbr(resultObj?.followersNbr, details.followers),
+        following: pickNbr(resultObj?.followingsNbr, details.following),
+        friends: friends.length || details.friends,
       },
       friends,
       recentFollowers: [],

@@ -1,6 +1,8 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { resolveMediaUrl } from "@/lib/dughu"
 
 interface MiniProfileCardProps {
   user?: any
@@ -22,20 +24,24 @@ export default function MiniProfileCard({ user }: MiniProfileCardProps) {
 
       {/* Zone cover */}
       <div className="h-[90px] relative">
-        <img 
-          src={user?.cover || "/images/group/default-cover.jpg"} 
-          alt="Couverture" 
-          className="w-full h-full object-cover"
+        <Image
+          src={user?.cover ? resolveMediaUrl(user.cover) : "/images/group/default-cover.jpg"}
+          alt="Couverture"
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 300px"
         />
       </div>
 
       {/* Avatar chevauchant */}
       <div className="relative -mt-6 flex justify-center z-10">
-        <div className="w-[64px] h-[64px] rounded-full border-2 border-white overflow-hidden shadow-md">
-          <img 
-            src={user?.avatar || user?.image || "/images/avatar.png"} 
-            alt="Photo de profil" 
-            className="w-full h-full object-cover"
+        <div className="w-[64px] h-[64px] rounded-full border-2 border-white overflow-hidden shadow-md relative">
+          <Image
+            src={user?.avatar ? resolveMediaUrl(user.avatar) : (user?.image ? resolveMediaUrl(user.image) : "/images/avatar.png")}
+            alt="Photo de profil"
+            fill
+            className="object-cover"
+            sizes="64px"
           />
         </div>
       </div>

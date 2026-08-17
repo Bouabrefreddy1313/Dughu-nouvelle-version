@@ -1,5 +1,3 @@
-"use client"
-
 import { TrendingUp } from "lucide-react"
 import Avatar from "@/components/common/Avatar"
 import Badge from "@/components/common/Badge"

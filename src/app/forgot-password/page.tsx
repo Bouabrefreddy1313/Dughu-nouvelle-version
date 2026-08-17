@@ -2,18 +2,27 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { Mail, ArrowLeft, CheckCircle } from "lucide-react"
+import { Mail, ArrowLeft, CheckCircle, Lock, KeyRound } from "lucide-react"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
+  // Étape 1 : email
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Étape 2 : OTP + nouveau mot de passe
+  const [step, setStep] = useState<"email" | "reset">("email")
+  const [otp, setOtp] = useState("")
+  const [password, setPassword] = useState("")
+  const [passwordConfirmation, setPasswordConfirmation] = useState("")
+  const [resetDone, setResetDone] = useState(false)
+
+  // ---------- Étape 1 : envoyer le code de réinitialisation ----------
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!email) {
@@ -29,26 +38,65 @@ export default function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      // Pour l'instant, simuler l'envoi (la route API n'est pas encore créée)
-      // Quand la route sera prête, décommente :
-      /*
-      const res = await fetch("/api/password/reset", {
+      const res = await fetch("/api/password/forgot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       })
       const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.message || "Erreur")
+      if (!res.ok || !data.success) {
+        toast.error(data.message || "Erreur lors de l'envoi")
         return
       }
-      */
-      
-      // Simulation 2 secondes
-      await new Promise((r) => setTimeout(r, 1500))
-      
-      setSent(true)
-      toast.success("Lien de réinitialisation envoyé !")
+      setStep("reset")
+      toast.success(data.message || "Code de réinitialisation envoyé !")
+    } catch {
+      toast.error("Erreur réseau")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ---------- Étape 2 : réinitialiser le mot de passe ----------
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!otp) {
+      toast.error("Veuillez entrer le code reçu")
+      return
+    }
+    if (!password) {
+      toast.error("Veuillez entrer un nouveau mot de passe")
+      return
+    }
+    if (password.length < 8) {
+      toast.error("Le mot de passe doit faire au moins 8 caractères")
+      return
+    }
+    if (password !== passwordConfirmation) {
+      toast.error("Les mots de passe ne correspondent pas")
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch("/api/password/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          otp,
+          password,
+          password_confirmation: passwordConfirmation,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        toast.error(data.message || "Erreur lors de la réinitialisation")
+        return
+      }
+      setResetDone(true)
+      toast.success(data.message || "Mot de passe réinitialisé avec succès !")
     } catch {
       toast.error("Erreur réseau")
     } finally {
@@ -69,7 +117,7 @@ export default function ForgotPasswordPage() {
         <div className="absolute top-1/2 left-1/4 text-3xl animate-bounce" style={{ animationDuration: "4s", animationDelay: "1s" }}>👍</div>
         <div className="absolute bottom-1/3 left-12 text-4xl animate-bounce" style={{ animationDuration: "3.5s", animationDelay: "0.5s" }}>😂</div>
         <div className="absolute bottom-0 left-0 right-0 flex justify-center">
-          <img src="/images/register-img.png" alt="Jeunes sur leur téléphone" className="w-full max-w-[500px] object-contain" />
+          <Image src="/images/register-img.png" alt="Jeunes sur leur téléphone" width={500} height={400} className="w-full max-w-[500px] object-contain" />
         </div>
       </div>
 
@@ -88,16 +136,17 @@ export default function ForgotPasswordPage() {
         </div>
 
         <div className="w-full max-w-[420px] bg-white rounded-3xl shadow-sm p-8">
-          {!sent ? (
+          {/* ─────── ÉTAPE 1 : SAISIE EMAIL ─────── */}
+          {step === "email" && (
             <>
               <h3 className="text-xl font-semibold text-center text-gray-900 mb-2">
                 Mot de passe oublié ?
               </h3>
               <p className="text-center text-sm text-gray-500 mb-6">
-                Entrez votre email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
+                Entrez votre email et nous vous enverrons un code pour réinitialiser votre mot de passe.
               </p>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSendCode} className="space-y-4">
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <Input
@@ -114,24 +163,92 @@ export default function ForgotPasswordPage() {
                   disabled={loading}
                   className="w-full h-11 rounded-full bg-[#D4A574] hover:bg-[#C49464] text-white font-medium transition-colors"
                 >
-                  {loading ? "Envoi en cours..." : "Envoyer le lien"}
+                  {loading ? "Envoi en cours..." : "Envoyer le code"}
                 </Button>
               </form>
             </>
-          ) : (
+          )}
+
+          {/* ─────── ÉTAPE 2 : SAISIE OTP + NOUVEAU MOT DE PASSE ─────── */}
+          {step === "reset" && !resetDone && (
+            <>
+              <h3 className="text-xl font-semibold text-center text-gray-900 mb-2">
+                Réinitialiser le mot de passe
+              </h3>
+              <p className="text-center text-sm text-gray-500 mb-6">
+                Un code a été envoyé à <span className="font-medium text-gray-700">{email}</span>.
+                Entrez-le ci-dessous avec votre nouveau mot de passe.
+              </p>
+
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div className="relative">
+                  <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <Input
+                    type="text"
+                    placeholder="Code de réinitialisation"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className="h-11 rounded-full bg-gray-100 border-gray-200 pl-11 pr-4 text-sm focus-visible:ring-[#B87333] focus-visible:ring-1"
+                  />
+                </div>
+
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <Input
+                    type="password"
+                    placeholder="Nouveau mot de passe (min. 8 caractères)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-11 rounded-full bg-gray-100 border-gray-200 pl-11 pr-4 text-sm focus-visible:ring-[#B87333] focus-visible:ring-1"
+                  />
+                </div>
+
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <Input
+                    type="password"
+                    placeholder="Confirmer le nouveau mot de passe"
+                    value={passwordConfirmation}
+                    onChange={(e) => setPasswordConfirmation(e.target.value)}
+                    className="h-11 rounded-full bg-gray-100 border-gray-200 pl-11 pr-4 text-sm focus-visible:ring-[#B87333] focus-visible:ring-1"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-11 rounded-full bg-[#D4A574] hover:bg-[#C49464] text-white font-medium transition-colors"
+                >
+                  {loading ? "Réinitialisation..." : "Réinitialiser le mot de passe"}
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={handleSendCode}
+                  disabled={loading}
+                  className="w-full text-center text-sm text-[#B87333] hover:underline disabled:opacity-50"
+                >
+                  Renvoyer le code
+                </button>
+              </form>
+            </>
+          )}
+
+          {/* ─────── SUCCÈS ─────── */}
+          {resetDone && (
             <div className="text-center py-4">
               <CheckCircle className="mx-auto mb-4 text-green-500" size={48} />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Email envoyé !
+                Mot de passe réinitialisé !
               </h3>
               <p className="text-sm text-gray-500 mb-6">
-                Consultez votre boîte <span className="font-medium text-gray-700">{email}</span> pour réinitialiser votre mot de passe.
+                Votre mot de passe a été modifié avec succès. Vous pouvez maintenant vous connecter.
               </p>
               <Button
                 onClick={() => router.push("/login")}
                 className="w-full h-11 rounded-full bg-[#D4A574] hover:bg-[#C49464] text-white font-medium"
               >
-                Retour à la connexion
+                Aller à la connexion
               </Button>
             </div>
           )}

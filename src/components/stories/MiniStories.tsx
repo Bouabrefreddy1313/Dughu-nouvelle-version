@@ -2,7 +2,9 @@
 
 import { useRef } from "react"
 import { Plus, ChevronRight, ChevronLeft, User } from "lucide-react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { resolveMediaUrl } from "@/lib/dughu"
 
 interface MiniStory {
   id: string
@@ -24,6 +26,8 @@ export default function MiniStories({ stories = [], currentUser, onAddStory, onO
   const scrollNext = () => scrollRef.current?.scrollBy({ left: 220, behavior: "smooth" })
   const scrollPrev = () => scrollRef.current?.scrollBy({ left: -220, behavior: "smooth" })
 
+  const currentUserAvatarSrc = currentUser?.avatar ? resolveMediaUrl(currentUser.avatar) : null
+
   return (
     <div className="relative mb-4 group/rail">
       <div
@@ -38,11 +42,13 @@ export default function MiniStories({ stories = [], currentUser, onAddStory, onO
           <div className="w-[120px] h-[168px] rounded-2xl overflow-hidden relative flex flex-col border border-gray-200/80 shadow-sm transition-all duration-300 ease-out group-hover/add:shadow-lg group-hover/add:shadow-[#E08543]/15 group-hover/add:-translate-y-0.5">
             {/* Partie haute - Photo de l'utilisateur */}
             <div className="h-[70%] bg-gray-100 relative overflow-hidden">
-              {currentUser?.avatar ? (
-                <img
-                  src={currentUser.avatar}
-                  alt={currentUser.name || "Moi"}
-                  className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover/add:scale-105"
+              {currentUserAvatarSrc ? (
+                <Image
+                  src={currentUserAvatarSrc}
+                  alt={currentUser?.name || "Moi"}
+                  fill
+                  className="object-cover transition-transform duration-500 ease-out group-hover/add:scale-105"
+                  sizes="120px"
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-[#E08543]/25 to-[#2D2D2D]/10 flex items-center justify-center">
@@ -68,61 +74,68 @@ export default function MiniStories({ stories = [], currentUser, onAddStory, onO
         </button>
 
         {/* Mini cards stories */}
-        {stories.map((story, i) => (
-          <button
-            key={story.id}
-            onClick={() => onOpenStory?.(i)}
-            className="flex flex-col items-center shrink-0 cursor-pointer group/story relative"
-          >
-            <div className="w-[104px] h-[168px] rounded-2xl overflow-hidden relative bg-gray-200 shadow-sm transition-all duration-300 ease-out group-hover/story:shadow-lg group-hover/story:shadow-[#E08543]/15 group-hover/story:-translate-y-0.5">
-              {story.image ? (
-                <img
-                  src={story.image}
-                  alt={story.user?.name || ""}
-                  className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover/story:scale-105"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#E08543] to-[#A35A2A] flex items-center justify-center">
-                  <span className="text-white text-xl font-bold">
-                    {story.user?.name?.charAt(0)?.toUpperCase() || "U"}
-                  </span>
-                </div>
-              )}
-
-              {/* voile dégradé bas pour lisibilité du nom */}
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-
-              {/* Avatar en haut avec contour */}
-              <div
-                className={cn(
-                  "absolute top-2.5 left-2.5 w-8 h-8 rounded-full p-[2px]",
-                  story.viewed
-                    ? "bg-[#D8DADF]"
-                    : "bg-gradient-to-tr from-[#E08543] via-[#E08543] to-[#F2B183]"
-                )}
-              >
-                <div className="w-full h-full rounded-full overflow-hidden bg-[#A35A2A] border-2 border-white">
-                  {story.user?.avatar ? (
-                    <img
-                      src={story.user.avatar}
-                      alt={story.user.name || ""}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-white text-[10px] font-bold bg-[#A35A2A]">
+        {stories.map((story, i) => {
+          const storyUserAvatarSrc = story.user?.avatar ? resolveMediaUrl(story.user.avatar) : null
+          return (
+            <button
+              key={story.id}
+              onClick={() => onOpenStory?.(i)}
+              className="flex flex-col items-center shrink-0 cursor-pointer group/story relative"
+            >
+              <div className="w-[104px] h-[168px] rounded-2xl overflow-hidden relative bg-gray-200 shadow-sm transition-all duration-300 ease-out group-hover/story:shadow-lg group-hover/story:shadow-[#E08543]/15 group-hover/story:-translate-y-0.5">
+                {story.image ? (
+                  <Image
+                    src={story.image}
+                    alt={story.user?.name || ""}
+                    fill
+                    className="object-cover transition-transform duration-500 ease-out group-hover/story:scale-105"
+                    sizes="104px"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#E08543] to-[#A35A2A] flex items-center justify-center">
+                    <span className="text-white text-xl font-bold">
                       {story.user?.name?.charAt(0)?.toUpperCase() || "U"}
-                    </div>
-                  )}
-                </div>
-              </div>
+                    </span>
+                  </div>
+                )}
 
-              {/* Nom incrusté en bas de la carte */}
-              <span className="absolute bottom-2 left-2.5 right-2.5 text-[12px] font-semibold text-white truncate drop-shadow-sm">
-                {story.user?.name || "Utilisateur"}
-              </span>
-            </div>
-          </button>
-        ))}
+                {/* voile dégradé bas pour lisibilité du nom */}
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+                {/* Avatar en haut avec contour */}
+                <div
+                  className={cn(
+                    "absolute top-2.5 left-2.5 w-8 h-8 rounded-full p-[2px]",
+                    story.viewed
+                      ? "bg-[#D8DADF]"
+                      : "bg-gradient-to-tr from-[#E08543] via-[#E08543] to-[#F2B183]"
+                  )}
+                >
+                  <div className="w-full h-full rounded-full overflow-hidden bg-[#A35A2A] border-2 border-white">
+                    {storyUserAvatarSrc ? (
+                      <Image
+                        src={storyUserAvatarSrc}
+                        alt={story.user?.name || ""}
+                        fill
+                        className="object-cover"
+                        sizes="32px"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white text-[10px] font-bold bg-[#A35A2A]">
+                        {story.user?.name?.charAt(0)?.toUpperCase() || "U"}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Nom incrusté en bas de la carte */}
+                <span className="absolute bottom-2 left-2.5 right-2.5 text-[12px] font-semibold text-white truncate drop-shadow-sm">
+                  {story.user?.name || "Utilisateur"}
+                </span>
+              </div>
+            </button>
+          )
+        })}
       </div>
 
       {/* Bouton navigation gauche */}
