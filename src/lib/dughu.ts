@@ -45,7 +45,7 @@ async function dughuFetch(path: string, init: RequestInit = {}, retries = RETRY_
       if (!res.ok) {
         throw new DughuApiError(`Dughu API ${res.status} sur ${path}`, res.status, data)
       }
-      return data
+      return data    
     } catch (err) {
       clearTimeout(timeout)
       if (attempt >= retries) throw err
