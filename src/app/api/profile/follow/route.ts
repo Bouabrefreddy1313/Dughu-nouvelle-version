@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, pick, DughuApiError } from "@/lib/dughu"
 import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { userId, targetId } = body
+    const { userId, targetId, following: requestedFollowing } = body
 
     if (!userId || !targetId) {
       return NextResponse.json({ success: false, message: "Utilisateurs requis." }, { status: 422 })
@@ -51,7 +50,10 @@ export async function POST(req: NextRequest) {
       })
       .catch(() => false)
 
-    const following = !currentState
+    // Les nouveaux clients indiquent l'état désiré. Cela évite qu'un bouton
+    // remonté dans le fil inverse un abonnement déjà existant. On garde le
+    // fallback toggle pour les anciens appelants (ex. la page profil).
+    const following = typeof requestedFollowing === "boolean" ? requestedFollowing : !currentState
     if (following) {
       await dughuApi.follow(actorDughuId, targetDughuId)
     } else {

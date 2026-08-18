@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { apiClient } from "@/lib/apiClient"
+import { getCachedFollowing, setCachedFollowing } from "@/lib/followCache"
 
 export function SubscribeButton({
   authorId,
-  initialFollowing = false,
+  initialFollowing,
   currentUserId,
   onChange,
 }: {
@@ -15,9 +16,10 @@ export function SubscribeButton({
   onChange?: (following: boolean) => void
 }) {
   const [loading, setLoading] = useState(false)
-  const [following, setFollowing] = useState<boolean | null>(
-    typeof initialFollowing === 'boolean' ? initialFollowing : null
-  )
+  const [following, setFollowing] = useState<boolean | null>(() => {
+    if (typeof initialFollowing === "boolean") return initialFollowing
+    return getCachedFollowing(currentUserId, authorId) ?? null
+  })
 
   // If initialFollowing not provided, fetch state from profile endpoint
   useEffect(() => {
@@ -29,32 +31,31 @@ export function SubscribeButton({
         const res = await apiClient.get(`/profile?${qp}`)
         if (!mounted) return
         const isFollowing = res.data?.isFollowing ?? res.data?.user?.isFollowing ?? false
-        setFollowing(Boolean(isFollowing))
+        const nextFollowing = Boolean(isFollowing)
+        setCachedFollowing(currentUserId, authorId, nextFollowing)
+        setFollowing(nextFollowing)
       } catch (e) {
         console.error('SubscribeButton: failed to fetch initial following', e)
+        setCachedFollowing(currentUserId, authorId, false)
         setFollowing(false)
       }
     })()
     return () => { mounted = false }
-  }, [authorId, following])
+  }, [authorId, currentUserId, following])
 
   async function toggle() {
     if (loading) return
     setLoading(true)
     try {
-      const payload: any = { userId: currentUserId, targetId: authorId }
-      if (!following) {
-        // follow
-        await apiClient.post('/profile/follow', payload)
-        setFollowing(true)
-        onChange?.(true)
-      } else {
-        // unfollow
-        payload.unfollow = true
-        await apiClient.post('/profile/follow', payload)
-        setFollowing(false)
-        onChange?.(false)
-      }
+      const nextFollowing = !following
+      await apiClient.post('/profile/follow', {
+        userId: currentUserId,
+        targetId: authorId,
+        following: nextFollowing,
+      })
+      setCachedFollowing(currentUserId, authorId, nextFollowing)
+      setFollowing(nextFollowing)
+      onChange?.(nextFollowing)
     } catch (err) {
       console.error('SubscribeButton error', err)
     } finally {

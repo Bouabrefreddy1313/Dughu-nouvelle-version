@@ -116,9 +116,9 @@ export async function GET(req: NextRequest) {
       return Number.isFinite(n) ? n : fallback
     }
 
+    const followValue = pick(raw, "is_following", "isFollowing", "follow_status", "followStatus")
     const isFollowing =
-      !!pick(raw, "is_following", "isFollowing", "follow_status", "followStatus") ||
-      !!userObj.isFollowing
+      followValue === true || followValue === 1 || followValue === "1" || userObj.isFollowing
 
     const targetDughuId = dughuUserId || ""
 
