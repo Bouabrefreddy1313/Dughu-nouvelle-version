@@ -743,7 +743,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
             className="flex-1 flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#65676B] hover:bg-gray-100 px-2 py-2 rounded-xl transition mx-1"
           >
             <ColorfulTextIcon size={18} />
-            <span className="hidden xs:inline sm:inline">Texte coloré</span>
+            <span className="hidden xs:inline sm:inline">Fond coloré</span>
           </button>
         </div>
       </div>

@@ -2082,7 +2082,7 @@ export function PostCard({
             height={20}
             className="w-5 h-5 object-contain"
           />
-          Gracier
+          Gratifier
         </button>
 
         <button

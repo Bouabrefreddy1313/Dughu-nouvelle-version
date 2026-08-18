@@ -76,9 +76,23 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // ── Fil d'actualité : endpoint getPostAllRepost (officiel v1/v2) ──
-    const raw = await dughuApi.getPostAllRepost(dughuUserId, page)
-    console.log("FEED RAW (first 300 chars):", JSON.stringify(raw).slice(0, 300))
+    // ── Fil d'actualité : getPostAllRepost (complet) et getPostAll (rapide) en
+    // parallèle — la première réponse gagne. Évite le timeout client (~6s à >30s
+    // pour getPostAllRepost quand l'API Dughu est chargée) en repliant sur la
+    // variante getPostAll qui répond en ~1-2s.
+    const raw = await Promise.race([
+      dughuApi.getPostAllRepost(dughuUserId, page).catch((e: unknown) => {
+        console.error("FEED getPostAllRepost ERROR:", e)
+        return null
+      }),
+      dughuApi.getPostAll(dughuUserId, page).catch((e: unknown) => {
+        console.error("FEED getPostAll ERROR:", e)
+        return null
+      }),
+    ])
+    if (!raw) {
+      throw new Error("Le fil Dughu est injoignable.")
+    }
     const posts = mapPosts(raw, viewer ? {
       id: viewer.id,
       name: viewer.name,

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, pick, DughuApiError, resolveMediaUrl } from "@/lib/dughu"
 import { syncLocalUserFromDughu } from "@/lib/dughu-user"
-import { randomBytes } from "crypto"
 
 // Connexion Google via l'API Dughu (POST /auth/google { token }).
 // Le navigateur obtient un Google ID token (Google Identity Services), l'API
@@ -165,7 +164,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({
       success: true,
       user: {
-        id: user.id,
+        id: dughuUserId,
         email: user.email,
         name: user.name,
         firstName: user.firstName,
@@ -187,26 +186,22 @@ export async function POST(req: NextRequest) {
       redirect: "/home",
     })
 
-    // ── 5. Session persistante (même mécanisme que /api/login) ──
-    try {
-      const sessionToken = randomBytes(32).toString("hex")
-      const sessionMaxAge = 30 * 24 * 60 * 60 // 30 jours
-      const expires = new Date(Date.now() + sessionMaxAge * 1000)
-
-      await prisma.session.create({
-        data: { sessionToken, userId: user.id, expires },
-      })
-
-      response.cookies.set("next-auth.session-token", sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: sessionMaxAge,
-      })
-    } catch (err) {
-      console.error("SESSION CREATE ERROR (google):", err)
-    }
+    // ── 5. Session : token Dughu en cookie (même mécanisme que /api/login) ──
+    const sessionMaxAge = 30 * 24 * 60 * 60 // 30 jours
+    response.cookies.set("dughu_token", dughuToken || "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: sessionMaxAge,
+    })
+    response.cookies.set("dughu_user_id", dughuUserId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: sessionMaxAge,
+    })
 
     return response
   } catch (error) {

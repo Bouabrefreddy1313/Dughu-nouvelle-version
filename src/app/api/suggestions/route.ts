@@ -1,155 +1,151 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { dughu, dughuApi, mapPosts, resolveMediaUrl } from "@/lib/dughu"
+import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+
+// Extrait le tableau de données d'une réponse Dughu (result.data / data / tableau direct)
+function arrOf(raw: any): any[] {
+  const d = raw?.result
+  if (Array.isArray(d)) return d
+  if (Array.isArray(d?.data)) return d.data
+  if (Array.isArray(raw?.data)) return raw.data
+  if (Array.isArray(raw)) return raw
+  return []
+}
+
+function mapPages(raw: any) {
+  return arrOf(raw).map((p) => ({
+    id: String(p.page_id ?? p.id ?? ""),
+    name: p.page_title || p.page_name || "Page",
+    description: p.page_description || "",
+    image: resolveMediaUrl(p.avatar) || "/images/page/default-avatar.jpg",
+    cover: resolveMediaUrl(p.cover) || "/images/page/default-cover.jpg",
+    category: p.page_category ?? null,
+    likes: Number(p.likes ?? p.likesNbr ?? 0) || 0,
+  }))
+}
+
+function mapGroups(raw: any) {
+  return arrOf(raw).map((g) => ({
+    id: String(g.id ?? ""),
+    name: g.group_title || g.group_name || "Groupe",
+    description: g.about || "",
+    image: resolveMediaUrl(g.avatar) || "/images/group/default-avatar.jpg",
+    cover: resolveMediaUrl(g.cover) || "/images/group/default-cover.jpg",
+    category: g.category ?? null,
+    privacy: String(g.privacy ?? "1"),
+    memberCount: Number(g.member_count ?? g.members ?? g.nbr_members ?? 0) || 0,
+  }))
+}
+
+function mapHashtags(raw: any) {
+  return arrOf(raw)
+    .map((t) => String(t || "").trim())
+    .filter(Boolean)
+    .slice(0, 10)
+    .map((tag) => ({ tag: `#${tag}`, postCount: 0 }))
+}
+
+// Normalise les activités Dughu (profile/{username}/activites) vers la forme
+// attendue par la sidebar (ActivityItem). `user` est null : la sidebar replie
+// sur l'utilisateur connecté (ce sont SES activités).
+function mapActivities(raw: any): any[] {
+  const arr = raw?.activities?.data || raw?.data || []
+  if (!Array.isArray(arr)) return []
+  const toIso = (v: any): string => {
+    if (!v) return new Date().toISOString()
+    if (typeof v === "number") return new Date(v * 1000).toISOString()
+    const s = String(v)
+    if (/^\d{10}$/.test(s)) return new Date(Number(s) * 1000).toISOString()
+    return s
+  }
+  return arr.map((a: any) => ({
+    id: String(a.id ?? a.activity_id ?? a.post_id ?? a.time ?? ""),
+    activityType: String(a.activity_type || a.activityType || "post"),
+    postId: a.post_id ? String(a.post_id) : null,
+    description: a.description || "",
+    createdAt: toIso(a.time ?? a.created_at ?? a.createdAt),
+    user: null,
+  }))
+}
 
 export async function GET(req: NextRequest) {
   try {
+    if (!dughu.enabled) {
+      return NextResponse.json(
+        { success: false, message: "L'API Dughu n'est pas configurée." },
+        { status: 500 }
+      )
+    }
+
     const { searchParams } = new URL(req.url)
     const userId = searchParams.get("userId")
 
-    const now = new Date()
+    // ID Dughu de l'utilisateur connecté : via le paramètre userId, sinon cookie.
+    let dughuUserId = userId ? await resolveDughuUserIdFromLocalId(userId) : ""
+    if (!dughuUserId) {
+      const cookiesModule = await import("next/headers")
+      const cookies = await cookiesModule.cookies()
+      const token =
+        cookies.get("next-auth.session-token")?.value ||
+        cookies.get("__Secure-next-auth.session-token")?.value
+      if (token) {
+        const session = await prisma.session.findUnique({ where: { sessionToken: token } }).catch(() => null)
+        if (session) dughuUserId = await resolveDughuUserIdFromLocalId(session.userId)
+      }
+    }
 
-    // Pages suggérées : 8, actives, non créées, non likées par l'utilisateur
-    const [pages, pageLikes] = await Promise.all([
-      prisma.page.findMany({
-        where: userId ? { active: true, userId: { not: userId } } : { active: true },
-        take: 8,
-        orderBy: { createdAt: "desc" },
-      }),
-      userId
-        ? prisma.pageLike.findMany({ where: { userId }, select: { pageId: true } })
-        : Promise.resolve([]),
+    const [pagesRaw, groupsRaw, hashtagsRaw, popularRaw] = await Promise.all([
+      dughuUserId ? dughuApi.suggestPages({ user_id: dughuUserId }).catch(() => null) : Promise.resolve(null),
+      dughuUserId ? dughuApi.suggestGroups({ user_id: dughuUserId }).catch(() => null) : Promise.resolve(null),
+      dughuApi.getHashtags("").catch(() => null),
+      dughuUserId ? dughuApi.getPopularPosts(dughuUserId).catch(() => null) : Promise.resolve(null),
     ])
-    const likedPageIds = new Set(pageLikes.map((l) => l.pageId))
-    const suggestedPages = pages.filter((p) => !likedPageIds.has(p.id)).slice(0, 8)
 
-    // Groupes suggérés : 15 actifs, non rejoints + compteur de membres
-    const [groups, memberships] = await Promise.all([
-      prisma.group.findMany({ take: 15, orderBy: { createdAt: "desc" } }),
-      userId
-        ? prisma.groupMember.findMany({ where: { userId }, select: { groupId: true } })
-        : Promise.resolve([]),
-    ])
-    const joinedGroupIds = new Set(memberships.map((m) => m.groupId))
-    const filteredGroups = groups.filter((g) => !joinedGroupIds.has(g.id)).slice(0, 15)
+    const pages = mapPages(pagesRaw)
+    const groups = mapGroups(groupsRaw)
+    const hashtags = mapHashtags(hashtagsRaw)
 
-    // Count membres en une seule requête groupBy (au lieu de N count() individuels)
-    const groupIds = filteredGroups.map((g) => g.id)
-    const memberCounts = groupIds.length > 0
-      ? await prisma.groupMember.groupBy({
-          by: ["groupId"],
-          where: { groupId: { in: groupIds } },
-          _count: { groupId: true },
-        })
-      : []
-    const countMap = new Map(memberCounts.map((m) => [m.groupId, m._count.groupId]))
-
-    const suggestedGroups = filteredGroups.map((g) => ({
-      ...g,
-      memberCount: countMap.get(g.id) || 0,
+    // Posts populaires (boostés) → forme attendue par BoostedPostCard
+    const boostedPosts = mapPosts(popularRaw?.result ?? popularRaw).map((p: any) => ({
+      id: p.id,
+      content: p.content,
+      image: p.image || p.video || p.thumb || null,
+      video: p.video || null,
+      author: p.author || { id: "", name: null, username: null, avatar: null },
+      _count: { comments: p._count?.comments, likes: p._count?.likes, views: null },
     }))
 
-    // Utilisateurs suggérés : 5 actifs, non suivis
-    const [suggestedUsersRaw, follows] = await Promise.all([
-      prisma.user.findMany({
-        where: { active: "1" },
-        take: 20,
-        orderBy: { joined: "desc" },
-        select: { id: true, name: true, username: true, avatar: true, slug: true },
-      }),
-      userId
-        ? prisma.follow.findMany({ where: { followerId: userId }, select: { followingId: true } })
-        : Promise.resolve([]),
-    ])
-    const followingIds = new Set(follows.map((f) => f.followingId))
-    const suggestedUsers = suggestedUsersRaw
-      .filter((u) => u.id !== userId && !followingIds.has(u.id))
-      .slice(0, 5)
-
-    // Événements suggérés : 3 futurs, non participants/intéressés
-    const events = await prisma.event.findMany({
-      where: {
-        date: { gte: now },
-        ...(userId ? { NOT: { attendees: { some: { userId } } } } : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      take: 3,
-      include: { _count: { select: { attendees: true } } },
-    })
-
-    // Produits suggérés : 4 actifs
-    const products = await prisma.product.findMany({
-      where: { active: "1" },
-      take: 4,
-      orderBy: { createdAt: "desc" },
-    })
-
-    // Hashtags tendances : 4 par trendUseNum DESC + compteur de posts
-    const hashtags = await prisma.hashtag.findMany({
-      orderBy: { trendUseNum: "desc" },
-      take: 4,
-    })
-    const tagNames = hashtags.map((h) => h.tag)
-    const tagCounts = tagNames.length > 0
-      ? await Promise.all(
-          tagNames.map((tag) =>
-            prisma.post.count({
-              where: { active: "1", content: { contains: `#${tag}`, mode: "insensitive" as const } },
-            })
-          )
-        )
-      : []
-    const hashtagsWithCount = hashtags.map((h, i) => ({
-      ...h,
-      postCount: tagCounts[i] || 0,
-    }))
-
-    // Activités récentes : 10 dernières
-    const activities = await prisma.activity.findMany({
-      where: userId ? { userId } : undefined,
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      include: {
-        user: { select: { id: true, name: true, avatar: true } },
-      },
-    })
-
-    // Posts boostés sidebar : 2
-    const boostedPosts = await prisma.post.findMany({
-      where: { active: "1", boosted: true },
-      orderBy: { createdAt: "desc" },
-      take: 2,
-      include: {
-        author: { select: { id: true, name: true, username: true, avatar: true } },
-        likes: { select: { id: true, type: true } },
-        _count: { select: { comments: true, likes: true } },
-      },
-    })
-
-    // Stats utilisateur
-    let userStats = null
+    // Activités récentes : endpoint Dughu profile/{username}/activites
+    let activities: any[] = []
     if (userId) {
-      const [postCount, followingCount, followerCount, points] = await Promise.all([
-        prisma.post.count({ where: { authorId: userId } }),
-        prisma.follow.count({ where: { followerId: userId } }),
-        prisma.follow.count({ where: { followingId: userId } }),
-        prisma.historiquePoints
-          .aggregate({ where: { userId }, _sum: { points: true } })
-          .then((r) => r._sum.points || 0),
-      ])
-      userStats = { postCount, followingCount, followerCount, points }
+      const localUser = await prisma.user
+        .findUnique({ where: { id: userId }, select: { username: true } })
+        .catch(() => null)
+      let username = localUser?.username || ""
+      if (!username && dughuUserId) {
+        // Utilisateur "token Dughu" (sans compte local) → username depuis l'API.
+        const profileRaw = await dughuApi.getUser(dughuUserId, dughuUserId).catch(() => null)
+        const profileObj = profileRaw?.user ?? profileRaw?.data ?? profileRaw?.profile ?? profileRaw?.result ?? profileRaw
+        username = profileObj?.username || profileObj?.user_name || profileObj?.slug || ""
+      }
+      if (username) {
+        const activitiesRaw = await dughuApi.getUserActivities(username, 1).catch(() => null)
+        activities = mapActivities(activitiesRaw)
+      }
     }
 
     return NextResponse.json({
       success: true,
-      pages: suggestedPages,
-      groups: suggestedGroups,
-      users: suggestedUsers,
-      events,
-      products,
-      hashtags: hashtagsWithCount,
+      pages,
+      groups,
+      hashtags,
+      users: [],
+      events: [],
+      products: [],
       activities,
       boostedPosts,
-      userStats,
+      userStats: null,
     })
   } catch (error) {
     console.error("SUGGESTIONS ERROR:", error)

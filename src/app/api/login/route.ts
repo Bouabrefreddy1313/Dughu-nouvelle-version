@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { dughu, dughuApi, pick, DughuApiError, resolveMediaUrl } from '@/lib/dughu'
 import { syncLocalUserFromDughu } from '@/lib/dughu-user'
-import { randomBytes } from 'crypto'
 
 export async function POST(req: NextRequest) {
   try {
@@ -167,7 +166,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({
       success: true,
       user: {
-        id: user.id,
+        id: dughuUserId,
         email: user.email,
         name: user.name,
         firstName: user.firstName,
@@ -189,29 +188,24 @@ export async function POST(req: NextRequest) {
       redirect: '/home'
     })
 
-    // ── Session persistante ──
-    // Créer une session en base et poser un cookie à longue durée pour que
-    // l'utilisateur ne soit pas redemandé à se connecter à chaque retour sur
-    // Dughu (sauf s'il se déconnecte lui-même). Le middleware lit ce cookie.
-    try {
-      const sessionToken = randomBytes(32).toString('hex')
-      const sessionMaxAge = remember ? 365 * 24 * 60 * 60 : 30 * 24 * 60 * 60 // 1 an si "se souvenir", sinon 30 jours
-      const expires = new Date(Date.now() + sessionMaxAge * 1000)
-
-      await prisma.session.create({
-        data: { sessionToken, userId: user.id, expires },
-      })
-
-      response.cookies.set("next-auth.session-token", sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: sessionMaxAge,
-      })
-    } catch (err) {
-      console.error("SESSION CREATE ERROR:", err)
-    }
+    // ── Session : token Dughu en cookie (source de vérité) ──
+    // Plus de session locale requise : le cookie transporte le token Dughu et
+    // l'ID utilisateur. /api/auth/me lit ces cookies puis interroge l'API Dughu.
+    const sessionMaxAge = remember ? 365 * 24 * 60 * 60 : 30 * 24 * 60 * 60 // 1 an si "se souvenir", sinon 30 jours
+    response.cookies.set("dughu_token", dughuToken || "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: sessionMaxAge,
+    })
+    response.cookies.set("dughu_user_id", dughuUserId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: sessionMaxAge,
+    })
 
     return response
 

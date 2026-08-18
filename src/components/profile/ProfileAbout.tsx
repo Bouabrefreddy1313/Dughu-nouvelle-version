@@ -71,7 +71,7 @@ export function ProfileAbout({ user, info, isOwn, onEdit }: ProfileAboutProps) {
       {/* Biographie / signature */}
       <div className="mb-3">
         <p className="text-[12px] font-semibold text-[#65676B] uppercase tracking-wide mb-1">Biographie</p>
-        <p className="text-[14px] text-[#4A4A4A] leading-relaxed whitespace-pre-wrap">
+        <p className="text-[14px] text-[#4A4A4A] leading-relaxed whitespace-pre-wrap break-words">
           {user.bio || (isOwn ? "Ajoutez une biographie pour vous présenter." : "Aucune biographie.")}
         </p>
       </div>

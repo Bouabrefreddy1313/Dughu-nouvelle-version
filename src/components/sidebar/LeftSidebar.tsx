@@ -118,7 +118,7 @@ export default function LeftSidebar({
             <div className="ml-8 space-y-0.5 border-l-2 border-[#E4E6EB] pl-3">
               <SidebarItem
                 icon={<Globe size={20} />}
-                label="Toutes les publications"
+                label="Toutes les interactions"
                 active={filter === "all"}
                 iconBg="bg-[#A35A2A]/15"
                 iconColor="text-[#A35A2A]"

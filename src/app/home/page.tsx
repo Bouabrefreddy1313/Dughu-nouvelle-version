@@ -476,7 +476,11 @@ export default function HomePage() {
 
   const handlePin = async (postId: string) => {
     try {
-      const res = await fetch(`/api/togglePinStatus/${postId}`, { method: "POST" })
+      const res = await fetch(`/api/togglePinStatus/${postId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user?.id, dughuUserId: user?.dughu?.userId }),
+      })
       if (res.ok) {
         setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, isPinned: !p.isPinned } : p))
         toast.success("Statut épinglé mis à jour")

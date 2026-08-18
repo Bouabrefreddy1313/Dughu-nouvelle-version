@@ -153,6 +153,24 @@ export const dughuApi = {
   hidePost: (userId: string | number, postId: string | number) =>
     dughu.form("hidePost", { user_id: String(userId), post_id: String(postId) }),
 
+  // Épingler / désépingler une publication (réservé à l'auteur du post)
+  togglePinStatus: (userId: string | number, postId: string | number) =>
+    dughu.form(`togglePinStatus/${encodeURIComponent(String(postId))}`, { user_id: String(userId) }),
+
+  // ── Stories ──
+  getUserStories: (targetUserId: string | number) =>
+    dughu.get("getUserStories", { target_user_id: String(targetUserId) }),
+
+  getFriendsStories: (userId: string | number) =>
+    dughu.get("getFriendsStories", { user_id: String(userId) }),
+
+  postStory: (formData: FormData) => dughu.multipart("postStory", formData),
+
+  delStory: (storyId: string | number) =>
+    dughuFetch(`delStory/${encodeURIComponent(String(storyId))}`, { method: "DELETE" }),
+
+  toggleLikeStory: (formData: FormData) => dughu.multipart("toggleLikeStory", formData),
+
   getUser: (identifier: string | number, viewer: string | number) =>
     dughu.get(`getSpecificUser/${encodeURIComponent(String(identifier))}/${encodeURIComponent(String(viewer))}`),
 
@@ -176,12 +194,35 @@ export const dughuApi = {
   getPostAllRepost: (userId: string | number, page: number) =>
     dughu.get(`getPostAllRepost/${encodeURIComponent(String(userId))}`, { page }),
 
+  // Variante plus rapide du fil (getPostAll/{userId}) : utilisée en repli quand
+  // getPostAllRepost tarde trop, pour éviter le timeout côté client.
+  getPostAll: (userId: string | number, page: number) =>
+    dughu.get(`getPostAll/${encodeURIComponent(String(userId))}`, { page }),
+
   searchAll: (params: { search?: string; q?: string; type?: string; page?: number }) =>
     dughu.form("searchAll", {
       search: params.search || params.q || "",
       type: params.type || "",
       page: String(params.page || 1),
     }),
+
+  // ── Suggestions (sidebar) ──
+  suggestPages: (params: { user_id: string | number; searchTerm?: string; page?: number }) =>
+    dughu.form(`suggestPages?page=${Number(params.page) || 1}`, {
+      user_id: String(params.user_id),
+      searchTerm: params.searchTerm || "",
+    }),
+
+  suggestGroups: (params: { user_id: string | number; searchTerm?: string; page?: number }) =>
+    dughu.form(`suggestgroupes?page=${Number(params.page) || 1}`, {
+      user_id: String(params.user_id),
+      searchTerm: params.searchTerm || "",
+    }),
+
+  getHashtags: (q = "") => dughu.get("getHashtags", { q }),
+
+  getPopularPosts: (userId: string | number) =>
+    dughu.get(`getPopularPosts/${encodeURIComponent(String(userId))}`),
 
   getComments: (postId: string | number, userId: string | number, page = 1) =>
     dughu.get(`getComments/${encodeURIComponent(String(postId))}/${encodeURIComponent(String(userId))}`, { page }),
@@ -453,6 +494,46 @@ export function mapFriends(raw: any): Record<string, any>[] {
       username: u.username,
       avatar: u.avatar,
     }))
+}
+
+/** Normalise une story renvoyée par l'API Dughu vers la forme attendue par le frontend. */
+export function normalizeStory(s: any): Record<string, any> | null {
+  if (!s || typeof s !== "object") return null
+  const id = pick(s, "id", "ID", "story_id", "storyId")
+  if (!id) return null
+  const userRaw = normalizeUser(s?.user || s?.author || s?.utilisateur)
+  const image = resolveMediaUrl(toUrl(
+    pick(s, ["image", "photo", "media", "file", "postFile", "story_image", "storyImage", "storyMedia", "story_url", "thumbnail", "thumb", "media_file"], "")
+  ))
+  const video = resolveMediaUrl(toUrl(
+    pick(s, ["video", "story_video", "storyVideo", "media_video", "file_video", "postVideoURL"], "")
+  ))
+  const text = pick(s, ["text", "content", "description", "story_text", "storyText", "caption"]) || ""
+  const bg = pick(s, ["bgColor", "bg_color", "backgroundColor", "background", "color"]) || ""
+  const viewed =
+    pick(s, ["viewed", "is_viewed", "isViewed", "seen"]) === true ||
+    pick(s, ["viewed", "is_viewed", "isViewed"]) === "1" ||
+    pick(s, ["viewed", "is_viewed", "isViewed"]) === 1
+  return {
+    id: String(id),
+    userId: String(pick(s, ["user_id", "userId", "userID"]) || (userRaw?.id || "")),
+    image,
+    video,
+    text: String(text || ""),
+    bg: String(bg || ""),
+    viewed: !!viewed,
+    createdAt: toDate(pick(s, ["createdAt", "created_at", "date", "time", "post_date", "timestamp"])),
+    user: userRaw
+      ? { id: userRaw.id, name: userRaw.name, username: userRaw.username, avatar: userRaw.avatar }
+      : null,
+  }
+}
+
+export function mapStories(raw: any): Record<string, any>[] {
+  const unwrapped = raw?.result && typeof raw.result === "object" && !Array.isArray(raw.result) ? raw.result : raw
+  const arr = Array.isArray(unwrapped) ? unwrapped : unwrapped?.data || unwrapped?.stories || unwrapped?.items || []
+  if (!Array.isArray(arr)) return []
+  return arr.map(normalizeStory).filter((s): s is Record<string, any> => s !== null)
 }
 
 function toDate(v: any): string {

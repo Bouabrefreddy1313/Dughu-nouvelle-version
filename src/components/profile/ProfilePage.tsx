@@ -62,7 +62,7 @@ interface Post {
   _count: { comments: number; likes: number; reposts: number }
 }
 
-type Tab = "publications" | "photos" | "apropos"
+type Tab = "interactions" | "photos" | "apropos"
 
 export function ProfilePage({ target }: { target: { userId?: string; slug?: string } }) {
   const queryClient = useQueryClient()
@@ -71,7 +71,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
   const [pageNum, setPageNum] = useState(1)
   const [hasMore, setHasMore] = useState(false)
 
-  const [tab, setTab] = useState<Tab>("publications")
+  const [tab, setTab] = useState<Tab>("interactions")
   const [editOpen, setEditOpen] = useState(false)
   const [imageEdit, setImageEdit] = useState<null | "avatar" | "cover">(null)
 
@@ -92,7 +92,17 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
   } = useProfile(profileParams)
   const profile = profileData ?? null
   const profileId = profile?.user?.id || ""
-  const isOwn = !!profileId && !!currentUser?.id && profileId === currentUser.id
+  const profileDughuId = profile?.user?.dughu?.userId || ""
+  const myDughuId = currentUser?.dughu?.userId || ""
+  // Un profil est "le mien" si l'id local correspond OU si l'ID Dughu de la
+  // cible correspond au mien. Le second test couvre le cas où le username
+  // local a divergé du username Dughu (renommé côté Dughu) : la page est alors
+  // chargée via le username/slug Dughu et /api/profile ne peut pas relier la
+  // cible au compte local (id local inconnu) — comparer les ID Dughu évite
+  // d'afficher "Suivre" / "Message" sur son propre profil.
+  const isOwn =
+    (!!profileId && !!currentUser?.id && profileId === currentUser.id) ||
+    (!!profileDughuId && !!myDughuId && profileDughuId === myDughuId)
 
   const loadPosts = useCallback(async (page: number, reset = false) => {
     if (!profileId) return
@@ -441,8 +451,8 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode; count?: number }[] = [
     {
-      key: "publications",
-      label: "Publications",
+      key: "interactions",
+      label: "Interactions",
       icon: <Sparkles size={16} />,
       count: stats.posts,
     },
@@ -465,6 +475,8 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
         }
         onEditCover={() => setImageEdit("cover")}
         onEditAvatar={() => setImageEdit("avatar")}
+        onEditProfile={() => setEditOpen(true)}
+        onMore={() => toast.info("Options de profil — bientôt disponible")}
       />
 
       {/* Onglets façon Facebook */}
@@ -504,7 +516,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
 
         {/* ═════ CONTENU PRINCIPAL ═════ */}
         <div className="flex-1 min-w-0 space-y-4">
-          {tab === "publications" && (
+          {tab === "interactions" && (
             <>
               {isOwn && <PostComposer user={currentUser} onSubmit={handleCreatePost} className="mb-0" />}
               {!isOwn && (

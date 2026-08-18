@@ -123,7 +123,7 @@ export function ProfileHeader({
             {metaLine && <p className="text-[13px] text-[#65676B] mt-0.5">{metaLine}</p>}
 
             {user.bio && (
-              <p className="mt-1.5 text-[14px] text-[#4A4A4A] max-w-[420px] line-clamp-2">{user.bio}</p>
+              <p className="mt-1.5 text-[14px] text-[#4A4A4A] max-w-[420px] line-clamp-2 whitespace-pre-wrap break-words">{user.bio}</p>
             )}
           </div>
 
@@ -136,7 +136,7 @@ export function ProfileHeader({
               </div>
               <div className="text-center sm:text-right">
                 <p className="font-bold text-[15px] text-[#050505] leading-tight">{formatCount(stats.posts)}</p>
-                <p className="text-[12px] text-[#65676B]">Publications</p>
+                <p className="text-[12px] text-[#65676B]">Interactions</p>
               </div>
               <div className="text-center sm:text-right">
                 <p className="font-bold text-[15px] text-[#050505] leading-tight">{formatCount(stats.followers)}</p>
@@ -144,7 +144,7 @@ export function ProfileHeader({
               </div>
               <div className="text-center sm:text-right">
                 <p className="font-bold text-[15px] text-[#050505] leading-tight">{formatCount(stats.following)}</p>
-                <p className="text-[12px] text-[#65676B]">Abonnements</p>
+                <p className="text-[12px] text-[#65676B]">Suivis</p>
               </div>
             </div>
 

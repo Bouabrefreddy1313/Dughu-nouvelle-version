@@ -5,8 +5,11 @@ const publicRoutes = ["/login", "/register", "/otp", "/forgot-password", "/api"]
 const authRoutes = ["/login", "/register", "/otp", "/forgot-password"]
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get("next-auth.session-token")?.value 
-    || request.cookies.get("__Secure-next-auth.session-token")?.value
+  const token =
+    request.cookies.get("dughu_token")?.value ||
+    request.cookies.get("dughu_user_id")?.value ||
+    request.cookies.get("next-auth.session-token")?.value ||
+    request.cookies.get("__Secure-next-auth.session-token")?.value
   
   const { pathname } = request.nextUrl
 

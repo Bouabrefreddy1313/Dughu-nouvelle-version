@@ -78,8 +78,14 @@ export async function GET(req: NextRequest) {
         return mapPhotos(raw)
       }).catch((e) => { console.error("DUGHU PHOTOS ERROR:", e); return [] }) : Promise.resolve([]),
       userObj.id ? dughuApi.getUserFriends(userObj.id).then(mapFriends).catch(() => []) : Promise.resolve([]),
-      // Récupérer aussi les posts pour extraire leurs images
-      userObj.id ? dughuApi.getPostAllRepost(userObj.id, 1).catch(() => null) : Promise.resolve(null),
+      // Récupérer aussi les posts pour extraire leurs images (variante rapide en
+      // repli pour éviter le timeout quand getPostAllRepost est lent)
+      userObj.id
+        ? Promise.race([
+            dughuApi.getPostAllRepost(userObj.id, 1).catch(() => null),
+            dughuApi.getPostAll(userObj.id, 1).catch(() => null),
+          ])
+        : Promise.resolve(null),
     ])
 
     // Extraire les images des posts de l'utilisateur
@@ -120,14 +126,16 @@ export async function GET(req: NextRequest) {
       !!pick(raw, "is_following", "isFollowing", "follow_status", "followStatus") ||
       !!userObj.isFollowing
 
-    const targetDughuId = dughuUserId || ""
-
     return NextResponse.json({
       success: true,
       user: {
         ...userObj,
         id: localUser?.id || userObj.id,
-        dughu: dughuUserId ? { userId: dughuUserId } : null,
+        // Toujours exposer l'ID Dughu de la cible : permet au frontend de
+        // détecter "mon propre profil" même quand le username local a divergé
+        // du username Dughu (renommé côté Dughu), en comparant les ID Dughu
+        // plutôt que les id locaux.
+        dughu: { userId: String(userObj.id || "") },
         name: userObj.name,
         avatar: userObj.avatar,
         cover: userObj.cover,

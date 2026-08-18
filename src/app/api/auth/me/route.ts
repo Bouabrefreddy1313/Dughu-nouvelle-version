@@ -1,20 +1,70 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { dughuApi, normalizeUser } from "@/lib/dughu"
 import { resolveDughuUserId, shouldSyncLocalUser, syncLocalUserFromDughu } from "@/lib/dughu-user"
 
 const DEFAULT_COVER = "/images/group/default-cover.jpg"
 
 export async function GET() {
   try {
-    const token =
-      (await (import("next/headers").then((m) => m.cookies())))?.get("next-auth.session-token")?.value ||
-      (await (import("next/headers").then((m) => m.cookies())))?.get("__Secure-next-auth.session-token")?.value
+    const cookies = await (await import("next/headers")).cookies()
+    const dughuToken = cookies.get("dughu_token")?.value
+    const dughuUserIdCookie = cookies.get("dughu_user_id")?.value
+    const legacyToken =
+      cookies.get("next-auth.session-token")?.value ||
+      cookies.get("__Secure-next-auth.session-token")?.value
 
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Non connecté." }, { status: 401 })
+    // ── Flux 1 : token Dughu en cookie (source de vérité) ──
+    if (dughuUserIdCookie && /^\d+$/.test(String(dughuUserIdCookie))) {
+      const dughuUserId = String(dughuUserIdCookie)
+      const userObj = await dughuApi
+        .getUser(dughuUserId, dughuUserId)
+        .then((raw) => normalizeUser(raw?.user || raw?.data || raw?.profile || raw?.result || raw))
+        .catch(() => null)
+      if (!userObj) {
+        // Token/ID invalide → non connecté.
+        return NextResponse.json({ success: false, message: "Non connecté." }, { status: 401 })
+      }
+
+      const username = userObj.username || ""
+      const avatar = userObj.avatar || "/images/avatar.png"
+      const cover = userObj.cover || DEFAULT_COVER
+
+      // Miroir local best-effort (resynchronise nom/username/avatar/cover si un
+      // compte local correspondant existe — ne bloque jamais l'authentification).
+      if (userObj.email) {
+        const localUser = await prisma.user.findUnique({ where: { email: userObj.email } }).catch(() => null)
+        if (localUser?.id && shouldSyncLocalUser(localUser.id)) {
+          await syncLocalUserFromDughu(localUser.id, dughuUserId, null).catch(() => null)
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: dughuUserId,
+          email: userObj.email || "",
+          name: userObj.name || username || "Utilisateur",
+          firstName: userObj.firstName || "",
+          lastName: userObj.lastName || "",
+          username,
+          avatar,
+          image: avatar,
+          cover,
+          bio: userObj.bio || "",
+          _count: { posts: 0, followers: 0, following: 0 },
+          followers: [],
+          following: [],
+          dughu: { userId: dughuUserId, username },
+        },
+      })
     }
 
-    const session = await prisma.session.findUnique({ where: { sessionToken: token } })
+    // ── Flux 2 : session locale héritée (compat, avant la migration token) ──
+    if (!legacyToken) {
+      return NextResponse.json({ success: false, message: "Non connecté." }, { status: 401 })
+    }
+    const session = await prisma.session.findUnique({ where: { sessionToken: legacyToken } })
     if (!session || new Date(session.expires) < new Date()) {
       return NextResponse.json({ success: false, message: "Session expirée." }, { status: 401 })
     }
@@ -31,16 +81,12 @@ export async function GET() {
     ])
 
     // ID Dughu résolu à la demande (plus stocké en base depuis la suppression
-    // de la colonne dughuId) : le frontend récupère ainsi toujours
-    // user.dughu.userId, même si son cache localStorage a été perdu.
+    // de la colonne dughuId).
     let dughuInfo: { userId: string; username?: string } | null = null
     try {
       const dughuUserId = await resolveDughuUserId({ email: user.email, username: user.username })
       if (dughuUserId) {
         dughuInfo = { userId: dughuUserId, username: user.username || undefined }
-        // Re-synchronisation du miroir local depuis Dughu (source de vérité)
-        // au plus une fois par heure et par utilisateur : les sessions déjà
-        // ouvertes convergent sans re-login (nom, username, avatar, cover).
         if (shouldSyncLocalUser(user.id)) {
           const synced = await syncLocalUserFromDughu(user.id, dughuUserId, null)
           if (synced) user = synced

@@ -32,6 +32,9 @@ function readCache(key: string): string | null {
 /** Résout l'ID Dughu d'un utilisateur local via l'API Dughu (email puis username). */
 export async function resolveDughuUserId(localUser: LocalUserRef | null | undefined): Promise<string> {
   if (!dughu.enabled || !localUser) return ""
+  // Nouveau flux "token Dughu" : le username peut être directement un ID Dughu
+  // numérique (aucune consultation API nécessaire).
+  if (localUser.username && /^\d+$/.test(String(localUser.username))) return String(localUser.username)
   const identifiers = [localUser.email || "", localUser.username || ""].filter(Boolean)
   for (const identifier of identifiers) {
     const cacheKey = `id:${identifier}`
@@ -56,6 +59,9 @@ export async function resolveDughuUserId(localUser: LocalUserRef | null | undefi
 /** Résout l'ID Dughu depuis l'ID local (User.id en base Prisma). */
 export async function resolveDughuUserIdFromLocalId(localUserId: string | null | undefined): Promise<string> {
   if (!localUserId) return ""
+  // Nouveau flux "token Dughu" : l'identifiant fourni par le frontend est déjà
+  // l'ID Dughu numérique → pas de consultation locale nécessaire.
+  if (/^\d+$/.test(String(localUserId))) return String(localUserId)
   const cacheKey = `local:${localUserId}`
   const cached = readCache(cacheKey)
   if (cached !== null) return cached

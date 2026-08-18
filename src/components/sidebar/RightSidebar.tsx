@@ -114,6 +114,8 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
   const [boostedPosts, setBoostedPosts] = useState<BoostedPost[]>([])
   const [shuffledBoosted, setShuffledBoosted] = useState<BoostedPost[]>([])
   const [activities, setActivities] = useState<ActivityItem[]>([])
+  const [suggestedGroups, setSuggestedGroups] = useState<any[]>([])
+  const [suggestedPages, setSuggestedPages] = useState<any[]>([])
 
   // Charger les posts boostés et les activités
   useEffect(() => {
@@ -131,6 +133,33 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
           }
           if (data.activities) {
             setActivities(data.activities)
+          }
+          if (Array.isArray(data.groups) && data.groups.length > 0) {
+            setSuggestedGroups(
+              data.groups.map((g: any) => ({
+                id: g.id,
+                name: g.name,
+                description: g.description,
+                members: g.memberCount ? `${g.memberCount} membres` : "0 membres",
+                cover: g.cover,
+                avatar: g.image,
+              }))
+            )
+          }
+          if (Array.isArray(data.pages) && data.pages.length > 0) {
+            setSuggestedPages(
+              data.pages.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                description: p.description,
+                members: p.likes ? `${p.likes} j'aime` : "",
+                cover: p.cover,
+                avatar: p.image,
+              }))
+            )
+          }
+          if (Array.isArray(data.hashtags) && data.hashtags.length > 0) {
+            setTrends(data.hashtags.slice(0, 6).map((t: any) => ({ tag: t.tag, count: t.postCount || 0 })))
           }
         }
       } catch {
@@ -154,11 +183,11 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
     }
   }
 
-  const trends = [
+  const [trends, setTrends] = useState([
     { tag: "#TechCI", count: 124 },
     { tag: "#Abidjan", count: 174 },
     { tag: "#Dughu", count: 224 },
-  ]
+  ])
 
   return (
     <aside className={cn(
@@ -217,7 +246,7 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
       {/* Groupes */}
       <GroupCarousel
         title="Groupe suggéré"
-        items={GROUPS}
+        items={suggestedGroups.length > 0 ? suggestedGroups : GROUPS}
         defaultCover="/images/group/default-cover.jpg"
         defaultAvatar="/images/group/default-avatar.jpg"
         icon={<Users size={14} className="text-[#A35A2A]" />}
@@ -228,7 +257,7 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
       {/* Espaces */}
       <GroupCarousel
         title="Espace suggéré"
-        items={SPACES}
+        items={suggestedPages.length > 0 ? suggestedPages : SPACES}
         defaultCover="/images/page/default-cover.jpg"
         defaultAvatar="/images/page/default-avatar.jpg"
         icon={<Globe size={14} className="text-[#A35A2A]" />}
