@@ -34,6 +34,18 @@ async function dughuFetch(path: string, init: RequestInit = {}, retries = RETRY_
       const headers = new Headers(init.headers)
       headers.set("X-AppApiToken", API_TOKEN)
       headers.set("Accept", "application/json")
+      // Debug: log request metadata in non-production for troubleshooting
+      if (process.env.NODE_ENV !== "production") {
+        try {
+          const method = (init.method || "GET").toUpperCase()
+          const headerKeys = Array.from(headers.keys())
+          const safeBody = typeof init.body === "string" ? init.body.slice(0, 1000) : undefined
+          // Ne jamais logger la valeur du token — seulement l'existence de l'en-tête
+          console.debug(`[dughuFetch] ${method} ${url} | hasToken:${headers.has("X-AppApiToken")} | headers:${headerKeys.join(",")} | bodyPreview:${safeBody ?? ""}`)
+        } catch (e) {
+          /* ignore logging errors */
+        }
+      }
       const res = await fetch(url, { ...init, headers, signal: controller.signal })
       const text = await res.text()
       let data: unknown = null
