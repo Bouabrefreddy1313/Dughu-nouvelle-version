@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, pick, DughuApiError, resolveMediaUrl } from "@/lib/dughu"
+import { syncLocalUserFromDughu } from "@/lib/dughu-user"
 import { randomBytes } from "crypto"
 
 // Connexion Google via l'API Dughu (POST /auth/google { token }).
@@ -134,6 +135,19 @@ export async function POST(req: NextRequest) {
       where: { id: user.id },
       data: { lastSeen: new Date(), lastseen: new Date() },
     })
+
+    // ── 3bis. Synchronisation du miroir local depuis Dughu (source de vérité) ──
+    // Même logique que /api/login : aligne nom, username, avatar et cover du
+    // miroir local sur les données fraîches de Dughu à chaque connexion.
+    try {
+      const syncedUser = await syncLocalUserFromDughu(user.id, dughuUserId, dughuProfile)
+      if (syncedUser) user = syncedUser
+    } catch (syncErr) {
+      console.error("GOOGLE AUTH SYNC ERROR:", syncErr)
+    }
+    if (!user) {
+      return NextResponse.json({ success: false, message: "Utilisateur introuvable." }, { status: 500 })
+    }
 
     // ── 4. Infos Dughu pour la réponse ──
     const dughuInfo: Record<string, unknown> = {

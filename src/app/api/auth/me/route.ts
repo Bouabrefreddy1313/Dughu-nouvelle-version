@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { resolveDughuUserId } from "@/lib/dughu-user"
+import { resolveDughuUserId, shouldSyncLocalUser, syncLocalUserFromDughu } from "@/lib/dughu-user"
 
 const DEFAULT_COVER = "/images/group/default-cover.jpg"
 
@@ -19,7 +19,7 @@ export async function GET() {
       return NextResponse.json({ success: false, message: "Session expirée." }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({ where: { id: session.userId } })
+    let user = await prisma.user.findUnique({ where: { id: session.userId } })
     if (!user) {
       return NextResponse.json({ success: false, message: "Utilisateur introuvable." }, { status: 404 })
     }
@@ -38,9 +38,19 @@ export async function GET() {
       const dughuUserId = await resolveDughuUserId({ email: user.email, username: user.username })
       if (dughuUserId) {
         dughuInfo = { userId: dughuUserId, username: user.username || undefined }
+        // Re-synchronisation du miroir local depuis Dughu (source de vérité)
+        // au plus une fois par heure et par utilisateur : les sessions déjà
+        // ouvertes convergent sans re-login (nom, username, avatar, cover).
+        if (shouldSyncLocalUser(user.id)) {
+          const synced = await syncLocalUserFromDughu(user.id, dughuUserId, null)
+          if (synced) user = synced
+        }
       }
     } catch (err) {
       console.error("AUTH ME DUGHU RESOLVE ERROR:", err)
+    }
+    if (!user) {
+      return NextResponse.json({ success: false, message: "Utilisateur introuvable." }, { status: 404 })
     }
 
     return NextResponse.json({

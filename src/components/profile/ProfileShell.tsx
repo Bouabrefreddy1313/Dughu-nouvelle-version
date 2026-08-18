@@ -16,26 +16,28 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("dughu_user")
-      if (stored) {
-        try {
-          setUser(JSON.parse(stored))
-        } catch {
-          setUser(null)
-        }
-      } else {
-        fetch("/api/auth/me")
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (data?.success && data.user) {
-              localStorage.setItem("dughu_user", JSON.stringify(data.user))
-              setUser(data.user)
-            }
-          })
-          .catch(() => {})
+    if (typeof window === "undefined") return
+    // Seed rapide depuis le cache local (affichage immédiat)
+    const stored = localStorage.getItem("dughu_user")
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored))
+      } catch {
+        setUser(null)
       }
     }
+    // Rafraîchissement depuis le serveur (source de vérité) : le miroir local
+    // est resynchronisé depuis Dughu par /api/auth/me, on répercute donc ici
+    // les données à jour (nom, username, avatar, cover).
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.success && data.user) {
+          localStorage.setItem("dughu_user", JSON.stringify(data.user))
+          setUser(data.user)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   const handleLogout = () => {

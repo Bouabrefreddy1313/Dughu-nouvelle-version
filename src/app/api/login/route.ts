@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { dughu, dughuApi, pick, DughuApiError, resolveMediaUrl } from '@/lib/dughu'
+import { syncLocalUserFromDughu } from '@/lib/dughu-user'
 import { randomBytes } from 'crypto'
 
 export async function POST(req: NextRequest) {
@@ -133,6 +134,20 @@ export async function POST(req: NextRequest) {
       where: { id: user.id },
       data: { lastSeen: new Date(), lastseen: new Date() }
     })
+
+    // ── 2bis. Synchronisation du miroir local depuis Dughu (source de vérité) ──
+    // Dughu alimente les pages profil : on aligne le miroir local (accueil,
+    // sidebars) sur ses données à chaque connexion (nom, username, avatar,
+    // cover) pour éviter les divergences entre l'accueil et le profil.
+    try {
+      const syncedUser = await syncLocalUserFromDughu(user.id, dughuUserId, dughuProfile)
+      if (syncedUser) user = syncedUser
+    } catch (syncErr) {
+      console.error('LOGIN SYNC ERROR:', syncErr)
+    }
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'Utilisateur introuvable.' }, { status: 500 })
+    }
 
     // ── 3. Infos Dughu pour la réponse ──
     const dughuInfo: Record<string, unknown> = {
