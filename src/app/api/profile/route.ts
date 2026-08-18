@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { dughu, dughuApi, normalizeUser, parseCounts, mapPhotos, mapPosts, mapFriends, pick } from "@/lib/dughu"
+import { dughu, dughuApi, normalizeUser, parseCounts, mapPhotos, mapVideos, mapFriends, pick } from "@/lib/dughu"
 import { resolveDughuUserId, resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 const DEFAULT_COVER = "/images/group/default-cover.jpg"
@@ -72,48 +72,23 @@ export async function GET(req: NextRequest) {
     const resultObj = raw?.result ?? raw
     const details = parseCounts(resultObj?.details ?? raw?.details ?? raw?.user?.details ?? userObj.details)
     const username = userObj.username || userObj.slug || ""
-    const [photos, friends, userPostsRaw] = await Promise.all([
+    const [photos, friends, videos] = await Promise.all([
+      // Uniquement les photos publiées par l'utilisateur, via l'endpoint dédié
+      // profile/{username}/photos (pas d'images extraites des posts/reposts)
       username ? dughuApi.getUserPhotos(username, 1).then((raw) => {
         console.log("DUGHU PHOTOS RAW:", JSON.stringify(raw).slice(0, 500))
         return mapPhotos(raw)
       }).catch((e) => { console.error("DUGHU PHOTOS ERROR:", e); return [] }) : Promise.resolve([]),
       userObj.id ? dughuApi.getUserFriends(userObj.id).then(mapFriends).catch(() => []) : Promise.resolve([]),
-      // Récupérer aussi les posts pour extraire leurs images (variante rapide en
-      // repli pour éviter le timeout quand getPostAllRepost est lent)
-      userObj.id
-        ? Promise.race([
-            dughuApi.getPostAllRepost(userObj.id, 1).catch(() => null),
-            dughuApi.getPostAll(userObj.id, 1).catch(() => null),
-          ])
-        : Promise.resolve(null),
+      // Vidéos publiées par l'utilisateur via l'endpoint dédié
+      // profile/{username}/videos
+      username ? dughuApi.getUserVideos(username, 1).then((raw) => {
+        console.log("DUGHU VIDEOS RAW:", JSON.stringify(raw).slice(0, 500))
+        return mapVideos(raw)
+      }).catch((e) => { console.error("DUGHU VIDEOS ERROR:", e); return [] }) : Promise.resolve([]),
     ])
 
-    // Extraire les images des posts de l'utilisateur
-    const postImages: Record<string, any>[] = []
-    if (userPostsRaw) {
-      const userPosts = mapPosts(userPostsRaw) as any[]
-      const seenUrls = new Set(photos.map((p: any) => p.url))
-      for (const post of userPosts) {
-        // Image principale
-        if (post.image && !seenUrls.has(post.image)) {
-          seenUrls.add(post.image)
-          postImages.push({ id: `post-${post.id}`, url: post.image, createdAt: post.createdAt })
-        }
-        // Images multiples
-        if (Array.isArray(post.images)) {
-          for (const img of post.images) {
-            if (img.url && !seenUrls.has(img.url)) {
-              seenUrls.add(img.url)
-              postImages.push({ id: `post-img-${post.id}-${postImages.length}`, url: img.url, createdAt: post.createdAt })
-            }
-          }
-        }
-      }
-    }
-
-    // Fusionner : photos galerie + images des posts
-    const allPhotos = [...photos, ...postImages]
-    console.log("PROFILE PHOTOS: gallery", photos.length, "| post images:", postImages.length, "| total:", allPhotos.length)
+    const allPhotos = photos
 
     // Les vrais compteurs sont des champs numériques au niveau supérieur de la
     // réponse Dughu (NbrPostsTotal, followersNbr, followingsNbr), pas `details`.
@@ -159,6 +134,7 @@ export async function GET(req: NextRequest) {
       friends,
       recentFollowers: [],
       photos: allPhotos,
+      videos,
       groups: [],
       pages: { owned: [], liked: [] },
       isFollowing,

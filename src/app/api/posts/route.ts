@@ -56,7 +56,14 @@ export async function GET(req: NextRequest) {
 
     // ── Mode profil : posts d'un auteur précis ──
     if (authorId) {
-      const raw = await dughuApi.getUserPosts(authorId, dughuUserId, page)
+      // L'endpoint Dughu `userPost` attend l'ID Dughu de l'auteur dans
+      // `user_id`. Si le frontend a passé un ID local (UUID), on le résout
+      // vers l'ID Dughu — sinon l'API ne renvoie aucun post.
+      let targetDughuId = authorId
+      if (!/^\d+$/.test(String(authorId))) {
+        targetDughuId = (await resolveDughuUserIdFromLocalId(authorId)) || authorId
+      }
+      const raw = await dughuApi.getUserPosts(targetDughuId, dughuUserId, page)
       const posts = mapPosts(raw, {
         id: authorId,
         name: "",

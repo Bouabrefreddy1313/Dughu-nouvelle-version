@@ -457,7 +457,7 @@ export function normalizePhoto(p: any): Record<string, any> | null {
   const id = pick(p, ["id", "ID", "post_id", "postId", "photo_id"], "") || String(Math.random()).slice(2)
   // Chercher l'URL dans tous les champs possibles (l'API Dughu utilise postFile principalement)
   const raw = toUrl(pick(p, [
-    "postFile", "postFileLink", "postPhoto", "file", "fileLink",
+    "postFileLink", "postFile", "postPhoto", "file", "fileLink",
     "file_path", "image", "photo", "photoUrl", "photo_url",
     "url", "link", "thumb", "thumbnail",
   ], ""))
@@ -480,6 +480,41 @@ export function mapPhotos(raw: any): Record<string, any>[] {
       || []
   if (!Array.isArray(arr)) return []
   return arr.map(normalizePhoto).filter((x): x is Record<string, any> => x !== null)
+}
+
+export function normalizeVideo(v: any): Record<string, any> | null {
+  if (!v || typeof v !== "object") return null
+  const id = pick(v, ["id", "ID", "post_id", "postId", "video_id"], "") || String(Math.random()).slice(2)
+  // postFileLink (URL S3 absolue) prioritaire, comme pour les photos
+  const raw = toUrl(pick(v, [
+    "postFileLink", "postFile", "videoLink", "video_url", "videoUrl",
+    "file", "fileLink", "file_path", "video", "media", "media_file",
+    "url", "link", "thumb", "thumbnail",
+  ], ""))
+  const url = raw ? resolveMediaUrl(raw) : ""
+  if (!url) return null
+  const thumb = toUrl(pick(v, [
+    "postFileThumb", "thumbnail", "thumb", "thumbnail_url", "video_thumb", "poster",
+  ], ""))
+  return {
+    id: String(id),
+    url,
+    thumb: thumb ? resolveMediaUrl(thumb) : null,
+    views: Number(pick(v, ["videoViews", "video_views", "views", "view_count", "count_views"])) || 0,
+    createdAt: pick(v, ["createdAt", "created_at", "date", "time", "uploaded_at", "post_time"], "") || "",
+  }
+}
+
+export function mapVideos(raw: any): Record<string, any>[] {
+  // L'API Dughu peut wrapper la réponse de différentes façons
+  const arr = Array.isArray(raw)
+    ? raw
+    : raw?.data || raw?.videos || raw?.items
+      || raw?.result?.data || raw?.result?.videos || raw?.result?.items || raw?.result?.posts
+      || (Array.isArray(raw?.result) ? raw.result : null)
+      || []
+  if (!Array.isArray(arr)) return []
+  return arr.map(normalizeVideo).filter((x): x is Record<string, any> => x !== null)
 }
 
 export function mapFriends(raw: any): Record<string, any>[] {

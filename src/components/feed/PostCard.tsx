@@ -22,6 +22,8 @@ import {
   ChevronDown,
   Bookmark,
   EyeOff,
+  Smile,
+  MessageCircle,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -819,6 +821,13 @@ function ModalPostPreview({
   )
 }
 
+const EMOJI_LIST = [
+  "😀", "😍", "😂", "🥰", "😊", "😎", "🤔", "😴",
+  "😢", "😭", "😡", "😯", "😱", "🤯", "🥳", "😇",
+  "🔥", "❤️", "💯", "👍", "👎", "👏", "🙌", "💪",
+  "🎉", "✨", "⭐", "💡", "👀", "🤝", "✅", "❌",
+]
+
 export function PostCard({
   postId,
   author,
@@ -873,8 +882,10 @@ export function PostCard({
   >({})
   const [contentExpanded, setContentExpanded] = useState(false)
   const [postMenuOpen, setPostMenuOpen] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
   const postMenuRef = useRef<HTMLDivElement | null>(null)
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -887,6 +898,18 @@ export function PostCard({
       return () => document.removeEventListener("mousedown", handler)
     }
   }, [postMenuOpen])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false)
+      }
+    }
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handler)
+      return () => document.removeEventListener("mousedown", handler)
+    }
+  }, [showEmojiPicker])
 
   useEffect(() => {
     setSelectedReaction(reacted ? REACTION_TYPE_TO_ID[reacted] || null : null)
@@ -1152,9 +1175,6 @@ export function PostCard({
         replies: [],
       }
 
-      // Le parent logique est la réponse à laquelle on répond (parentId) :
-      // en mode local le backend renvoie le même id ; en mode Dughu il renvoie
-      // l'id du commentaire racine mais on imbrique immédiatement sous la réponse.
       const targetParentId = parentId
 
       const addReply = (
@@ -1260,7 +1280,6 @@ export function PostCard({
         return item
       })
 
-    // Mise à jour optimiste (compteur en live + emoji sur le bouton)
     setComments((previous) =>
       updateInTree(previous, (item) => ({
         ...item,
@@ -1839,7 +1858,6 @@ export function PostCard({
           <button
             type="button"
             onClick={() => {
-              // Sans actions de menu définies, on conserve l'ancien comportement
               if (!onDelete && !onSave && !onHide) {
                 onMenuClick?.()
                 return
@@ -1929,7 +1947,6 @@ export function PostCard({
                 }
           }
         >
-          {/* Voile pour lisibilité sur fond image */}
           {postColor.isImage && (
             <div
               className="absolute inset-0"
@@ -2008,12 +2025,31 @@ export function PostCard({
           fallbackReactionId={selectedReaction}
         />
 
-        <div className="flex items-center gap-3">
-          <span>
-            {comments.length || commentsCount} commentaires
-          </span>
+        <div className="flex items-center gap-4 ml-auto">
 
-          <span>{sharesCount} partages</span>
+          {commentsCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAllCommentsModal(true)}
+              className="flex items-center gap-1.5 hover:underline"
+              title="Commentaires"
+            >
+              <MessageCircle size={16} className="text-[#65676B]" />
+              <span>{commentsCount}</span>
+            </button>
+          )}
+
+          {sharesCount > 0 && (
+            <button
+              type="button"
+              onClick={onShare}
+              className="flex items-center gap-1.5 hover:underline"
+              title="Partages"
+            >
+              <Share2 size={16} className="text-[#65676B]" />
+              <span>{sharesCount}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -2131,7 +2167,7 @@ export function PostCard({
       )}
 
       <div className="px-4 pb-4 pt-2 border-t border-gray-100">
-        <div className="flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 py-1.5">
+        <div className="relative flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 py-1.5">
           <Avatar
             src={currentUserAvatar}
             name={currentUser?.name || author.name}
@@ -2205,6 +2241,40 @@ export function PostCard({
           >
             <FileText size={16} />
           </button>
+
+          <div ref={emojiPickerRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker((v) => !v)}
+              className={cn(
+                "p-1.5 rounded-full transition flex items-center justify-center",
+                showEmojiPicker
+                  ? "bg-[#A35A2A]/10 text-[#A35A2A]"
+                  : "text-[#65676B] hover:bg-gray-200"
+              )}
+              title="Choisir un émoji"
+            >
+             <Smile size={18} />
+            </button>
+
+            {showEmojiPicker && (
+              <div className="absolute bottom-full right-0 mb-2 w-64 rounded-2xl bg-white shadow-2xl border border-gray-200 p-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="grid grid-cols-8 gap-0.5 max-h-48 overflow-y-auto">
+                  {EMOJI_LIST.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => {
+                        setCommentText((prev) => prev + emoji)
+                      }}
+                      className="flex items-center justify-center w-7 h-7 text-[18px] hover:bg-gray-100 rounded-lg transition"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <button
             type="button"

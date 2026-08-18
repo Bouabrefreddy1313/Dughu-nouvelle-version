@@ -14,6 +14,7 @@ interface ProfileShellProps {
 export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
+  const [isVerifying, setIsVerifying] = useState(false)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -47,6 +48,30 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
     })
   }
 
+  const handleSubmitVerification = async () => {
+    setIsVerifying(true)
+    try {
+      const formData = new FormData()
+      formData.append("dughuUserId", user?.id || "")
+      formData.append("email", user?.email || "")
+      const res = await fetch("/api/submitVerification", {
+        method: "POST",
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.success) {
+        setUser(data.user || user)
+        localStorage.setItem("dughu_user", JSON.stringify(data.user || user))
+      }
+      return data
+    } catch (error) {
+      console.error("VERIFY SUBMIT ERROR:", error)
+      return { success: false, message: "Erreur interne" }
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+
   const handleSearch = (q: string) => {
     if (!q.trim()) return
     router.push(`/searchPosts?searchTerm=${encodeURIComponent(q)}`)
@@ -60,7 +85,7 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
 
   return (
     <MainLayout user={user} onLogout={handleLogout} onSearch={handleSearch} wide noRightSidebar>
-      <ProfilePage target={target} />
+      <ProfilePage target={target} onSubmitVerification={handleSubmitVerification} isVerifying={isVerifying} />
     </MainLayout>
   )
 }

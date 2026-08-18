@@ -116,13 +116,15 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [suggestedGroups, setSuggestedGroups] = useState<any[]>([])
   const [suggestedPages, setSuggestedPages] = useState<any[]>([])
+  const [pointsToday, setPointsToday] = useState(0)
 
-  // Charger les posts boostés et les activités
+  // Charger les posts boostés, les activités et les points du jour
   useEffect(() => {
     let cancelled = false
     const loadData = async () => {
       try {
         const userId = user?.id || ""
+        // Charger les suggestions
         const res = await fetch(`/api/suggestions?userId=${userId}`)
         const data = await res.json()
         if (cancelled) return
@@ -162,6 +164,12 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
             setTrends(data.hashtags.slice(0, 6).map((t: any) => ({ tag: t.tag, count: t.postCount || 0 })))
           }
         }
+        // Charger les points du jour
+        const pointsRes = await fetch(`/api/pointsToday/${userId}`)
+        const pointsData = await pointsRes.json()
+        if (!cancelled) {
+          setPointsToday(pointsData.points ?? 0)
+        }
       } catch {
         /* silent */
       }
@@ -196,6 +204,8 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
     )}>
       {/* Mini profil */}
       <MiniProfileCard user={user} />
+
+    
 
       {/* Posts boostés */}
       <div className="bg-white rounded-[20px] p-4 shadow-sm">

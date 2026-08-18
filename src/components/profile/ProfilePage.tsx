@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { Sparkles, Images, UserRound, RefreshCcw } from "lucide-react"
+import { Sparkles, Images, Film, Play, UserRound, RefreshCcw } from "lucide-react"
 import dynamic from "next/dynamic"
 import { useQueryClient, useMutation } from "@tanstack/react-query"
 import Image from "next/image"
@@ -17,6 +17,7 @@ import { useProfile } from "@/hooks/queries/use-profile"
 import { ProfileHeader } from "./ProfileHeader"
 import { ProfileAbout, type ProfileInfo } from "./ProfileAbout"
 import { ProfilePhotos } from "./ProfilePhotos"
+import { ProfileVideos } from "./ProfileVideos"
 import { ProfileFriends } from "./ProfileFriends"
 import { ProfileGroupsPages, type ProfileGroup, type ProfilePage as ProfilePageType } from "./ProfileGroupsPages"
 import { EditProfileModal } from "./EditProfileModal"
@@ -37,6 +38,20 @@ const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) =
     </div>
   ),
 })
+
+function PhotoImage({ src, width, height }: { src: string; width: number; height: number }) {
+  const [failed, setFailed] = useState(false)
+  if (!src || failed) {
+    return (
+      <div className="w-full h-full bg-[#F0F0F0] flex items-center justify-center">
+        <Images size={20} className="text-[#B0B0B0]" />
+      </div>
+    )
+  }
+  return (
+    <Image src={src} alt="" width={width} height={height} className="w-full h-full object-cover" onError={() => setFailed(true)} />
+  )
+}
 
 interface Post {
   id: string
@@ -62,14 +77,16 @@ interface Post {
   _count: { comments: number; likes: number; reposts: number }
 }
 
-type Tab = "interactions" | "photos" | "apropos"
+type Tab = "interactions" | "photos" | "videos" | "apropos"
 
-export function ProfilePage({ target }: { target: { userId?: string; slug?: string } }) {
+export function ProfilePage({ target, onSubmitVerification, isVerifying }: { target: { userId?: string; slug?: string }; onSubmitVerification?: () => void; isVerifying?: boolean }) {
   const queryClient = useQueryClient()
   const [posts, setPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(false)
   const [pageNum, setPageNum] = useState(1)
   const [hasMore, setHasMore] = useState(false)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const loadingMoreRef = useRef(false)
 
   const [tab, setTab] = useState<Tab>("interactions")
   const [editOpen, setEditOpen] = useState(false)
@@ -107,9 +124,15 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
   const loadPosts = useCallback(async (page: number, reset = false) => {
     if (!profileId) return
     setPostsLoading(true)
+    loadingMoreRef.current = true
     try {
+      // authorId doit être l'ID Dughu de la cible (user_id attendu par l'endpoint
+      // Dughu `userPost`). L'ID local (profileId) ne fonctionne que s'il coïncide
+      // avec l'ID Dughu — pour les comptes liés à un utilisateur local dont l'ID
+      // diffère, l'API ne renvoie alors aucun post. On privilégie donc l'ID Dughu.
+      const authorId = profileDughuId || profileId
       const res = await fetch(
-        `/api/posts?authorId=${profileId}&userId=${currentUser?.id || ""}&dughuUserId=${dughuUserId}&page=${page}`
+        `/api/posts?authorId=${authorId}&userId=${currentUser?.id || ""}&dughuUserId=${dughuUserId}&page=${page}`
       )
       const data = await res.json()
       if (data.success) {
@@ -133,13 +156,35 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       toast.error("Erreur chargement des publications")
     } finally {
       setPostsLoading(false)
+      loadingMoreRef.current = false
     }
-  }, [currentUser?.id, profileId])
+  }, [currentUser?.id, profileId, profileDughuId])
 
   useEffect(() => {
     if (profileId) loadPosts(1, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileId, currentUser?.id])
+  }, [profileId, currentUser?.id, profileDughuId])
+
+  // Chargement automatique au scroll (infinite scroll, sans bouton "Charger plus")
+  useEffect(() => {
+    const el = loadMoreRef.current
+    if (!el || !hasMore || postsLoading || loadingMoreRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && hasMore && !postsLoading && !loadingMoreRef.current) {
+            loadingMoreRef.current = true
+            const next = pageNum + 1
+            setPageNum(next)
+            loadPosts(next)
+          }
+        }
+      },
+      { rootMargin: "300px" }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, postsLoading, pageNum, loadPosts])
 
   const isFollowing = !!profile?.isFollowing
 
@@ -446,6 +491,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
   const user = profile.user
   const stats = profile.stats || { posts: 0, followers: 0, following: 0, friends: 0 }
   const photos = profile.photos || []
+  const videos = profile.videos || []
   const groups: ProfileGroup[] = profile.groups || []
   const friends = profile.friends || []
 
@@ -457,6 +503,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       count: stats.posts,
     },
     { key: "photos", label: "Photos", icon: <Images size={16} />, count: photos.length },
+    { key: "videos", label: "Vidéos", icon: <Film size={16} />, count: videos.length },
     { key: "apropos", label: "À propos", icon: <UserRound size={16} /> },
   ]
 
@@ -477,6 +524,8 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
         onEditAvatar={() => setImageEdit("avatar")}
         onEditProfile={() => setEditOpen(true)}
         onMore={() => toast.info("Options de profil — bientôt disponible")}
+        onSubmitVerification={onSubmitVerification}
+        isVerifying={isVerifying}
       />
 
       {/* Onglets façon Facebook */}
@@ -510,6 +559,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
             onEdit={isOwn ? () => setEditOpen(true) : undefined}
           />
           <ProfilePhotos photos={photos} onSeeAll={() => setTab("photos")} />
+          <ProfileVideos videos={videos} onSeeAll={() => setTab("videos")} />
           <ProfileFriends friends={friends} total={stats.friends} userId={user.id} />
           <ProfileGroupsPages groups={groups} pages={profile.pages} isOwn={isOwn} />
         </div>
@@ -586,17 +636,10 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
                 </div>
               )}
 
-              {hasMore && !postsLoading && (
-                <button
-                  onClick={() => {
-                    const p = pageNum + 1
-                    setPageNum(p)
-                    loadPosts(p)
-                  }}
-                  className="w-full py-3 text-[#A35A2A] font-medium hover:underline bg-white rounded-3xl shadow-sm border border-gray-100"
-                >
-                  Charger plus de publications
-                </button>
+              {hasMore && (
+                <div ref={loadMoreRef} className="w-full py-3 text-center text-[13px] text-[#65676B]">
+                  {postsLoading ? "Chargement..." : "Faites défiler pour voir plus"}
+                </div>
               )}
             </>
           )}
@@ -615,8 +658,42 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
                     const photoUrl = p.url ? resolveMediaUrl(p.url) : ""
                     return (
                       <a key={p.id} href={`/post/${p.id}`} className="aspect-square overflow-hidden rounded-xl hover:opacity-90 transition">
-                        <Image src={photoUrl || ""} alt="" width={300} height={300} className="w-full h-full object-cover" />
+                        <PhotoImage src={photoUrl || ""} width={300} height={300} />
                       </a>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "videos" && (
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Film size={18} className="text-[#A35A2A]" />
+                <h3 className="text-[16px] font-bold text-[#2D2D2D]">Toutes les vidéos</h3>
+              </div>
+              {videos.length === 0 ? (
+                <p className="text-center text-[13px] text-[#65676B] py-8">Aucune vidéo pour le moment.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {videos.map((v: any) => {
+                    const videoUrl = v.url ? resolveMediaUrl(v.url) : ""
+                    return (
+                      <div key={v.id} className="relative aspect-video overflow-hidden rounded-xl bg-black group">
+                        <video
+                          src={videoUrl || ""}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center">
+                            <Play size={22} className="text-white fill-white ml-0.5" />
+                          </div>
+                        </div>
+                      </div>
                     )
                   })}
                 </div>

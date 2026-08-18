@@ -19,6 +19,29 @@ interface ProfilePhotosProps {
   onSeeAll?: () => void
 }
 
+function PhotoThumb({ src, alt, width, height, className }: { src: string; alt: string; width: number; height: number; className?: string }) {
+  const [error, setError] = useState(false)
+
+  if (!src || error) {
+    return (
+      <div className={cn("bg-[#F0F0F0] flex items-center justify-center", className)}>
+        <Images size={20} className="text-[#B0B0B0]" />
+      </div>
+    )
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      className={className}
+      onError={() => setError(true)}
+    />
+  )
+}
+
 export function ProfilePhotos({ photos = [], onSeeAll }: ProfilePhotosProps) {
   const [lightbox, setLightbox] = useState<number | null>(null)
 
@@ -57,7 +80,13 @@ export function ProfilePhotos({ photos = [], onSeeAll }: ProfilePhotosProps) {
               className="aspect-square overflow-hidden hover:opacity-90 transition rounded-md"
               aria-label="Voir la photo"
             >
-              <Image src={p.resolvedUrl || ""} alt="" width={200} height={200} className="w-full h-full object-cover" />
+              <PhotoThumb
+                src={p.resolvedUrl || ""}
+                alt=""
+                width={200}
+                height={200}
+                className="w-full h-full object-cover"
+              />
             </button>
           ))}
         </div>
@@ -75,12 +104,15 @@ export function ProfilePhotos({ photos = [], onSeeAll }: ProfilePhotosProps) {
           >
             <X size={28} />
           </button>
-          <Image
+          <PhotoThumb
             src={visible[lightbox].resolvedUrl || ""}
             alt=""
             width={1200}
             height={900}
             className={cn("max-w-full max-h-[85vh] object-contain rounded-xl")}
+          />
+          <div
+            className="absolute inset-0"
             onClick={(e) => e.stopPropagation()}
           />
         </div>
