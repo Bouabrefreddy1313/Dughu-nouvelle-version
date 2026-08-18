@@ -79,10 +79,11 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
   const { data: currentUser } = useAuth()
 
   // Profil via TanStack Query
+  const dughuUserId = currentUser?.dughu?.userId || ""
   const profileParams = target.userId
-    ? { userId: target.userId, currentUserId: currentUser?.id }
+    ? { userId: target.userId, currentUserId: currentUser?.id, dughuUserId: target.userId === currentUser?.id ? dughuUserId : undefined, viewerDughuUserId: dughuUserId }
     : target.slug
-      ? { slug: target.slug, currentUserId: currentUser?.id }
+      ? { slug: target.slug, currentUserId: currentUser?.id, viewerDughuUserId: dughuUserId }
       : { userId: "" }
   const {
     data: profileData,
@@ -98,7 +99,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
     setPostsLoading(true)
     try {
       const res = await fetch(
-        `/api/posts?authorId=${profileId}&userId=${currentUser?.id || ""}&page=${page}`
+        `/api/posts?authorId=${profileId}&userId=${currentUser?.id || ""}&dughuUserId=${dughuUserId}&page=${page}`
       )
       const data = await res.json()
       if (data.success) {
@@ -141,6 +142,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       const formData = new FormData()
       formData.append("content", data.content)
       formData.append("userId", currentUser.id)
+      formData.append("dughuUserId", currentUser?.dughu?.userId || "")
       const colorRaw = data.color ? JSON.stringify(data.color) : null
       if (colorRaw) {
         formData.append("color", colorRaw)
@@ -204,7 +206,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       const res = await fetch("/api/reactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: currentUser.id, type }),
+        body: JSON.stringify({ postId, userId: currentUser.id, type, dughuUserId: currentUser?.dughu?.userId }),
       })
       const data = await res.json()
       if (data.success) {
@@ -247,7 +249,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       const res = await fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: currentUser.id, content: text }),
+        body: JSON.stringify({ postId, userId: currentUser.id, content: text, dughuUserId: currentUser?.dughu?.userId }),
       })
       const data = await res.json()
       if (data.success) {
@@ -272,6 +274,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       const formData = new FormData()
       formData.append("parentId", postId)
       formData.append("userId", currentUser.id)
+      formData.append("dughuUserId", currentUser?.dughu?.userId || "")
       const res = await fetch("/api/posts", { method: "POST", body: formData })
       const data = await res.json()
       if (data.success) {
@@ -304,7 +307,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       const res = await fetch("/api/store-save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: currentUser?.id }),
+        body: JSON.stringify({ postId, userId: currentUser?.id, dughuUserId: currentUser?.dughu?.userId }),
       })
       const data = await res.json()
       if (data.success) {
@@ -323,7 +326,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
       const res = await fetch("/api/hidePost", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: currentUser?.id }),
+        body: JSON.stringify({ postId, userId: currentUser?.id, dughuUserId: currentUser?.dughu?.userId }),
       })
       if (res.ok) {
         setPosts((prev) => prev.filter((p) => p.id !== postId))
@@ -537,7 +540,7 @@ export function ProfilePage({ target }: { target: { userId?: string; slug?: stri
                   onRepost={() => handleRepost(post.id)}
                   onShare={() => toast.info("Partage")}
                   onDelete={() => handleDelete(post.id)}
-                  canDelete={!!currentUser && String(post.author?.id) === String(currentUser?.dughu?.userId || currentUser?.dughuId)}
+                  canDelete={!!currentUser && String(post.author?.id) === String(currentUser?.dughu?.userId)}
                   onSave={() => handleSave(post.id)}
                   onHide={() => handleHide(post.id)}
                   isSaved={post.isSaved}

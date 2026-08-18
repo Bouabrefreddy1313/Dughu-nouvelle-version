@@ -946,9 +946,12 @@ export function PostCard({
       const userIdQuery = currentUser?.id
         ? `&userId=${currentUser.id}`
         : ""
+      const dughuUserIdQuery = (currentUser as any)?.dughu?.userId
+        ? `&dughuUserId=${(currentUser as any).dughu.userId}`
+        : ""
 
       const response = await fetch(
-        `/api/comments?postId=${postId}${userIdQuery}`
+        `/api/comments?postId=${postId}${userIdQuery}${dughuUserIdQuery}`
       )
 
       const data = await response.json()

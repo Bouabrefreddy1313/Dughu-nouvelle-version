@@ -104,13 +104,9 @@ const handler = NextAuth({
           })
         }
 
-        // Lier le compte Dughu (création sur l'API si nécessaire)
-        if (!localUser.dughuId) {
-          const dughuId = await ensureDughuAccount(user.email, { first, last })
-          if (dughuId) {
-            await prisma.user.update({ where: { id: localUser.id }, data: { dughuId: String(dughuId) } })
-          }
-        }
+        // Assurer un compte Dughu (création sur l'API si nécessaire)
+        // L'ID Dughu est disponible via la réponse login, pas stocké en base.
+        await ensureDughuAccount(user.email, { first, last })
       }
       return true
     },

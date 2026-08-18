@@ -121,16 +121,15 @@ export async function POST(req: NextRequest) {
           countryCode: country_code,
           phoneNumber: `${country_code}${phone}`.replace(/\s/g, ''),
           avatar: pAvatar,
-          dughuId: dughuId || undefined,
           active: '1',
           emailVerified: dughuId ? new Date() : null,
           acceptTerms: true,
         },
       })
-    } else if (dughuId && !localUser.dughuId) {
+    } else if (dughuId) {
       localUser = await prisma.user.update({
         where: { id: localUser.id },
-        data: { dughuId, emailVerified: new Date(), active: '1' },
+        data: { emailVerified: new Date(), active: '1' },
       })
     }
 
@@ -159,7 +158,7 @@ export async function POST(req: NextRequest) {
         success: true,
         message: remote.message || 'Inscription réussie.',
         email,
-        dughuId: dughuId || null,
+        dughu: dughuId ? { userId: dughuId } : null,
         redirect: `/otp?email=${encodeURIComponent(email)}&sent=1`,
       },
       { status: 201 }

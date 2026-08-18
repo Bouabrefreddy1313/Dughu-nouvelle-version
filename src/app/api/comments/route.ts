@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, mapComments, resolveMediaUrl } from "@/lib/dughu"
+import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 import { processHashtags, notifyMentions, createActivity } from "@/lib/feed"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
@@ -133,11 +134,13 @@ export async function GET(req: NextRequest) {
     // ── Mode Dughu API : les posts Dughu ont un ID numérique ──
     if (dughu.enabled && /^\d+$/.test(String(postId))) {
       try {
-        let viewerDughuId = "0"
-        if (currentUserId) {
-          const viewer = await prisma.user.findUnique({ where: { id: currentUserId }, select: { dughuId: true } })
-          viewerDughuId = viewer?.dughuId || "0"
+        // ID Dughu du visiteur : fourni par le frontend, sinon résolu côté
+        // serveur depuis le compte local (plus de dughuId stocké en base).
+        let viewerDughuId = searchParams.get("dughuUserId") || ""
+        if (!viewerDughuId && currentUserId) {
+          viewerDughuId = await resolveDughuUserIdFromLocalId(currentUserId)
         }
+        if (!viewerDughuId) viewerDughuId = "0"
         const rawList = await fetchAllDughuComments(String(postId), viewerDughuId)
         const comments = mapComments({ data: rawList }, viewerDughuId || "")
         const nested = await applyReplyLinks(comments, String(postId))
@@ -206,6 +209,7 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get("content-type") || ""
     let postId = ""
     let userId = ""
+    let dughuUserIdVar = ""
     let content = ""
     let parentId: string | null = null
     const files: File[] = []
@@ -214,6 +218,7 @@ export async function POST(req: NextRequest) {
       const formData = await req.formData()
       postId = String(formData.get("postId") || "")
       userId = String(formData.get("userId") || "")
+      dughuUserIdVar = String(formData.get("dughuUserId") || "")
       content = String(formData.get("content") || "")
       const rawParent = formData.get("parentId")
       parentId = rawParent ? String(rawParent) : null
@@ -227,6 +232,7 @@ export async function POST(req: NextRequest) {
       const body = await req.json()
       postId = body.postId || ""
       userId = body.userId || ""
+      dughuUserIdVar = body.dughuUserId || ""
       content = body.content || ""
       parentId = body.parentId || null
     }
@@ -245,20 +251,24 @@ export async function POST(req: NextRequest) {
 
     // ── Mode Dughu API : les posts Dughu ont un ID numérique ──
     if (dughu.enabled && /^\d+$/.test(String(postId))) {
-      const actingUser = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, dughuId: true, name: true, username: true, avatar: true } })
-      if (!actingUser?.dughuId) {
-        return NextResponse.json({ success: false, message: "Compte Dughu requis." }, { status: 404 })
+      let dughuUserId = dughuUserIdVar
+      if (!dughuUserId && userId) {
+        // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
+        dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+      }
+      if (!dughuUserId) {
+        return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
       }
       try {
         const dForm = new FormData()
-        dForm.append("user_id", String(actingUser.dughuId))
+        dForm.append("user_id", String(dughuUserId))
         dForm.append("post_id", String(postId))
         if (content?.trim()) dForm.append("text", content.trim())
         // L'API Dughu n'accepte que les commentaires racines : si on répond à une
         // réponse, on remonte au commentaire racine (les réponses restent plates).
         let resolvedParentId = parentId ? String(parentId) : null
         if (parentId) {
-          resolvedParentId = await resolveRootCommentId(String(postId), String(parentId), String(actingUser.dughuId))
+          resolvedParentId = await resolveRootCommentId(String(postId), String(parentId), String(dughuUserId))
           dForm.append("comment_id", String(resolvedParentId))
         }
         if (file) dForm.append("file", file, file.name)
@@ -293,11 +303,11 @@ export async function POST(req: NextRequest) {
               parentId: resolvedParentId || null,
               createdAt: r?.created_at || new Date().toISOString(),
               isMine: true,
-              user: { 
-                id: actingUser.id, 
-                name: actingUser.name || userId, 
-                username: actingUser.username || "", 
-                avatar: actingUser.avatar || "/images/avatar.png" 
+              user: {
+                id: userId,
+                name: String(userId) || "Utilisateur",
+                username: "",
+                avatar: "/images/avatar.png",
               },
               liked: false,
               likesCount: 0,

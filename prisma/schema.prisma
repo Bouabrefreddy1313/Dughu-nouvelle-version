@@ -55,7 +55,6 @@ model User {
   googleId              String?   @unique
   facebookId            String?   @unique
   appleId               String?   @unique
-  dughuId               String?   @unique
   avatar                String?
   cover                 String?
   active                String    @default("0")

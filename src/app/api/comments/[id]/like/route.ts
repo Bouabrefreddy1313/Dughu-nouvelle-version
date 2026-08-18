@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi } from "@/lib/dughu"
+import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 const REACTION_TYPES = ["like", "love", "haha", "wow", "sad", "angry"]
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const { userId, type = "like", isReply = false } = await req.json()
+    const { userId, type = "like", isReply = false, dughuUserId: dughuUserIdParam } = await req.json()
 
     if (!userId) {
       return NextResponse.json({ success: false, message: "userId requis." }, { status: 422 })
@@ -15,13 +16,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // ── Mode Dughu API : les commentaires/réponses Dughu ont un ID numérique ──
     if (dughu.enabled && /^\d+$/.test(String(id))) {
-      const actingUser = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
-      if (!actingUser?.dughuId) {
-        return NextResponse.json({ success: false, message: "Compte Dughu requis." }, { status: 404 })
+      let actingDughuUserId = String(dughuUserIdParam || "")
+      if (!actingDughuUserId) {
+        // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
+        actingDughuUserId = await resolveDughuUserIdFromLocalId(userId)
+      }
+      if (!actingDughuUserId) {
+        return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
       }
       try {
         const dForm = new FormData()
-        dForm.append("user_id", String(actingUser.dughuId))
+        dForm.append("user_id", String(actingDughuUserId))
         if (isReply) {
           dForm.append("reply_id", String(id))
         } else {

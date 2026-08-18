@@ -4,13 +4,17 @@ interface ProfileParams {
   userId?: string
   slug?: string
   currentUserId?: string
+  dughuUserId?: string
+  viewerDughuUserId?: string
 }
 
-async function fetchProfile({ userId, slug, currentUserId }: ProfileParams) {
+async function fetchProfile({ userId, slug, currentUserId, dughuUserId, viewerDughuUserId }: ProfileParams) {
   const params = new URLSearchParams()
   if (userId) params.set("userId", userId)
   if (slug) params.set("slug", slug)
   if (currentUserId) params.set("currentUserId", currentUserId)
+  if (dughuUserId) params.set("dughuUserId", dughuUserId)
+  if (viewerDughuUserId) params.set("viewerDughuUserId", viewerDughuUserId)
   const res = await fetch(`/api/profile?${params}`)
   if (!res.ok) throw new Error("Profil introuvable")
   const data = await res.json()

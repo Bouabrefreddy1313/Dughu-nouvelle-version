@@ -14,10 +14,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     // ── Mode Dughu API : les commentaires Dughu ont un ID numérique ──
     if (dughu.enabled && /^\d+$/.test(String(id))) {
-      const actingUser = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
-      if (!actingUser?.dughuId) {
-        return NextResponse.json({ success: false, message: "Compte Dughu requis." }, { status: 404 })
-      }
       try {
         const raw = isReply
           ? await dughuApi.destroyReply(id)

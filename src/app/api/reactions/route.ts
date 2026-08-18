@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi } from "@/lib/dughu"
+import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 const REACTION_TYPES = ["like", "love", "haha", "wow", "sad", "angry"]
 
 export async function POST(req: NextRequest) {
   try {
-    const { postId, userId, type = "like" } = await req.json()
+    const { postId, userId, type = "like", dughuUserId: dughuUserIdParam } = await req.json()
 
     if (!postId || !userId) {
       return NextResponse.json({ success: false, message: "Paramètres requis." }, { status: 422 })
@@ -22,13 +23,17 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Mode Dughu API (source de vérité) ──
-    const actingUser = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
-    if (!actingUser?.dughuId) {
-      return NextResponse.json({ success: false, message: "Compte Dughu requis." }, { status: 404 })
+    let dughuUserId = String(dughuUserIdParam || "")
+    if (!dughuUserId) {
+      // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
+      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    }
+    if (!dughuUserId) {
+      return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
     }
     try {
       const dForm = new FormData()
-      dForm.append("user_id", String(actingUser.dughuId))
+      dForm.append("user_id", String(dughuUserId))
       dForm.append("post_id", String(postId))
       dForm.append("reaction", String(reactionId))
       const raw = await dughuApi.toggleLikePost(dForm)

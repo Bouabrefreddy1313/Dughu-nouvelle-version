@@ -197,7 +197,8 @@ export default function HomePage() {
     const timer = setTimeout(() => controller.abort(), 15000)
     try {
       const userId = user?.id || ""
-      const res = await fetch(`/api/posts?page=${page}&filter=${filter}&userId=${userId}`, {
+      const dughuUserId = user?.dughu?.userId || ""
+      const res = await fetch(`/api/posts?page=${page}&filter=${filter}&userId=${userId}&dughuUserId=${dughuUserId}`, {
         signal: controller.signal,
       })
       let data: any
@@ -343,7 +344,7 @@ export default function HomePage() {
       const res = await fetch("/api/reactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user.id, type: reactionType }),
+        body: JSON.stringify({ postId, userId: user.id, type: reactionType, dughuUserId: user?.dughu?.userId }),
       })
       const data = await res.json()
       if (data.success) {
@@ -389,6 +390,7 @@ export default function HomePage() {
       const formData = new FormData()
       formData.append("postId", postId)
       formData.append("userId", user.id)
+      formData.append("dughuUserId", user?.dughu?.userId || "")
       formData.append("content", text)
       if (files && files.length > 0) files.forEach((f) => formData.append("files", f))
       const res = await fetch("/api/comments", { method: "POST", body: formData })
@@ -416,6 +418,7 @@ export default function HomePage() {
       const formData = new FormData()
       formData.append("parentId", postId)
       formData.append("userId", user.id)
+      formData.append("dughuUserId", user?.dughu?.userId || "")
       const res = await fetch("/api/posts", { method: "POST", body: formData })
       const data = await res.json()
       if (data.success) {
@@ -486,7 +489,7 @@ export default function HomePage() {
       const res = await fetch("/api/hidePost", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user?.id }),
+        body: JSON.stringify({ postId, userId: user?.id, dughuUserId: user?.dughu?.userId }),
       })
       if (res.ok) {
         setPosts((prev) => prev.filter((p) => p.id !== postId))
@@ -500,7 +503,7 @@ export default function HomePage() {
       const res = await fetch("/api/store-save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user?.id }),
+        body: JSON.stringify({ postId, userId: user?.id, dughuUserId: user?.dughu?.userId }),
       })
       const data = await res.json()
       if (data.success) {
@@ -545,6 +548,7 @@ export default function HomePage() {
     const formData = new FormData()
     formData.append("content", data.content)
     formData.append("userId", user?.id)
+    formData.append("dughuUserId", user?.dughu?.userId || "")
     if (data.color) {
       formData.append("color", JSON.stringify(data.color))
       if (data.color.id != null) formData.append("color_id", String(data.color.id))
@@ -599,7 +603,7 @@ export default function HomePage() {
           onRepost={() => handleRepost(post.id)}
           onShare={() => toast.info("Partage")}
           onDelete={() => handleDelete(post.id)}
-          canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId || user?.dughuId)}
+          canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
           onSave={() => handleSave(post.id)}
           onHide={() => handleHide(post.id)}
           isSaved={post.isSaved}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { resolveDughuUserId } from "@/lib/dughu-user"
 
 const DEFAULT_COVER = "/images/group/default-cover.jpg"
 
@@ -29,6 +30,19 @@ export async function GET() {
       prisma.post.count({ where: { authorId: user.id } }),
     ])
 
+    // ID Dughu résolu à la demande (plus stocké en base depuis la suppression
+    // de la colonne dughuId) : le frontend récupère ainsi toujours
+    // user.dughu.userId, même si son cache localStorage a été perdu.
+    let dughuInfo: { userId: string; username?: string } | null = null
+    try {
+      const dughuUserId = await resolveDughuUserId({ email: user.email, username: user.username })
+      if (dughuUserId) {
+        dughuInfo = { userId: dughuUserId, username: user.username || undefined }
+      }
+    } catch (err) {
+      console.error("AUTH ME DUGHU RESOLVE ERROR:", err)
+    }
+
     return NextResponse.json({
       success: true,
       user: {
@@ -42,10 +56,6 @@ export async function GET() {
         image: user.image || "/images/avatar.png",
         cover: user.cover || DEFAULT_COVER,
         bio: user.bio,
-        dughuId: user.dughuId || null,
-        dughu: user.dughuId
-          ? { userId: user.dughuId, username: user.username || "", token: "" }
-          : null,
         _count: {
           posts: postsCount,
           followers: followersCount,
@@ -53,6 +63,7 @@ export async function GET() {
         },
         followers: [],
         following: [],
+        dughu: dughuInfo,
       },
     })
   } catch (error) {

@@ -113,7 +113,19 @@ export const dughuApi = {
       referrer: data.referrer || "",
     }),
 
-  login: (login: string, password: string) => dughu.form("login", { login, password }),
+  login: (login: string, password: string) => {
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(login)
+    return dughu.form("login", {
+      login,
+      ...(isEmail ? { email: login } : { username: login }),
+      password,
+    })
+  },
+
+  // Connexion Google : le navigateur obtient un Google ID token (Google Identity
+  // Services) et l'API Dughu le vérifie auprès de Google, puis renvoie (ou crée)
+  // l'utilisateur Dughu. Contrat : POST /auth/google { token }.
+  googleAuth: (token: string) => dughu.form("auth/google", { token }),
 
   createPost: (formData: FormData) => dughu.multipart("post", formData),
 
@@ -281,7 +293,10 @@ export const dughuApi = {
 
 }
 
-// Export interne pour les endpoints DELETE simples (destroy_comment, destroy_reply)
+export function getDughuUserId(body: any, formData?: FormData): string {
+  if (formData) return (formData.get("dughuUserId") as string) || ""
+  return (body?.dughuUserId as string) || ""
+}
 export { dughuFetch }
 
 // ── Helpers de normalisation (défensifs, l'API renvoie des noms de champs variés) ──

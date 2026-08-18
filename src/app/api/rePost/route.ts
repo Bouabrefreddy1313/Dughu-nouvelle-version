@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, mapPost } from "@/lib/dughu"
+import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,13 +20,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Utilisateur requis." }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
-    if (!user?.dughuId) {
-      return NextResponse.json({ success: false, message: "Compte Dughu requis." }, { status: 404 })
+    const user = formData
+      ? { dughuUserId: String(formData.get("dughuUserId") || "") }
+      : { dughuUserId: await req.json().then((b: { dughuUserId?: string }) => b.dughuUserId || "").catch(() => "") }
+    let dughuUserId = user?.dughuUserId || ""
+    if (!dughuUserId) {
+      // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
+      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    }
+    if (!dughuUserId) {
+      return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
     }
 
     const dForm = new FormData()
-    dForm.append("user_id", String(user.dughuId))
+    dForm.append("user_id", String(dughuUserId))
 
     const postText = (formData?.get("postText") as string) || ""
     if (postText.trim()) dForm.append("postText", postText.trim())

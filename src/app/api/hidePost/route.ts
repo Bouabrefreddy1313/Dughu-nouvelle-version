@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi } from "@/lib/dughu"
+import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 export async function POST(req: NextRequest) {
   try {
-    const { postId, userId } = await req.json()
+    const { postId, userId, dughuUserId: dughuUserIdParam } = await req.json()
 
     if (!postId || !userId) {
       return NextResponse.json({ success: false, message: "Paramètres requis." }, { status: 422 })
@@ -15,14 +16,16 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       )
     }
-
-    // Résolution du compte local vers le compte Dughu
-    const actingUser = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
-    if (!actingUser?.dughuId) {
-      return NextResponse.json({ success: false, message: "Compte Dughu requis." }, { status: 404 })
+    let dughuUserId = String(dughuUserIdParam || "")
+    if (!dughuUserId) {
+      // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
+      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    }
+    if (!dughuUserId) {
+      return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
     }
 
-    const raw = await dughuApi.hidePost(actingUser.dughuId, postId)
+    const raw = await dughuApi.hidePost(dughuUserId, postId)
     if (raw?.success === false) {
       return NextResponse.json(
         { success: false, message: raw?.message || "Erreur lors du masquage (API Dughu)." },

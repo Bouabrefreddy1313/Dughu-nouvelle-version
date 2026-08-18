@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, normalizeUser, pick } from "@/lib/dughu"
+import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { userId, bio, firstName, lastName, username, gender, birthdate, phone } = body
+    const { userId, dughuUserId: dughuUserIdParam, bio, firstName, lastName, username, gender, birthdate, phone } = body
 
     if (!userId) {
       return NextResponse.json({ success: false, message: "Utilisateur requis." }, { status: 401 })
+    }
+    let dughuUserId = String(dughuUserIdParam || "")
+    if (!dughuUserId) {
+      // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
+      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    }
+    if (!dughuUserId) {
+      return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
     }
 
     if (!dughu.enabled) {
@@ -18,16 +27,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const localUser = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
-    if (!localUser?.dughuId) {
-      return NextResponse.json(
-        { success: false, message: "Votre compte n'est pas lié à un compte Dughu." },
-        { status: 404 }
-      )
-    }
-
     const formData = new FormData()
-    formData.append("user_id", String(localUser.dughuId))
+    formData.append("user_id", String(dughuUserId))
     if (typeof firstName === "string") formData.append("first_name", firstName)
     if (typeof lastName === "string") formData.append("last_name", lastName)
     if (typeof bio === "string") formData.append("bio", bio)

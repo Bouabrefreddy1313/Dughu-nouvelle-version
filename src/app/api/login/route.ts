@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { dughu, dughuApi, pick, DughuApiError } from '@/lib/dughu'
+import { dughu, dughuApi, pick, DughuApiError, resolveMediaUrl } from '@/lib/dughu'
 import { randomBytes } from 'crypto'
 
 export async function POST(req: NextRequest) {
@@ -65,11 +65,10 @@ export async function POST(req: NextRequest) {
     const dughuToken = String(pick(result, "token", "access_token", "api_token") || "")
     const dughuProfile: Record<string, any> = result
 
-    // ── 2. Résolution du compte local lié au compte Dughu ──
-    let user = await prisma.user.findUnique({ where: { dughuId: dughuUserId } })
-    console.log("LOGIN: dughuUserId =", dughuUserId, "| found by dughuId:", !!user)
+    // ── 2. Résolution du compte local lié à l'email/username (plus de dughuId en base) ──
+    let user = null
 
-    if (!user && emailRegex.test(login)) {
+    if (emailRegex.test(login)) {
       user = await prisma.user.findUnique({ where: { email: login } })
       console.log("LOGIN: looking by login email:", login, "| found:", !!user)
     }
@@ -122,20 +121,11 @@ export async function POST(req: NextRequest) {
           lastName: pLastName || null,
           name: pName || `${pFirstName} ${pLastName}`.trim() || localUsername,
           avatar: pAvatar || '/images/avatar.png',
-          dughuId: dughuUserId,
           active: '1',
           emailVerified: new Date(),
         },
       })
-      console.log("LOGIN: Local user created:", user.id, "with dughuId:", user.dughuId)
-    }
-
-    // 2c. Lier le dughuId si le compte local n'en avait pas
-    if (!user.dughuId) {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { dughuId: dughuUserId },
-      })
+      console.log("LOGIN: Local user created:", user.id)
     }
 
     // Mise à jour lastSeen
@@ -168,11 +158,10 @@ export async function POST(req: NextRequest) {
         firstName: user.firstName,
         lastName: user.lastName,
         username: user.username,
-        avatar: user.avatar || '/images/avatar.png',
-        image: user.image || '/images/avatar.png',
-        cover: user.cover || '/images/group/default-cover.jpg',
+        avatar: resolveMediaUrl(user.avatar || '') || '/images/avatar.png',
+        image: resolveMediaUrl(user.image || user.avatar || '') || '/images/avatar.png',
+        cover: resolveMediaUrl(user.cover || '') || '/images/group/default-cover.jpg',
         bio: user.bio,
-        dughuId: user.dughuId || dughuUserId,
         _count: {
           posts: postsCount,
           followers: followersCount,

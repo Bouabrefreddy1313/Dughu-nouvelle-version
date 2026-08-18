@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, normalizeUser, pick } from "@/lib/dughu"
+import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,16 +23,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const localUser = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
-    if (!localUser?.dughuId) {
+    let dughuUserId = String(formData.get("dughuUserId") || "")
+    if (!dughuUserId) {
+      // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
+      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    }
+    if (!dughuUserId) {
       return NextResponse.json(
-        { success: false, message: "Votre compte n'est pas lié à un compte Dughu." },
+        { success: false, message: "ID Dughu requis." },
         { status: 404 }
       )
     }
 
     const payload = new FormData()
-    payload.append("user_id", String(localUser.dughuId))
+    payload.append("user_id", String(dughuUserId))
     payload.append("background", file)
     const raw = await dughuApi.updateProfile(payload)
     const userObj = normalizeUser(raw?.result || raw?.user || raw?.data || raw?.profile || raw)

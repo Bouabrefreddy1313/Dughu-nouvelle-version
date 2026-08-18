@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, mapPosts, getPageInfo, mapPost } from "@/lib/dughu"
+import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 const POSTS_PER_PAGE = 10
 
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const page = Math.max(parseInt(searchParams.get("page") || "1"), 1)
     const userId = searchParams.get("userId")
+    let dughuUserId = searchParams.get("dughuUserId") || "" // ← ID Dughu fourni par le frontend
     const authorId = searchParams.get("authorId")
 
     if (!dughu.enabled) {
@@ -31,48 +33,35 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    if (!userId) {
+    // Fallback serveur : si le frontend n'a pas fourni l'ID Dughu (ex: cache
+    // localStorage perdu), on le résout via l'API Dughu depuis le compte local.
+    if (!dughuUserId && userId) {
+      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    }
+
+    if (!dughuUserId) {
       return NextResponse.json(
-        { success: false, message: "Utilisateur requis." },
+        { success: false, message: "ID Dughu requis (dughuUserId)." },
         { status: 401 }
       )
     }
 
-    const viewer = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, name: true, username: true, avatar: true, dughuId: true },
-    })
-    if (!viewer?.dughuId) {
-      return NextResponse.json(
-        { success: false, message: "Aucun compte Dughu associé à cet utilisateur." },
-        { status: 500 }
-      )
-    }
+    // Résoudre l'utilisateur local pour le nom/avatar (optionnel, juste pour l'affichage)
+    const viewer = userId
+      ? await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, name: true, username: true, avatar: true },
+        })
+      : null
 
-    // ── Mode profil : posts d'un auteur précis (userPost), y compris pour soi-même ──
+    // ── Mode profil : posts d'un auteur précis ──
     if (authorId) {
-      const localAuthor = await prisma.user.findUnique({
-        where: { id: authorId },
-        select: { id: true, dughuId: true, name: true, username: true, avatar: true },
-      })
-      // L'authorId peut aussi être un dughuId (profil consulté via l'API Dughu,
-      // sans compte local correspondant)
-      const author =
-        localAuthor ||
-        (await prisma.user.findFirst({
-          where: { dughuId: authorId },
-          select: { id: true, dughuId: true, name: true, username: true, avatar: true },
-        }))
-
-      const postsAuthor = author
-        ? { id: author.id, dughuId: author.dughuId, name: author.name, username: author.username, avatar: author.avatar }
-        : { id: authorId, dughuId: authorId, name: "", username: "", avatar: "" }
-      const raw = await dughuApi.getUserPosts(postsAuthor.dughuId || authorId, viewer.dughuId, page)
+      const raw = await dughuApi.getUserPosts(authorId, dughuUserId, page)
       const posts = mapPosts(raw, {
-        id: postsAuthor.id,
-        name: postsAuthor.name,
-        username: postsAuthor.username,
-        avatar: postsAuthor.avatar,
+        id: authorId,
+        name: "",
+        username: "",
+        avatar: "",
       })
       const info = getPageInfo(raw)
       const hasMore = info.hasMore
@@ -88,15 +77,18 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Fil d'actualité : endpoint getPostAllRepost (officiel v1/v2) ──
-    const raw = await dughuApi.getPostAllRepost(viewer.dughuId, page)
-    const posts = mapPosts(raw, {
+    const raw = await dughuApi.getPostAllRepost(dughuUserId, page)
+    console.log("FEED RAW (first 300 chars):", JSON.stringify(raw).slice(0, 300))
+    const posts = mapPosts(raw, viewer ? {
       id: viewer.id,
       name: viewer.name,
       username: viewer.username,
       avatar: viewer.avatar,
-    }) as any[]
+    } : undefined) as any[]
     const info = getPageInfo(raw)
-    const hasMore = info.hasMore
+    // Si getPageInfo ne détecte pas de pagination, on déduit hasMore du nombre de posts reçus
+    const hasMore = info.hasMore || posts.length >= POSTS_PER_PAGE
+    console.log("FEED: page", page, "| posts:", posts.length, "| hasMore:", hasMore)
     return NextResponse.json({
       success: true,
       posts,
@@ -124,19 +116,27 @@ export async function POST(req: NextRequest) {
 
     const contentType = req.headers.get("content-type") || ""
     const formData = contentType.includes("multipart/form-data") ? await req.formData() : null
-    const userId = String(formData?.get("userId") || (await req.json().then((b) => b.userId).catch(() => "")) || "")
+    let jsonBody: any = null
+    if (!formData) {
+      jsonBody = await req.json().catch(() => ({}))
+    }
+    const userId = String(formData?.get("userId") || jsonBody?.userId || "")
 
     if (!userId) {
       return NextResponse.json({ success: false, message: "Utilisateur requis." }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { dughuId: true } })
-    if (!user?.dughuId) {
-      return NextResponse.json({ success: false, message: "Compte Dughu requis." }, { status: 404 })
+    let dughuUserId = String(formData?.get("dughuUserId") || jsonBody?.dughuUserId || "")
+    // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
+    if (!dughuUserId && userId) {
+      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    }
+    if (!dughuUserId) {
+      return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 401 })
     }
 
     const dForm = new FormData()
-    dForm.append("user_id", String(user.dughuId))
+    dForm.append("user_id", String(dughuUserId))
 
     if (formData) {
       const content = (formData.get("content") as string) || ""
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
       for (const f of imageFiles) dForm.append("fileInputForPost[]", f)
       for (const f of videoFiles) dForm.append("fileInputForPost[]", f)
     } else {
-      const body = await req.json()
+      const body = jsonBody || {}
       const content = body.content || ""
       const parentId = body.parentId || ""
       if (content.trim()) dForm.append("postText", content.trim())
