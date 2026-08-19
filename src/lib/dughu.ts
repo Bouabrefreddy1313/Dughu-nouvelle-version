@@ -3,6 +3,11 @@ const BASE_URL = (process.env.DUGHU_API_BASE_URL || "https://apitest.dughu.com/a
 const API_TOKEN = process.env.DUGHU_API_KEY || ""
 // Origine racine du serveur Dughu (sans le suffixe /api) pour résoudre les fichiers relatifs
 const DUGHU_ORIGIN = BASE_URL.replace(/\/api\/?$/, "")
+// Par défaut, la messagerie utilise le même environnement que le reste de
+// l'application. Cela évite d'envoyer un ID provenant d'apitest vers la base
+// de production, où cet utilisateur n'existe pas.
+const CHAT_BASE_URL = (process.env.DUGHU_CHAT_API_BASE_URL || BASE_URL).replace(/\/+$/, "")
+const CHAT_ORIGIN = CHAT_BASE_URL.replace(/\/api\/?$/, "")
 const TIMEOUT_MS = (Number(process.env.DUGHU_API_TIMEOUT) || 15) * 1000
 const RETRY_TIMES = Number(process.env.DUGHU_API_RETRY_TIMES) || 2
 const RETRY_SLEEP_MS = Number(process.env.DUGHU_API_RETRY_SLEEP) || 200
@@ -20,11 +25,16 @@ export class DughuApiError extends Error {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-async function dughuFetch(path: string, init: RequestInit = {}, retries = RETRY_TIMES): Promise<any> {
+async function dughuFetch(
+  path: string,
+  init: RequestInit = {},
+  retries = RETRY_TIMES,
+  baseUrl = BASE_URL
+): Promise<any> {
   if (!API_TOKEN) {
     throw new DughuApiError("DUGHU_API_KEY manquant dans .env", 500)
   }
-  const url = `${BASE_URL}/${path.replace(/^\/+/, "")}`
+  const url = `${baseUrl}/${path.replace(/^\/+/, "")}`
 
   let attempt = 0
   while (true) {
@@ -98,6 +108,18 @@ export const dughu = {
 
   multipart: (path: string, formData: FormData) =>
     dughuFetch(path, { method: "POST", body: formData }),
+
+  rootGet: (path: string, params?: Record<string, string | number | undefined>) =>
+    dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }, RETRY_TIMES, DUGHU_ORIGIN),
+
+  rootMultipart: (path: string, formData: FormData) =>
+    dughuFetch(path, { method: "POST", body: formData }, RETRY_TIMES, DUGHU_ORIGIN),
+
+  chatGet: (path: string, params?: Record<string, string | number | undefined>) =>
+    dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }, RETRY_TIMES, CHAT_BASE_URL),
+
+  chatRootMultipart: (path: string, formData: FormData) =>
+    dughuFetch(path, { method: "POST", body: formData }, RETRY_TIMES, CHAT_ORIGIN),
 }
 
 // ── Endpoints connus de l'API Dughu ──────────────────────────────────────────
@@ -263,6 +285,22 @@ export const dughuApi = {
 
   getOnline: (userId: string | number, token: string) =>
     dughu.get(`getOnline/${encodeURIComponent(String(userId))}/${encodeURIComponent(token)}`),
+
+  // Messagerie Dughu : ces routes vivent à la racine, hors du préfixe /api.
+  getUserChats: (userId: string | number) =>
+    dughu.chatGet(`getUserChats/${encodeURIComponent(String(userId))}`),
+
+  getConversationMessages: (userId: string | number, targetUserId: string | number) =>
+    dughu.chatGet("getConversationMessages", {
+      user_id: String(userId),
+      target_user_id: String(targetUserId),
+    }),
+
+  getChatContact: (userId: string | number) =>
+    dughu.chatGet(`contactChat/${encodeURIComponent(String(userId))}`),
+
+  sendMessage: (formData: FormData) =>
+    dughu.chatRootMultipart("sendMessage", formData),
 
   updateProfile: (formData: FormData) => dughu.multipart("updateProfile", formData),
 

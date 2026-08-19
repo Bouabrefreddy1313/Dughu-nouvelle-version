@@ -112,7 +112,14 @@ export default function LeftSidebar({
             open={feedOpen}
             iconBg="bg-[#A35A2A]"
             iconColor="text-white"
-            onClick={() => setFeedOpen(!feedOpen)}
+            onClick={() => {
+              if (active !== "feed") {
+                router.push("/home")
+                onCloseMobile?.()
+                return
+              }
+              setFeedOpen(!feedOpen)
+            }}
           />
           {feedOpen && (
             <div className="ml-8 space-y-0.5 border-l-2 border-[#E4E6EB] pl-3">
@@ -122,7 +129,12 @@ export default function LeftSidebar({
                 active={filter === "all"}
                 iconBg="bg-[#A35A2A]/15"
                 iconColor="text-[#A35A2A]"
-                onClick={() => { onFilterChange?.("all"); setFeedOpen(false) }}
+                onClick={() => {
+                  if (onFilterChange) onFilterChange("all")
+                  else router.push("/home")
+                  setFeedOpen(false)
+                  onCloseMobile?.()
+                }}
               />
               <SidebarItem
                 icon={<Users size={20} />}
@@ -130,7 +142,12 @@ export default function LeftSidebar({
                 active={filter === "following"}
                 iconBg="bg-[#1877F2]/15"
                 iconColor="text-[#1877F2]"
-                onClick={() => { onFilterChange?.("following"); setFeedOpen(false) }}
+                onClick={() => {
+                  if (onFilterChange) onFilterChange("following")
+                  else router.push("/home")
+                  setFeedOpen(false)
+                  onCloseMobile?.()
+                }}
               />
             </div>
           )}
@@ -138,9 +155,13 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<MessageCircle size={20} />}
             label="Messages"
+            active={active === "messages"}
             iconBg="bg-[#1877F2]"
             iconColor="text-white"
-            onClick={() => router.push("/messages")}
+            onClick={() => {
+              router.push("/messages")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem

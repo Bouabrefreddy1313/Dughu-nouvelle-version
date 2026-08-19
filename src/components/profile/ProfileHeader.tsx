@@ -19,6 +19,8 @@ export interface ProfileUser {
   location?: string | null
   verified?: boolean
   online?: boolean
+  dughu?: { userId?: string | number | null } | null
+  dughuUserId?: string | number | null
 }
 
 export interface ProfileStats {
