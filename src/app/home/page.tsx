@@ -19,6 +19,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import { readPostColors, writePostColor } from "@/lib/postColorCache"
+import apiClient from "@/lib/apiClient"
 import { REACTION_ID_TO_TYPE, POST_COLORS } from "@/lib/constants"
 import { timeAgo, formatNumber } from "@/lib/helpers"
 import { useAuth } from "@/hooks/queries/use-auth"
@@ -59,6 +60,7 @@ interface Author {
   verified?: boolean
   isAdmin?: boolean
   isModerator?: boolean
+  isFollowing?: boolean
 }
 
 interface Reaction {
@@ -172,6 +174,9 @@ export default function HomePage() {
   const [activeStoryIndex, setActiveStoryIndex] = useState(0)
   const [coloredPosts, setColoredPosts] = useState<any[]>([...POST_COLORS])
   const [chatOpen, setChatOpen] = useState(false)
+  const [followingAuthorIds, setFollowingAuthorIds] = useState<Set<string>>(
+    () => new Set()
+  )
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const loadingMoreRef = useRef(false)
   const feedReqRef = useRef(0)
@@ -243,6 +248,75 @@ export default function HomePage() {
       }
     }
   }, [filter, user])
+
+  const handleToggleFollow = useCallback(async (author: Author) => {
+    if (!user?.id || !author.id) return
+
+    const authorId = String(author.id)
+    const previousFollowing = !!author.isFollowing
+    const nextFollowing = !previousFollowing
+
+    setFollowingAuthorIds((previous) => new Set(previous).add(authorId))
+    setPosts((previous) =>
+      previous.map((post) =>
+        String(post.author.id) === authorId
+          ? {
+              ...post,
+              isFollowing: nextFollowing,
+              author: { ...post.author, isFollowing: nextFollowing },
+            }
+          : post
+      )
+    )
+
+    try {
+      const { data } = await apiClient.post("/profile/follow", {
+        userId: user.id,
+        targetId: authorId,
+        following: nextFollowing,
+      })
+
+      if (!data?.success) {
+        throw new Error(data?.message || "Erreur lors de l'abonnement")
+      }
+
+      const confirmedFollowing = Boolean(data.following)
+      setPosts((previous) =>
+        previous.map((post) =>
+          String(post.author.id) === authorId
+            ? {
+                ...post,
+                isFollowing: confirmedFollowing,
+                author: { ...post.author, isFollowing: confirmedFollowing },
+              }
+            : post
+        )
+      )
+    } catch (error) {
+      setPosts((previous) =>
+        previous.map((post) =>
+          String(post.author.id) === authorId
+            ? {
+                ...post,
+                isFollowing: previousFollowing,
+                author: { ...post.author, isFollowing: previousFollowing },
+              }
+            : post
+        )
+      )
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Impossible de modifier l'abonnement"
+      )
+    } finally {
+      setFollowingAuthorIds((previous) => {
+        const next = new Set(previous)
+        next.delete(authorId)
+        return next
+      })
+    }
+  }, [user?.id])
 
   // Stories via TanStack Query
   const { data: stories = [] } = useStories(!!user?.id)
@@ -602,6 +676,9 @@ export default function HomePage() {
           onComment={(text, files) => handleComment(post.id, text, files)}
           onRepost={() => handleRepost(post.id)}
           onShare={() => toast.info("Partage")}
+          isFollowing={!!post.author.isFollowing}
+          isFollowLoading={followingAuthorIds.has(String(post.author.id))}
+          onToggleFollow={() => handleToggleFollow(post.author)}
           onDelete={() => handleDelete(post.id)}
           canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
           onSave={() => handleSave(post.id)}

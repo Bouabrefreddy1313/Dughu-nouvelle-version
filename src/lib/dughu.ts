@@ -607,6 +607,7 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
         name: p.page.page_name || p.page.page_title || "Page",
         username: p.page.page_title || p.page.username || "",
         avatar: toUrl(p.page.avatar) || "/images/avatar.png",
+        isFollowing: false,
       }
     : null
   const author =
@@ -618,6 +619,7 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       name: String(fallbackAuthor?.name || "Utilisateur"),
       username: String(fallbackAuthor?.username || ""),
       avatar: toUrl(fallbackAuthor?.avatar) || "/images/avatar.png",
+      isFollowing: false,
     }
 
   const rawLikes = pick(p, "likes", "like_count", "likeCount", "nombre_likes", "total_likes", "reaction_count", "count_likes")
@@ -674,6 +676,7 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       name: author.name,
       username: author.username,
       avatar: author.avatar,
+      isFollowing: !!author.isFollowing,
     },
     page: pageAuthor
       ? { id: pageAuthor.id, name: pageAuthor.name, username: pageAuthor.username, avatar: pageAuthor.avatar }
@@ -681,6 +684,7 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     color: pick(p, "color", "background_color") || null,
     reacted: isLiked ? (myReaction || "like") : (myReaction || null),
     isLiked,
+    isFollowing: !!author.isFollowing,
     parentPost,
     reactions: extractReactionSummary(p),
     _count: {

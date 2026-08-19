@@ -26,7 +26,7 @@ import {
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
-import SubscribeButton from "@/components/ui/SubscribeButton"
+import FollowButton from "@/components/common/FollowButton"
 import { CommentBody } from "@/components/feed/CommentBody"
 import { toast } from "sonner"
 import { REACTIONS, REACTION_ID_TO_TYPE, REACTION_TYPE_TO_ID } from "@/lib/constants"
@@ -37,6 +37,7 @@ interface Author {
   avatar: string | null
   username?: string | null
   verified?: boolean
+  isFollowing?: boolean
 }
 
 interface CommentUser {
@@ -77,6 +78,9 @@ interface PostCardProps {
     id: string
     name: string | null
     avatar: string | null
+    dughu?: {
+      userId?: string | number | null
+    } | null
   }
   timeAgo?: string
   content?: string
@@ -112,6 +116,9 @@ interface PostCardProps {
   onRepost?: () => void
   onShare?: () => void
   onMenuClick?: () => void
+  isFollowing?: boolean
+  isFollowLoading?: boolean
+  onToggleFollow?: () => void
   /** Actions du menu « 3 points » : supprimer / sauvegarder / cacher */
   onDelete?: () => void
   onSave?: () => void
@@ -845,6 +852,9 @@ export function PostCard({
   onRepost,
   onShare,
   onMenuClick,
+  isFollowing = false,
+  isFollowLoading = false,
+  onToggleFollow,
   onDelete,
   onSave,
   onHide,
@@ -1841,15 +1851,17 @@ export function PostCard({
           </p>
         </div>
 
-        {/* Bouton s'abonner (visible pour les autres utilisateurs uniquement)
-            Compare l'ID Dughu du user connecté (currentUser.dughu.userId)
-            avec l'ID de l'auteur (author.id) pour éviter d'afficher le bouton
-            sur ses propres posts. */}
-        {currentUser?.dughu?.userId && String(currentUser.dughu.userId) !== String(author.id) && (
-          <div className="mr-2">
-            <SubscribeButton authorId={author.id} currentUserId={currentUser?.id} />
-          </div>
-        )}
+        {onToggleFollow &&
+          !isFollowing &&
+          currentUser?.dughu?.userId != null &&
+          String(currentUser.dughu.userId) !== String(author.id) && (
+            <FollowButton
+              isFollowing={isFollowing}
+              isLoading={isFollowLoading}
+              onClick={onToggleFollow}
+              className="mr-1"
+            />
+          )}
 
         <div className="relative shrink-0" ref={postMenuRef}>
           <button
