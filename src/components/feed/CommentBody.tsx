@@ -3,6 +3,7 @@
 import { FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MediaDisplay } from "@/components/common/MediaDisplay"
+import { HashtagText } from "@/components/common/HashtagText"
 
 export interface CommentMediaEntry {
   src: string
@@ -128,11 +129,11 @@ export function CommentBody({
       {text && (
         <p
           className={cn(
-            "text-[#050505] whitespace-pre-wrap",
+            "text-[#050505] whitespace-pre-wrap break-words",
             size === "sm" ? "text-[13px]" : "text-[14px]"
           )}
         >
-          {text}
+          <HashtagText text={text} />
         </p>
       )}
 

@@ -69,7 +69,7 @@ export function FeedCard({
       {/* Body */}
       <div className="px-4 pb-3">
         {content && (
-          <p className="text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed mb-3">
+          <p className="text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed break-words mb-3">
             {content}
           </p>
         )}

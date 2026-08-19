@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { dughu, dughuApi, mapPosts, getPageInfo, mapPost } from "@/lib/dughu"
+import { dughu, dughuApi, mapPosts, mapAlbums, getPageInfo, mapPost } from "@/lib/dughu"
 import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 const POSTS_PER_PAGE = 10
@@ -87,6 +87,20 @@ export async function GET(req: NextRequest) {
     // parallèle — la première réponse gagne. Évite le timeout client (~6s à >30s
     // pour getPostAllRepost quand l'API Dughu est chargée) en repliant sur la
     // variante getPostAll qui répond en ~1-2s.
+    //
+    // En parallèle, on récupère les albums de l'utilisateur : les posts multi-
+    // images vivent souvent dans un album (postType="postAlbum"), et selon
+    // l'endpoint gagnant le tableau `album` n'est pas toujours inclus dans le
+    // fil. On enrichit donc les posts avec les médias de l'album (correspondance
+    // par post_id) quand ils n'ont aucune image.
+    const albumsPromise = dughuApi
+      .getAlbums(dughuUserId)
+      .then((raw: any) => mapAlbums(raw))
+      .catch((e: unknown) => {
+        console.error("FEED getAlbums ERROR:", e)
+        return []
+      })
+
     const raw = await Promise.race([
       dughuApi.getPostAllRepost(dughuUserId, page).catch((e: unknown) => {
         console.error("FEED getPostAllRepost ERROR:", e)
@@ -106,6 +120,28 @@ export async function GET(req: NextRequest) {
       username: viewer.username,
       avatar: viewer.avatar,
     } : undefined) as any[]
+
+    // Enrichit les posts multi-images avec les médias de l'album du viewer
+    // lorsque le fil ne les a pas inclus.
+    const albums = await albumsPromise
+    if (albums.length) {
+      const mediaByPostId = new Map<string, { url: string }[]>()
+      for (const album of albums) {
+        for (const m of album.media || []) {
+          if (!m.postId) continue
+          const arr = mediaByPostId.get(String(m.postId)) || []
+          arr.push({ url: m.url })
+          mediaByPostId.set(String(m.postId), arr)
+        }
+      }
+      for (const post of posts) {
+        if (!post.images?.length && mediaByPostId.has(post.id)) {
+          post.images = mediaByPostId.get(post.id)!
+          post.image = post.images[0]?.url || null
+        }
+      }
+    }
+
     const info = getPageInfo(raw)
     // Si getPageInfo ne détecte pas de pagination, on déduit hasMore du nombre de posts reçus
     const hasMore = info.hasMore || posts.length >= POSTS_PER_PAGE
@@ -183,8 +219,10 @@ export async function POST(req: NextRequest) {
 
       const imageFiles = formData.getAll("images") as File[]
       const videoFiles = formData.getAll("videos") as File[]
+      const audioFiles = formData.getAll("audios") as File[]
       for (const f of imageFiles) dForm.append("fileInputForPost[]", f)
       for (const f of videoFiles) dForm.append("fileInputForPost[]", f)
+      for (const f of audioFiles) dForm.append("fileInputForPost[]", f)
     } else {
       const body = jsonBody || {}
       const content = body.content || ""

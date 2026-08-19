@@ -104,6 +104,7 @@ interface Post {
   images?: PostMedia[]
   video?: PostMedia
   audio?: PostMedia
+  shareUrl?: string | null
   color?: { bg: string; textColor: string } | null
   createdAt: string
   author: Author
@@ -412,6 +413,47 @@ export default function HomePage() {
     }
   }
 
+    // Insère une carte de republication en tête du fil, avec le post d'origine
+  // embarqué (lookup local). Partagé entre repost direct et repost avec texte.
+    const addRepostToFeed = (postId: string, post: Post, commentary?: string) => {
+    setPosts((prev) => {
+      const original = prev.find((p) => p.id === postId)
+      return [
+        {
+          ...post,
+          // Le texte d'accompagnement devient le contenu du repost.
+          content: commentary || post?.content || "",
+          timeLabel: timeAgo(post?.createdAt),
+          _count: post?._count || { comments: 0, likes: 0, reposts: 0, views: 0 },
+          parentPost: original
+            ? {
+                id: original.id,
+                author: original.author,
+                content: original.content,
+                image: original.image || original.images?.[0]?.url,
+                video:
+                  typeof original.video === "string"
+                    ? original.video
+                    : (original.video as any)?.url || null,
+                color:
+                  original.color && typeof original.color === "string"
+                    ? original.color
+                    : original.color
+                      ? JSON.stringify(original.color)
+                      : null,
+                timeAgo: original.timeLabel,
+              }
+            : null,
+        },
+        ...prev.map((p) =>
+          p.id === postId
+            ? { ...p, _count: { ...p._count, reposts: (p._count.reposts || 0) + 1 } }
+            : p
+        ),
+      ]
+    })
+  }
+
   const handleRepost = async (postId: string) => {
     if (!user) { toast.error("Connectez-vous pour republier"); return }
     try {
@@ -422,41 +464,30 @@ export default function HomePage() {
       const res = await fetch("/api/posts", { method: "POST", body: formData })
       const data = await res.json()
       if (data.success) {
-        // Ajoute immédiatement la carte de republication en tête du fil,
-        // avec le post d'origine embarqué (disponible localement).
-        const original = posts.find((p) => p.id === postId)
-        setPosts((prev) => [
-          {
-            ...data.post,
-            timeLabel: timeAgo(data.post?.createdAt),
-            _count: data.post?._count || { comments: 0, likes: 0, reposts: 0, views: 0 },
-            parentPost: original
-              ? {
-                  id: original.id,
-                  author: original.author,
-                  content: original.content,
-                  image: original.image || original.images?.[0]?.url,
-                  video:
-                    typeof original.video === "string"
-                      ? original.video
-                      : (original.video as any)?.url || null,
-                  color:
-                    original.color && typeof original.color === "string"
-                      ? original.color
-                      : original.color
-                        ? JSON.stringify(original.color)
-                        : null,
-                  timeAgo: original.timeLabel,
-                }
-              : null,
-          },
-          ...prev.map((p) =>
-            p.id === postId
-              ? { ...p, _count: { ...p._count, reposts: (p._count.reposts || 0) + 1 } }
-              : p
-          ),
-        ])
+        addRepostToFeed(postId, data.post)
         toast.success("Repost effectué !")
+      } else {
+        toast.error(data.message || "Erreur repost")
+      }
+    } catch { toast.error("Erreur repost") }
+  }
+
+  // Republier en ajoutant un texte d'accompagnement (commentaire).
+  const handleRepostWithText = async (postId: string, text: string) => {
+    if (!user) { toast.error("Connectez-vous pour republier"); return }
+    const commentary = text.trim()
+    if (!commentary) { handleRepost(postId); return }
+    try {
+      const formData = new FormData()
+      formData.append("parentId", postId)
+      formData.append("userId", user.id)
+      formData.append("dughuUserId", user?.dughu?.userId || "")
+      formData.append("postText", commentary)
+      const res = await fetch("/api/rePost", { method: "POST", body: formData })
+      const data = await res.json()
+      if (data.success) {
+        addRepostToFeed(postId, data.post, commentary)
+        toast.success("Repost publié !")
       } else {
         toast.error(data.message || "Erreur repost")
       }
@@ -548,7 +579,7 @@ export default function HomePage() {
     router.push(`/searchPosts?searchTerm=${encodeURIComponent(q)}`)
   }
 
-  const handlePostSubmit = async (data: { content: string; color?: any; images?: File[]; videos?: File[] }) => {
+  const handlePostSubmit = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[] }) => {
     const formData = new FormData()
     formData.append("content", data.content)
     formData.append("userId", user?.id)
@@ -562,6 +593,7 @@ export default function HomePage() {
     }
     if (data.images) data.images.forEach((img) => formData.append("images", img))
     if (data.videos) data.videos.forEach((vid) => formData.append("videos", vid))
+    if (data.audios) data.audios.forEach((aud) => formData.append("audios", aud))
     await handleCreatePost(formData)
   }
 
@@ -594,7 +626,9 @@ export default function HomePage() {
           timeAgo={timeAgo(post.createdAt)}
           content={post.content}
           image={post.image || post.images?.[0]?.url}
+          images={(post.images || []).map((img) => ({ url: img.url }))}
           video={post.video?.url || (post as any).video}
+          audio={(post as any).audio || null}
           color={(post.color as any) ? (typeof post.color === "string" ? post.color : JSON.stringify(post.color)) : null}
           likesCount={post._count.likes}
           commentsCount={post._count.comments}
@@ -604,8 +638,9 @@ export default function HomePage() {
           parentPost={post.parentPost}
           onLike={(reactionId) => handleReaction(post.id, reactionId)}
           onComment={(text, files) => handleComment(post.id, text, files)}
-          onRepost={() => handleRepost(post.id)}
-          onShare={() => toast.info("Partage")}
+                    onRepost={() => handleRepost(post.id)}
+          onRepostWithText={(text) => handleRepostWithText(post.id, text)}
+          shareUrl={post.shareUrl || null}
           onDelete={() => handleDelete(post.id)}
           canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
           onSave={() => handleSave(post.id)}

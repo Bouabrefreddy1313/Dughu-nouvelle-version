@@ -199,6 +199,10 @@ export const dughuApi = {
   getPostAll: (userId: string | number, page: number) =>
     dughu.get(`getPostAll/${encodeURIComponent(String(userId))}`, { page }),
 
+  // Liste des albums d'un utilisateur (chaque album contient ses medias)
+  getAlbums: (userId: string | number) =>
+    dughu.get("album", { user_id: String(userId) }),
+
   searchAll: (params: { search?: string; q?: string; type?: string; page?: number }) =>
     dughu.form("searchAll", {
       search: params.search || params.q || "",
@@ -220,6 +224,10 @@ export const dughuApi = {
     }),
 
   getHashtags: (q = "") => dughu.get("getHashtags", { q }),
+
+  // Posts associés à un hashtag — le tag se passe SANS le « # » (sinon 404).
+  getPostByHashtags: (hashtag: string | number, page = 1) =>
+    dughu.get(`getPostByHashtags/${encodeURIComponent(String(hashtag).replace(/^#/, ""))}`, { page }),
 
   getPopularPosts: (userId: string | number) =>
     dughu.get(`getPopularPosts/${encodeURIComponent(String(userId))}`),
@@ -391,6 +399,7 @@ function detectMediaTypeFromUrl(url: string): string {
   const lower = url.split("?")[0].toLowerCase()
   if (/\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|jfif)$/.test(lower)) return "image"
   if (/\.(mp4|webm|ogg|ogv|mov|m4v|avi|mkv|3gp|mpeg|m3u8|wmv)$/.test(lower)) return "video"
+  if (/\.(mp3|m4a|aac|wav|oga|opus|flac|weba|amr|m4b|wma)$/.test(lower)) return "audio"
   return "file"
 }
 
@@ -584,6 +593,27 @@ function isVideoUrl(v: any): boolean {
   return /\.(mp4|m4v|webm|mkv|mov|avi|ogg|3gp|mpeg|m3u8)(\?|#|$)/i.test(String(v || ""))
 }
 
+function isAudioUrl(v: any): boolean {
+  return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|weba|amr|m4b|wma)(\?|#|$)/i.test(String(v || ""))
+}
+
+/**
+ * Désambiguïse les .webm : c'est une extension audio OU vidéo. On ne la traite
+ * comme AUDIO que si le nom/chemin évoque un enregistrement vocal (post vocal
+ * Laravel : voice_xxx.webm, audio_xxx.webm, enregistrement.webm, etc.).
+ */
+function isWebmAudioHint(v: any): boolean {
+  const s = String(v || "")
+  if (!/\.webm(\?|#|$)/i.test(s)) return false
+  return /(voice|vocal|audio|son|sound|record|enregistr|micro|voix)/i.test(s)
+}
+
+function isAudioFileName(v: any): boolean {
+  const s = String(v || "")
+  if (isAudioUrl(s)) return true
+  return isWebmAudioHint(s)
+}
+
 function isVideoPost(p: any): boolean {
   const type = String(pick(p, "postType", "post_type", "type", "media_type") || "").toLowerCase()
   const fileName = String(pick(p, "postFileName", "post_file_name", "fileName", "filename") || "")
@@ -599,7 +629,7 @@ function postImages(p: any): string[] {
   if (image) {
     if (Array.isArray(image)) {
       for (const u of image) {
-        const url = toUrl(typeof u === "object" ? pick(u, "url", "link", "file", "postFileLink", "thumb", "thumbnail") : u)
+        const url = toUrl(typeof u === "object" ? pick(u, "url", "link", "file", "postFileLink", "postFile", "thumb", "thumbnail") : u)
         if (url) urls.push(url)
       }
     } else {
@@ -607,16 +637,61 @@ function postImages(p: any): string[] {
       if (url) urls.push(url)
     }
   }
-  const frames = pick(p, "images", "photos", "files", "media", "attachments", "multi_image_post")
-  if (Array.isArray(frames)) {
+  // Récupère le premier champ multi-images qui est un tableau NON VIDE.
+  // ⚠️ On n'utilise PAS pick() ici : les posts album (postType="postAlbum")
+  // possèdent un flag numérique `multi_image_post` (0/1). pick() renvoie cette
+  // valeur (0 est « non vide » pour pick) et court-circuite le champ `album`
+  // qui contient pourtant les images → les posts multi-images s'affichaient vides.
+  // `album` est mis en tête car il est peuplé pour les posts album.
+  const multiFrameKeys = [
+    "album",
+    "images",
+    "photos",
+    "files",
+    "media",
+    "attachments",
+    "post_files",
+    "postFiles",
+    "multi_images",
+    "multiple_images",
+    "image_list",
+    "images_list",
+    "photos_list",
+    "gallery",
+    "fileInputForPost",
+  ]
+  let frames: any[] | null = null
+  for (const k of multiFrameKeys) {
+    const v = p?.[k]
+    if (Array.isArray(v) && v.length > 0) {
+      frames = v
+      break
+    }
+  }
+  if (frames) {
     for (const f of frames) {
       if (typeof f === "string") {
         const u = toUrl(f)
         if (u) urls.push(u)
       } else if (f && typeof f === "object") {
-        const u = toUrl(pick(f, "postFileLink", "file", "fileLink", "image", "photo", "url", "link", "thumb", "thumbnail"))
+        const u = toUrl(pick(f, "postFileLink", "postFile", "file", "fileLink", "image", "photo", "url", "link", "thumb", "thumbnail", "photo_url", "photoUrl"))
         if (u) urls.push(u)
       }
+    }
+  }
+  // Certaines réponses sérialisent la liste en JSON dans un champ unique
+  const serialized = pick(p, "post_images", "postImages", "multi_images_json")
+  if (typeof serialized === "string") {
+    try {
+      const parsed = JSON.parse(serialized)
+      if (Array.isArray(parsed)) {
+        for (const u of parsed) {
+          const url = toUrl(typeof u === "object" ? pick(u, "url", "link", "file", "image", "photo", "postFile", "postFileLink") : u)
+          if (url) urls.push(url)
+        }
+      }
+    } catch {
+      // champ non-JSON : ignoré
     }
   }
   return urls
@@ -697,12 +772,39 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
   const hlsPlaylist = toUrl(pick(p, "hls_playlist"))
   const thumb = toUrl(pick(p, "postFileThumb", "fileThumb", "thumbnail_url", "thumb", "thumbnail"))
 
+  const mediaFileName = String(
+    pick(p, "postFileName", "post_file_name", "fileName", "filename") || ""
+  )
+  const explicitAudio = toUrl(
+    pick(p, "postAudio", "audioFile", "audio_file", "audio", "audioUrl", "audio_url", "postVoice", "voiceFile")
+  )
+  const rawFileType = String(pick(p, "file_type", "fileType", "media_type", "mediaType") || "").toLowerCase()
+  // Post vocal : l'URL ou le nom de fichier désignent un fichier audio
+  // (les .webm ambigus ne sont audio que si le nom évoque un enregistrement vocal).
+  const isLikelyAudio =
+    isAudioUrl(mediaFile) ||
+    isAudioFileName(mediaFileName) ||
+    isWebmAudioHint(mediaFile) ||
+    rawFileType.startsWith("audio")
+
   let rawImages = postImages(p)
   let video: string | null = null
-  if (isVideoPost(p)) {
+  if (isVideoPost(p) && !isLikelyAudio) {
     video = hlsPlaylist || mediaFile || null
     // Ne pas laisser l'URL vidéo s'afficher comme image
     rawImages = rawImages.filter((u) => !isVideoUrl(u) && u !== mediaFile)
+  }
+
+  let audio: string | null = null
+  if (!video && isLikelyAudio) {
+    const audioUrl = mediaFile || explicitAudio
+    if (audioUrl) {
+      audio = audioUrl
+      // Ne pas laisser l'URL audio s'afficher comme image
+      rawImages = rawImages.filter(
+        (u) => u !== audioUrl && !isAudioUrl(u) && !isWebmAudioHint(u)
+      )
+    }
   }
 
   const pageAuthor = p?.page
@@ -772,6 +874,10 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     images: rawImages.map((u) => ({ url: resolveMediaUrl(u) })),
     video: video ? resolveMediaUrl(video) : null,
     thumb: video ? (thumb ? resolveMediaUrl(thumb) : null) : null,
+    audio: audio ? resolveMediaUrl(audio) : null,
+    // Lien canonique de partage du post fourni par l'API Dughu (ex. /post/{id}).
+    // Utilisé pour partager la publication vers les réseaux sociaux.
+    shareUrl: (toUrl(pick(p, "shareLink", "share_url", "shareUrl", "post_url", "postUrl", "share_link")) || null),
     createdAt: toDate(pick(p, "createdAt", "created_at", "created", "date", "post_date", "timestamp", "time")),
     author: {
       id: String(author.id),
@@ -802,6 +908,38 @@ export function mapPosts(raw: any, fallbackAuthor?: any): Record<string, any>[] 
   return arr
     .map((p) => mapPost(p, fallbackAuthor))
     .filter((p): p is Record<string, any> => p !== null)
+}
+
+export function mapAlbums(raw: any): Record<string, any>[] {
+  const arr = Array.isArray(raw) ? raw : raw?.result || raw?.data || raw?.albums || []
+  if (!Array.isArray(arr)) return []
+  return arr
+    .map((a) => {
+      if (!a || typeof a !== "object") return null
+      const mediaArr = Array.isArray(a?.media) ? a.media : []
+      const media = mediaArr
+        .map((m: any) => {
+          const url = resolveMediaUrl(toUrl(pick(m, "image", "url", "link", "file", "postFile", "photo")))
+          if (!url) return null
+          return {
+            url,
+            type: String(pick(m, "media_type", "mediaType", "type") || "image"),
+            postId: String(pick(m, "post_id", "postId") || ""),
+          }
+        })
+        .filter((m: any): m is Record<string, any> => m !== null)
+      const album: Record<string, any> = {
+        id: String(pick(a, "album_id", "albumId", "id") || ""),
+        name: String(pick(a, "album_name", "albumName", "name") || ""),
+        type: String(pick(a, "type", "privacy") || "public"),
+        userId: String(pick(a, "user_id", "userId") || ""),
+        cover: media[0]?.url || "",
+        media,
+        count: media.length,
+      }
+      return album
+    })
+    .filter((a): a is Record<string, any> => a !== null && !!a.id)
 }
 
 export function mapComment(c: any, currentUserId?: string): Record<string, any> | null {

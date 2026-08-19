@@ -59,6 +59,7 @@ interface Post {
   image?: string | null
   video?: string | null
   images?: { url: string }[]
+  shareUrl?: string | null
   createdAt: string
   author: { id: string; name: string | null; username: string | null; avatar: string | null }
   color?: string | null
@@ -188,7 +189,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
   const isFollowing = !!profile?.isFollowing
 
-  const handleCreatePost = async (data: { content: string; color?: any; images?: File[]; videos?: File[] }) => {
+  const handleCreatePost = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[] }) => {
     if (!currentUser) {
       toast.error("Connectez-vous pour publier")
       return
@@ -208,6 +209,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       }
       if (data.images) data.images.forEach((img) => formData.append("images", img))
       if (data.videos) data.videos.forEach((vid) => formData.append("videos", vid))
+      if (data.audios) data.audios.forEach((aud) => formData.append("audios", aud))
       const res = await fetch("/api/posts", { method: "POST", body: formData })
       const resp = await res.json()
       if (resp.success) {
@@ -320,7 +322,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     }
   }
 
-  const handleRepost = async (postId: string) => {
+    const handleRepost = async (postId: string) => {
     if (!currentUser) {
       toast.error("Connectez-vous pour republier")
       return
@@ -334,6 +336,36 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       const data = await res.json()
       if (data.success) {
         toast.success("Repost effectué !")
+        loadPosts(1, true)
+      } else {
+        toast.error(data.message || "Erreur repost")
+      }
+    } catch {
+      toast.error("Erreur repost")
+    }
+  }
+
+  // Republier en ajoutant un texte d'accompagnement (commentaire).
+  const handleRepostWithText = async (postId: string, text: string) => {
+    if (!currentUser) {
+      toast.error("Connectez-vous pour republier")
+      return
+    }
+    const commentary = text.trim()
+    if (!commentary) {
+      handleRepost(postId)
+      return
+    }
+    try {
+      const formData = new FormData()
+      formData.append("parentId", postId)
+      formData.append("userId", currentUser.id)
+      formData.append("dughuUserId", currentUser?.dughu?.userId || "")
+      formData.append("content", commentary)
+      const res = await fetch("/api/posts", { method: "POST", body: formData })
+      const data = await res.json()
+      if (data.success) {
+        toast.success("Repost publié !")
         loadPosts(1, true)
       } else {
         toast.error(data.message || "Erreur repost")
@@ -589,7 +621,9 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                   timeAgo={timeAgo(post.createdAt)}
                   content={post.content}
                   image={post.image || post.images?.[0]?.url}
+                  images={(post.images || []).map((img) => ({ url: img.url }))}
                   video={(post as any).video}
+                  audio={(post as any).audio || null}
                   color={post.color && typeof post.color === "string" ? post.color : post.color ? JSON.stringify(post.color) : null}
                   likesCount={post._count.likes}
                   commentsCount={post._count.comments}
@@ -599,8 +633,9 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                   parentPost={post.parentPost}
                   onLike={(r) => handleReaction(post.id, r)}
                   onComment={(text) => handleComment(post.id, text)}
-                  onRepost={() => handleRepost(post.id)}
-                  onShare={() => toast.info("Partage")}
+                                    onRepost={() => handleRepost(post.id)}
+                  onRepostWithText={(text) => handleRepostWithText(post.id, text)}
+                  shareUrl={post.shareUrl || null}
                   onDelete={() => handleDelete(post.id)}
                   canDelete={!!currentUser && String(post.author?.id) === String(currentUser?.dughu?.userId)}
                   onSave={() => handleSave(post.id)}
