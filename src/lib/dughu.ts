@@ -120,6 +120,9 @@ export const dughu = {
 
   chatRootMultipart: (path: string, formData: FormData) =>
     dughuFetch(path, { method: "POST", body: formData }, RETRY_TIMES, CHAT_ORIGIN),
+
+  chatMultipart: (path: string, formData: FormData) =>
+    dughuFetch(path, { method: "POST", body: formData }, RETRY_TIMES, CHAT_BASE_URL),
 }
 
 // ── Endpoints connus de l'API Dughu ──────────────────────────────────────────
@@ -299,8 +302,18 @@ export const dughuApi = {
   getChatContact: (userId: string | number) =>
     dughu.chatGet(`contactChat/${encodeURIComponent(String(userId))}`),
 
-  sendMessage: (formData: FormData) =>
-    dughu.chatRootMultipart("sendMessage", formData),
+  sendMessage: async (formData: FormData) => {
+    try {
+      return await dughu.chatRootMultipart("sendMessage", formData)
+    } catch (error) {
+      // Selon l'environnement, la base Postman peut déjà inclure `/api`.
+      // On ne retente sur cette variante que si la route racine est absente.
+      if (error instanceof DughuApiError && error.status === 404) {
+        return dughu.chatMultipart("sendMessage", formData)
+      }
+      throw error
+    }
+  },
 
   updateProfile: (formData: FormData) => dughu.multipart("updateProfile", formData),
 
