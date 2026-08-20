@@ -16,6 +16,15 @@ function OtpForm() {
   const [timer, setTimer] = useState(180) // 3 minutes en secondes
   const inputsRef = useRef<(HTMLInputElement | null)[]>([])
 
+  const resolveNextUrl = async () => {
+    try {
+      const me = await fetch("/api/auth/me")
+      const data = await me.json()
+      if (data?.success && data?.user?.onboardingCompleted) return "/home"
+    } catch {}
+    return "/onboarding/profile"
+  }
+
   useEffect(() => {
     if (!email) {
       toast.error("Aucun email fourni")
@@ -86,7 +95,7 @@ function OtpForm() {
       }
 
       toast.success("Compte vérifié avec succès !")
-      router.push("/login")
+      router.replace(await resolveNextUrl())
     } catch {
       toast.error("Erreur réseau")
     } finally {
@@ -110,7 +119,7 @@ function OtpForm() {
         return
       }
 
-      toast.success("Nouveau code envoyé !")
+      toast.success(data.message || "Nouveau code envoyé !")
       setTimer(180)
       setOtp(["", "", "", ""])
       inputsRef.current[0]?.focus()

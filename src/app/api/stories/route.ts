@@ -1,33 +1,27 @@
 import { NextRequest, NextResponse } from "next/server"
-import { Prisma } from "@prisma/client"
-import { prisma } from "@/lib/prisma"
+import { dughu, dughuApi, mapStories } from "@/lib/dughu"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 export async function GET(req: NextRequest) {
   try {
+    if (!dughu.enabled) {
+      return NextResponse.json({ success: true, stories: [] })
+    }
     const { searchParams } = new URL(req.url)
-    const userId = searchParams.get("userId")
+    const dughuUserId = searchParams.get("userId") || (await getDughuUserIdFromCookies())
 
-    // Suppression des stories expirées
-    await prisma.story.deleteMany({ where: { expiresAt: { lt: new Date() } } })
-
-    const where: Prisma.StoryWhereInput = { expiresAt: { gt: new Date() } }
-
-    if (userId) {
-      const follows = await prisma.follow.findMany({
-        where: { followerId: userId },
-        select: { followingId: true },
-      })
-      const followingIds = follows.map((f) => f.followingId)
-      where.userId = { in: [...followingIds, userId] }
+    if (!dughuUserId) {
+      return NextResponse.json({ success: true, stories: [] })
     }
 
-    const stories = await prisma.story.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: { select: { id: true, name: true, username: true, avatar: true } },
-      },
-    })
+    // Stories des amis + mes propres stories (endpoints Dughu).
+    const [friendsRaw, mineRaw] = await Promise.all([
+      dughuApi.getFriendsStories(dughuUserId).catch(() => null),
+      dughuApi.getUserStories(dughuUserId).catch(() => null),
+    ])
+    const friendsStories = mapStories(friendsRaw?.stories ?? friendsRaw)
+    const authStories = mapStories(friendsRaw?.authStories ?? (mineRaw?.stories ?? mineRaw))
+    const stories = [...authStories, ...friendsStories]
 
     return NextResponse.json({ success: true, stories })
   } catch (error) {
@@ -38,31 +32,51 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, image, text, bgColor, type } = body
+    if (!dughu.enabled) {
+      return NextResponse.json(
+        { success: false, message: "L'API Dughu n'est pas configurée." },
+        { status: 500 }
+      )
+    }
 
+    const formData = await req.formData()
+    const userId = String(formData.get("userId") || "")
     if (!userId) {
       return NextResponse.json({ success: false, message: "Utilisateur requis." }, { status: 401 })
     }
-    if (!image && !text) {
-      return NextResponse.json({ success: false, message: "Image ou texte requis." }, { status: 422 })
+    let dughuUserId = String(formData.get("dughuUserId") || "")
+    if (!dughuUserId) {
+      // Fallback serveur : lecture du cookie de session Dughu
+      dughuUserId = await getDughuUserIdFromCookies()
+    }
+    if (!dughuUserId) {
+      return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
     }
 
-    const story = await prisma.story.create({
-      data: {
-        userId,
-        image,
-        text,
-        bgColor,
-        type: type || (image ? "image" : "text"),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      },
-      include: { user: { select: { id: true, name: true, avatar: true } } },
-    })
+    // Contrat Dughu (POST /postStory) : user_id + text / image / video (multipart).
+    const payload = new FormData()
+    payload.append("user_id", dughuUserId)
+    const text = formData.get("text")
+    if (typeof text === "string" && text) payload.append("text", text)
+    const bgColor = formData.get("bgColor")
+    if (typeof bgColor === "string" && bgColor) payload.append("bg_color", bgColor)
+    const image = formData.get("image")
+    if (image instanceof File && image.size > 0) payload.append("image", image)
+    const video = formData.get("video")
+    if (video instanceof File && video.size > 0) payload.append("video", video)
 
+    const raw = await dughuApi.postStory(payload)
+    if (raw?.success === false) {
+      return NextResponse.json(
+        { success: false, message: raw?.message || "Erreur de création (API Dughu)." },
+        { status: 502 }
+      )
+    }
+    const story = mapStories(raw?.story ?? raw)[0] || null
     return NextResponse.json({ success: true, story }, { status: 201 })
   } catch (error) {
     console.error("CREATE STORY ERROR:", error)
     return NextResponse.json({ success: false }, { status: 500 })
   }
 }
+

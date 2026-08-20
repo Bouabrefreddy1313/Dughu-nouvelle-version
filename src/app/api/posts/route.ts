@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { dughu, dughuApi, mapPosts, getPageInfo, mapPost } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { dughu, dughuApi, mapPosts, mapAlbums, getPageInfo, mapPost } from "@/lib/dughu"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 const POSTS_PER_PAGE = 10
 
@@ -96,10 +95,10 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Fallback serveur : si le frontend n'a pas fourni l'ID Dughu (ex: cache
-    // localStorage perdu), on le résout via l'API Dughu depuis le compte local.
-    if (!dughuUserId && userId) {
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    // Fallback serveur : si le frontend n'a pas fourni l'ID Dughu, on le lit
+    // depuis le cookie de session.
+    if (!dughuUserId) {
+      dughuUserId = await getDughuUserIdFromCookies()
     }
 
     if (!dughuUserId) {
@@ -109,17 +108,16 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Résoudre l'utilisateur local pour le nom/avatar (optionnel, juste pour l'affichage)
-    const viewer = userId
-      ? await prisma.user.findUnique({
-          where: { id: userId },
-          select: { id: true, name: true, username: true, avatar: true },
-        })
-      : null
-
     // ── Mode profil : posts d'un auteur précis ──
     if (authorId) {
-      const raw = await dughuApi.getUserPosts(authorId, dughuUserId, page)
+      // L'endpoint Dughu `userPost` attend l'ID (ou username) Dughu de l'auteur
+      // dans `user_id`. Le frontend fournit désormais un identifiant Dughu
+      // numérique ou un username ; aucun mapping local n'existe plus.
+      let targetDughuId = authorId
+      if (!/^\d+$/.test(String(authorId))) {
+        targetDughuId = authorId
+      }
+      const raw = await dughuApi.getUserPosts(targetDughuId, dughuUserId, page)
       const posts = mapPosts(raw, {
         id: authorId,
         name: "",
@@ -139,17 +137,60 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // ── Fil d'actualité : endpoint getPostAllRepost (officiel v1/v2) ──
-    const raw = await dughuApi.getPostAllRepost(dughuUserId, page)
-    console.log("FEED RAW (first 300 chars):", JSON.stringify(raw).slice(0, 300))
-    const mappedPosts = mapPosts(raw, viewer ? {
-      id: viewer.id,
-      name: viewer.name,
-      username: viewer.username,
-      avatar: viewer.avatar,
-    } : undefined) as any[]
-    const followingIds = await getFollowingAuthorIds(mappedPosts, dughuUserId)
-    const posts = applyFollowingState(mappedPosts, followingIds)
+    // ── Fil d'actualité : getPostAllRepost (complet) et getPostAll (rapide) en
+    // parallèle — la première réponse gagne. Évite le timeout client (~6s à >30s
+    // pour getPostAllRepost quand l'API Dughu est chargée) en repliant sur la
+    // variante getPostAll qui répond en ~1-2s.
+    //
+    // En parallèle, on récupère les albums de l'utilisateur : les posts multi-
+    // images vivent souvent dans un album (postType="postAlbum"), et selon
+    // l'endpoint gagnant le tableau `album` n'est pas toujours inclus dans le
+    // fil. On enrichit donc les posts avec les médias de l'album (correspondance
+    // par post_id) quand ils n'ont aucune image.
+    const albumsPromise = dughuApi
+      .getAlbums(dughuUserId)
+      .then((raw: any) => mapAlbums(raw))
+      .catch((e: unknown) => {
+        console.error("FEED getAlbums ERROR:", e)
+        return []
+      })
+
+    const raw = await Promise.race([
+      dughuApi.getPostAllRepost(dughuUserId, page).catch((e: unknown) => {
+        console.error("FEED getPostAllRepost ERROR:", e)
+        return null
+      }),
+      dughuApi.getPostAll(dughuUserId, page).catch((e: unknown) => {
+        console.error("FEED getPostAll ERROR:", e)
+        return null
+      }),
+    ])
+    if (!raw) {
+      throw new Error("Le fil Dughu est injoignable.")
+    }
+    const posts = mapPosts(raw, undefined) as any[]
+
+    // Enrichit les posts multi-images avec les médias de l'album du viewer
+    // lorsque le fil ne les a pas inclus.
+    const albums = await albumsPromise
+    if (albums.length) {
+      const mediaByPostId = new Map<string, { url: string }[]>()
+      for (const album of albums) {
+        for (const m of album.media || []) {
+          if (!m.postId) continue
+          const arr = mediaByPostId.get(String(m.postId)) || []
+          arr.push({ url: m.url })
+          mediaByPostId.set(String(m.postId), arr)
+        }
+      }
+      for (const post of posts) {
+        if (!post.images?.length && mediaByPostId.has(post.id)) {
+          post.images = mediaByPostId.get(post.id)!
+          post.image = post.images[0]?.url || null
+        }
+      }
+    }
+
     const info = getPageInfo(raw)
     // Si getPageInfo ne détecte pas de pagination, on déduit hasMore du nombre de posts reçus
     const hasMore = info.hasMore || posts.length >= POSTS_PER_PAGE
@@ -192,9 +233,9 @@ export async function POST(req: NextRequest) {
     }
 
     let dughuUserId = String(formData?.get("dughuUserId") || jsonBody?.dughuUserId || "")
-    // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
-    if (!dughuUserId && userId) {
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    // Fallback serveur : lecture du cookie de session Dughu
+    if (!dughuUserId) {
+      dughuUserId = await getDughuUserIdFromCookies()
     }
     if (!dughuUserId) {
       return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 401 })
@@ -202,6 +243,28 @@ export async function POST(req: NextRequest) {
 
     const dForm = new FormData()
     dForm.append("user_id", String(dughuUserId))
+
+    // Confidentialité du post :
+    //  - "0" : Public (tout le monde peut voir)
+    //  - "1" : Amis (seuls les amis peuvent voir)
+    // L'API Dughu attend ce champ sous le nom `postPrivacy`.
+    // On normalise toujours en chaîne ("0" ou "1") pour correspondre au contrat
+    // de l'endpoint, qu'on reçoive un nombre, une chaîne, ou rien (défaut: public).
+    const rawPrivacy =
+      formData?.get("privacy") ??
+      formData?.get("postPrivacy") ??
+      jsonBody?.privacy ??
+      jsonBody?.postPrivacy
+
+    const normalizedPrivacy =
+      typeof rawPrivacy === "string"
+        ? rawPrivacy.trim()
+        : typeof rawPrivacy === "number"
+          ? String(rawPrivacy)
+          : rawPrivacy
+
+    const postPrivacy = normalizedPrivacy === "1" ? "1" : "0"
+    dForm.append("postPrivacy", postPrivacy)
 
     if (formData) {
       const content = (formData.get("content") as string) || ""
@@ -227,8 +290,10 @@ export async function POST(req: NextRequest) {
 
       const imageFiles = formData.getAll("images") as File[]
       const videoFiles = formData.getAll("videos") as File[]
+      const audioFiles = formData.getAll("audios") as File[]
       for (const f of imageFiles) dForm.append("fileInputForPost[]", f)
       for (const f of videoFiles) dForm.append("fileInputForPost[]", f)
+      for (const f of audioFiles) dForm.append("fileInputForPost[]", f)
     } else {
       const body = jsonBody || {}
       const content = body.content || ""

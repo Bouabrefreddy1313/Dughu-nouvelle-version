@@ -19,13 +19,6 @@ export function ImageEditModal({ open, type, userId, currentUrl, onClose, onSave
   const [file, setFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (open) {
-      setPreview(null)
-      setFile(null)
-    }
-  }, [open])
-
   if (!open) return null
 
   const isAvatar = type === "avatar"
@@ -50,8 +43,9 @@ export function ImageEditModal({ open, type, userId, currentUrl, onClose, onSave
       formData.append(type, file)
       const res = await fetch(`/api/profile/${type}`, { method: "POST", body: formData })
       const data = await res.json()
-      if (data.success) {
-        onSaved(data[type])
+      const resolvedUrl = String(data?.[type] || data?.avatar || data?.cover || preview || currentUrl || "")
+      if (resolvedUrl) {
+        onSaved(resolvedUrl)
         toast.success(isAvatar ? "Photo de profil mise à jour !" : "Photo de couverture mise à jour !")
         onClose()
       } else {

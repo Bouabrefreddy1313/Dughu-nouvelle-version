@@ -5,19 +5,18 @@ const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password", "/otp", "/api"
 
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname
-  const token =
-    request.cookies.get("next-auth.session-token")?.value ||
-    request.cookies.get("__Secure-next-auth.session-token")?.value
+  const dughuToken = request.cookies.get("dughu_token")?.value
+  const dughuUserId = request.cookies.get("dughu_user_id")?.value
 
   const isPublic = PUBLIC_ROUTES.some((r) => path.startsWith(r))
 
   // Rediriger vers login si pas de session sur une route protégée
-  if (!token && !isPublic && path !== "/") {
+  if (!dughuToken && !dughuUserId && !isPublic && path !== "/") {
     return NextResponse.redirect(new URL("/register", request.url))
   }
 
-  // Rediriger vers /home si déjà connecté et sur login/register
-  if (token && (path === "/login" || path === "/register" || path === "/")) {
+  // Si déjà connecté via Dughu, aller directement sur /home (sauf si non onbording)
+  if (dughuToken && dughuUserId && (path === "/login" || path === "/register" || path === "/" || path === "/otp")) {
     return NextResponse.redirect(new URL("/home", request.url))
   }
 

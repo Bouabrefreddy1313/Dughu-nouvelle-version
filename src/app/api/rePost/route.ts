@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, mapPost } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
+
+interface RepostBody {
+  userId?: string
+  user_id?: string
+  dughuUserId?: string
+  postText?: string
+  content?: string
+  parentId?: string
+  parent_id?: string
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,19 +23,27 @@ export async function POST(req: NextRequest) {
 
     const contentType = req.headers.get("content-type") || ""
     const formData = contentType.includes("multipart/form-data") ? await req.formData() : null
-    const userId = String(formData?.get("user_id") || (await req.json().then((b: {user_id: string}) => b.user_id).catch(() => "") ) || "")
+    let jsonBody: RepostBody | null = null
+    if (!formData) {
+      jsonBody = await req.json().catch(() => ({}))
+    }
+    const userId = String(
+      formData?.get("userId") ||
+        formData?.get("user_id") ||
+        jsonBody?.userId ||
+        jsonBody?.user_id ||
+        ""
+    )
 
     if (!userId) {
       return NextResponse.json({ success: false, message: "Utilisateur requis." }, { status: 401 })
     }
 
-    const user = formData
-      ? { dughuUserId: String(formData.get("dughuUserId") || "") }
-      : { dughuUserId: await req.json().then((b: { dughuUserId?: string }) => b.dughuUserId || "").catch(() => "") }
-    let dughuUserId = user?.dughuUserId || ""
+    let dughuUserId =
+      String(formData?.get("dughuUserId") || jsonBody?.dughuUserId || "")
     if (!dughuUserId) {
-      // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+      // Fallback serveur : lecture du cookie de session Dughu
+      dughuUserId = await getDughuUserIdFromCookies()
     }
     if (!dughuUserId) {
       return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
@@ -35,10 +52,18 @@ export async function POST(req: NextRequest) {
     const dForm = new FormData()
     dForm.append("user_id", String(dughuUserId))
 
-    const postText = (formData?.get("postText") as string) || ""
+    const postText =
+      String(formData?.get("postText") || jsonBody?.postText || jsonBody?.content || "")
     if (postText.trim()) dForm.append("postText", postText.trim())
 
-    const parentId = (formData?.get("parentId") as string) || (formData?.get("parent_id") as string) || ""
+    const parentId =
+      String(
+        formData?.get("parentId") ||
+          formData?.get("parent_id") ||
+          jsonBody?.parentId ||
+          jsonBody?.parent_id ||
+          ""
+      )
     if (parentId) dForm.append("parent_id", parentId)
 
     const raw = await dughuApi.createPost(dForm)

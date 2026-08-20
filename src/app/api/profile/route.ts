@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { dughu, dughuApi, normalizeUser, parseCounts, mapPhotos, mapPosts, mapFriends, pick } from "@/lib/dughu"
-import { resolveDughuUserId, resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { dughu, dughuApi, normalizeUser, parseCounts, mapPhotos, mapVideos, mapFriends, pick } from "@/lib/dughu"
 
 const DEFAULT_COVER = "/images/group/default-cover.jpg"
 
@@ -11,6 +9,8 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get("userId")
     const slug = searchParams.get("slug")
     const currentUserId = searchParams.get("currentUserId")
+    const dughuUserId = searchParams.get("dughuUserId")
+    const viewerDughuUserId = searchParams.get("viewerDughuUserId")
 
     if (!userId && !slug) {
       return NextResponse.json({ success: false, message: "Identifiant requis." }, { status: 422 })
@@ -23,38 +23,20 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Résoudre l'utilisateur local (optionnel) et l'ID Dughu du visiteur
-    const dughuUserId = searchParams.get("dughuUserId")
-    const viewerDughuUserId = searchParams.get("viewerDughuUserId")
-    const localUser = userId
-      ? await prisma.user.findUnique({
-          where: { id: userId },
-          select: { id: true, email: true, username: true },
-        })
-      : slug
-        ? await prisma.user.findFirst({
-            where: { OR: [{ username: slug }, { slug }] },
-            select: { id: true, email: true, username: true },
-          })
-        : null
-
-    // ID Dughu du visiteur connecté : fourni par le frontend, sinon résolu via
-    // l'API Dughu depuis son compte local (plus de dughuId stocké en base).
+    // ID Dughu du visiteur connecté : fourni par le frontend, sinon lecteur depuis
+    // le cookie de session (plus de compte local).
     let viewerDughuId = viewerDughuUserId || ""
-    if (!viewerDughuId && currentUserId) {
-      viewerDughuId = await resolveDughuUserIdFromLocalId(currentUserId)
-    }
     if (!viewerDughuId) viewerDughuId = "0"
 
-    // Résoudre l'identifiant Dughu cible : dughuUserId fourni, sinon username
-    // (par slug ou par le compte local), sinon résolution par email.
+    // Résoudre l'identifiant Dughu cible : dughuUserId fourni, sinon slug/username
+    // (le profil Dughu est la source de vérité).
     let targetIdentifier: string | undefined
     if (dughuUserId) {
       targetIdentifier = dughuUserId
     } else if (slug) {
       targetIdentifier = slug
-    } else if (localUser) {
-      targetIdentifier = localUser.username || (await resolveDughuUserId(localUser)) || undefined
+    } else if (userId) {
+      targetIdentifier = userId
     }
     if (!targetIdentifier) {
       return NextResponse.json(
@@ -72,42 +54,23 @@ export async function GET(req: NextRequest) {
     const resultObj = raw?.result ?? raw
     const details = parseCounts(resultObj?.details ?? raw?.details ?? raw?.user?.details ?? userObj.details)
     const username = userObj.username || userObj.slug || ""
-    const [photos, friends, userPostsRaw] = await Promise.all([
+    const [photos, friends, videos] = await Promise.all([
+      // Uniquement les photos publiées par l'utilisateur, via l'endpoint dédié
+      // profile/{username}/photos (pas d'images extraites des posts/reposts)
       username ? dughuApi.getUserPhotos(username, 1).then((raw) => {
         console.log("DUGHU PHOTOS RAW:", JSON.stringify(raw).slice(0, 500))
         return mapPhotos(raw)
       }).catch((e) => { console.error("DUGHU PHOTOS ERROR:", e); return [] }) : Promise.resolve([]),
       userObj.id ? dughuApi.getUserFriends(userObj.id).then(mapFriends).catch(() => []) : Promise.resolve([]),
-      // Récupérer aussi les posts pour extraire leurs images
-      userObj.id ? dughuApi.getPostAllRepost(userObj.id, 1).catch(() => null) : Promise.resolve(null),
+      // Vidéos publiées par l'utilisateur via l'endpoint dédié
+      // profile/{username}/videos
+      username ? dughuApi.getUserVideos(username, 1).then((raw) => {
+        console.log("DUGHU VIDEOS RAW:", JSON.stringify(raw).slice(0, 500))
+        return mapVideos(raw)
+      }).catch((e) => { console.error("DUGHU VIDEOS ERROR:", e); return [] }) : Promise.resolve([]),
     ])
 
-    // Extraire les images des posts de l'utilisateur
-    const postImages: Record<string, any>[] = []
-    if (userPostsRaw) {
-      const userPosts = mapPosts(userPostsRaw) as any[]
-      const seenUrls = new Set(photos.map((p: any) => p.url))
-      for (const post of userPosts) {
-        // Image principale
-        if (post.image && !seenUrls.has(post.image)) {
-          seenUrls.add(post.image)
-          postImages.push({ id: `post-${post.id}`, url: post.image, createdAt: post.createdAt })
-        }
-        // Images multiples
-        if (Array.isArray(post.images)) {
-          for (const img of post.images) {
-            if (img.url && !seenUrls.has(img.url)) {
-              seenUrls.add(img.url)
-              postImages.push({ id: `post-img-${post.id}-${postImages.length}`, url: img.url, createdAt: post.createdAt })
-            }
-          }
-        }
-      }
-    }
-
-    // Fusionner : photos galerie + images des posts
-    const allPhotos = [...photos, ...postImages]
-    console.log("PROFILE PHOTOS: gallery", photos.length, "| post images:", postImages.length, "| total:", allPhotos.length)
+    const allPhotos = photos
 
     // Les vrais compteurs sont des champs numériques au niveau supérieur de la
     // réponse Dughu (NbrPostsTotal, followersNbr, followingsNbr), pas `details`.
@@ -120,14 +83,16 @@ export async function GET(req: NextRequest) {
     const isFollowing =
       followValue === true || followValue === 1 || followValue === "1" || userObj.isFollowing
 
-    const targetDughuId = dughuUserId || ""
-
     return NextResponse.json({
       success: true,
       user: {
         ...userObj,
-        id: localUser?.id || userObj.id,
-        dughu: dughuUserId ? { userId: dughuUserId } : null,
+        id: String(userObj.id || ""),
+        // Toujours exposer l'ID Dughu de la cible : permet au frontend de
+        // détecter "mon propre profil" même quand le username local a divergé
+        // du username Dughu (renommé côté Dughu), en comparant les ID Dughu
+        // plutôt que les id locaux.
+        dughu: { userId: String(userObj.id || "") },
         name: userObj.name,
         avatar: userObj.avatar,
         cover: userObj.cover,
@@ -151,6 +116,7 @@ export async function GET(req: NextRequest) {
       friends,
       recentFollowers: [],
       photos: allPhotos,
+      videos,
       groups: [],
       pages: { owned: [], liked: [] },
       isFollowing,

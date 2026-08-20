@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import {
   useCallback,
@@ -12,9 +12,11 @@ import {
   Share2,
   Image as ImageIcon,
   Video,
+  Mic,
   FileText,
   Send,
   MoreHorizontal,
+  Pen,
   X,
   Reply,
   Trash2,
@@ -22,6 +24,10 @@ import {
   ChevronDown,
   Bookmark,
   EyeOff,
+  Smile,
+  MessageCircle,
+  Globe,
+  Users,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -30,6 +36,9 @@ import FollowButton from "@/components/common/FollowButton"
 import { CommentBody } from "@/components/feed/CommentBody"
 import { toast } from "sonner"
 import { REACTIONS, REACTION_ID_TO_TYPE, REACTION_TYPE_TO_ID } from "@/lib/constants"
+import { RepostWithTextModal } from "@/components/feed/RepostWithTextModal"
+import { SharePostModal } from "@/components/feed/SharePostModal"
+import { HashtagText } from "@/components/common/HashtagText"
 
 interface Author {
   id: string
@@ -85,12 +94,24 @@ interface PostCardProps {
   timeAgo?: string
   content?: string
   image?: string
+  /** Toutes les images d'un post multi-images (grille d'affichage). */
+  images?: { url: string; id?: string }[]
   video?: string
+  /** URL du post vocal (fichier audio téléversé). */
+  audio?: string
+  /** Lien canonique de partage du post (fourni par l'API). */
+  shareUrl?: string | null
   color?: string | null
   likesCount?: number
   commentsCount?: number
   sharesCount?: number
   reacted?: string | null
+  /**
+   * Confidentialité du post :
+   *  - 0 : Public (tout le monde peut voir)
+   *  - 1 : Amis (seuls les amis peuvent voir)
+   */
+  postPrivacy?: 0 | 1
   /** Post d'origine embarqué lors d'une republication (repost) */
   parentPost?: {
     id: string
@@ -113,7 +134,10 @@ interface PostCardProps {
   reactions?: ReactionSummaryItem[]
   onLike?: (reactionId?: number) => void
   onComment?: (text: string, files?: File[]) => void | Promise<void>
+    /** Republier directement, sans texte d'accompagnement. */
   onRepost?: () => void
+  /** Republier en ajoutant un texte d'accompagnement (commentaire) au post partagé. */
+  onRepostWithText?: (text: string) => void
   onShare?: () => void
   onMenuClick?: () => void
   isFollowing?: boolean
@@ -308,6 +332,34 @@ function LikesSummary({
 }
 
 /**
+ * Petit badge de confidentialité affiché à côté du temps écoulé du post.
+ * 0 = Public (globe), 1 = Amis (utilisateurs).
+ */
+function PrivacyBadge({ postPrivacy }: { postPrivacy?: 0 | 1 }) {
+  if (postPrivacy === 1) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-[#65676B]"
+        title="Visible par vos amis uniquement"
+      >
+        <Users size={12} />
+        
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[#65676B]"
+      title="Visible par tout le monde"
+    >
+      <Globe size={12} />
+      
+    </span>
+  )
+}
+
+/**
  * Carte embarquée du post d'origine dans une republication (repost).
  * Affiche l'auteur, le texte (éventuellement coloré) et les médias du post
  * republié, avec le rendu compact et bien délimité du reste du fil.
@@ -366,13 +418,13 @@ function ParentPostCard({
             className="w-full min-h-[120px] py-6 px-4 flex items-center justify-center"
             style={{ background: bgColor, color: textColor }}
           >
-            <p className="text-[20px] font-bold text-center whitespace-pre-wrap leading-relaxed">
-              {content}
+            <p className="text-[20px] font-bold text-center whitespace-pre-wrap leading-relaxed break-words">
+              <HashtagText text={content} hashtagClassName="text-inherit underline" />
             </p>
           </div>
         ) : (
-          <p className="px-3 pb-2 pt-1 text-[14px] text-[#050505] whitespace-pre-wrap leading-relaxed">
-            {content}
+          <p className="px-3 pb-2 pt-1 text-[14px] text-[#050505] whitespace-pre-wrap leading-relaxed break-words">
+            <HashtagText text={content} />
           </p>
         )
       ) : null}
@@ -677,7 +729,7 @@ function ReplyContent({
   )
 
   return (
-    <div className="text-[14px] leading-relaxed whitespace-pre-wrap">
+    <div className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
       <span className="font-semibold text-[#A35A2A]">
         {normalizedParentName}
       </span>
@@ -782,14 +834,14 @@ function ModalPostPreview({
             color: postColor.text,
           }}
         >
-          <p className="text-[22px] font-bold text-center whitespace-pre-wrap leading-relaxed max-w-[85%]">
-            {content}
+          <p className="text-[22px] font-bold text-center whitespace-pre-wrap leading-relaxed max-w-[85%] break-words truncate">
+            <HashtagText text={content} hashtagClassName="text-inherit underline" />
           </p>
         </div>
       ) : content ? (
         <div className="px-4 py-2">
-          <p className="text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed">
-            {content}
+          <p className="text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed truncate">
+            <HashtagText text={content} />
           </p>
         </div>
       ) : null}
@@ -832,6 +884,13 @@ function ModalPostPreview({
   )
 }
 
+const EMOJI_LIST = [
+  "😀", "😍", "😂", "🥰", "😊", "😎", "🤔", "😴",
+  "😢", "😭", "😡", "😯", "😱", "🤯", "🥳", "😇",
+  "🔥", "❤️", "💯", "👍", "👎", "👏", "🙌", "💪",
+  "🎉", "✨", "⭐", "💡", "👀", "🤝", "✅", "❌",
+]
+
 export function PostCard({
   postId,
   author,
@@ -839,7 +898,9 @@ export function PostCard({
   timeAgo,
   content,
   image,
+  images,
   video,
+  audio,
   color,
   parentPost,
   likesCount = 0,
@@ -847,10 +908,12 @@ export function PostCard({
   sharesCount = 0,
   reacted,
   reactions,
+  postPrivacy = 0,
   onLike,
   onComment,
-  onRepost,
-  onShare,
+    onRepost,
+  onRepostWithText,
+  shareUrl,
   onMenuClick,
   isFollowing = false,
   isFollowLoading = false,
@@ -889,8 +952,17 @@ export function PostCard({
   >({})
   const [contentExpanded, setContentExpanded] = useState(false)
   const [postMenuOpen, setPostMenuOpen] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  // Menu de choix "Republier" + modal de republication avec texte d'accompagnement
+  const [repostMenuOpen, setRepostMenuOpen] = useState(false)
+  const [repostModalOpen, setRepostModalOpen] = useState(false)
+  // Modal de partage du post vers les réseaux sociaux
+  const [shareModalOpen, setShareModalOpen] = useState(false)
 
   const postMenuRef = useRef<HTMLDivElement | null>(null)
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null)
+  const repostMenuRef = useRef<HTMLDivElement | null>(null)
+  const repostModalRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -903,6 +975,41 @@ export function PostCard({
       return () => document.removeEventListener("mousedown", handler)
     }
   }, [postMenuOpen])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false)
+      }
+    }
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handler)
+      return () => document.removeEventListener("mousedown", handler)
+    }
+    }, [showEmojiPicker])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        repostMenuOpen &&
+        repostMenuRef.current &&
+        !repostMenuRef.current.contains(e.target as Node)
+      ) {
+        setRepostMenuOpen(false)
+      }
+      if (
+        repostModalOpen &&
+        repostModalRef.current &&
+        !repostModalRef.current.contains(e.target as Node)
+      ) {
+        setRepostModalOpen(false)
+      }
+    }
+    if (repostMenuOpen || repostModalOpen) {
+      document.addEventListener("mousedown", handler)
+      return () => document.removeEventListener("mousedown", handler)
+    }
+  }, [repostMenuOpen, repostModalOpen])
 
   useEffect(() => {
     setSelectedReaction(reacted ? REACTION_TYPE_TO_ID[reacted] || null : null)
@@ -946,7 +1053,32 @@ export function PostCard({
     }, 180)
   }
 
-  const currentUserAvatar = currentUser?.avatar || author.avatar
+    const currentUserAvatar = currentUser?.avatar || author.avatar
+  // Preview du post republié dans le composer : si le post est lui-même un
+  // repost, on réutilise l'original embarqué ; sinon on utilise le post courant.
+  const repostPreviewParent = parentPost ?? {
+    id: postId || "",
+    author,
+    content: content || null,
+    image,
+    video,
+    color,
+    timeAgo,
+  }
+  // Données du post passé au modal de partage
+  const sharePreviewPost = {
+    id: postId || "",
+    content: content || null,
+    image,
+    video,
+    author: {
+      id: author.id,
+      name: author.name,
+      avatar: author.avatar,
+      username: author.username,
+    },
+    shareUrl: shareUrl || null,
+  }
   const hasComment =
     commentText.trim().length > 0 || commentFiles.length > 0
 
@@ -1046,6 +1178,7 @@ export function PostCard({
     setReplyPreviews([])
   }, [])
 
+  // Soumission du composer de republication avec texte d'accompagnement.
   const toggleReplies = (commentId: string) => {
     setExpandedReplies((previous) => ({
       ...previous,
@@ -1168,9 +1301,6 @@ export function PostCard({
         replies: [],
       }
 
-      // Le parent logique est la réponse à laquelle on répond (parentId) :
-      // en mode local le backend renvoie le même id ; en mode Dughu il renvoie
-      // l'id du commentaire racine mais on imbrique immédiatement sous la réponse.
       const targetParentId = parentId
 
       const addReply = (
@@ -1276,7 +1406,6 @@ export function PostCard({
         return item
       })
 
-    // Mise à jour optimiste (compteur en live + emoji sur le bouton)
     setComments((previous) =>
       updateInTree(previous, (item) => ({
         ...item,
@@ -1830,6 +1959,7 @@ export function PostCard({
         className
       )}
     >
+      
       <div className="flex items-center gap-3 px-4 pt-4 pb-2">
         <Avatar
           src={author.avatar}
@@ -1846,9 +1976,11 @@ export function PostCard({
             {author.name}
           </a>
 
-          <p className="text-[12px] text-[#65676B]">
-            {timeAgo}
-          </p>
+          <div className="flex items-center gap-1.5 text-[12px] text-[#65676B]">
+            {timeAgo && <span>{timeAgo}</span>}
+            {timeAgo && <span aria-hidden>•</span>}
+            <PrivacyBadge postPrivacy={postPrivacy} />
+          </div>
         </div>
 
         {onToggleFollow &&
@@ -1867,7 +1999,6 @@ export function PostCard({
           <button
             type="button"
             onClick={() => {
-              // Sans actions de menu définies, on conserve l'ancien comportement
               if (!onDelete && !onSave && !onHide) {
                 onMenuClick?.()
                 return
@@ -1957,7 +2088,6 @@ export function PostCard({
                 }
           }
         >
-          {/* Voile pour lisibilité sur fond image */}
           {postColor.isImage && (
             <div
               className="absolute inset-0"
@@ -1967,38 +2097,67 @@ export function PostCard({
               }}
             />
           )}
-          <p className="relative z-10 text-[28px] font-bold text-center whitespace-pre-wrap leading-relaxed max-w-[85%]">
-            {content}
-          </p>
+          <p className="relative z-10 min-w-0 max-w-full text-[28px] font-bold text-center whitespace-pre-wrap leading-relaxed [overflow-wrap:anywhere] [word-break:break-word]">
+  <HashtagText
+    text={content}
+    hashtagClassName="text-inherit underline"
+  />
+</p>
+
         </div>
       ) : content ? (
-        <div className="px-4 py-2">
-          <p
-            className={cn(
-              "text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed",
-              !contentExpanded &&
-                isLongContent &&
-                "line-clamp-6"
-            )}
-          >
-            {content}
-          </p>
+        <div className="min-w-0 w-full max-w-full overflow-hidden px-4 py-2">
+  <p
+    className={cn(
+      "min-w-0 max-w-full text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed",
+      "[overflow-wrap:anywhere] [word-break:break-word]",
+      !contentExpanded && isLongContent && "line-clamp-6"
+    )}
+  >
+    <HashtagText text={content} />
+  </p>
 
-          {isLongContent && (
-            <button
-              type="button"
-              onClick={() =>
-                setContentExpanded((previous) => !previous)
-              }
-              className="mt-1 text-[13px] font-medium text-[#A35A2A] hover:text-[#8B4A1F]"
-            >
-              {contentExpanded ? "Voir moins" : "Voir plus"}
-            </button>
-          )}
-        </div>
+  {isLongContent && (
+    <button
+      type="button"
+      onClick={() => setContentExpanded((previous) => !previous)}
+      className="mt-1 text-[13px] font-medium text-[#A35A2A]"
+    >
+      {contentExpanded ? "Voir moins" : "Voir plus"}
+    </button>
+  )}
+</div>
+
       ) : null}
 
-      {image && !video && (
+      {images && images.length > 1 ? (
+        <div className="grid grid-cols-2 gap-0.5 bg-black">
+          {images.slice(0, 4).map((img, index) => (
+            <div
+              key={`${img.url}-${index}`}
+              className={cn(
+                "relative overflow-hidden bg-black",
+                images.length === 3 && index === 0 && "row-span-2",
+                images.length !== 3 && "aspect-square",
+                images.length === 3 && index !== 0 && "aspect-square"
+              )}
+            >
+              <Image
+                src={img.url}
+                alt=""
+                fill
+                sizes="(max-width: 640px) 50vw, 500px"
+                className="object-cover"
+              />
+              {index === 3 && images.length > 4 && (
+                <div className="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-xl font-semibold">
+                  +{images.length - 4}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : image && !video ? (
         <div className="w-full overflow-hidden">
           <Image
             src={image}
@@ -2009,7 +2168,7 @@ export function PostCard({
             sizes="100vw"
           />
         </div>
-      )}
+      ) : null}
 
       {video && (
         <div className="w-full overflow-hidden bg-black">
@@ -2027,6 +2186,15 @@ export function PostCard({
         </div>
       )}
 
+      {audio && !image && !video ? (
+        <div className="flex items-center gap-3 bg-[#F7F8FA] px-4 py-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#A35A2A]/10">
+            <Mic size={18} className="text-[#A35A2A]" />
+          </span>
+          <audio controls src={audio} preload="metadata" className="w-full min-w-0" />
+        </div>
+      ) : null}
+
       {parentPost && <ParentPostCard parentPost={parentPost} />}
 
       <div className="px-4 py-2 flex items-center justify-between text-[13px] text-[#65676B]">
@@ -2036,12 +2204,31 @@ export function PostCard({
           fallbackReactionId={selectedReaction}
         />
 
-        <div className="flex items-center gap-3">
-          <span>
-            {comments.length || commentsCount} commentaires
-          </span>
+        <div className="flex items-center gap-4 ml-auto">
 
-          <span>{sharesCount} partages</span>
+          {commentsCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAllCommentsModal(true)}
+              className="flex items-center gap-1.5 hover:underline"
+              title="Commentaires"
+            >
+              <MessageCircle size={16} className="text-[#65676B]" />
+              <span>{commentsCount}</span>
+            </button>
+          )}
+
+          {sharesCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShareModalOpen(true)}
+              className="flex items-center gap-1.5 hover:underline"
+              title="Partages"
+            >
+              <Share2 size={16} className="text-[#65676B]" />
+              <span>{sharesCount}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -2110,30 +2297,89 @@ export function PostCard({
             height={20}
             className="w-5 h-5 object-contain"
           />
-          Gracier
+          Gratifier
         </button>
+
+        <div className="relative flex-1">
+          <button
+            type="button"
+            onClick={() => setRepostMenuOpen((v) => !v)}
+            className="flex w-full items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
+          >
+            <Repeat2 size={18} />
+            Republier
+          </button>
+
+          {repostMenuOpen && (
+            <div
+              ref={repostMenuRef}
+              className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-1.5 z-50 animate-in fade-in zoom-in duration-150"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setRepostMenuOpen(false)
+                  onRepost?.()
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+              >
+                <Repeat2 size={14} className="text-[#65676B]" />
+                <span className="text-[13px] font-medium text-[#050505]">
+                  Republier directement
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRepostMenuOpen(false)
+                  setRepostModalOpen(true)
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+              >
+                <Pen size={14} className="text-[#A35A2B]" />
+                <span className="text-[13px] font-medium text-[#050505]">
+                  Écrire un commentaire
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
 
         <button
           type="button"
-          onClick={onRepost}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
-        >
-          <Repeat2 size={18} />
-          Republier
-        </button>
-
-        <button
-          type="button"
-          onClick={onShare}
+          onClick={() => setShareModalOpen(true)}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
         >
           <Share2 size={18} />
           Partager
         </button>
-      </div>
+            </div>
+
+      {shareModalOpen && (
+        <SharePostModal
+          isOpen={shareModalOpen}
+          setIsOpen={setShareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          post={sharePreviewPost}
+        />
+      )}
+
+      {repostModalOpen && (
+        <RepostWithTextModal
+          isOpen={repostModalOpen}
+          setIsOpen={setRepostModalOpen}
+          onClose={() => setRepostModalOpen(false)}
+          onSubmit={(text) => {
+            onRepostWithText?.(text)
+            setRepostModalOpen(false)
+          }}
+          parentPost={repostPreviewParent}
+        />
+      )}
 
       {(visibleComments.length > 0 || loadingComments) && (
         <div className="px-4 py-3">
+
           {loadingComments && visibleComments.length === 0 ? (
             <p className="text-[12px] text-[#65676B]">
               Chargement des commentaires...
@@ -2159,7 +2405,7 @@ export function PostCard({
       )}
 
       <div className="px-4 pb-4 pt-2 border-t border-gray-100">
-        <div className="flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 py-1.5">
+        <div className="relative flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 py-1.5">
           <Avatar
             src={currentUserAvatar}
             name={currentUser?.name || author.name}
@@ -2233,6 +2479,40 @@ export function PostCard({
           >
             <FileText size={16} />
           </button>
+
+          <div ref={emojiPickerRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker((v) => !v)}
+              className={cn(
+                "p-1.5 rounded-full transition flex items-center justify-center",
+                showEmojiPicker
+                  ? "bg-[#A35A2A]/10 text-[#A35A2A]"
+                  : "text-[#65676B] hover:bg-gray-200"
+              )}
+              title="Choisir un émoji"
+            >
+             <Smile size={18} />
+            </button>
+
+            {showEmojiPicker && (
+              <div className="absolute bottom-full right-0 mb-2 w-64 rounded-2xl bg-white shadow-2xl border border-gray-200 p-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="grid grid-cols-8 gap-0.5 max-h-48 overflow-y-auto">
+                  {EMOJI_LIST.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => {
+                        setCommentText((prev) => prev + emoji)
+                      }}
+                      className="flex items-center justify-center w-7 h-7 text-[18px] hover:bg-gray-100 rounded-lg transition"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <button
             type="button"

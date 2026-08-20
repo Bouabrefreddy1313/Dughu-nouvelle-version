@@ -11,6 +11,7 @@ const CHAT_ORIGIN = CHAT_BASE_URL.replace(/\/api\/?$/, "")
 const TIMEOUT_MS = (Number(process.env.DUGHU_API_TIMEOUT) || 15) * 1000
 const RETRY_TIMES = Number(process.env.DUGHU_API_RETRY_TIMES) || 2
 const RETRY_SLEEP_MS = Number(process.env.DUGHU_API_RETRY_SLEEP) || 200
+export const DUGHU_DEFAULT_MEDIA_URL = "https://dughuakwaplay.s3.eu-west-3.amazonaws.com/storage/photos/d-avatar.jpg"
 
 export class DughuApiError extends Error {
   status: number
@@ -190,6 +191,32 @@ export const dughuApi = {
   hidePost: (userId: string | number, postId: string | number) =>
     dughu.form("hidePost", { user_id: String(userId), post_id: String(postId) }),
 
+  // Épingler / désépingler une publication (réservé à l'auteur du post)
+  togglePinStatus: (userId: string | number, postId: string | number) =>
+    dughu.form(`togglePinStatus/${encodeURIComponent(String(postId))}`, { user_id: String(userId) }),
+
+  // ── Stories ──
+  getUserStories: (targetUserId: string | number, opts?: { perPage?: number; page?: number }) =>
+    dughu.get("getUserStories", {
+      target_user_id: String(targetUserId),
+      per_page: opts?.perPage,
+      page: opts?.page,
+    }),
+
+  getFriendsStories: (userId: string | number, opts?: { perPage?: number; page?: number }) =>
+    dughu.get("getFriendsStories", {
+      user_id: String(userId),
+      per_page: opts?.perPage,
+      page: opts?.page,
+    }),
+
+  postStory: (formData: FormData) => dughu.multipart("postStory", formData),
+
+  delStory: (storyId: string | number) =>
+    dughuFetch(`delStory/${encodeURIComponent(String(storyId))}`, { method: "DELETE" }),
+
+  toggleLikeStory: (formData: FormData) => dughu.multipart("toggleLikeStory", formData),
+
   getUser: (identifier: string | number, viewer: string | number) =>
     dughu.get(`getSpecificUser/${encodeURIComponent(String(identifier))}/${encodeURIComponent(String(viewer))}`),
 
@@ -213,12 +240,43 @@ export const dughuApi = {
   getPostAllRepost: (userId: string | number, page: number) =>
     dughu.get(`getPostAllRepost/${encodeURIComponent(String(userId))}`, { page }),
 
+  // Variante plus rapide du fil (getPostAll/{userId}) : utilisée en repli quand
+  // getPostAllRepost tarde trop, pour éviter le timeout côté client.
+  getPostAll: (userId: string | number, page: number) =>
+    dughu.get(`getPostAll/${encodeURIComponent(String(userId))}`, { page }),
+
+  // Liste des albums d'un utilisateur (chaque album contient ses medias)
+  getAlbums: (userId: string | number) =>
+    dughu.get("album", { user_id: String(userId) }),
+
   searchAll: (params: { search?: string; q?: string; type?: string; page?: number }) =>
     dughu.form("searchAll", {
       search: params.search || params.q || "",
       type: params.type || "",
       page: String(params.page || 1),
     }),
+
+  // ── Suggestions (sidebar) ──
+  suggestPages: (params: { user_id: string | number; searchTerm?: string; page?: number }) =>
+    dughu.form(`suggestPages?page=${Number(params.page) || 1}`, {
+      user_id: String(params.user_id),
+      searchTerm: params.searchTerm || "",
+    }),
+
+  suggestGroups: (params: { user_id: string | number; searchTerm?: string; page?: number }) =>
+    dughu.form(`suggestgroupes?page=${Number(params.page) || 1}`, {
+      user_id: String(params.user_id),
+      searchTerm: params.searchTerm || "",
+    }),
+
+  getHashtags: (q = "") => dughu.get("getHashtags", { q }),
+
+  // Posts associés à un hashtag — le tag se passe SANS le « # » (sinon 404).
+  getPostByHashtags: (hashtag: string | number, page = 1) =>
+    dughu.get(`getPostByHashtags/${encodeURIComponent(String(hashtag).replace(/^#/, ""))}`, { page }),
+
+  getPopularPosts: (userId: string | number) =>
+    dughu.get(`getPopularPosts/${encodeURIComponent(String(userId))}`),
 
   getComments: (postId: string | number, userId: string | number, page = 1) =>
     dughu.get(`getComments/${encodeURIComponent(String(postId))}/${encodeURIComponent(String(userId))}`, { page }),
@@ -284,7 +342,7 @@ export const dughuApi = {
 
   getUsersWithBadges: () => dughu.get("usersWithBadges"),
 
-  fraternise: (userId: string | number) => dughu.get(`fraternise/${encodeURIComponent(String(userId))}`),
+  fraternises: (userId: string | number) => dughu.get(`fraternise/${encodeURIComponent(String(userId))}`),
 
   getOnline: (userId: string | number, token: string) =>
     dughu.get(`getOnline/${encodeURIComponent(String(userId))}/${encodeURIComponent(token)}`),
@@ -337,6 +395,39 @@ export const dughuApi = {
     dughu.get(`getVerificationRequests/${encodeURIComponent(String(userId))}`),
 
   sessionsDestroy: () => dughu.form("sessionsDestroy", {}),
+  // ── Mot de passe oublié ──
+// ── Vérification email / OTP / connexion auto (flux inscription) ──
+  askAuthCode: (email: string) =>
+    dughuFetch(`ask_auth_code${buildQuery({ email })}`, {
+      method: "GET",
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    }),
+
+  // GET /auth/me : profil courant à partir du token Dughu (Authorization)
+  authMe: (token: string) =>
+    dughuFetch("auth/me", {
+      method: "GET",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+
+  // POST /auth/refresh : rafraîchir le token de session Dughu
+  authRefresh: (token: string) =>
+    dughuFetch("auth/refresh", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+
+  // GET /profile/me : profil courant (variante "moi")
+  profileMe: (token: string) =>
+    dughuFetch("profile/me", {
+      method: "GET",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+
+  // POST /loginAuto : connexion via le code reçu après ask_auth_code
+  loginAuto: (email: string, code: string) =>
+    dughu.form("loginAuto", { email, code }),
   // ── Mot de passe oublié ──
   sendResetLink: (email: string) =>
     dughu.form("password/sendResetLink", { email }),
@@ -408,11 +499,32 @@ export function resolveMediaUrl(v: string): string {
   return `${DUGHU_ORIGIN}/${clean}`
 }
 
+/**
+ * Résout l'URL d'affichage d'un média de story renvoyé uniquement sous forme de
+ * chemin fichier brut (champ `path`, `file`, `file_path`, … retourné par
+ * /getUserStories & /getFriendsStories).
+ *
+ * - Si c'est déjà une URL absolue / data: / blob:, on la renvoie telle quelle.
+ * - Sinon on construit l'URL de l'endpoint Dughu
+ *   GET `/media/download?path={filePath}` qui sert le média.
+ */
+export function resolveStoryMediaUrl(raw: string | null | undefined): string {
+  if (!raw) return ""
+  const v = String(raw)
+  if (/^https?:\/\//i.test(v) || v.startsWith("data:") || v.startsWith("blob:")) return v
+  const clean = v.replace(/^\/+/, "")
+  const resolved = resolveMediaUrl(v)
+  // Si resolveMediaUrl donne déjà une URL absolue directe du stockage, on l'utilise
+  if (/^https?:\/\//i.test(resolved) && resolved !== `${DUGHU_ORIGIN}/${clean}`) return resolved
+  return `${DUGHU_ORIGIN}/media/download?path=${encodeURIComponent(clean)}`
+}
+
 // Déduit le type de média à partir de l'extension de l'URL (repli si file_type absent)
 function detectMediaTypeFromUrl(url: string): string {
   const lower = url.split("?")[0].toLowerCase()
   if (/\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|jfif)$/.test(lower)) return "image"
   if (/\.(mp4|webm|ogg|ogv|mov|m4v|avi|mkv|3gp|mpeg|m3u8|wmv)$/.test(lower)) return "video"
+  if (/\.(mp3|m4a|aac|wav|oga|opus|flac|weba|amr|m4b|wma)$/.test(lower)) return "audio"
   return "file"
 }
 
@@ -422,6 +534,12 @@ function normalizeBirthday(v: any): string {
   const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(v)
   if (m) return `${m[3]}-${m[2]}-${m[1]}`
   return v
+}
+
+export function isDefaultDughuMedia(v: string): boolean {
+  const normalized = resolveMediaUrl(v || "").replace(/\/+$/, "")
+  const defaultUrl = DUGHU_DEFAULT_MEDIA_URL.replace(/\/+$/, "")
+  return !!normalized && normalized === defaultUrl
 }
 
 export function normalizeUser(u: any): Record<string, any> | null {
@@ -482,7 +600,7 @@ export function normalizePhoto(p: any): Record<string, any> | null {
   const id = pick(p, ["id", "ID", "post_id", "postId", "photo_id"], "") || String(Math.random()).slice(2)
   // Chercher l'URL dans tous les champs possibles (l'API Dughu utilise postFile principalement)
   const raw = toUrl(pick(p, [
-    "postFile", "postFileLink", "postPhoto", "file", "fileLink",
+    "postFileLink", "postFile", "postPhoto", "file", "fileLink",
     "file_path", "image", "photo", "photoUrl", "photo_url",
     "url", "link", "thumb", "thumbnail",
   ], ""))
@@ -507,6 +625,41 @@ export function mapPhotos(raw: any): Record<string, any>[] {
   return arr.map(normalizePhoto).filter((x): x is Record<string, any> => x !== null)
 }
 
+export function normalizeVideo(v: any): Record<string, any> | null {
+  if (!v || typeof v !== "object") return null
+  const id = pick(v, ["id", "ID", "post_id", "postId", "video_id"], "") || String(Math.random()).slice(2)
+  // postFileLink (URL S3 absolue) prioritaire, comme pour les photos
+  const raw = toUrl(pick(v, [
+    "postFileLink", "postFile", "videoLink", "video_url", "videoUrl",
+    "file", "fileLink", "file_path", "video", "media", "media_file",
+    "url", "link", "thumb", "thumbnail",
+  ], ""))
+  const url = raw ? resolveMediaUrl(raw) : ""
+  if (!url) return null
+  const thumb = toUrl(pick(v, [
+    "postFileThumb", "thumbnail", "thumb", "thumbnail_url", "video_thumb", "poster",
+  ], ""))
+  return {
+    id: String(id),
+    url,
+    thumb: thumb ? resolveMediaUrl(thumb) : null,
+    views: Number(pick(v, ["videoViews", "video_views", "views", "view_count", "count_views"])) || 0,
+    createdAt: pick(v, ["createdAt", "created_at", "date", "time", "uploaded_at", "post_time"], "") || "",
+  }
+}
+
+export function mapVideos(raw: any): Record<string, any>[] {
+  // L'API Dughu peut wrapper la réponse de différentes façons
+  const arr = Array.isArray(raw)
+    ? raw
+    : raw?.data || raw?.videos || raw?.items
+      || raw?.result?.data || raw?.result?.videos || raw?.result?.items || raw?.result?.posts
+      || (Array.isArray(raw?.result) ? raw.result : null)
+      || []
+  if (!Array.isArray(arr)) return []
+  return arr.map(normalizeVideo).filter((x): x is Record<string, any> => x !== null)
+}
+
 export function mapFriends(raw: any): Record<string, any>[] {
   const arr = Array.isArray(raw) ? raw : raw?.data || raw?.users || raw?.friends || raw?.items || []
   if (!Array.isArray(arr)) return []
@@ -521,6 +674,46 @@ export function mapFriends(raw: any): Record<string, any>[] {
     }))
 }
 
+/** Normalise une story renvoyée par l'API Dughu vers la forme attendue par le frontend. */
+export function normalizeStory(s: any): Record<string, any> | null {
+  if (!s || typeof s !== "object") return null
+  const id = pick(s, "id", "ID", "story_id", "storyId")
+  if (!id) return null
+  const userRaw = normalizeUser(s?.user || s?.author || s?.utilisateur)
+  const image = resolveMediaUrl(toUrl(
+    pick(s, ["image", "photo", "media", "file", "postFile", "story_image", "storyImage", "storyMedia", "story_url", "thumbnail", "thumb", "media_file"], "")
+  ))
+  const video = resolveMediaUrl(toUrl(
+    pick(s, ["video", "story_video", "storyVideo", "media_video", "file_video", "postVideoURL"], "")
+  ))
+  const text = pick(s, ["text", "content", "description", "story_text", "storyText", "caption"]) || ""
+  const bg = pick(s, ["bgColor", "bg_color", "backgroundColor", "background", "color"]) || ""
+  const viewed =
+    pick(s, ["viewed", "is_viewed", "isViewed", "seen"]) === true ||
+    pick(s, ["viewed", "is_viewed", "isViewed"]) === "1" ||
+    pick(s, ["viewed", "is_viewed", "isViewed"]) === 1
+  return {
+    id: String(id),
+    userId: String(pick(s, ["user_id", "userId", "userID"]) || (userRaw?.id || "")),
+    image,
+    video,
+    text: String(text || ""),
+    bg: String(bg || ""),
+    viewed: !!viewed,
+    createdAt: toDate(pick(s, ["createdAt", "created_at", "date", "time", "post_date", "timestamp"])),
+    user: userRaw
+      ? { id: userRaw.id, name: userRaw.name, username: userRaw.username, avatar: userRaw.avatar }
+      : null,
+  }
+}
+
+export function mapStories(raw: any): Record<string, any>[] {
+  const unwrapped = raw?.result && typeof raw.result === "object" && !Array.isArray(raw.result) ? raw.result : raw
+  const arr = Array.isArray(unwrapped) ? unwrapped : unwrapped?.data || unwrapped?.stories || unwrapped?.items || []
+  if (!Array.isArray(arr)) return []
+  return arr.map(normalizeStory).filter((s): s is Record<string, any> => s !== null)
+}
+
 function toDate(v: any): string {
   if (!v) return new Date().toISOString()
   if (typeof v === "number") return new Date(v * 1000).toISOString()
@@ -532,6 +725,27 @@ function toDate(v: any): string {
 
 function isVideoUrl(v: any): boolean {
   return /\.(mp4|m4v|webm|mkv|mov|avi|ogg|3gp|mpeg|m3u8)(\?|#|$)/i.test(String(v || ""))
+}
+
+function isAudioUrl(v: any): boolean {
+  return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|weba|amr|m4b|wma)(\?|#|$)/i.test(String(v || ""))
+}
+
+/**
+ * Désambiguïse les .webm : c'est une extension audio OU vidéo. On ne la traite
+ * comme AUDIO que si le nom/chemin évoque un enregistrement vocal (post vocal
+ * Laravel : voice_xxx.webm, audio_xxx.webm, enregistrement.webm, etc.).
+ */
+function isWebmAudioHint(v: any): boolean {
+  const s = String(v || "")
+  if (!/\.webm(\?|#|$)/i.test(s)) return false
+  return /(voice|vocal|audio|son|sound|record|enregistr|micro|voix)/i.test(s)
+}
+
+function isAudioFileName(v: any): boolean {
+  const s = String(v || "")
+  if (isAudioUrl(s)) return true
+  return isWebmAudioHint(s)
 }
 
 function isVideoPost(p: any): boolean {
@@ -549,7 +763,7 @@ function postImages(p: any): string[] {
   if (image) {
     if (Array.isArray(image)) {
       for (const u of image) {
-        const url = toUrl(typeof u === "object" ? pick(u, "url", "link", "file", "postFileLink", "thumb", "thumbnail") : u)
+        const url = toUrl(typeof u === "object" ? pick(u, "url", "link", "file", "postFileLink", "postFile", "thumb", "thumbnail") : u)
         if (url) urls.push(url)
       }
     } else {
@@ -557,16 +771,61 @@ function postImages(p: any): string[] {
       if (url) urls.push(url)
     }
   }
-  const frames = pick(p, "images", "photos", "files", "media", "attachments", "multi_image_post")
-  if (Array.isArray(frames)) {
+  // Récupère le premier champ multi-images qui est un tableau NON VIDE.
+  // ⚠️ On n'utilise PAS pick() ici : les posts album (postType="postAlbum")
+  // possèdent un flag numérique `multi_image_post` (0/1). pick() renvoie cette
+  // valeur (0 est « non vide » pour pick) et court-circuite le champ `album`
+  // qui contient pourtant les images → les posts multi-images s'affichaient vides.
+  // `album` est mis en tête car il est peuplé pour les posts album.
+  const multiFrameKeys = [
+    "album",
+    "images",
+    "photos",
+    "files",
+    "media",
+    "attachments",
+    "post_files",
+    "postFiles",
+    "multi_images",
+    "multiple_images",
+    "image_list",
+    "images_list",
+    "photos_list",
+    "gallery",
+    "fileInputForPost",
+  ]
+  let frames: any[] | null = null
+  for (const k of multiFrameKeys) {
+    const v = p?.[k]
+    if (Array.isArray(v) && v.length > 0) {
+      frames = v
+      break
+    }
+  }
+  if (frames) {
     for (const f of frames) {
       if (typeof f === "string") {
         const u = toUrl(f)
         if (u) urls.push(u)
       } else if (f && typeof f === "object") {
-        const u = toUrl(pick(f, "postFileLink", "file", "fileLink", "image", "photo", "url", "link", "thumb", "thumbnail"))
+        const u = toUrl(pick(f, "postFileLink", "postFile", "file", "fileLink", "image", "photo", "url", "link", "thumb", "thumbnail", "photo_url", "photoUrl"))
         if (u) urls.push(u)
       }
+    }
+  }
+  // Certaines réponses sérialisent la liste en JSON dans un champ unique
+  const serialized = pick(p, "post_images", "postImages", "multi_images_json")
+  if (typeof serialized === "string") {
+    try {
+      const parsed = JSON.parse(serialized)
+      if (Array.isArray(parsed)) {
+        for (const u of parsed) {
+          const url = toUrl(typeof u === "object" ? pick(u, "url", "link", "file", "image", "photo", "postFile", "postFileLink") : u)
+          if (url) urls.push(url)
+        }
+      }
+    } catch {
+      // champ non-JSON : ignoré
     }
   }
   return urls
@@ -647,12 +906,39 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
   const hlsPlaylist = toUrl(pick(p, "hls_playlist"))
   const thumb = toUrl(pick(p, "postFileThumb", "fileThumb", "thumbnail_url", "thumb", "thumbnail"))
 
+  const mediaFileName = String(
+    pick(p, "postFileName", "post_file_name", "fileName", "filename") || ""
+  )
+  const explicitAudio = toUrl(
+    pick(p, "postAudio", "audioFile", "audio_file", "audio", "audioUrl", "audio_url", "postVoice", "voiceFile")
+  )
+  const rawFileType = String(pick(p, "file_type", "fileType", "media_type", "mediaType") || "").toLowerCase()
+  // Post vocal : l'URL ou le nom de fichier désignent un fichier audio
+  // (les .webm ambigus ne sont audio que si le nom évoque un enregistrement vocal).
+  const isLikelyAudio =
+    isAudioUrl(mediaFile) ||
+    isAudioFileName(mediaFileName) ||
+    isWebmAudioHint(mediaFile) ||
+    rawFileType.startsWith("audio")
+
   let rawImages = postImages(p)
   let video: string | null = null
-  if (isVideoPost(p)) {
+  if (isVideoPost(p) && !isLikelyAudio) {
     video = hlsPlaylist || mediaFile || null
     // Ne pas laisser l'URL vidéo s'afficher comme image
     rawImages = rawImages.filter((u) => !isVideoUrl(u) && u !== mediaFile)
+  }
+
+  let audio: string | null = null
+  if (!video && isLikelyAudio) {
+    const audioUrl = mediaFile || explicitAudio
+    if (audioUrl) {
+      audio = audioUrl
+      // Ne pas laisser l'URL audio s'afficher comme image
+      rawImages = rawImages.filter(
+        (u) => u !== audioUrl && !isAudioUrl(u) && !isWebmAudioHint(u)
+      )
+    }
   }
 
   const pageAuthor = p?.page
@@ -724,6 +1010,10 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     images: rawImages.map((u) => ({ url: resolveMediaUrl(u) })),
     video: video ? resolveMediaUrl(video) : null,
     thumb: video ? (thumb ? resolveMediaUrl(thumb) : null) : null,
+    audio: audio ? resolveMediaUrl(audio) : null,
+    // Lien canonique de partage du post fourni par l'API Dughu (ex. /post/{id}).
+    // Utilisé pour partager la publication vers les réseaux sociaux.
+    shareUrl: (toUrl(pick(p, "shareLink", "share_url", "shareUrl", "post_url", "postUrl", "share_link")) || null),
     createdAt: toDate(pick(p, "createdAt", "created_at", "created", "date", "post_date", "timestamp", "time")),
     author: {
       id: String(author.id),
@@ -741,6 +1031,12 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     isFollowing: !!author.isFollowing,
     parentPost,
     reactions: extractReactionSummary(p),
+    // Confidentialité renvoyée par l'API Dughu :
+    //  "1" = Amis, "0"/autre = Public. Normalisé en 0 | 1 pour le frontend.
+    postPrivacy: pick(p, "postPrivacy", "post_privacy", "privacy") === 1 ||
+      pick(p, "postPrivacy", "post_privacy", "privacy") === "1"
+      ? 1
+      : 0,
     _count: {
       comments,
       likes,
@@ -756,6 +1052,38 @@ export function mapPosts(raw: any, fallbackAuthor?: any): Record<string, any>[] 
   return arr
     .map((p) => mapPost(p, fallbackAuthor))
     .filter((p): p is Record<string, any> => p !== null)
+}
+
+export function mapAlbums(raw: any): Record<string, any>[] {
+  const arr = Array.isArray(raw) ? raw : raw?.result || raw?.data || raw?.albums || []
+  if (!Array.isArray(arr)) return []
+  return arr
+    .map((a) => {
+      if (!a || typeof a !== "object") return null
+      const mediaArr = Array.isArray(a?.media) ? a.media : []
+      const media = mediaArr
+        .map((m: any) => {
+          const url = resolveMediaUrl(toUrl(pick(m, "image", "url", "link", "file", "postFile", "photo")))
+          if (!url) return null
+          return {
+            url,
+            type: String(pick(m, "media_type", "mediaType", "type") || "image"),
+            postId: String(pick(m, "post_id", "postId") || ""),
+          }
+        })
+        .filter((m: any): m is Record<string, any> => m !== null)
+      const album: Record<string, any> = {
+        id: String(pick(a, "album_id", "albumId", "id") || ""),
+        name: String(pick(a, "album_name", "albumName", "name") || ""),
+        type: String(pick(a, "type", "privacy") || "public"),
+        userId: String(pick(a, "user_id", "userId") || ""),
+        cover: media[0]?.url || "",
+        media,
+        count: media.length,
+      }
+      return album
+    })
+    .filter((a): a is Record<string, any> => a !== null && !!a.id)
 }
 
 export function mapComment(c: any, currentUserId?: string): Record<string, any> | null {

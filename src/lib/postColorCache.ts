@@ -1,25 +1,16 @@
-const STORAGE_KEY = "dughu_post_colors"
+// Cache mémoire (session navigateur) des couleurs de posts.
+// Plus de localStorage : les données de session sont éphémères, perdues au
+// refresh, et les sources de vérité sont les endpoints API Dughu.
+const colors: Record<string, string> = {}
 
-/**
- * Lecture du cache local des couleurs de posts.
- * L'API Dughu n'enregistrant pas la couleur d'un post, on la mémorise
- * côté client par id de post pour pouvoir l'afficher.
- */
 export function readPostColors(): Record<string, string> {
-  if (typeof window === "undefined") return {}
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")
-  } catch {
-    return {}
-  }
+  return colors
 }
 
 export function writePostColor(postId: string, color: string) {
-  const map = readPostColors()
-  map[postId] = color
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
-  } catch {
-    /* silencieux */
-  }
+  colors[postId] = color
+}
+
+export function resetPostColors() {
+  for (const k of Object.keys(colors)) delete colors[k]
 }

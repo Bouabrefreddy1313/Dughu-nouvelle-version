@@ -1,23 +1,27 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { dughu, dughuApi } from "@/lib/dughu"
+import { getDughuTokenFromCookies, getDughuUserIdFromCookies } from "@/lib/dughu-user"
+
+export const dynamic = "force-dynamic"
 
 export async function POST(req: NextRequest) {
-  // Invalider la session en base (si on en trouve une) pour une déconnexion complète
-  const token = req.cookies.get("next-auth.session-token")?.value
-    || req.cookies.get("__Secure-next-auth.session-token")?.value
-  if (token) {
+  const dughuUserId = await getDughuUserIdFromCookies()
+
+  // Déconnexion du côté Dughu (best-effort : ne bloque jamais la déconnexion)
+  if (dughu.enabled) {
     try {
-      await prisma.session.deleteMany({ where: { sessionToken: token } })
-    } catch (err) {
-      console.error("LOGOUT SESSION DELETE ERROR:", err)
+      await dughuApi.sessionsDestroy().catch(() => {})
+    } catch { /* silencieux */ }
+    if (dughuUserId) {
+      try {
+        await dughuApi.mobileTokenUser(dughuUserId, "logout").catch(() => {})
+      } catch { /* silencieux */ }
     }
   }
 
   const response = NextResponse.json({ success: true, message: "Déconnecté" })
-
-  // Supprimer le cookie de session
-  response.cookies.set("next-auth.session-token", "", { maxAge: 0 })
-  response.cookies.set("__Secure-next-auth.session-token", "", { maxAge: 0 })
+  response.cookies.set("dughu_token", "", { maxAge: 0, path: "/" })
+  response.cookies.set("dughu_user_id", "", { maxAge: 0, path: "/" })
 
   return response
 }

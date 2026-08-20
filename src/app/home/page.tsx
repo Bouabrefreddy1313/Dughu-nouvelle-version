@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import dynamic from "next/dynamic"
 import {
   Home, Video, Zap, Play, Bell, MessageCircle, Search,
@@ -25,8 +26,11 @@ import { timeAgo, formatNumber } from "@/lib/helpers"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { useFeed } from "@/hooks/queries/use-feed"
 import { useStories } from "@/hooks/queries/use-stories"
-import MiniStories from "@/components/stories/MiniStories"
+import FlashFeed from "@/components/flash/FlashFeed"
+import FlashViewer from "@/components/flash/FlashViewer"
+import FlashCreator from "@/components/flash/FlashCreator"
 import MainLayout from "@/components/layout/MainLayout"
+import { isDefaultDughuMedia } from "@/lib/dughu"
 
 const PostComposer = dynamic(() => import("@/components/composer/PostComposer").then((mod) => ({ default: mod.PostComposer })), {
   loading: () => null,
@@ -106,6 +110,7 @@ interface Post {
   images?: PostMedia[]
   video?: PostMedia
   audio?: PostMedia
+  shareUrl?: string | null
   color?: { bg: string; textColor: string } | null
   createdAt: string
   author: Author
@@ -170,8 +175,9 @@ export default function HomePage() {
   const [pageNum, setPageNum] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [filter, setFilter] = useState<"all" | "following">("all")
-  const [showStoryViewer, setShowStoryViewer] = useState(false)
-  const [activeStoryIndex, setActiveStoryIndex] = useState(0)
+  const [flashTarget, setFlashTarget] = useState<{ userId: string; index: number } | null>(null)
+  const [flashCreatorOpen, setFlashCreatorOpen] = useState(false)
+  const queryClient = useQueryClient()
   const [coloredPosts, setColoredPosts] = useState<any[]>([...POST_COLORS])
   const [chatOpen, setChatOpen] = useState(false)
   const [followingAuthorIds, setFollowingAuthorIds] = useState<Set<string>>(
@@ -180,6 +186,30 @@ export default function HomePage() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const loadingMoreRef = useRef(false)
   const feedReqRef = useRef(0)
+
+  useEffect(() => {
+    let cancelled = false
+    const guardProfileCompletion = async () => {
+      try {
+        const res = await fetch("/api/auth/me")
+        const data = await res.json()
+        if (!cancelled && data?.success && data?.user) {
+          const avatar = data.user.avatar || data.user.image || ""
+          const cover = data.user.cover || ""
+          const incomplete = isDefaultDughuMedia(avatar) || isDefaultDughuMedia(cover)
+          if (incomplete) {
+            router.replace("/onboarding/profile")
+          }
+        }
+      } catch {
+        // pas de blocage du feed si la vérification échoue temporairement
+      }
+    }
+    void guardProfileCompletion()
+    return () => {
+      cancelled = true
+    }
+  }, [router])
 
   // Utilisateur via TanStack Query (cache automatique)
   const { data: rawUser, isLoading: authLoading } = useAuth()
@@ -486,6 +516,47 @@ export default function HomePage() {
     }
   }
 
+    // Insère une carte de republication en tête du fil, avec le post d'origine
+  // embarqué (lookup local). Partagé entre repost direct et repost avec texte.
+    const addRepostToFeed = (postId: string, post: Post, commentary?: string) => {
+    setPosts((prev) => {
+      const original = prev.find((p) => p.id === postId)
+      return [
+        {
+          ...post,
+          // Le texte d'accompagnement devient le contenu du repost.
+          content: commentary || post?.content || "",
+          timeLabel: timeAgo(post?.createdAt),
+          _count: post?._count || { comments: 0, likes: 0, reposts: 0, views: 0 },
+          parentPost: original
+            ? {
+                id: original.id,
+                author: original.author,
+                content: original.content,
+                image: original.image || original.images?.[0]?.url,
+                video:
+                  typeof original.video === "string"
+                    ? original.video
+                    : (original.video as any)?.url || null,
+                color:
+                  original.color && typeof original.color === "string"
+                    ? original.color
+                    : original.color
+                      ? JSON.stringify(original.color)
+                      : null,
+                timeAgo: original.timeLabel,
+              }
+            : null,
+        },
+        ...prev.map((p) =>
+          p.id === postId
+            ? { ...p, _count: { ...p._count, reposts: (p._count.reposts || 0) + 1 } }
+            : p
+        ),
+      ]
+    })
+  }
+
   const handleRepost = async (postId: string) => {
     if (!user) { toast.error("Connectez-vous pour republier"); return }
     try {
@@ -496,41 +567,30 @@ export default function HomePage() {
       const res = await fetch("/api/posts", { method: "POST", body: formData })
       const data = await res.json()
       if (data.success) {
-        // Ajoute immédiatement la carte de republication en tête du fil,
-        // avec le post d'origine embarqué (disponible localement).
-        const original = posts.find((p) => p.id === postId)
-        setPosts((prev) => [
-          {
-            ...data.post,
-            timeLabel: timeAgo(data.post?.createdAt),
-            _count: data.post?._count || { comments: 0, likes: 0, reposts: 0, views: 0 },
-            parentPost: original
-              ? {
-                  id: original.id,
-                  author: original.author,
-                  content: original.content,
-                  image: original.image || original.images?.[0]?.url,
-                  video:
-                    typeof original.video === "string"
-                      ? original.video
-                      : (original.video as any)?.url || null,
-                  color:
-                    original.color && typeof original.color === "string"
-                      ? original.color
-                      : original.color
-                        ? JSON.stringify(original.color)
-                        : null,
-                  timeAgo: original.timeLabel,
-                }
-              : null,
-          },
-          ...prev.map((p) =>
-            p.id === postId
-              ? { ...p, _count: { ...p._count, reposts: (p._count.reposts || 0) + 1 } }
-              : p
-          ),
-        ])
+        addRepostToFeed(postId, data.post)
         toast.success("Repost effectué !")
+      } else {
+        toast.error(data.message || "Erreur repost")
+      }
+    } catch { toast.error("Erreur repost") }
+  }
+
+  // Republier en ajoutant un texte d'accompagnement (commentaire).
+  const handleRepostWithText = async (postId: string, text: string) => {
+    if (!user) { toast.error("Connectez-vous pour republier"); return }
+    const commentary = text.trim()
+    if (!commentary) { handleRepost(postId); return }
+    try {
+      const formData = new FormData()
+      formData.append("parentId", postId)
+      formData.append("userId", user.id)
+      formData.append("dughuUserId", user?.dughu?.userId || "")
+      formData.append("postText", commentary)
+      const res = await fetch("/api/rePost", { method: "POST", body: formData })
+      const data = await res.json()
+      if (data.success) {
+        addRepostToFeed(postId, data.post, commentary)
+        toast.success("Repost publié !")
       } else {
         toast.error(data.message || "Erreur repost")
       }
@@ -550,7 +610,11 @@ export default function HomePage() {
 
   const handlePin = async (postId: string) => {
     try {
-      const res = await fetch(`/api/togglePinStatus/${postId}`, { method: "POST" })
+      const res = await fetch(`/api/togglePinStatus/${postId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user?.id, dughuUserId: user?.dughu?.userId }),
+      })
       if (res.ok) {
         setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, isPinned: !p.isPinned } : p))
         toast.success("Statut épinglé mis à jour")
@@ -607,7 +671,6 @@ export default function HomePage() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("dughu_user")
     fetch("/api/logout", { method: "POST" }).finally(() => {
       router.push("/login")
     })
@@ -618,7 +681,7 @@ export default function HomePage() {
     router.push(`/searchPosts?searchTerm=${encodeURIComponent(q)}`)
   }
 
-  const handlePostSubmit = async (data: { content: string; color?: any; images?: File[]; videos?: File[] }) => {
+  const handlePostSubmit = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[] }) => {
     const formData = new FormData()
     formData.append("content", data.content)
     formData.append("userId", user?.id)
@@ -632,6 +695,7 @@ export default function HomePage() {
     }
     if (data.images) data.images.forEach((img) => formData.append("images", img))
     if (data.videos) data.videos.forEach((vid) => formData.append("videos", vid))
+    if (data.audios) data.audios.forEach((aud) => formData.append("audios", aud))
     await handleCreatePost(formData)
   }
 
@@ -643,13 +707,30 @@ export default function HomePage() {
       filter={filter}
       onFilterChange={setFilter}
     >
-      {/* Mini Stories */}
-      <MiniStories
-        stories={stories}
+      {/* Flash feed (stories amis via /getFriendsStories) */}
+      <FlashFeed
+        userId={user?.id}
         currentUser={user}
-        onAddStory={() => toast.info("Créer une story — à implémenter")}
-        onOpenStory={(index: number) => { setActiveStoryIndex(index); setShowStoryViewer(true) }}
+        onAddStory={() => setFlashCreatorOpen(true)}
+        onOpenFlash={(index: number, targetUserId: string) => setFlashTarget({ userId: targetUserId, index })}
       />
+      <FlashCreator
+        user={user}
+        open={flashCreatorOpen}
+        onClose={() => setFlashCreatorOpen(false)}
+        onCreated={() => queryClient.invalidateQueries({ queryKey: ["flash", "feed"] })}
+      />
+
+      {/* Flash viewer (stories d'un utilisateur via /getUserStories) */}
+      {flashTarget && (
+        <FlashViewer
+          key={flashTarget.userId}
+          targetUserId={flashTarget.userId}
+          userId={user?.id}
+          initialIndex={flashTarget.index}
+          onClose={() => setFlashTarget(null)}
+        />
+      )}
 
       {/* Create Post */}
       <PostComposer user={user} onSubmit={handlePostSubmit} className="mb-4" />
@@ -664,7 +745,9 @@ export default function HomePage() {
           timeAgo={timeAgo(post.createdAt)}
           content={post.content}
           image={post.image || post.images?.[0]?.url}
+          images={(post.images || []).map((img) => ({ url: img.url }))}
           video={post.video?.url || (post as any).video}
+          audio={(post as any).audio || null}
           color={(post.color as any) ? (typeof post.color === "string" ? post.color : JSON.stringify(post.color)) : null}
           likesCount={post._count.likes}
           commentsCount={post._count.comments}
@@ -734,50 +817,6 @@ export default function HomePage() {
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
           <p className="text-[#65676B]">Aucune publication pour l'instant.</p>
           <Button onClick={() => loadPosts(1, true)} className="mt-3 bg-[#A35A2A] text-white rounded-full">Actualiser</Button>
-        </div>
-      )}
-
-      {/* Story Viewer Overlay */}
-      {showStoryViewer && stories[activeStoryIndex] && (
-        <div className="fixed inset-0 bg-black z-[60] flex flex-col">
-          {/* Progress bars */}
-          <div className="flex gap-1 p-2 pt-4">
-            {stories.map((_: any, i: number) => (
-              <div key={i} className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
-                <div className={cn("h-full bg-white transition-all duration-300", i < activeStoryIndex ? "w-full" : i === activeStoryIndex ? "w-1/2" : "w-0")} />
-              </div>
-            ))}
-          </div>
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#A35A2A] flex items-center justify-center text-white text-xs font-bold">
-                {stories[activeStoryIndex].user.name?.charAt(0)}
-              </div>
-              <span className="text-white text-sm font-medium">{stories[activeStoryIndex].user.name}</span>
-              <span className="text-white/60 text-xs">{timeAgo(stories[activeStoryIndex].createdAt)}</span>
-            </div>
-            <button onClick={() => setShowStoryViewer(false)} className="text-white p-2"><X size={24} /></button>
-          </div>
-          {/* Content */}
-          <div className="flex-1 flex items-center justify-center p-4">
-            {stories[activeStoryIndex].image ? (
-              <img src={stories[activeStoryIndex].image} alt="" className="max-w-full max-h-full object-contain rounded-lg" />
-            ) : stories[activeStoryIndex].video ? (
-              <video src={stories[activeStoryIndex].video} className="max-w-full max-h-full rounded-lg" controls autoPlay />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center rounded-xl p-8 text-center" style={{ background: stories[activeStoryIndex].bg || POST_COLORS[0].bg }}>
-                <p className="text-2xl font-bold text-white whitespace-pre-wrap">{stories[activeStoryIndex].text}</p>
-              </div>
-            )}
-          </div>
-          {/* Navigation */}
-          <div className="absolute inset-y-0 left-0 w-16 flex items-center">
-            <button onClick={() => setActiveStoryIndex((i) => Math.max(0, i - 1))} className="text-white/50 hover:text-white p-2"><ChevronLeft size={32} /></button>
-          </div>
-          <div className="absolute inset-y-0 right-0 w-16 flex items-center justify-end">
-            <button onClick={() => setActiveStoryIndex((i) => Math.min(stories.length - 1, i + 1))} className="text-white/50 hover:text-white p-2"><ChevronRight size={32} /></button>
-          </div>
         </div>
       )}
     </MainLayout>

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,8 +17,8 @@ export async function POST(req: NextRequest) {
     }
     let dughuUserId = String(dughuUserIdParam || "")
     if (!dughuUserId) {
-      // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+      // Fallback serveur : lecture du cookie de session Dughu
+      dughuUserId = await getDughuUserIdFromCookies()
     }
     if (!dughuUserId) {
       return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
