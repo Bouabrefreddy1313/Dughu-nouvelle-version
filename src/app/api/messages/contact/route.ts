@@ -34,7 +34,12 @@ export async function GET(req: NextRequest) {
           name: profile.name || profile.username || "Utilisateur",
           username: profile.username || null,
           avatar: profile.avatar || null,
-          online: false,
+          online: Boolean(
+            profile.online === true || profile.is_online === true ||
+            profile.online === 1 || profile.is_online === 1 ||
+            profile.online === "1" || profile.is_online === "1"
+          ),
+          lastSeen: profile.lastSeen || null,
         }
       }
     }

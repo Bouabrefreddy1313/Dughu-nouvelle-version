@@ -7,6 +7,7 @@ export interface ChatContact {
   username?: string | null
   avatar?: string | null
   online?: boolean
+  lastSeen?: string | null
 }
 
 export interface ChatSummary {
@@ -15,6 +16,7 @@ export interface ChatSummary {
   lastMessage: string
   updatedAt: string
   unreadCount: number
+  lastMessageKey: string
 }
 
 export interface ChatAttachment {
@@ -40,6 +42,12 @@ export interface ChatMessage {
 
 function first<T>(...values: T[]): T | undefined {
   return values.find((value) => value !== undefined && value !== null && value !== "")
+}
+
+function readBoolean(value: any): boolean {
+  if (typeof value === "boolean") return value
+  if (typeof value === "number") return value === 1
+  return ["1", "true", "online", "active"].includes(String(value ?? "").toLowerCase())
 }
 
 function findArray(raw: any, keys: string[]): any[] {
@@ -138,7 +146,8 @@ function normalizeContact(raw: any, currentUserId?: string): ChatContact | null 
       user?.photo,
       raw.avatar
     ) || "")) || null,
-    online: Boolean(first(user?.is_online, user?.isOnline, user?.online, false)),
+    online: readBoolean(first(user?.is_online, user?.isOnline, user?.online, false)),
+    lastSeen: String(first(user?.last_seen, user?.lastSeen, user?.last_activity, user?.lastActivity, "") || "") || null,
   }
 }
 
@@ -148,6 +157,29 @@ export function normalizeChats(raw: any, currentUserId: string): ChatSummary[] {
     const contact = normalizeContact(item, currentUserId)
     if (!contact || contact.id === String(currentUserId)) return []
     const last = first(item.last_message, item.lastMessage, item.message, item.latest_message) as any
+    const lastText = String(
+      typeof last === "object"
+        ? first(last?.message, last?.content, last?.text, "")
+        : last || ""
+    )
+    const lastMessage = lastText || (
+      first(last?.image, last?.image_url, item.image, item.image_url)
+        ? "Photo"
+        : first(last?.video, last?.video_url, item.video, item.video_url)
+          ? "Vidéo"
+          : first(last?.document, last?.document_url, last?.file, item.document, item.document_url)
+            ? "Document"
+            : ""
+    )
+    const updatedAt = String(first(
+      item.updated_at,
+      item.updatedAt,
+      last?.created_at,
+      last?.createdAt,
+      item.created_at,
+      ""
+    ) || "")
+    const lastId = String(first(last?.id, last?.doc_id, last?.message_id, item.last_message_id, "") || "")
     return [{
       id: String(first(
         item.id,
@@ -159,20 +191,10 @@ export function normalizeChats(raw: any, currentUserId: string): ChatSummary[] {
         `${contact.id}-${index}`
       )),
       contact,
-      lastMessage: String(
-        typeof last === "object"
-          ? first(last?.message, last?.content, last?.text, "")
-          : last || ""
-      ),
-      updatedAt: String(first(
-        item.updated_at,
-        item.updatedAt,
-        last?.created_at,
-        last?.createdAt,
-        item.created_at,
-        ""
-      ) || ""),
+      lastMessage,
+      updatedAt,
       unreadCount: Number(first(item.unread_count, item.unreadCount, item.unread, 0)) || 0,
+      lastMessageKey: lastId || `${updatedAt}:${lastMessage}`,
     }]
   })
 }

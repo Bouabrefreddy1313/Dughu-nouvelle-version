@@ -434,6 +434,7 @@ export function normalizeUser(u: any): Record<string, any> | null {
     pick(u, ["name", "full_name", "fullName", "nickname"], "") ||
     [firstName, lastName].filter(Boolean).join(" ").trim() ||
     "Utilisateur"
+  const onlineValue = pick(u, ["is_online", "isOnline", "online"], false)
   return {
     id: String(id),
     firstName: String(firstName),
@@ -450,6 +451,8 @@ export function normalizeUser(u: any): Record<string, any> | null {
     gender: pick(u, ["gender", "sexe", "sex"], ""),
     phone: pick(u, ["phone", "phone_number", "phoneNumber", "telephone"], ""),
     birthdate: normalizeBirthday(pick(u, ["birthdate", "birthday", "dateNaissance", "dob"], "")) || null,
+    online: onlineValue === true || onlineValue === 1 || onlineValue === "1" || onlineValue === "true",
+    lastSeen: pick(u, ["last_seen", "lastSeen", "last_activity", "lastActivity"], "") || null,
     isFollowing: !!(pick(u, ["is_following", "isFollowing", "follow_status", "followStatus", "following"], false) === true ||
       pick(u, ["is_following", "isFollowing", "follow_status"], "0") === "1"),
   }

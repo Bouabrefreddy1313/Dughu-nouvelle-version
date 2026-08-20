@@ -28,6 +28,7 @@ import type { ChatContact, ChatMessage, ChatSummary } from "@/lib/messages"
 
 const POLL_INTERVAL_MS = 5_000
 const MESSAGE_PREVIEW_LENGTH = 280
+const READ_CHATS_STORAGE_KEY = "dughu:read-conversations"
 
 function MessageText({ text, isMine }: { text: string; isMine: boolean }) {
   const [expanded, setExpanded] = useState(false)
@@ -68,6 +69,19 @@ function formatMessageDate(value: string) {
   })
 }
 
+function formatLastSeen(value?: string | null) {
+  if (!value) return ""
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+  return date.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
 function fileLabel(file: File | null) {
   return file ? `${file.name} (${Math.ceil(file.size / 1024)} Ko)` : ""
 }
@@ -102,6 +116,7 @@ export default function MessagesPageClient() {
   const [loadingChats, setLoadingChats] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [sending, setSending] = useState(false)
+  const [readMessageKeys, setReadMessageKeys] = useState<Record<string, string>>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const previousMessageCountRef = useRef(0)
 
@@ -134,6 +149,22 @@ export default function MessagesPageClient() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadChats()
   }, [loadChats])
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(`${READ_CHATS_STORAGE_KEY}:${currentUserId}`)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setReadMessageKeys(stored ? JSON.parse(stored) : {})
+    } catch {
+      setReadMessageKeys({})
+    }
+  }, [currentUserId])
+
+  useEffect(() => {
+    if (!currentUserId) return
+    const timer = window.setInterval(() => void loadChats(), POLL_INTERVAL_MS)
+    return () => window.clearInterval(timer)
+  }, [currentUserId, loadChats])
 
   useEffect(() => {
     const query = contactQuery.trim()
@@ -218,6 +249,14 @@ export default function MessagesPageClient() {
   }, [chats, search])
 
   const selectTarget = (target: string) => {
+    const selectedChat = chats.find((chat) => chat.contact.id === target)
+    if (selectedChat?.lastMessageKey) {
+      setReadMessageKeys((current) => {
+        const next = { ...current, [target]: selectedChat.lastMessageKey }
+        window.localStorage.setItem(`${READ_CHATS_STORAGE_KEY}:${currentUserId}`, JSON.stringify(next))
+        return next
+      })
+    }
     setMessages([])
     setStandaloneContact(null)
     setActiveTarget(target)
@@ -335,8 +374,12 @@ export default function MessagesPageClient() {
                       <span className="text-[10px] text-[#65676B]">{formatMessageDate(chat.updatedAt)}</span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs text-[#65676B]">{chat.lastMessage || "Nouvelle conversation"}</span>
-                      {chat.unreadCount > 0 && <span className="rounded-full bg-[#A35A2A] px-1.5 text-[10px] font-bold text-white">{chat.unreadCount}</span>}
+                      <span className={cn("truncate text-xs", chat.unreadCount > 0 && readMessageKeys[chat.contact.id] !== chat.lastMessageKey ? "font-semibold text-[#A35A2A]" : "text-[#65676B]")}>
+                        {chat.unreadCount > 0 && readMessageKeys[chat.contact.id] !== chat.lastMessageKey
+                          ? "Nouveau message"
+                          : chat.lastMessage || "Aucun message"}
+                      </span>
+                      {chat.unreadCount > 0 && readMessageKeys[chat.contact.id] !== chat.lastMessageKey && <span className="rounded-full bg-[#A35A2A] px-1.5 text-[10px] font-bold text-white">{chat.unreadCount}</span>}
                     </div>
                   </div>
                 </button>
@@ -359,7 +402,24 @@ export default function MessagesPageClient() {
                   <Avatar src={selectedContact?.avatar} name={selectedContact?.name || "Utilisateur"} size="md" />
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{selectedContact?.name || `Utilisateur ${activeTarget}`}</p>
-                    <p className="text-xs text-[#65676B]">{selectedContact?.online ? "En ligne" : "Conversation"}</p>
+                    {selectedContact?.online ? (
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-green-600">
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" aria-hidden="true" />
+                        En ligne
+                      </p>
+                    ) : (
+                      <div className="text-xs">
+                        <p className="flex items-center gap-1.5 font-medium text-red-600">
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
+                          Hors ligne
+                        </p>
+                        {formatLastSeen(selectedContact?.lastSeen) && (
+                          <p className="mt-0.5 text-[11px] text-[#65676B]">
+                            Dernière connexion : {formatLastSeen(selectedContact?.lastSeen)}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </header>
 
