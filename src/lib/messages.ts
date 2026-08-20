@@ -47,6 +47,20 @@ function findArray(raw: any, keys: string[]): any[] {
   if (!raw || typeof raw !== "object") return []
   for (const key of keys) {
     if (Array.isArray(raw[key])) return raw[key]
+    if (raw[key] && typeof raw[key] === "object") {
+      const nested = findArray(raw[key], keys)
+      if (nested.length) return nested
+
+      // Les conversations et messages issus de Firestore peuvent être indexés
+      // par identifiant au lieu d'être renvoyés dans un tableau JSON.
+      const entries = Object.entries(raw[key]).filter(([, value]) => value && typeof value === "object")
+      if (entries.length) {
+        return entries.map(([collectionKey, value]) => ({
+          ...(value as Record<string, unknown>),
+          _collectionKey: collectionKey,
+        }))
+      }
+    }
   }
   for (const wrapper of ["result", "data", "payload"]) {
     const nested = raw[wrapper]
@@ -71,9 +85,15 @@ function normalizeContact(raw: any, currentUserId?: string): ChatContact | null 
     raw.receiver,
     raw.other_user,
     raw.otherUser,
+    raw.interlocutor,
+    raw.interlocuteur,
     participant,
     raw.user
   ) as any || raw
+  const conversationParticipants = String(raw._collectionKey || "").match(/\d+/g) || []
+  const idFromConversationKey = conversationParticipants.find(
+    (value) => value !== String(currentUserId || "")
+  )
   const id = first(
     user?.id,
     user?.user_id,
@@ -81,12 +101,35 @@ function normalizeContact(raw: any, currentUserId?: string): ChatContact | null 
     raw.target_user_id,
     raw.targetUserId,
     raw.receiver_id,
-    raw.receiverId
+    raw.receiverId,
+    raw.contact_id,
+    raw.contactId,
+    raw.friend_id,
+    raw.friendId,
+    raw.other_user_id,
+    raw.otherUserId,
+    raw.interlocutor_id,
+    raw.interlocutorId,
+    idFromConversationKey
   )
   if (id === undefined) return null
+  const firstName = first(user?.first_name, user?.firstName, user?.firstname)
+  const lastName = first(user?.last_name, user?.lastName, user?.lastname)
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim()
   return {
     id: String(id),
-    name: String(first(user?.name, user?.full_name, user?.fullName, user?.username, raw.name) || "Utilisateur"),
+    name: String(first(
+      user?.name,
+      user?.full_name,
+      user?.fullName,
+      user?.display_name,
+      user?.displayName,
+      user?.user_name,
+      user?.userName,
+      fullName,
+      user?.username,
+      raw.name
+    ) || "Utilisateur"),
     username: first(user?.username, user?.user_name, user?.slug) as string | undefined,
     avatar: resolveMediaUrl(String(first(
       user?.avatar,
@@ -106,7 +149,15 @@ export function normalizeChats(raw: any, currentUserId: string): ChatSummary[] {
     if (!contact || contact.id === String(currentUserId)) return []
     const last = first(item.last_message, item.lastMessage, item.message, item.latest_message) as any
     return [{
-      id: String(first(item.id, item.chat_id, item.conversation_id, `${contact.id}-${index}`)),
+      id: String(first(
+        item.id,
+        item.chat_id,
+        item.chatId,
+        item.conversation_id,
+        item.conversationId,
+        item._collectionKey,
+        `${contact.id}-${index}`
+      )),
       contact,
       lastMessage: String(
         typeof last === "object"
@@ -120,7 +171,7 @@ export function normalizeChats(raw: any, currentUserId: string): ChatSummary[] {
         last?.createdAt,
         item.created_at,
         ""
-      )),
+      ) || ""),
       unreadCount: Number(first(item.unread_count, item.unreadCount, item.unread, 0)) || 0,
     }]
   })
@@ -143,25 +194,80 @@ export function normalizeContacts(raw: any, currentUserId: string): ChatContact[
   })
 }
 
-export function normalizeMessages(raw: any, currentUserId: string): ChatMessage[] {
+function readUserId(value: any): string {
+  if (value === undefined || value === null || value === "") return ""
+  if (typeof value !== "object") return String(value)
+  return String(first(
+    value.id,
+    value.user_id,
+    value.userId,
+    value.sender_id,
+    value.senderId,
+    value.receiver_id,
+    value.receiverId,
+    ""
+  ))
+}
+
+function readMineFlag(item: any): boolean | undefined {
+  const value = first(
+    item.isMine,
+    item.is_mine,
+    item.sent_by_me,
+    item.sentByMe,
+    item.is_sender,
+    item.isSender
+  )
+  if (typeof value === "boolean") return value
+  if (value === 1 || value === "1" || value === "true") return true
+  if (value === 0 || value === "0" || value === "false") return false
+
+  const direction = String(first(item.direction, item.message_direction, item.messageDirection, "")).toLowerCase()
+  if (["outgoing", "outbound", "sent", "send"].includes(direction)) return true
+  if (["incoming", "inbound", "received", "receive"].includes(direction)) return false
+  return undefined
+}
+
+export function normalizeMessages(raw: any, currentUserId: string, targetUserId?: string): ChatMessage[] {
   const items = findArray(raw, ["messages", "conversation", "items", "chats"])
   return items.map((item, index) => {
-    const senderId = String(first(
+    const senderId = readUserId(first(
       item.sender_id,
       item.senderId,
+      item.from_user_id,
+      item.fromUserId,
+      item.from_id,
+      item.fromId,
+      item.from,
       item.user_id,
       item.userId,
-      item.sender?.id,
+      item.sender,
       ""
     ))
-    const receiverId = String(first(
+    const receiverId = readUserId(first(
       item.receiver_id,
       item.receiverId,
+      item.recipient_id,
+      item.recipientId,
+      item.to_user_id,
+      item.toUserId,
+      item.to_id,
+      item.toId,
+      item.to,
       item.target_user_id,
       item.targetUserId,
-      item.receiver?.id,
+      item.receiver,
+      item.recipient,
       ""
     ))
+    const explicitMine = readMineFlag(item)
+    const currentId = String(currentUserId)
+    const targetId = String(targetUserId || "")
+    const isMine = explicitMine ?? (
+      senderId
+        ? senderId === currentId
+        : Boolean(receiverId && targetId && receiverId === targetId)
+    )
     const attachments: ChatAttachment[] = []
     const addAttachment = (type: ChatAttachment["type"], value: any) => {
       const url = typeof value === "object" ? first(value?.url, value?.path, value?.file) : value
@@ -181,7 +287,7 @@ export function normalizeMessages(raw: any, currentUserId: string): ChatMessage[
       receiverId,
       text: String(first(item.message, item.content, item.text, "")),
       createdAt: String(first(item.created_at, item.createdAt, item.date, item.timestamp, "")),
-      isMine: senderId === String(currentUserId),
+      isMine,
       attachments,
       reply: first(item.reply_doc_id, item.reply_text)
         ? {

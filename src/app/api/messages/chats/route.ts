@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { dughuApi, DughuApiError } from "@/lib/dughu"
+import { dughuApi, DughuApiError, normalizeUser } from "@/lib/dughu"
 import { normalizeChats } from "@/lib/messages"
 
 export async function GET(req: NextRequest) {
@@ -10,7 +10,39 @@ export async function GET(req: NextRequest) {
 
   try {
     const raw = await dughuApi.getUserChats(userId)
-    return NextResponse.json({ success: true, chats: normalizeChats(raw, userId) })
+    const chats = normalizeChats(raw, userId)
+    const enrichedChats = await Promise.all(chats.map(async (chat) => {
+      if (chat.contact.name !== "Utilisateur" || !/^\d+$/.test(chat.contact.id)) return chat
+
+      try {
+        const rawProfile = await dughuApi.getUser(chat.contact.id, userId)
+        const profile = normalizeUser(
+          rawProfile?.user ||
+          rawProfile?.data?.user ||
+          rawProfile?.data ||
+          rawProfile?.profile ||
+          rawProfile?.result?.user ||
+          rawProfile?.result ||
+          rawProfile
+        )
+        if (!profile) return chat
+        const profileName = profile.name && profile.name !== "Utilisateur"
+          ? profile.name
+          : profile.username || chat.contact.username || chat.contact.name
+        return {
+          ...chat,
+          contact: {
+            ...chat.contact,
+            name: profileName,
+            username: profile.username || chat.contact.username,
+            avatar: profile.avatar || chat.contact.avatar,
+          },
+        }
+      } catch {
+        return chat
+      }
+    }))
+    return NextResponse.json({ success: true, chats: enrichedChats })
   } catch (error) {
     console.error("CHATS ERROR:", error)
     const status = error instanceof DughuApiError ? error.status : 502

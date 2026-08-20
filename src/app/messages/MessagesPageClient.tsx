@@ -27,6 +27,34 @@ import { useAuth } from "@/hooks/queries/use-auth"
 import type { ChatContact, ChatMessage, ChatSummary } from "@/lib/messages"
 
 const POLL_INTERVAL_MS = 5_000
+const MESSAGE_PREVIEW_LENGTH = 280
+
+function MessageText({ text, isMine }: { text: string; isMine: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+  const isLong = text.length > MESSAGE_PREVIEW_LENGTH
+  const displayedText = isLong && !expanded
+    ? `${text.slice(0, MESSAGE_PREVIEW_LENGTH).trimEnd()}…`
+    : text
+
+  return (
+    <div>
+      <p className="whitespace-pre-wrap break-words text-sm">{displayedText}</p>
+      {isLong && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+          className={cn(
+            "mt-1 text-xs font-semibold underline-offset-2 hover:underline",
+            isMine ? "text-white/90" : "text-[#A35A2A]"
+          )}
+        >
+          {expanded ? "Voir moins" : "Voir plus"}
+        </button>
+      )}
+    </div>
+  )
+}
 
 function formatMessageDate(value: string) {
   if (!value) return ""
@@ -42,6 +70,12 @@ function formatMessageDate(value: string) {
 
 function fileLabel(file: File | null) {
   return file ? `${file.name} (${Math.ceil(file.size / 1024)} Ko)` : ""
+}
+
+function contactIdFromConversationKey(value: string, currentUserId: string) {
+  if (/^\d+$/.test(value)) return value
+  const participants = value.match(/\d+/g) || []
+  return participants.find((id) => id !== currentUserId) || value
 }
 
 export default function MessagesPageClient() {
@@ -70,6 +104,16 @@ export default function MessagesPageClient() {
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const previousMessageCountRef = useRef(0)
+
+  useEffect(() => {
+    if (!currentUserId || !activeTarget || /^\d+$/.test(activeTarget)) return
+    const correctedTarget = contactIdFromConversationKey(activeTarget, currentUserId)
+    if (correctedTarget === activeTarget) return
+    // Corrige les anciennes URL créées avec une clé de conversation (ex. 34243-34257).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActiveTarget(correctedTarget)
+    router.replace(`/messages?target=${encodeURIComponent(correctedTarget)}`)
+  }, [activeTarget, currentUserId, router])
 
   const loadChats = useCallback(async () => {
     if (!currentUserId) return
@@ -111,7 +155,9 @@ export default function MessagesPageClient() {
     }
     let cancelled = false
     apiClient
-      .get("/messages/contact", { params: { userId: activeTarget } })
+      .get("/messages/contact", {
+        params: { targetUserId: activeTarget, currentUserId },
+      })
       .then(({ data }) => {
         if (!cancelled && data?.contact) setStandaloneContact(data.contact)
       })
@@ -121,7 +167,7 @@ export default function MessagesPageClient() {
         }
       })
     return () => { cancelled = true }
-  }, [activeTarget, chats])
+  }, [activeTarget, chats, currentUserId])
 
   const loadMessages = useCallback(async (showLoader = false) => {
     if (!currentUserId || !activeTarget) return
@@ -231,8 +277,8 @@ export default function MessagesPageClient() {
   return (
     <MainLayout user={user} noRightSidebar wide active="messages" workspace>
       <section className="h-[calc(100vh-108px)] min-h-[560px] w-full overflow-hidden rounded-[28px] border border-[#E7E2DE] bg-white shadow-[0_10px_35px_rgba(73,45,24,0.08)]">
-        <div className="grid h-full md:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className={cn("border-r border-gray-100 flex-col", activeTarget ? "hidden md:flex" : "flex")}>
+        <div className="grid h-full min-h-0 md:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className={cn("min-h-0 border-r border-gray-100 flex-col", activeTarget ? "hidden md:flex" : "flex")}>
             <div className="border-b border-gray-100 p-4">
               <div className="flex items-center justify-between mb-3">
                 <h1 className="text-xl font-bold text-[#050505]">Messages</h1>
@@ -257,7 +303,7 @@ export default function MessagesPageClient() {
                 </label>
               )}
             </div>
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="min-h-0 flex-1 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:#C9A68D_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#C9A68D] [&::-webkit-scrollbar-track]:bg-transparent">
               {composing ? (
                 searchingContacts ? (
                   <div className="flex justify-center py-8"><LoaderCircle className="animate-spin text-[#A35A2A]" /></div>
@@ -298,7 +344,7 @@ export default function MessagesPageClient() {
             </div>
           </aside>
 
-          <div className={cn("min-w-0 flex-col", activeTarget ? "flex" : "hidden md:flex")}>
+          <div className={cn("min-h-0 min-w-0 flex-col overflow-hidden", activeTarget ? "flex" : "hidden md:flex")}>
             {!activeTarget ? (
               <div className="flex flex-1 flex-col items-center justify-center text-center text-[#65676B]">
                 <MessageCircle size={52} className="mb-3 text-[#A35A2A]/50" />
@@ -317,7 +363,7 @@ export default function MessagesPageClient() {
                   </div>
                 </header>
 
-                <div className="flex-1 overflow-y-auto bg-[#F7F8FA] p-3 sm:p-5">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#F7F8FA] p-3 pr-2 sm:p-5 sm:pr-3 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:#B98663_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#B98663] [&::-webkit-scrollbar-thumb:hover]:bg-[#A35A2A] [&::-webkit-scrollbar-track]:bg-transparent">
                   {loadingMessages ? (
                     <div className="flex h-full items-center justify-center"><LoaderCircle className="animate-spin text-[#A35A2A]" /></div>
                   ) : messages.length === 0 ? (
@@ -335,7 +381,7 @@ export default function MessagesPageClient() {
                             <p className="truncate opacity-80">{message.reply.text}</p>
                           </div>
                         )}
-                        {message.text && <p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>}
+                        {message.text && <MessageText text={message.text} isMine={message.isMine} />}
                         {message.attachments.map((attachment, index) => (
                           <div key={`${attachment.url}-${index}`} className="mt-2 overflow-hidden rounded-xl">
                             {attachment.type === "image" && <Image src={attachment.url} alt="Image jointe" width={480} height={360} unoptimized className="max-h-80 w-auto object-contain" />}

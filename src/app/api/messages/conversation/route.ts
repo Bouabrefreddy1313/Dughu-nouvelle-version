@@ -9,10 +9,13 @@ export async function GET(req: NextRequest) {
   if (!userId || !targetUserId) {
     return NextResponse.json({ success: false, message: "Interlocuteurs requis." }, { status: 422 })
   }
+  if (!/^\d+$/.test(userId) || !/^\d+$/.test(targetUserId)) {
+    return NextResponse.json({ success: false, message: "Identifiants de conversation invalides." }, { status: 422 })
+  }
 
   try {
     const raw = await dughuApi.getConversationMessages(userId, targetUserId)
-    return NextResponse.json({ success: true, messages: normalizeMessages(raw, userId) })
+    return NextResponse.json({ success: true, messages: normalizeMessages(raw, userId, targetUserId) })
   } catch (error) {
     console.error("CONVERSATION ERROR:", error)
     const status = error instanceof DughuApiError ? error.status : 502
