@@ -6,6 +6,7 @@ const DUGHU_ORIGIN = BASE_URL.replace(/\/api\/?$/, "")
 const TIMEOUT_MS = (Number(process.env.DUGHU_API_TIMEOUT) || 15) * 1000
 const RETRY_TIMES = Number(process.env.DUGHU_API_RETRY_TIMES) || 2
 const RETRY_SLEEP_MS = Number(process.env.DUGHU_API_RETRY_SLEEP) || 200
+export const DUGHU_DEFAULT_MEDIA_URL = "https://dughuakwaplay.s3.eu-west-3.amazonaws.com/storage/photos/d-avatar.jpg"
 
 export class DughuApiError extends Error {
   status: number
@@ -296,7 +297,7 @@ export const dughuApi = {
 
   getUsersWithBadges: () => dughu.get("usersWithBadges"),
 
-  fraternise: (userId: string | number) => dughu.get(`fraternise/${encodeURIComponent(String(userId))}`),
+  fraternises: (userId: string | number) => dughu.get(`fraternise/${encodeURIComponent(String(userId))}`),
 
   getOnline: (userId: string | number, token: string) =>
     dughu.get(`getOnline/${encodeURIComponent(String(userId))}/${encodeURIComponent(token)}`),
@@ -409,6 +410,12 @@ function normalizeBirthday(v: any): string {
   const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(v)
   if (m) return `${m[3]}-${m[2]}-${m[1]}`
   return v
+}
+
+export function isDefaultDughuMedia(v: string): boolean {
+  const normalized = resolveMediaUrl(v || "").replace(/\/+$/, "")
+  const defaultUrl = DUGHU_DEFAULT_MEDIA_URL.replace(/\/+$/, "")
+  return !!normalized && normalized === defaultUrl
 }
 
 export function normalizeUser(u: any): Record<string, any> | null {
@@ -893,6 +900,12 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     isLiked,
     parentPost,
     reactions: extractReactionSummary(p),
+    // Confidentialité renvoyée par l'API Dughu :
+    //  "1" = Amis, "0"/autre = Public. Normalisé en 0 | 1 pour le frontend.
+    postPrivacy: pick(p, "postPrivacy", "post_privacy", "privacy") === 1 ||
+      pick(p, "postPrivacy", "post_privacy", "privacy") === "1"
+      ? 1
+      : 0,
     _count: {
       comments,
       likes,

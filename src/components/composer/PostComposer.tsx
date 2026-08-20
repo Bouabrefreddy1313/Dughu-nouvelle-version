@@ -63,18 +63,22 @@ interface PostComposerProps {
     images?: File[]
     videos?: File[]
     audios?: File[]
-    privacy?: Privacy
+    privacy?: PostPrivacy
     location?: string | null
   }) => void | Promise<void>
   className?: string
 }
 
-type Privacy = "public" | "friends" | "private"
+/**
+ * Confidentialité d'un post selon l'API Dughu :
+ *  - 0 : Public (tout le monde peut voir)
+ *  - 1 : Amis (seuls les amis peuvent voir)
+ */
+type PostPrivacy = 0 | 1
 
-const PRIVACY_OPTIONS: { id: Privacy; label: string; hint: string; icon: typeof Globe }[] = [
-  { id: "public", label: "Public", hint: "Tout le monde peut voir", icon: Globe },
-  { id: "friends", label: "Amis", hint: "Seuls vos amis peuvent voir", icon: Users },
-  { id: "private", label: "Vous seul", hint: "Visible uniquement par vous", icon: Lock },
+const PRIVACY_OPTIONS: { id: PostPrivacy; label: string; hint: string; icon: typeof Globe }[] = [
+  { id: 0, label: "Public", hint: "Tout le monde peut voir", icon: Globe },
+  { id: 1, label: "Amis", hint: "Seuls vos amis peuvent voir", icon: Users },
 ]
 
 const QUICK_EMOJIS = ["😀", "😍", "😂", "🔥", "🙏", "🎉", "❤️", "😮", "😢", "👏"]
@@ -97,7 +101,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
   const [location, setLocation] = useState("")
   const [mounted, setMounted] = useState(false)
 
-  const [privacy, setPrivacy] = useState<Privacy>("public")
+  const [privacy, setPrivacy] = useState<PostPrivacy>(0)
   const [privacyOpen, setPrivacyOpen] = useState(false)
 
   const [dragActive, setDragActive] = useState(false)
@@ -218,7 +222,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
     setLocation("")
     setShowLocationInput(false)
     setShowEmoji(false)
-    setPrivacy("public")
+    setPrivacy(0)
     setTagSuggestions([])
     setTagQuery("")
     setTagIndex(-1)

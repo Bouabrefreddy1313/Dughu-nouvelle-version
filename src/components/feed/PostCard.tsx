@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import {
   useCallback,
@@ -26,6 +26,8 @@ import {
   EyeOff,
   Smile,
   MessageCircle,
+  Globe,
+  Users,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -98,6 +100,12 @@ interface PostCardProps {
   commentsCount?: number
   sharesCount?: number
   reacted?: string | null
+  /**
+   * Confidentialité du post :
+   *  - 0 : Public (tout le monde peut voir)
+   *  - 1 : Amis (seuls les amis peuvent voir)
+   */
+  postPrivacy?: 0 | 1
   /** Post d'origine embarqué lors d'une republication (repost) */
   parentPost?: {
     id: string
@@ -312,6 +320,33 @@ function LikesSummary({
   )
 }
 
+/**
+ * Petit badge de confidentialité affiché à côté du temps écoulé du post.
+ * 0 = Public (globe), 1 = Amis (utilisateurs).
+ */
+function PrivacyBadge({ postPrivacy }: { postPrivacy?: 0 | 1 }) {
+  if (postPrivacy === 1) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-[#65676B]"
+        title="Visible par vos amis uniquement"
+      >
+        <Users size={12} />
+        
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[#65676B]"
+      title="Visible par tout le monde"
+    >
+      <Globe size={12} />
+      
+    </span>
+  )
+}
 
 /**
  * Carte embarquée du post d'origine dans une republication (repost).
@@ -860,6 +895,7 @@ export function PostCard({
   sharesCount = 0,
   reacted,
   reactions,
+  postPrivacy = 0,
   onLike,
   onComment,
     onRepost,
@@ -1924,9 +1960,11 @@ export function PostCard({
             {author.name}
           </a>
 
-          <p className="text-[12px] text-[#65676B]">
-            {timeAgo}
-          </p>
+          <div className="flex items-center gap-1.5 text-[12px] text-[#65676B]">
+            {timeAgo && <span>{timeAgo}</span>}
+            {timeAgo && <span aria-hidden>•</span>}
+            <PrivacyBadge postPrivacy={postPrivacy} />
+          </div>
         </div>
 
         <div className="relative shrink-0" ref={postMenuRef}>

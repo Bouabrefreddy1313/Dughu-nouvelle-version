@@ -26,6 +26,7 @@ import { useFeed } from "@/hooks/queries/use-feed"
 import { useStories } from "@/hooks/queries/use-stories"
 import MiniStories from "@/components/stories/MiniStories"
 import MainLayout from "@/components/layout/MainLayout"
+import { isDefaultDughuMedia } from "@/lib/dughu"
 
 const PostComposer = dynamic(() => import("@/components/composer/PostComposer").then((mod) => ({ default: mod.PostComposer })), {
   loading: () => null,
@@ -176,6 +177,30 @@ export default function HomePage() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const loadingMoreRef = useRef(false)
   const feedReqRef = useRef(0)
+
+  useEffect(() => {
+    let cancelled = false
+    const guardProfileCompletion = async () => {
+      try {
+        const res = await fetch("/api/auth/me")
+        const data = await res.json()
+        if (!cancelled && data?.success && data?.user) {
+          const avatar = data.user.avatar || data.user.image || ""
+          const cover = data.user.cover || ""
+          const incomplete = isDefaultDughuMedia(avatar) || isDefaultDughuMedia(cover)
+          if (incomplete) {
+            router.replace("/onboarding/profile")
+          }
+        }
+      } catch {
+        // pas de blocage du feed si la vérification échoue temporairement
+      }
+    }
+    void guardProfileCompletion()
+    return () => {
+      cancelled = true
+    }
+  }, [router])
 
   // Utilisateur via TanStack Query (cache automatique)
   const { data: rawUser, isLoading: authLoading } = useAuth()

@@ -46,7 +46,8 @@ export default function LoginPage() {
       }
       localStorage.setItem("dughu_user", JSON.stringify(data.user))
       toast.success("Connexion réussie !")
-      router.push(data.redirect || "/home")
+      const nextUrl = data.user?.onboardingCompleted ? "/home" : "/onboarding/profile"
+      router.replace(data.redirect || nextUrl)
     } catch {
       toast.error("Erreur réseau")
     } finally {

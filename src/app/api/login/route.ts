@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { dughu, dughuApi, pick, DughuApiError, resolveMediaUrl } from '@/lib/dughu'
+import { dughu, dughuApi, pick, DughuApiError, resolveMediaUrl, isDefaultDughuMedia } from '@/lib/dughu'
 import { syncLocalUserFromDughu } from '@/lib/dughu-user'
 
 export async function POST(req: NextRequest) {
@@ -163,6 +163,10 @@ export async function POST(req: NextRequest) {
     ])
 
     // Retourner l'utilisateur avec toutes les données nécessaires
+    const onboardingCompleted =
+      !!resolveMediaUrl(user.avatar || '') && !isDefaultDughuMedia(user.avatar || '') &&
+      !!resolveMediaUrl(user.cover || '') && !isDefaultDughuMedia(user.cover || '')
+
     const response = NextResponse.json({
       success: true,
       user: {
@@ -184,8 +188,9 @@ export async function POST(req: NextRequest) {
         followers: [],
         following: [],
         dughu: dughuInfo,
+        onboardingCompleted,
       },
-      redirect: '/home'
+      redirect: onboardingCompleted ? '/home' : '/onboarding/profile'
     })
 
     // ── Session : token Dughu en cookie (source de vérité) ──

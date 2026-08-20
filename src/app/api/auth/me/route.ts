@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { dughuApi, normalizeUser } from "@/lib/dughu"
+import { dughuApi, normalizeUser, isDefaultDughuMedia } from "@/lib/dughu"
 import { resolveDughuUserId, shouldSyncLocalUser, syncLocalUserFromDughu } from "@/lib/dughu-user"
 
 const DEFAULT_COVER = "/images/group/default-cover.jpg"
+const DEFAULT_AVATAR = "/images/avatar.png"
 
 export async function GET() {
   try {
@@ -40,7 +41,6 @@ export async function GET() {
       }
 
       return NextResponse.json({
-        success: true,
         user: {
           id: dughuUserId,
           email: userObj.email || "",
@@ -55,7 +55,8 @@ export async function GET() {
           _count: { posts: 0, followers: 0, following: 0 },
           followers: [],
           following: [],
-          dughu: { userId: dughuUserId, username },
+          onboardingCompleted: false,
+        dughu: { userId: dughuUserId, username },
         },
       })
     }
@@ -120,6 +121,9 @@ export async function GET() {
         followers: [],
         following: [],
         dughu: dughuInfo,
+        onboardingCompleted:
+          !!user.avatar && !isDefaultDughuMedia(user.avatar) &&
+          !!user.cover && !isDefaultDughuMedia(user.cover),
       },
     })
   } catch (error) {

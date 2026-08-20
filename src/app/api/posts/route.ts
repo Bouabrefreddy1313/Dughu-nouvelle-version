@@ -195,6 +195,28 @@ export async function POST(req: NextRequest) {
     const dForm = new FormData()
     dForm.append("user_id", String(dughuUserId))
 
+    // Confidentialité du post :
+    //  - "0" : Public (tout le monde peut voir)
+    //  - "1" : Amis (seuls les amis peuvent voir)
+    // L'API Dughu attend ce champ sous le nom `postPrivacy`.
+    // On normalise toujours en chaîne ("0" ou "1") pour correspondre au contrat
+    // de l'endpoint, qu'on reçoive un nombre, une chaîne, ou rien (défaut: public).
+    const rawPrivacy =
+      formData?.get("privacy") ??
+      formData?.get("postPrivacy") ??
+      jsonBody?.privacy ??
+      jsonBody?.postPrivacy
+
+    const normalizedPrivacy =
+      typeof rawPrivacy === "string"
+        ? rawPrivacy.trim()
+        : typeof rawPrivacy === "number"
+          ? String(rawPrivacy)
+          : rawPrivacy
+
+    const postPrivacy = normalizedPrivacy === "1" ? "1" : "0"
+    dForm.append("postPrivacy", postPrivacy)
+
     if (formData) {
       const content = (formData.get("content") as string) || ""
       const color = (formData.get("color") as string) || ""
