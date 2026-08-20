@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "L'API Dughu n'est pas configurée." }, { status: 500 })
     }
 
-    let result: any = null
+    let result: { success?: boolean; message?: unknown } | null = null
     try {
       result = await dughuApi.askAuthCode(email)
     } catch (err) {
@@ -28,7 +28,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return NextResponse.json({ success: true, message: "Nouveau code envoyé." })
+    return NextResponse.json({
+      success: true,
+      message: result?.message ? String(result.message) : "Nouveau code envoyé.",
+    })
   } catch (error) {
     console.error("OTP RESEND ERROR:", error)
     return NextResponse.json({ success: false, message: "Erreur interne." }, { status: 500 })

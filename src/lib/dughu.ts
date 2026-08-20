@@ -334,7 +334,12 @@ export const dughuApi = {
   sessionsDestroy: () => dughu.form("sessionsDestroy", {}),
   // ── Mot de passe oublié ──
 // ── Vérification email / OTP / connexion auto (flux inscription) ──
-  askAuthCode: (email: string) => dughu.form("ask_auth_code", { email }),
+  askAuthCode: (email: string) =>
+    dughuFetch(`ask_auth_code${buildQuery({ email })}`, {
+      method: "GET",
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    }),
 
   // GET /auth/me : profil courant à partir du token Dughu (Authorization)
   authMe: (token: string) =>

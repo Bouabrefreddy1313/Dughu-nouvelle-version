@@ -119,7 +119,7 @@ function OtpForm() {
         return
       }
 
-      toast.success("Nouveau code envoyé !")
+      toast.success(data.message || "Nouveau code envoyé !")
       setTimer(180)
       setOtp(["", "", "", ""])
       inputsRef.current[0]?.focus()
