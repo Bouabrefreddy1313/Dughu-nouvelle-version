@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Home, Video, Zap, Play, Users, Bell, MessageCircle, Search, X, LayoutGrid, LogOut } from "lucide-react"
+import { Home, Video, Zap, Play, Bell, MessageCircle, Search, X, LayoutGrid, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
 import Badge from "@/components/common/Badge"
@@ -47,7 +47,6 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
     { icon: <Video size={24} />, label: "Vidéos", href: "/videos" },
     { icon: <Zap size={24} />, label: "Tendances", href: "/tendances" },
     { icon: <Play size={24} />, label: "Akwaplay", href: "/akwaplay" },
-    { icon: <Users size={24} />, label: "Groupes", href: "/groupes" },
   ]
 
   return (

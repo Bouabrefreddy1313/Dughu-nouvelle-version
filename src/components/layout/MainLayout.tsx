@@ -109,7 +109,7 @@ export default function MainLayout({
       )}
 
       {/* ConversationSidebar : toujours accessible via le bouton messagerie du header, même sans RightSidebar */}
-      <ConversationSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
+      <ConversationSidebar user={user} open={chatOpen} onClose={() => setChatOpen(false)} />
 
       {/* Contenu central (feed) */}
       <main

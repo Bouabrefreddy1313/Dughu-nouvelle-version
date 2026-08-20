@@ -1,11 +1,10 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState } from "react"
 import Image from "next/image"
 import {
   Home, MessageCircle, Users, Heart, Image as ImageIcon, Bookmark,
-  Zap, Globe, ChevronDown, X,
+  Zap, Globe, X,
   BarChart3, ShieldAlert, Gift, UserPlus,
   Videotape,
 } from "lucide-react"
@@ -28,13 +27,11 @@ interface SidebarItemProps {
   active?: boolean
   badge?: string | number
   onClick?: () => void
-  open?: boolean
-  chevron?: boolean
   iconBg?: string
   iconColor?: string
 }
 
-function SidebarItem({ icon, label, active, badge, onClick, open, chevron, iconBg, iconColor }: SidebarItemProps) {
+function SidebarItem({ icon, label, active, badge, onClick, iconBg, iconColor }: SidebarItemProps) {
   return (
     <button
       onClick={onClick}
@@ -58,15 +55,6 @@ function SidebarItem({ icon, label, active, badge, onClick, open, chevron, iconB
         {label}
       </span>
       {badge && <Badge variant="red">{badge}</Badge>}
-      {chevron && (
-        <ChevronDown
-          size={16}
-          className={cn(
-            "text-[#A35A2A] transition-transform duration-200 shrink-0",
-            open && "rotate-180"
-          )}
-        />
-      )}
     </button>
   )
 }
@@ -74,14 +62,10 @@ function SidebarItem({ icon, label, active, badge, onClick, open, chevron, iconB
 export default function LeftSidebar({
   user,
   active = "feed",
-  filter = "all",
-  onFilterChange,
   mobile,
   onCloseMobile,
 }: LeftSidebarProps) {
   const router = useRouter()
-  const [feedOpen, setFeedOpen] = useState(false)
-
   return (
     <aside className={cn(
       "flex flex-col overflow-y-auto scrollbar-hide z-30",
@@ -108,49 +92,13 @@ export default function LeftSidebar({
             icon={<Globe size={20} />}
             label="Fil d'actualité"
             active={active === "feed"}
-            chevron
-            open={feedOpen}
             iconBg="bg-[#A35A2A]"
             iconColor="text-white"
             onClick={() => {
-              if (active !== "feed") {
-                router.push("/home")
-                onCloseMobile?.()
-                return
-              }
-              setFeedOpen(!feedOpen)
+              router.push("/home")
+              onCloseMobile?.()
             }}
           />
-          {feedOpen && (
-            <div className="ml-8 space-y-0.5 border-l-2 border-[#E4E6EB] pl-3">
-              <SidebarItem
-                icon={<Globe size={20} />}
-                label="Toutes les publications"
-                active={filter === "all"}
-                iconBg="bg-[#A35A2A]/15"
-                iconColor="text-[#A35A2A]"
-                onClick={() => {
-                  if (onFilterChange) onFilterChange("all")
-                  else router.push("/home")
-                  setFeedOpen(false)
-                  onCloseMobile?.()
-                }}
-              />
-              <SidebarItem
-                icon={<Users size={20} />}
-                label="Mes amis"
-                active={filter === "following"}
-                iconBg="bg-[#1877F2]/15"
-                iconColor="text-[#1877F2]"
-                onClick={() => {
-                  if (onFilterChange) onFilterChange("following")
-                  else router.push("/home")
-                  setFeedOpen(false)
-                  onCloseMobile?.()
-                }}
-              />
-            </div>
-          )}
 
           <SidebarItem
             icon={<MessageCircle size={20} />}
