@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, mapPosts, mapAlbums, getPageInfo, mapPost } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 const POSTS_PER_PAGE = 10
 
@@ -33,10 +32,10 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Fallback serveur : si le frontend n'a pas fourni l'ID Dughu (ex: cache
-    // localStorage perdu), on le résout via l'API Dughu depuis le compte local.
-    if (!dughuUserId && userId) {
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    // Fallback serveur : si le frontend n'a pas fourni l'ID Dughu, on le lit
+    // depuis le cookie de session.
+    if (!dughuUserId) {
+      dughuUserId = await getDughuUserIdFromCookies()
     }
 
     if (!dughuUserId) {
@@ -46,22 +45,14 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Résoudre l'utilisateur local pour le nom/avatar (optionnel, juste pour l'affichage)
-    const viewer = userId
-      ? await prisma.user.findUnique({
-          where: { id: userId },
-          select: { id: true, name: true, username: true, avatar: true },
-        })
-      : null
-
     // ── Mode profil : posts d'un auteur précis ──
     if (authorId) {
-      // L'endpoint Dughu `userPost` attend l'ID Dughu de l'auteur dans
-      // `user_id`. Si le frontend a passé un ID local (UUID), on le résout
-      // vers l'ID Dughu — sinon l'API ne renvoie aucun post.
+      // L'endpoint Dughu `userPost` attend l'ID (ou username) Dughu de l'auteur
+      // dans `user_id`. Le frontend fournit désormais un identifiant Dughu
+      // numérique ou un username ; aucun mapping local n'existe plus.
       let targetDughuId = authorId
       if (!/^\d+$/.test(String(authorId))) {
-        targetDughuId = (await resolveDughuUserIdFromLocalId(authorId)) || authorId
+        targetDughuId = authorId
       }
       const raw = await dughuApi.getUserPosts(targetDughuId, dughuUserId, page)
       const posts = mapPosts(raw, {
@@ -114,12 +105,7 @@ export async function GET(req: NextRequest) {
     if (!raw) {
       throw new Error("Le fil Dughu est injoignable.")
     }
-    const posts = mapPosts(raw, viewer ? {
-      id: viewer.id,
-      name: viewer.name,
-      username: viewer.username,
-      avatar: viewer.avatar,
-    } : undefined) as any[]
+    const posts = mapPosts(raw, undefined) as any[]
 
     // Enrichit les posts multi-images avec les médias de l'album du viewer
     // lorsque le fil ne les a pas inclus.
@@ -184,9 +170,9 @@ export async function POST(req: NextRequest) {
     }
 
     let dughuUserId = String(formData?.get("dughuUserId") || jsonBody?.dughuUserId || "")
-    // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
-    if (!dughuUserId && userId) {
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    // Fallback serveur : lecture du cookie de session Dughu
+    if (!dughuUserId) {
+      dughuUserId = await getDughuUserIdFromCookies()
     }
     if (!dughuUserId) {
       return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 401 })

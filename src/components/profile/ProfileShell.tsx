@@ -18,23 +18,11 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
 
   useEffect(() => {
     if (typeof window === "undefined") return
-    // Seed rapide depuis le cache local (affichage immédiat)
-    const stored = localStorage.getItem("dughu_user")
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored))
-      } catch {
-        setUser(null)
-      }
-    }
-    // Rafraîchissement depuis le serveur (source de vérité) : le miroir local
-    // est resynchronisé depuis Dughu par /api/auth/me, on répercute donc ici
-    // les données à jour (nom, username, avatar, cover).
+    // Source de vérité : /api/auth/me (cookies Dughu), plus de cache localStorage.
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.success && data.user) {
-          localStorage.setItem("dughu_user", JSON.stringify(data.user))
           setUser(data.user)
         }
       })
@@ -42,7 +30,6 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
   }, [])
 
   const handleLogout = () => {
-    localStorage.removeItem("dughu_user")
     fetch("/api/logout", { method: "POST" }).finally(() => {
       router.push("/login")
     })
@@ -61,7 +48,6 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
       const data = await res.json()
       if (data.success) {
         setUser(data.user || user)
-        localStorage.setItem("dughu_user", JSON.stringify(data.user || user))
       }
       return data
     } catch (error) {

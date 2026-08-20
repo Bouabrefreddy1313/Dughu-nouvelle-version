@@ -159,11 +159,19 @@ export const dughuApi = {
     dughu.form(`togglePinStatus/${encodeURIComponent(String(postId))}`, { user_id: String(userId) }),
 
   // ── Stories ──
-  getUserStories: (targetUserId: string | number) =>
-    dughu.get("getUserStories", { target_user_id: String(targetUserId) }),
+  getUserStories: (targetUserId: string | number, opts?: { perPage?: number; page?: number }) =>
+    dughu.get("getUserStories", {
+      target_user_id: String(targetUserId),
+      per_page: opts?.perPage,
+      page: opts?.page,
+    }),
 
-  getFriendsStories: (userId: string | number) =>
-    dughu.get("getFriendsStories", { user_id: String(userId) }),
+  getFriendsStories: (userId: string | number, opts?: { perPage?: number; page?: number }) =>
+    dughu.get("getFriendsStories", {
+      user_id: String(userId),
+      per_page: opts?.perPage,
+      page: opts?.page,
+    }),
 
   postStory: (formData: FormData) => dughu.multipart("postStory", formData),
 
@@ -325,6 +333,34 @@ export const dughuApi = {
 
   sessionsDestroy: () => dughu.form("sessionsDestroy", {}),
   // ── Mot de passe oublié ──
+// ── Vérification email / OTP / connexion auto (flux inscription) ──
+  askAuthCode: (email: string) => dughu.form("ask_auth_code", { email }),
+
+  // GET /auth/me : profil courant à partir du token Dughu (Authorization)
+  authMe: (token: string) =>
+    dughuFetch("auth/me", {
+      method: "GET",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+
+  // POST /auth/refresh : rafraîchir le token de session Dughu
+  authRefresh: (token: string) =>
+    dughuFetch("auth/refresh", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+
+  // GET /profile/me : profil courant (variante "moi")
+  profileMe: (token: string) =>
+    dughuFetch("profile/me", {
+      method: "GET",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+
+  // POST /loginAuto : connexion via le code reçu après ask_auth_code
+  loginAuto: (email: string, code: string) =>
+    dughu.form("loginAuto", { email, code }),
+  // ── Mot de passe oublié ──
   sendResetLink: (email: string) =>
     dughu.form("password/sendResetLink", { email }),
 
@@ -393,6 +429,26 @@ export function resolveMediaUrl(v: string): string {
   }
   // Repli : on résout contre l'origine du serveur Dughu
   return `${DUGHU_ORIGIN}/${clean}`
+}
+
+/**
+ * Résout l'URL d'affichage d'un média de story renvoyé uniquement sous forme de
+ * chemin fichier brut (champ `path`, `file`, `file_path`, … retourné par
+ * /getUserStories & /getFriendsStories).
+ *
+ * - Si c'est déjà une URL absolue / data: / blob:, on la renvoie telle quelle.
+ * - Sinon on construit l'URL de l'endpoint Dughu
+ *   GET `/media/download?path={filePath}` qui sert le média.
+ */
+export function resolveStoryMediaUrl(raw: string | null | undefined): string {
+  if (!raw) return ""
+  const v = String(raw)
+  if (/^https?:\/\//i.test(v) || v.startsWith("data:") || v.startsWith("blob:")) return v
+  const clean = v.replace(/^\/+/, "")
+  const resolved = resolveMediaUrl(v)
+  // Si resolveMediaUrl donne déjà une URL absolue directe du stockage, on l'utilise
+  if (/^https?:\/\//i.test(resolved) && resolved !== `${DUGHU_ORIGIN}/${clean}`) return resolved
+  return `${DUGHU_ORIGIN}/media/download?path=${encodeURIComponent(clean)}`
 }
 
 // Déduit le type de média à partir de l'extension de l'URL (repli si file_type absent)

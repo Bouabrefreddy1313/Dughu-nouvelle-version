@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, DughuApiError, normalizeUser, pick, resolveMediaUrl } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 function summarizeRaw(raw: any) {
   if (raw == null) return null
@@ -72,8 +71,8 @@ export async function POST(req: NextRequest) {
 
     let dughuUserId = String(formData.get("dughuUserId") || "")
     if (!dughuUserId) {
-      // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+      // Fallback serveur : lecture du cookie de session Dughu
+      dughuUserId = await getDughuUserIdFromCookies()
     }
     if (!dughuUserId) {
       return NextResponse.json(
@@ -104,7 +103,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (cover) {
-      await prisma.user.update({ where: { id: userId }, data: { cover } })
+      // L'API Dughu a déjà persisté la couverture : plus de miroir local.
     }
     return NextResponse.json({ success: true, cover, debug: summarizeRaw(raw) })
   } catch (error) {

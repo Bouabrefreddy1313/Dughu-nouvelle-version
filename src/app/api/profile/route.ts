@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, normalizeUser, parseCounts, mapPhotos, mapVideos, mapFriends, pick } from "@/lib/dughu"
-import { resolveDughuUserId, resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 const DEFAULT_COVER = "/images/group/default-cover.jpg"
 
@@ -11,6 +9,8 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get("userId")
     const slug = searchParams.get("slug")
     const currentUserId = searchParams.get("currentUserId")
+    const dughuUserId = searchParams.get("dughuUserId")
+    const viewerDughuUserId = searchParams.get("viewerDughuUserId")
 
     if (!userId && !slug) {
       return NextResponse.json({ success: false, message: "Identifiant requis." }, { status: 422 })
@@ -23,38 +23,20 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Résoudre l'utilisateur local (optionnel) et l'ID Dughu du visiteur
-    const dughuUserId = searchParams.get("dughuUserId")
-    const viewerDughuUserId = searchParams.get("viewerDughuUserId")
-    const localUser = userId
-      ? await prisma.user.findUnique({
-          where: { id: userId },
-          select: { id: true, email: true, username: true },
-        })
-      : slug
-        ? await prisma.user.findFirst({
-            where: { OR: [{ username: slug }, { slug }] },
-            select: { id: true, email: true, username: true },
-          })
-        : null
-
-    // ID Dughu du visiteur connecté : fourni par le frontend, sinon résolu via
-    // l'API Dughu depuis son compte local (plus de dughuId stocké en base).
+    // ID Dughu du visiteur connecté : fourni par le frontend, sinon lecteur depuis
+    // le cookie de session (plus de compte local).
     let viewerDughuId = viewerDughuUserId || ""
-    if (!viewerDughuId && currentUserId) {
-      viewerDughuId = await resolveDughuUserIdFromLocalId(currentUserId)
-    }
     if (!viewerDughuId) viewerDughuId = "0"
 
-    // Résoudre l'identifiant Dughu cible : dughuUserId fourni, sinon username
-    // (par slug ou par le compte local), sinon résolution par email.
+    // Résoudre l'identifiant Dughu cible : dughuUserId fourni, sinon slug/username
+    // (le profil Dughu est la source de vérité).
     let targetIdentifier: string | undefined
     if (dughuUserId) {
       targetIdentifier = dughuUserId
     } else if (slug) {
       targetIdentifier = slug
-    } else if (localUser) {
-      targetIdentifier = localUser.username || (await resolveDughuUserId(localUser)) || undefined
+    } else if (userId) {
+      targetIdentifier = userId
     }
     if (!targetIdentifier) {
       return NextResponse.json(
@@ -105,7 +87,7 @@ export async function GET(req: NextRequest) {
       success: true,
       user: {
         ...userObj,
-        id: localUser?.id || userObj.id,
+        id: String(userObj.id || ""),
         // Toujours exposer l'ID Dughu de la cible : permet au frontend de
         // détecter "mon propre profil" même quand le username local a divergé
         // du username Dughu (renommé côté Dughu), en comparant les ID Dughu

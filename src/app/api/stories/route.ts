@@ -1,26 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, mapStories } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
-
-// Résout l'ID Dughu de l'utilisateur connecté : via le paramètre userId, sinon
-// via le cookie de session. Retourne "" si non connecté.
-async function resolveViewerDughuId(userIdParam: string | null): Promise<string> {
-  let userId = userIdParam || ""
-  if (!userId) {
-    const cookiesModule = await import("next/headers")
-    const cookies = await cookiesModule.cookies()
-    const token =
-      cookies.get("next-auth.session-token")?.value ||
-      cookies.get("__Secure-next-auth.session-token")?.value
-    if (token) {
-      const session = await prisma.session.findUnique({ where: { sessionToken: token } }).catch(() => null)
-      if (session) userId = session.userId
-    }
-  }
-  if (!userId) return ""
-  return resolveDughuUserIdFromLocalId(userId)
-}
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,7 +8,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, stories: [] })
     }
     const { searchParams } = new URL(req.url)
-    const dughuUserId = await resolveViewerDughuId(searchParams.get("userId"))
+    const dughuUserId = searchParams.get("userId") || (await getDughuUserIdFromCookies())
 
     if (!dughuUserId) {
       return NextResponse.json({ success: true, stories: [] })
@@ -66,7 +46,8 @@ export async function POST(req: NextRequest) {
     }
     let dughuUserId = String(formData.get("dughuUserId") || "")
     if (!dughuUserId) {
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+      // Fallback serveur : lecture du cookie de session Dughu
+      dughuUserId = await getDughuUserIdFromCookies()
     }
     if (!dughuUserId) {
       return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })

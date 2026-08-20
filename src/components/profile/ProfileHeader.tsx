@@ -215,14 +215,9 @@ export function ProfileHeader({
         toast.success("Votre demande a été envoyée, elle est en cours de traitement")
         setStep2Open(false)
         setStep1Open(false)
-        // Mise à jour de l'état utilisateur si la réponse en contient un
+        // Mise à jour de l'état utilisateur avec les données du serveur
         if (data.user) {
-          // Mettre à jour l'utilisateur local avec les données du serveur
           const updatedUser = { ...user, ...data.user }
-          // Sauvegarder dans localStorage
-          try {
-            localStorage.setItem("dughu_user", JSON.stringify(updatedUser))
-          } catch {}
         }
       } else {
         toast.error(data.message || "Échec de la soumission")

@@ -464,11 +464,8 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
   }
 
   const handleProfileUpdated = (updated: any) => {
-    // Propager dans localStorage (source de useAuth)
-    let cached = {}
-    try { cached = JSON.parse(localStorage.getItem("dughu_user") || "{}") } catch {}
-    const newUser = { ...cached, ...(updated || {}) }
-    localStorage.setItem("dughu_user", JSON.stringify(newUser))
+    // Source de vérité : mise à jour du cache React Query (useAuth), plus de localStorage.
+    const newUser = { ...(updated || {}) }
     queryClient.setQueryData(["auth", "me"], newUser)
     queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
     queryClient.invalidateQueries({ queryKey: ["auth", "me"] })
@@ -775,12 +772,8 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
         currentUrl={user.avatar}
         onClose={() => setImageEdit(null)}
         onSaved={(url) => {
-          // Mettre a jour localStorage (source de useAuth pour header/sidebar/composer)
-          let cached = {}
-          try { cached = JSON.parse(localStorage.getItem("dughu_user") || "{}") } catch {}
-          const newUser = { ...cached, avatar: url }
-          localStorage.setItem("dughu_user", JSON.stringify(newUser))
-          // Mettre a jour le cache React Query instantanement (tous les composants)
+          // Mise à jour du cache React Query (= source du useAuth), plus de localStorage.
+          const newUser = { avatar: url }
           queryClient.setQueryData(["auth", "me"], newUser)
           // Rafraichir le profil et l'auth
           queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
@@ -794,10 +787,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
         currentUrl={user.cover}
         onClose={() => setImageEdit(null)}
         onSaved={(url) => {
-          let cached = {}
-          try { cached = JSON.parse(localStorage.getItem("dughu_user") || "{}") } catch {}
-          const newUser = { ...cached, cover: url }
-          localStorage.setItem("dughu_user", JSON.stringify(newUser))
+          const newUser = { cover: url }
           queryClient.setQueryData(["auth", "me"], newUser)
           queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
           queryClient.invalidateQueries({ queryKey: ["auth", "me"] })

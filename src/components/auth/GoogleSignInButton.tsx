@@ -48,7 +48,6 @@ export default function GoogleSignInButton({ width = 356 }: { width?: number }) 
           toast.error(data.message || "Échec de la connexion Google")
           return
         }
-        localStorage.setItem("dughu_user", JSON.stringify(data.user))
         toast.success("Connexion réussie !")
         const nextUrl = data.user?.onboardingCompleted ? "/home" : "/onboarding/profile"
         router.replace(data.redirect || nextUrl)

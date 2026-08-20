@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dughu, dughuApi, mapComments, resolveMediaUrl } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 /**
  * Récupère TOUS les commentaires Dughu d'un post.
@@ -84,9 +84,7 @@ export async function GET(req: NextRequest) {
     // Seule source : l'API Dughu (les posts Dughu ont un ID numérique).
     if (dughu.enabled && /^\d+$/.test(String(postId))) {
       let viewerDughuId = searchParams.get("dughuUserId") || ""
-      if (!viewerDughuId && currentUserId) {
-        viewerDughuId = await resolveDughuUserIdFromLocalId(currentUserId)
-      }
+      if (!viewerDughuId) viewerDughuId = await getDughuUserIdFromCookies()
       if (!viewerDughuId) viewerDughuId = "0"
       const rawList = await fetchAllDughuComments(String(postId), viewerDughuId)
       const comments = mapComments({ data: rawList }, viewerDughuId || "")
@@ -149,8 +147,8 @@ export async function POST(req: NextRequest) {
 
     if (dughu.enabled && /^\d+$/.test(String(postId))) {
       let dughuUserId = dughuUserIdVar
-      if (!dughuUserId && userId) {
-        dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+      if (!dughuUserId) {
+        dughuUserId = await getDughuUserIdFromCookies()
       }
       if (!dughuUserId) {
         return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })

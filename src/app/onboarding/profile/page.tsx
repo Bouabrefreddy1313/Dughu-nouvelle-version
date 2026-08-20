@@ -34,20 +34,11 @@ export default function OnboardingProfilePage() {
   const [coverFile, setCoverFile] = useState<File | null>(null)
 
   const loadUser = async () => {
-    const stored = localStorage.getItem("dughu_user")
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored))
-      } catch {
-        localStorage.removeItem("dughu_user")
-      }
-    }
-
+    // Plus de cache localStorage : source de vérité = /api/auth/me (cookies Dughu)
     try {
       const res = await fetch("/api/auth/me")
       const data = await res.json()
       if (data?.success && data.user) {
-        localStorage.setItem("dughu_user", JSON.stringify(data.user))
         setUser(data.user)
       }
     } finally {
@@ -77,7 +68,6 @@ export default function OnboardingProfilePage() {
 
   const persistUser = (nextUser: OnboardingUser) => {
     setUser(nextUser)
-    localStorage.setItem("dughu_user", JSON.stringify(nextUser))
   }
 
   const selectedAvatar = useMemo(() => avatarPreview || user?.avatar || DEFAULT_AVATAR, [avatarPreview, user?.avatar])

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dughu, dughuApi, mapAlbums } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,9 +24,9 @@ export async function POST(req: NextRequest) {
     }
 
     let dughuUserId = String(formData?.get("dughuUserId") || jsonBody?.dughuUserId || "")
-    // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
-    if (!dughuUserId && userId) {
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+    // Fallback serveur : lecture du cookie de session Dughu
+    if (!dughuUserId) {
+      dughuUserId = await getDughuUserIdFromCookies()
     }
     if (!dughuUserId) {
       return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 401 })

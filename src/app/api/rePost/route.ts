@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dughu, dughuApi, mapPost } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 interface RepostBody {
   userId?: string
@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
     let dughuUserId =
       String(formData?.get("dughuUserId") || jsonBody?.dughuUserId || "")
     if (!dughuUserId) {
-      // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
+      // Fallback serveur : lecture du cookie de session Dughu
+      dughuUserId = await getDughuUserIdFromCookies()
     }
     if (!dughuUserId) {
       return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })

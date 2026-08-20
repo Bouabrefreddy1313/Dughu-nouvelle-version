@@ -112,7 +112,6 @@ export function HashtagPage({ tag }: HashtagPageProps) {
   }, [hasMore, loading, pageNum, loadPosts])
 
   const handleLogout = () => {
-    localStorage.removeItem("dughu_user")
     fetch("/api/logout", { method: "POST" }).finally(() => {
       router.push("/login")
     })

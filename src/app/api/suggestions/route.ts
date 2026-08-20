@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, mapPosts, resolveMediaUrl } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 // Extrait le tableau de données d'une réponse Dughu (result.data / data / tableau direct)
 function arrOf(raw: any): any[] {
@@ -81,19 +80,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const userId = searchParams.get("userId")
 
-    // ID Dughu de l'utilisateur connecté : via le paramètre userId, sinon cookie.
-    let dughuUserId = userId ? await resolveDughuUserIdFromLocalId(userId) : ""
-    if (!dughuUserId) {
-      const cookiesModule = await import("next/headers")
-      const cookies = await cookiesModule.cookies()
-      const token =
-        cookies.get("next-auth.session-token")?.value ||
-        cookies.get("__Secure-next-auth.session-token")?.value
-      if (token) {
-        const session = await prisma.session.findUnique({ where: { sessionToken: token } }).catch(() => null)
-        if (session) dughuUserId = await resolveDughuUserIdFromLocalId(session.userId)
-      }
-    }
+    // ID Dughu de l'utilisateur connecté : paramètre dughuUserId, sinon cookie.
+    let dughuUserId = searchParams.get("dughuUserId") || ""
+    if (!dughuUserId) dughuUserId = await getDughuUserIdFromCookies()
 
     const [pagesRaw, groupsRaw, hashtagsRaw, popularRaw] = await Promise.all([
       dughuUserId ? dughuApi.suggestPages({ user_id: dughuUserId }).catch(() => null) : Promise.resolve(null),
@@ -116,19 +105,13 @@ export async function GET(req: NextRequest) {
       _count: { comments: p._count?.comments, likes: p._count?.likes, views: null },
     }))
 
-    // Activités récentes : endpoint Dughu profile/{username}/activites
+    // Activités récentes : endpoint Dughu profile/{username}/activites.
+    // Le username vient de l'API Dughu (source de vérité, plus de compte local).
     let activities: any[] = []
-    if (userId) {
-      const localUser = await prisma.user
-        .findUnique({ where: { id: userId }, select: { username: true } })
-        .catch(() => null)
-      let username = localUser?.username || ""
-      if (!username && dughuUserId) {
-        // Utilisateur "token Dughu" (sans compte local) → username depuis l'API.
-        const profileRaw = await dughuApi.getUser(dughuUserId, dughuUserId).catch(() => null)
-        const profileObj = profileRaw?.user ?? profileRaw?.data ?? profileRaw?.profile ?? profileRaw?.result ?? profileRaw
-        username = profileObj?.username || profileObj?.user_name || profileObj?.slug || ""
-      }
+    if (dughuUserId) {
+      const profileRaw = await dughuApi.getUser(dughuUserId, dughuUserId).catch(() => null)
+      const profileObj = profileRaw?.user ?? profileRaw?.data ?? profileRaw?.profile ?? profileRaw?.result ?? profileRaw
+      const username = profileObj?.username || profileObj?.user_name || profileObj?.slug || ""
       if (username) {
         const activitiesRaw = await dughuApi.getUserActivities(username, 1).catch(() => null)
         activities = mapActivities(activitiesRaw)

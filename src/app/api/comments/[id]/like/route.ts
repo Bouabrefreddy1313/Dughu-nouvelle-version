@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dughu, dughuApi } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 const REACTION_TYPES = ["like", "love", "haha", "wow", "sad", "angry"]
 
@@ -17,8 +17,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (dughu.enabled && /^\d+$/.test(String(id))) {
       let actingDughuUserId = String(dughuUserIdParam || "")
       if (!actingDughuUserId) {
-        // Fallback serveur : résolution de l'ID Dughu depuis le compte local.
-        actingDughuUserId = await resolveDughuUserIdFromLocalId(userId)
+        // Fallback serveur : lecture du cookie de session Dughu
+        actingDughuUserId = await getDughuUserIdFromCookies()
       }
       if (!actingDughuUserId) {
         return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })

@@ -1,20 +1,19 @@
-const STORAGE_KEY = "dughu_my_reactions"
+// Cache mémoire (session navigateur) des réactions "mes likes".
+// Plus de localStorage : les données de session sont éphémères et les sources
+// de vérité sont les endpoints API Dughu (toggleLikePost, getCommentReactions...).
+const reactions: Record<string, string> = {}
 
 export function readMyReactions(): Record<string, string> {
-  if (typeof window === "undefined") return {}
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    const parsed = raw ? JSON.parse(raw) : {}
-    return parsed && typeof parsed === "object" ? parsed : {}
-  } catch {
-    return {}
+  return reactions
+}
+
+export function writeMyReactions(updated: Record<string, string>) {
+  for (const [k, v] of Object.entries(updated)) {
+    if (v === null || v === undefined || v === "") delete reactions[k]
+    else reactions[k] = v
   }
 }
 
-export function writeMyReactions(reactions: Record<string, string>) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(reactions))
-  } catch {
-    /* silent */
-  }
+export function resetMyReactions() {
+  for (const k of Object.keys(reactions)) delete reactions[k]
 }

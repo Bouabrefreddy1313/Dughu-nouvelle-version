@@ -44,7 +44,6 @@ export default function LoginPage() {
         toast.error(data.message || "Erreur de connexion")
         return
       }
-      localStorage.setItem("dughu_user", JSON.stringify(data.user))
       toast.success("Connexion réussie !")
       const nextUrl = data.user?.onboardingCompleted ? "/home" : "/onboarding/profile"
       router.replace(data.redirect || nextUrl)

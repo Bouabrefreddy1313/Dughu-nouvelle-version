@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import dynamic from "next/dynamic"
 import {
   Home, Video, Zap, Play, Bell, MessageCircle, Search,
@@ -23,8 +24,9 @@ import { REACTION_ID_TO_TYPE, POST_COLORS } from "@/lib/constants"
 import { timeAgo, formatNumber } from "@/lib/helpers"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { useFeed } from "@/hooks/queries/use-feed"
-import { useStories } from "@/hooks/queries/use-stories"
-import MiniStories from "@/components/stories/MiniStories"
+import FlashFeed from "@/components/flash/FlashFeed"
+import FlashViewer from "@/components/flash/FlashViewer"
+import FlashCreator from "@/components/flash/FlashCreator"
 import MainLayout from "@/components/layout/MainLayout"
 import { isDefaultDughuMedia } from "@/lib/dughu"
 
@@ -170,8 +172,9 @@ export default function HomePage() {
   const [pageNum, setPageNum] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [filter, setFilter] = useState<"all" | "following">("all")
-  const [showStoryViewer, setShowStoryViewer] = useState(false)
-  const [activeStoryIndex, setActiveStoryIndex] = useState(0)
+  const [flashTarget, setFlashTarget] = useState<{ userId: string; index: number } | null>(null)
+  const [flashCreatorOpen, setFlashCreatorOpen] = useState(false)
+  const queryClient = useQueryClient()
   const [coloredPosts, setColoredPosts] = useState<any[]>([...POST_COLORS])
   const [chatOpen, setChatOpen] = useState(false)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
@@ -269,9 +272,6 @@ export default function HomePage() {
       }
     }
   }, [filter, user])
-
-  // Stories via TanStack Query
-  const { data: stories = [] } = useStories(!!user?.id)
 
   // Charger le fil uniquement quand l'utilisateur est chargé
   // (évite le fetch au userId vide qui retomberait sur Prisma, et les écrasements de réponses)
@@ -593,7 +593,6 @@ export default function HomePage() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("dughu_user")
     fetch("/api/logout", { method: "POST" }).finally(() => {
       router.push("/login")
     })
@@ -630,13 +629,30 @@ export default function HomePage() {
       filter={filter}
       onFilterChange={setFilter}
     >
-      {/* Mini Stories */}
-      <MiniStories
-        stories={stories}
+      {/* Flash feed (stories amis via /getFriendsStories) */}
+      <FlashFeed
+        userId={user?.id}
         currentUser={user}
-        onAddStory={() => toast.info("Créer une story — à implémenter")}
-        onOpenStory={(index: number) => { setActiveStoryIndex(index); setShowStoryViewer(true) }}
+        onAddStory={() => setFlashCreatorOpen(true)}
+        onOpenFlash={(index: number, targetUserId: string) => setFlashTarget({ userId: targetUserId, index })}
       />
+      <FlashCreator
+        user={user}
+        open={flashCreatorOpen}
+        onClose={() => setFlashCreatorOpen(false)}
+        onCreated={() => queryClient.invalidateQueries({ queryKey: ["flash", "feed"] })}
+      />
+
+      {/* Flash viewer (stories d'un utilisateur via /getUserStories) */}
+      {flashTarget && (
+        <FlashViewer
+          key={flashTarget.userId}
+          targetUserId={flashTarget.userId}
+          userId={user?.id}
+          initialIndex={flashTarget.index}
+          onClose={() => setFlashTarget(null)}
+        />
+      )}
 
       {/* Create Post */}
       <PostComposer user={user} onSubmit={handlePostSubmit} className="mb-4" />
@@ -721,50 +737,6 @@ export default function HomePage() {
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
           <p className="text-[#65676B]">Aucune publication pour l'instant.</p>
           <Button onClick={() => loadPosts(1, true)} className="mt-3 bg-[#A35A2A] text-white rounded-full">Actualiser</Button>
-        </div>
-      )}
-
-      {/* Story Viewer Overlay */}
-      {showStoryViewer && stories[activeStoryIndex] && (
-        <div className="fixed inset-0 bg-black z-[60] flex flex-col">
-          {/* Progress bars */}
-          <div className="flex gap-1 p-2 pt-4">
-            {stories.map((_: any, i: number) => (
-              <div key={i} className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
-                <div className={cn("h-full bg-white transition-all duration-300", i < activeStoryIndex ? "w-full" : i === activeStoryIndex ? "w-1/2" : "w-0")} />
-              </div>
-            ))}
-          </div>
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#A35A2A] flex items-center justify-center text-white text-xs font-bold">
-                {stories[activeStoryIndex].user.name?.charAt(0)}
-              </div>
-              <span className="text-white text-sm font-medium">{stories[activeStoryIndex].user.name}</span>
-              <span className="text-white/60 text-xs">{timeAgo(stories[activeStoryIndex].createdAt)}</span>
-            </div>
-            <button onClick={() => setShowStoryViewer(false)} className="text-white p-2"><X size={24} /></button>
-          </div>
-          {/* Content */}
-          <div className="flex-1 flex items-center justify-center p-4">
-            {stories[activeStoryIndex].image ? (
-              <img src={stories[activeStoryIndex].image} alt="" className="max-w-full max-h-full object-contain rounded-lg" />
-            ) : stories[activeStoryIndex].video ? (
-              <video src={stories[activeStoryIndex].video} className="max-w-full max-h-full rounded-lg" controls autoPlay />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center rounded-xl p-8 text-center" style={{ background: stories[activeStoryIndex].bg || POST_COLORS[0].bg }}>
-                <p className="text-2xl font-bold text-white whitespace-pre-wrap">{stories[activeStoryIndex].text}</p>
-              </div>
-            )}
-          </div>
-          {/* Navigation */}
-          <div className="absolute inset-y-0 left-0 w-16 flex items-center">
-            <button onClick={() => setActiveStoryIndex((i) => Math.max(0, i - 1))} className="text-white/50 hover:text-white p-2"><ChevronLeft size={32} /></button>
-          </div>
-          <div className="absolute inset-y-0 right-0 w-16 flex items-center justify-end">
-            <button onClick={() => setActiveStoryIndex((i) => Math.min(stories.length - 1, i + 1))} className="text-white/50 hover:text-white p-2"><ChevronRight size={32} /></button>
-          </div>
         </div>
       )}
     </MainLayout>

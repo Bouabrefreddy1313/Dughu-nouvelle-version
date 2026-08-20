@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi, pick } from "@/lib/dughu"
 
 export async function POST(req: NextRequest) {

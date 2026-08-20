@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { dughu, dughuApi } from "@/lib/dughu"
-import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
   try {
@@ -10,20 +9,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
     const userId = String(body?.userId || "")
     let dughuUserId = String(body?.dughuUserId || "")
 
-    if (!dughuUserId && userId) {
-      dughuUserId = await resolveDughuUserIdFromLocalId(userId)
-    }
     if (!dughuUserId) {
-      // Repli : résolution via la session cookie (aucun body envoyé par le client).
-      const cookiesModule = await import("next/headers")
-      const cookies = await cookiesModule.cookies()
-      const token =
-        cookies.get("next-auth.session-token")?.value ||
-        cookies.get("__Secure-next-auth.session-token")?.value
-      if (token) {
-        const session = await prisma.session.findUnique({ where: { sessionToken: token } }).catch(() => null)
-        if (session) dughuUserId = await resolveDughuUserIdFromLocalId(session.userId)
-      }
+      // Repli : lecture du cookie de session Dughu
+      dughuUserId = await getDughuUserIdFromCookies()
     }
 
     if (!dughuUserId) {

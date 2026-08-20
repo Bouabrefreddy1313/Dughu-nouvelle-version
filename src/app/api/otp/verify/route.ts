@@ -1,82 +1,62 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server"
+import { dughu, dughuApi, pick } from "@/lib/dughu"
 
+// Vérification du code email / connexion auto via l'API Dughu.
+// Flux : POST /ask_auth_code { email } (envoyé par Dughu) puis POST /loginAuto
+// { email, code } qui vérifie le code et renvoie l'utilisateur + token.
 export async function POST(req: NextRequest) {
   try {
     const { email, otp } = await req.json()
 
     if (!email || !otp || otp.length !== 4) {
-      return NextResponse.json({ success: false, message: 'Email et OTP requis (4 chiffres).' }, { status: 422 })
+      return NextResponse.json({ success: false, message: "Email et code requis (4 chiffres)." }, { status: 422 })
     }
 
-    const user = await prisma.user.findUnique({ where: { email } })
-    if (!user) {
-      return NextResponse.json({ success: false, message: 'Utilisateur non trouvé.' }, { status: 404 })
+    if (!dughu.enabled) {
+      return NextResponse.json({ success: false, message: "L'API Dughu n'est pas configurée." }, { status: 500 })
     }
 
-    const otpRecord = await prisma.otp.findFirst({
-      where: {
-        userId: user.id,
-        otp,
-        expiresAt: { gt: new Date() }
-      }
-    })
-
-    if (!otpRecord) {
-      return NextResponse.json({ success: false, message: 'Code OTP invalide ou expiré.' }, { status: 400 })
+    let loginAuto: any = null
+    try {
+      loginAuto = await dughuApi.loginAuto(email, String(otp))
+    } catch (err) {
+      console.error("OTP VERIFY DUHU ERROR:", err)
+      return NextResponse.json({ success: false, message: "Impossible de joindre l'API Dughu." }, { status: 502 })
     }
 
-    // Activer le compte
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        emailVerified: new Date(),
-        active: '1'
-      }
-    })
+    if (!loginAuto?.success) {
+      const message =
+        (loginAuto?.message && String(loginAuto.message)) ||
+        (loginAuto?.messages && Object.values(loginAuto.messages).flat().join(" ")) ||
+        "Code invalide ou expiré."
+      return NextResponse.json({ success: false, message }, { status: 400 })
+    }
 
-    // Supprimer l'OTP
-    await prisma.otp.delete({ where: { id: otpRecord.id } })
+    const result = loginAuto.result || loginAuto || {}
+    const dughuUserId = String(pick(result, "user_id", "userId", "id", "ID") || "")
+    const dughuToken = String(pick(result, "token", "access_token", "api_token") || "")
 
-    // Parrainage : attribution de points
-    if (user.referrerId) {
-      const config = await prisma.woConfig.findUnique({ where: { name: 'points_affiliation' } })
-      const points = config ? parseInt(config.value) : 10
-      
-      await prisma.historiquePoints.create({
-        data: {
-          userId: user.referrerId,
-          points,
-          type: 'parrainage',
-          description: `Parrainage de ${user.username}`
-        }
+    const response = NextResponse.json({ success: true, message: "Compte vérifié avec succès.", redirect: "/onboarding/profile" })
+    if (dughuUserId) {
+      const sessionMaxAge = 30 * 24 * 60 * 60
+      response.cookies.set("dughu_user_id", dughuUserId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: sessionMaxAge,
       })
-
-      await prisma.notification.create({
-        data: {
-          userId: user.referrerId,
-          type: 'parrainage',
-          content: `${user.name} a rejoint Dughu grâce à votre invitation ! +${points} points`
-        }
+      response.cookies.set("dughu_token", dughuToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: sessionMaxAge,
       })
     }
-
-    return NextResponse.json({
-      success: true,
-      result: {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          username: user.username,
-          isAdmin: user.isAdmin
-        },
-        message: 'Compte vérifié avec succès.'
-      }
-    })
-
+    return response
   } catch (error) {
-    console.error('OTP VERIFY ERROR:', error)
-    return NextResponse.json({ success: false, message: 'Erreur interne.' }, { status: 500 })
+    console.error("OTP VERIFY ERROR:", error)
+    return NextResponse.json({ success: false, message: "Erreur interne." }, { status: 500 })
   }
 }
