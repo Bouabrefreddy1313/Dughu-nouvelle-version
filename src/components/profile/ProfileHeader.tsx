@@ -412,7 +412,7 @@ export function ProfileHeader({
                     }
                   >
                     {isFollowing ? <UserCheck size={16} /> : <UserPlus size={16} />}
-                    {isFollowing ? "Abonné" : "Suivre"}
+                    {isFollowing ? "Abonné" : "S'abonner"}
                   </button>
                   <button
                     onClick={onMessage}
