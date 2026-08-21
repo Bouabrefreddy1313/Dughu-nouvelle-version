@@ -19,6 +19,8 @@ interface MainLayoutProps {
   noRightSidebar?: boolean
   active?: string
   workspace?: boolean
+  /** Réserve la largeur de la sidebar gauche au contenu sur desktop. */
+  reserveLeftSidebar?: boolean
 }
 
 export default function MainLayout({
@@ -32,6 +34,7 @@ export default function MainLayout({
   noRightSidebar = false,
   active = "feed",
   workspace = false,
+  reserveLeftSidebar = false,
 }: MainLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -115,7 +118,9 @@ export default function MainLayout({
       <main
         className={cn(
           "pt-[80px] sm:pt-[88px] pb-16 lg:pb-12 flex justify-center transition-[margin] duration-300 ease-in-out w-full",
-          workspace
+          reserveLeftSidebar
+            ? "lg:ml-[270px] lg:w-[calc(100%-270px)] lg:justify-start"
+            : workspace
             ? "lg:ml-[270px] lg:w-[calc(100%-270px)] lg:justify-start"
             : "lg:ml-[-200px] xl:ml-[-100px]",
           !workspace && noRightSidebar

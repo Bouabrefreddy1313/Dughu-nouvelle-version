@@ -70,7 +70,7 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
       : { userId: userId || "" }
 
   return (
-    <MainLayout user={user} onLogout={handleLogout} onSearch={handleSearch} wide noRightSidebar>
+    <MainLayout user={user} onLogout={handleLogout} onSearch={handleSearch} wide noRightSidebar reserveLeftSidebar>
       <ProfilePage target={target} onSubmitVerification={handleSubmitVerification} isVerifying={isVerifying} />
     </MainLayout>
   )
