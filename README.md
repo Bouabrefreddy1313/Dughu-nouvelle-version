@@ -1,40 +1,108 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dughu Web
 
-## Getting Started
+Front-end Next.js 16 (App Router) de Dughu. L'application est un client de
+l'API Laravel Dughu : **elle ne possède pas de base de données**. La session
+utilisateur tient dans deux cookies httpOnly (`dughu_token`, `dughu_user_id`)
+posés par `/api/login`, et toutes les données transitent par `src/lib/dughu.ts`.
 
-First, run the development server:
+Conséquence : le service est **entièrement sans état**. Aucun volume, aucune
+migration, aucun stockage local à sauvegarder — on peut le redéployer ou le
+répliquer sans précaution particulière.
+
+## Prérequis
+
+- Node.js >= 20.9 (l'image Docker utilise Node 22)
+- Docker + Docker Compose pour le déploiement
+- Un accès à l'API Dughu (`DUGHU_API_KEY`)
+
+## Développement
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env      # puis renseigne DUGHU_API_KEY
+npm run dev               # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Variables d'environnement
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Toutes documentées dans [`.env.example`](.env.example). Deux pièges :
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **`DUGHU_API_KEY` est obligatoire.** Sans elle, toutes les routes API
+  répondent 500.
+- **`NEXT_PUBLIC_GOOGLE_CLIENT_ID` est une variable de *build*.** Next.js
+  l'inline dans le bundle client au moment du `next build` : la modifier impose
+  de reconstruire l'image, un simple redémarrage n'a aucun effet.
 
-## Learn More
+## Déploiement en production
 
-To learn more about Next.js, take a look at the following resources:
+La branche de déploiement est `production`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Première installation sur le VPS
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# 1. Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker "$USER" && newgrp docker
 
-## Deploy on Vercel
+# 2. Code
+sudo mkdir -p /srv && sudo chown "$USER" /srv
+git clone -b production https://github.com/Dughu/DUGHU-WEB-3.0.git /srv/dughu
+cd /srv/dughu
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# 3. Secrets
+cp .env.example .env && nano .env && chmod 600 .env
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
-# Dughu-nouvelle-version
->>>>>>> origin/main
+# 4. Démarrage
+./deploy/deploy.sh --no-pull
+
+# 5. Nginx + TLS
+sudo apt install -y nginx certbot python3-certbot-nginx
+sudo cp deploy/nginx/dughu.conf /etc/nginx/sites-available/dughu
+sudo ln -s /etc/nginx/sites-available/dughu /etc/nginx/sites-enabled/dughu
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d dughu.com -d www.dughu.com
+```
+
+### Déploiements suivants
+
+```bash
+cd /srv/dughu && ./deploy/deploy.sh
+```
+
+Le script construit la nouvelle image **avant** d'arrêter l'ancienne, puis
+attend que la sonde `/api/health` passe au vert. Si le build échoue ou si le
+conteneur reste `unhealthy`, il s'arrête en affichant les logs et le service
+précédent continue de tourner.
+
+### Exploitation
+
+```bash
+docker compose logs -f app                 # logs en direct
+docker compose ps                          # état + santé
+curl -s https://dughu.com/api/health       # sonde
+docker compose restart app                 # redémarrage simple
+git checkout <sha> && ./deploy/deploy.sh --no-pull   # rollback
+```
+
+## Architecture de déploiement
+
+```
+Internet → Nginx (443, TLS)  →  127.0.0.1:3000  →  conteneur dughu-web
+                                                      └── API Dughu (HTTPS, externe)
+```
+
+Le conteneur n'écoute qu'en loopback : Nginx est le seul point d'entrée public.
+
+Dimensionnement : 1 vCPU / 2 Go de RAM suffisent (pas de base de données, pas
+d'optimisation d'images — `images.unoptimized` est actif).
+
+## Structure
+
+| Chemin | Rôle |
+|---|---|
+| `src/app/api/` | Routes serveur — proxy et adaptation de l'API Dughu |
+| `src/lib/dughu.ts` | Client de l'API Dughu (timeout, retry, normalisation) |
+| `src/hooks/queries/` | Hooks TanStack Query côté client |
+| `src/proxy.ts` | Garde d'authentification (ex-`middleware.ts`, renommé en Next 16) |
+| `deploy/` | Vhost Nginx et script de déploiement |

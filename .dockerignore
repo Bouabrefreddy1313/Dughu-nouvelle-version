@@ -13,14 +13,13 @@ dist
 
 # Env & secrets — NE JAMAIS envoyer dans le contexte Docker
 .env
-.env*.local
-.env.development
-.env.production
-.env.test
+.env.*
+!.env.example
 
 # Git
 .git
 .gitignore
+.gitattributes
 
 # Docker lui-même
 Dockerfile
@@ -28,11 +27,22 @@ docker-compose.yml
 docker-compose.*.yml
 .dockerignore
 
+# Scripts et configuration de déploiement (exécutés sur l'hôte, pas dans l'image)
+deploy
+
 # Éditeurs / OS
 .vscode
 .idea
 .DS_Store
 Thumbs.db
+
+# Outillage agents / skills — inutile au runtime
+.agents
+.claude
+.windsurf
+skills-lock.json
+AGENTS.md
+CLAUDE.md
 
 # Tests / couverture
 coverage
@@ -41,5 +51,6 @@ coverage
 
 # Divers
 README.md
+*.md
 *.log
 .turbo

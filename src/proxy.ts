@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 // Routes publiques (accessibles sans session)
 const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password", "/otp", "/api"]
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname
   const dughuToken = request.cookies.get("dughu_token")?.value
   const dughuUserId = request.cookies.get("dughu_user_id")?.value

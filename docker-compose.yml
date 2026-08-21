@@ -1,50 +1,32 @@
 services:
-app:
-build:
-context: .
-dockerfile: Dockerfile
-args:
-# Uniquement les variables PUBLIQUES (exposées au navigateur) ont besoin
-# d'être passées au build. Tout le reste (secrets) est injecté au runtime
-# via env_file, jamais dans l'image.
-NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
-image: dughu-web:latest
-container_name: dughu-web
-restart: unless-stopped
-ports:
-- "3000:3000"
-env_file:
-- .env
-environment:
-# Ta base est sur Neon (cloud) donc pas de conteneur Postgres ici.
-# Si un jour tu veux une DB Postgres locale, décommente le service
-# "db" plus bas et pointe DATABASE_URL vers postgres://...@db:5432/...
-NODE_ENV: production
-healthcheck:
-test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
-interval: 30s
-timeout: 5s
-retries: 3
-start_period: 10s
-
-# ------------------------------------------------------------------
-# Optionnel : Postgres local pour dev/offline, si tu ne veux pas
-# dépendre de Neon en local. Décommente si besoin (`docker compose
-# --profile db up`).
-# ------------------------------------------------------------------
-# db:
-# image: postgres:16-alpine
-# profiles: ["db"]
-# container_name: dughu-db
-# restart: unless-stopped
-# environment:
-# POSTGRES_USER: dughu
-# POSTGRES_PASSWORD: change_me
-# POSTGRES_DB: dughu
-# ports:
-# - "5432:5432"
-# volumes:
-# - db_data:/var/lib/postgresql/data
-
-# volumes:
-# db_data:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Seules les variables PUBLIQUES (NEXT_PUBLIC_*) sont nécessaires au
+        # build : Next.js les inline dans le bundle client. Tout le reste est
+        # injecté au runtime via env_file et n'entre jamais dans l'image.
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+    image: dughu-web:latest
+    container_name: dughu-web
+    restart: unless-stopped
+    ports:
+      # Écoute uniquement en loopback : c'est Nginx qui expose le service
+      # au monde, avec TLS. Ne jamais publier sur 0.0.0.0 en production.
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
