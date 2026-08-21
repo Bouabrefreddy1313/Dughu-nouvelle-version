@@ -8,8 +8,11 @@ const nextConfig: NextConfig = {
   // N'expose pas l'en-tête `X-Powered-By: Next.js`.
   poweredByHeader: false,
 
-  // Nginx sert déjà les assets et compresse ; éviter de compresser deux fois.
-  compress: false,
+  // Compression assurée par Next lui-même. Le vhost Apache ne configure pas
+  // mod_deflate (il n'est pas garanti actif sur le serveur) et Cloudflare ne
+  // compresse que lorsque le proxy orange est activé : la garder ici assure
+  // des réponses compressées dans tous les cas.
+  compress: true,
 
   // Les erreurs de type doivent bloquer le build de production.
   // (valeur par défaut, rendue explicite pour éviter qu'on la désactive
