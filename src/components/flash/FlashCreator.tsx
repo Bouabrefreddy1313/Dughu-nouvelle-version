@@ -47,7 +47,12 @@ interface FlashCreatorProps {
 type Step = "select" | "media" | "text"
 
 const DEFAULT_TEXT_BG: BackgroundColor = {
-  bg: "linear-gradient(135deg, #7C3AED 0%, #DB2777 100%)",
+  id: 18,
+  bg: "#000000",
+  text: "#ffffff",
+  color_1: "#000000",
+  color_2: "#000000",
+  isImage: false,
 } as BackgroundColor
 
 export default function FlashCreator({ user, open, onClose, onCreated }: FlashCreatorProps) {

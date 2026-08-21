@@ -15,12 +15,16 @@ export interface BackgroundColor {
 
 // Fallback si l'API n'est pas disponible
 export const DEFAULT_COLORS: BackgroundColor[] = [
-  { id: 0, bg: "linear-gradient(135deg, #ff9a9e, #fecfef)", text: "#ffffff", color_1: "#ff9a9e", color_2: "#fecfef", isImage: false },
-  { id: 1, bg: "linear-gradient(135deg, #a18cd1, #fbc2eb)", text: "#ffffff", color_1: "#a18cd1", color_2: "#fbc2eb", isImage: false },
-  { id: 2, bg: "linear-gradient(135deg, #84fab0, #8fd3f4)", text: "#ffffff", color_1: "#84fab0", color_2: "#8fd3f4", isImage: false },
-  { id: 3, bg: "#B87333", text: "#ffffff", color_1: "#B87333", color_2: "", isImage: false },
-  { id: 4, bg: "#f5f5dc", text: "#333333", color_1: "#f5f5dc", color_2: "", isImage: false },
-  { id: 5, bg: "#2c3e50", text: "#ffffff", color_1: "#2c3e50", color_2: "", isImage: false },
+  { id: 17, bg: "linear-gradient(135deg, #98b262, #66a399)", text: "#000000", color_1: "#98b262", color_2: "#66a399", isImage: false },
+  { id: 18, bg: "#000000", text: "#ffffff", color_1: "#000000", color_2: "#000000", isImage: false },
+  { id: 19, bg: "linear-gradient(135deg, #ffb0ff, #8080c0)", text: "#000000", color_1: "#ffb0ff", color_2: "#8080c0", isImage: false },
+  { id: 24, bg: "linear-gradient(135deg, #0000ff, #00ff00)", text: "#ffffff", color_1: "#0000ff", color_2: "#00ff00", isImage: false },
+  { id: 25, bg: "linear-gradient(135deg, #4e26ff, #ff0000)", text: "#000000", color_1: "#4e26ff", color_2: "#ff0000", isImage: false },
+  { id: 27, bg: "linear-gradient(135deg, #ff0fff, #8080c0)", text: "#000000", color_1: "#ff0fff", color_2: "#8080c0", isImage: false },
+  { id: 30, bg: "linear-gradient(135deg, #ffff00, #8080c0)", text: "#000000", color_1: "#ffff00", color_2: "#8080c0", isImage: false },
+  { id: 31, bg: "linear-gradient(135deg, #e8670c, #ffffff)", text: "#000000", color_1: "#e8670c", color_2: "#ffffff", isImage: false },
+  { id: 32, bg: "linear-gradient(135deg, #ff3dff, #ffffff)", text: "#000000", color_1: "#ff3dff", color_2: "#ffffff", isImage: false },
+  { id: 33, bg: "linear-gradient(135deg, #91ff3d, #ff00ff)", text: "#000000", color_1: "#91ff3d", color_2: "#ff00ff", isImage: false },
 ]
 
 interface BackgroundPickerProps {

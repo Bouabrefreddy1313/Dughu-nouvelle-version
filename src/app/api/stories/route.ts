@@ -84,27 +84,57 @@ export async function POST(req: NextRequest) {
 
     const mediaFile = (formData.get("image") as File | null) || (formData.get("video") as File | null)
 
-    // `description` est toujours envoyée non vide : Dughu semble rejeter une
-    // chaîne vide (ou un simple espace, probablement "trim" côté API) même
-    // pour un Flash purement média. On ne force rien côté utilisateur (le
-    // champ reste optionnel dans l'UI) — une valeur par défaut visible est
-    // envoyée à l'API quand aucune légende n'a été saisie.
-    payload.append("description", text || "📷")
+    // Garde-fou local : l'API exige image OU texte.
+    if (!mediaFile && !text) {
+      return NextResponse.json(
+        { success: false, message: "Ajoutez un texte ou un média pour publier un Flash." },
+        { status: 400 }
+      )
+    }
 
     // `duration` toujours au format "MM:SS", jamais en secondes brutes.
     const requestedDurationSeconds = Number(formData.get("durationSeconds") || 15)
     payload.append("duration", formatDuration(requestedDurationSeconds))
 
+    const validColors = [
+      "#98b262", "#000000", "#ffb0ff", "#0000ff", "#4e26ff", 
+      "#ff0fff", "#ffff00", "#e8670c", "#ff3dff", "#91ff3d", "#ccb38d"
+    ]
     const bgColor = formData.get("bgColor")
+    let finalBgColor = "#000000" // Fallback robuste
+
     if (typeof bgColor === "string" && bgColor) {
-      // `bg_color` est un texte simple côté API : on envoie une couleur
-      // sûre (hex) même si le frontend fournit un dégradé CSS complet.
-      const hexMatch = bgColor.match(/#[0-9a-fA-F]{3,8}/)
-      if (hexMatch) payload.append("bg_color", hexMatch[0])
+      const hexMatch = bgColor.match(/#[0-9a-fA-F]{3,8}/i)
+      if (hexMatch) {
+        const hex = hexMatch[0].toLowerCase()
+        if (validColors.includes(hex)) {
+          finalBgColor = hex
+        }
+      }
     }
+    
+    // On envoie toujours une couleur de fond valide pour satisfaire l'API
+    payload.append("bg_color", finalBgColor)
 
     if (mediaFile && mediaFile.size > 0) {
+      // Le backend est pointilleux sur la clé du fichier. Pour être certain
+      // qu'il le détecte, on l'envoie sous les clés les plus probables.
+      payload.append("file", mediaFile, mediaFile.name)
       payload.append("image", mediaFile, mediaFile.name)
+      payload.append("postFile", mediaFile, mediaFile.name)
+      payload.append("media", mediaFile, mediaFile.name)
+      
+      // Si l'API refuse text + media, on omet la description si on a un média
+      if (text) {
+        payload.append("description", text)
+        payload.append("text", text)
+      }
+    } else {
+      // Pour un Flash purement texte, on envoie le texte (ou une valeur par défaut)
+      // On l'envoie sous 'description' et 'text' pour satisfaire la validation Laravel
+      const finalContent = text || "📷"
+      payload.append("description", finalContent)
+      payload.append("text", finalContent)
     }
 
     // Garde-fou local avant l'appel réseau : l'API exige image OU texte.
@@ -117,8 +147,12 @@ export async function POST(req: NextRequest) {
 
     const raw = await dughuApi.postStory(payload)
     if (raw?.success === false) {
+      let errorDetails = raw?.message || "Erreur de création (API Dughu)."
+      if (raw?.errors) {
+        errorDetails += " Details: " + JSON.stringify(raw.errors)
+      }
       return NextResponse.json(
-        { success: false, message: raw?.message || "Erreur de création (API Dughu)." },
+        { success: false, message: errorDetails },
         { status: 502 }
       )
     }
@@ -135,12 +169,16 @@ export async function POST(req: NextRequest) {
       console.error("DUGHU 4xx DETAIL:", JSON.stringify(detail))
       if (detail && typeof detail === "object") {
         const errors = (detail as any)?.errors
-        const m =
+        let m =
           (detail as any)?.message ||
           (detail as any)?.message_text ||
           (detail as any)?.error?.message ||
-          (errors ? JSON.stringify(errors) : "")
-        message = m || error.message
+          "Erreur Dughu"
+        
+        if (errors) {
+          m += " - " + JSON.stringify(errors)
+        }
+        message = m
       } else {
         message = error.message || message
       }
