@@ -53,7 +53,7 @@ async function dughuFetch(
           const safeBody = typeof init.body === "string" ? init.body.slice(0, 1000) : undefined
           // Ne jamais logger la valeur du token — seulement l'existence de l'en-tête
           console.debug(`[dughuFetch] ${method} ${url} | hasToken:${headers.has("X-AppApiToken")} | headers:${headerKeys.join(",")} | bodyPreview:${safeBody ?? ""}`)
-        } catch (e) {
+        } catch {
           /* ignore logging errors */
         }
       }
@@ -122,8 +122,12 @@ export const dughu = {
   chatRootMultipart: (path: string, formData: FormData) =>
     dughuFetch(path, { method: "POST", body: formData }, RETRY_TIMES, CHAT_ORIGIN),
 
-  chatMultipart: (path: string, formData: FormData) =>
-    dughuFetch(path, { method: "POST", body: formData }, RETRY_TIMES, CHAT_BASE_URL),
+  chatMultipart: (path: string, formData: FormData, authToken?: string) =>
+    dughuFetch(path, {
+      method: "POST",
+      body: formData,
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+    }, RETRY_TIMES, CHAT_BASE_URL),
 }
 
 // ── Endpoints connus de l'API Dughu ──────────────────────────────────────────
@@ -360,18 +364,11 @@ export const dughuApi = {
   getChatContact: (userId: string | number) =>
     dughu.chatGet(`contactChat/${encodeURIComponent(String(userId))}`),
 
-  sendMessage: async (formData: FormData) => {
-    try {
-      return await dughu.chatRootMultipart("sendMessage", formData)
-    } catch (error) {
-      // Selon l'environnement, la base Postman peut déjà inclure `/api`.
-      // On ne retente sur cette variante que si la route racine est absente.
-      if (error instanceof DughuApiError && error.status === 404) {
-        return dughu.chatMultipart("sendMessage", formData)
-      }
-      throw error
-    }
-  },
+  searchChatContacts: (query: string) =>
+    dughu.chatGet("searchContact", { query }),
+
+  sendMessage: (formData: FormData, authToken?: string) =>
+    dughu.chatMultipart("sendMessage", formData, authToken),
 
   updateProfile: (formData: FormData) => dughu.multipart("updateProfile", formData),
 

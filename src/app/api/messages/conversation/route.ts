@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, messages: normalizeMessages(raw, userId, targetUserId) })
   } catch (error) {
     console.error("CONVERSATION ERROR:", error)
-    const status = error instanceof DughuApiError ? error.status : 502
+    const upstreamStatus = error instanceof DughuApiError ? error.status : 502
+    const status = upstreamStatus === 401 || upstreamStatus === 403 ? 502 : upstreamStatus
     return NextResponse.json({ success: false, message: "Impossible de charger les messages." }, { status })
   }
 }

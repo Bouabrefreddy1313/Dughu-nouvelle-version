@@ -301,6 +301,13 @@ export default function MessagesPageClient() {
       setDocument(null)
       setReplyTo(null)
       await Promise.all([loadMessages(false), loadChats()])
+      const sentMessage = data.sentMessage as ChatMessage | null | undefined
+      if (sentMessage) {
+        setMessages((current) => current.some((item) => item.id === sentMessage.id)
+          ? current
+          : [...current, sentMessage]
+        )
+      }
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>
       toast.error(axiosError.response?.data?.message || axiosError.message || "Impossible d’envoyer le message")
@@ -478,7 +485,7 @@ export default function MessagesPageClient() {
                     <label className="cursor-pointer rounded-full p-2 hover:bg-gray-200" title="Vidéo"><Video size={18} /><input type="file" accept="video/mp4,video/ogg,video/webm" className="hidden" onChange={(event) => setVideo(event.target.files?.[0] || null)} /></label>
                     <label className="cursor-pointer rounded-full p-2 hover:bg-gray-200" title="Document"><Paperclip size={18} /><input type="file" className="hidden" onChange={(event) => setDocument(event.target.files?.[0] || null)} /></label>
                     <textarea value={text} onChange={(event) => setText(event.target.value.slice(0, 500))} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void handleSend() } }} rows={1} placeholder="Écrire un message..." className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none" />
-                    <button onClick={() => void handleSend()} disabled={sending || (!text.trim() && !image && !video && !document)} className="rounded-full bg-[#A35A2A] p-2.5 text-white disabled:opacity-40" aria-label="Envoyer">
+                    <button type="button" onClick={() => void handleSend()} disabled={sending || (!text.trim() && !image && !video && !document)} className="rounded-full bg-[#A35A2A] p-2.5 text-white disabled:opacity-40" aria-label="Envoyer">
                       {sending ? <LoaderCircle size={18} className="animate-spin" /> : <Send size={18} />}
                     </button>
                   </div>

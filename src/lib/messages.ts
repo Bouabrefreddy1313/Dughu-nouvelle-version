@@ -50,6 +50,15 @@ function readBoolean(value: any): boolean {
   return ["1", "true", "online", "active"].includes(String(value ?? "").toLowerCase())
 }
 
+function readDate(item: any): string {
+  const value = first(item.created_at, item.createdAt, item.date, item.timestamp)
+  if (value !== undefined) return String(value)
+  const unixTime = Number(item.time)
+  return Number.isFinite(unixTime) && unixTime > 0
+    ? new Date(unixTime * 1000).toISOString()
+    : ""
+}
+
 function findArray(raw: any, keys: string[]): any[] {
   if (Array.isArray(raw)) return raw
   if (!raw || typeof raw !== "object") return []
@@ -100,8 +109,11 @@ function normalizeContact(raw: any, currentUserId?: string): ChatContact | null 
   ) as any || raw
   const conversationParticipants = String(raw._collectionKey || "").match(/\d+/g) || []
   const idFromConversationKey = conversationParticipants.find(
-    (value) => value !== String(currentUserId || "")
+    (value) => value !== String(currentUserId || "") && value !== "0"
   )
+  const idFromMessage = [raw.from_id, raw.to_id]
+    .map((value) => String(value ?? ""))
+    .find((value) => value && value !== "0" && value !== String(currentUserId || ""))
   const id = first(
     user?.id,
     user?.user_id,
@@ -118,7 +130,8 @@ function normalizeContact(raw: any, currentUserId?: string): ChatContact | null 
     raw.otherUserId,
     raw.interlocutor_id,
     raw.interlocutorId,
-    idFromConversationKey
+    idFromConversationKey,
+    idFromMessage
   )
   if (id === undefined) return null
   const firstName = first(user?.first_name, user?.firstName, user?.firstname)
@@ -132,6 +145,7 @@ function normalizeContact(raw: any, currentUserId?: string): ChatContact | null 
       user?.fullName,
       user?.display_name,
       user?.displayName,
+      user?.fullname,
       user?.user_name,
       user?.userName,
       fullName,
@@ -152,9 +166,26 @@ function normalizeContact(raw: any, currentUserId?: string): ChatContact | null 
 }
 
 export function normalizeChats(raw: any, currentUserId: string): ChatSummary[] {
-  const items = findArray(raw, ["chats", "conversations", "contacts", "users", "items"])
+  const rawChats = raw?.chats ?? raw?.result?.chats ?? raw?.data?.chats
+  const items = rawChats && !Array.isArray(rawChats) && typeof rawChats === "object"
+    ? Object.entries(rawChats).flatMap(([collectionKey, messages]) => {
+        if (!Array.isArray(messages) || messages.length === 0) return []
+        const ordered = [...messages].sort((left, right) => {
+          const leftTime = Number(left?.time) || new Date(left?.updated_at || left?.created_at || 0).getTime() / 1000
+          const rightTime = Number(right?.time) || new Date(right?.updated_at || right?.created_at || 0).getTime() / 1000
+          return leftTime - rightTime
+        })
+        const last = ordered.at(-1)
+        return [{ ...last, _collectionKey: collectionKey, last_message: last }]
+      })
+    : findArray(raw, ["chats", "conversations", "contacts", "users", "items"])
   return items.flatMap((item, index) => {
-    const contact = normalizeContact(item, currentUserId)
+    // Dans la réponse réelle, `id` est l'ID du dernier message. L'identité de
+    // l'interlocuteur vient de la clé de conversation (ex. `2642-8603`).
+    const contactSource = item._collectionKey
+      ? { ...item, id: undefined, user_id: undefined, userId: undefined }
+      : item
+    const contact = normalizeContact(contactSource, currentUserId)
     if (!contact || contact.id === String(currentUserId)) return []
     const last = first(item.last_message, item.lastMessage, item.message, item.latest_message) as any
     const lastText = String(
@@ -177,6 +208,7 @@ export function normalizeChats(raw: any, currentUserId: string): ChatSummary[] {
       last?.created_at,
       last?.createdAt,
       item.created_at,
+      readDate(last || item),
       ""
     ) || "")
     const lastId = String(first(last?.id, last?.doc_id, last?.message_id, item.last_message_id, "") || "")
@@ -303,12 +335,23 @@ export function normalizeMessages(raw: any, currentUserId: string, targetUserId?
     addAttachment("image", first(item.image, item.image_url, item.imageUrl))
     addAttachment("video", first(item.video, item.video_url, item.videoUrl))
     addAttachment("document", first(item.document, item.document_url, item.documentUrl, item.file))
+    const media = first(item.media, item.media_path, item.mediaPath)
+    if (media && attachments.length === 0) {
+      const mediaName = String(first(item.mediaFileName, item.media_file_name, media) || "")
+      const extension = mediaName.split(".").pop()?.toLowerCase()
+      const type: ChatAttachment["type"] = ["jpg", "jpeg", "png", "gif", "webp", "avif"].includes(extension || "")
+        ? "image"
+        : ["mp4", "webm", "ogg", "mov"].includes(extension || "")
+          ? "video"
+          : "document"
+      addAttachment(type, { url: media, name: mediaName })
+    }
     return {
       id: String(first(item.id, item.doc_id, item.message_id, `${senderId}-${index}`)),
       senderId,
       receiverId,
       text: String(first(item.message, item.content, item.text, "")),
-      createdAt: String(first(item.created_at, item.createdAt, item.date, item.timestamp, "")),
+      createdAt: readDate(item),
       isMine,
       attachments,
       reply: first(item.reply_doc_id, item.reply_text)
@@ -319,6 +362,14 @@ export function normalizeMessages(raw: any, currentUserId: string, targetUserId?
           }
         : null,
     }
+  }).filter((message) => {
+    if (!targetUserId) return true
+    const currentId = String(currentUserId)
+    const targetId = String(targetUserId)
+    return (
+      (message.senderId === currentId && message.receiverId === targetId) ||
+      (message.senderId === targetId && message.receiverId === currentId)
+    )
   }).sort((a, b) => {
     const left = new Date(a.createdAt).getTime()
     const right = new Date(b.createdAt).getTime()

@@ -322,7 +322,7 @@ export function ProfileHeader({
             <div className="flex items-center gap-4 sm:gap-6">
               <div className="text-center sm:text-right">
                 <p className="font-bold text-[15px] text-[#050505] leading-tight">{formatCount(stats.friends)}</p>
-                <p className="text-[12px] text-[#65676B]">Amis</p>
+                <p className="text-[12px] text-[#65676B]">Fraternisés</p>
               </div>
               <div className="text-center sm:text-right">
                 <p className="font-bold text-[15px] text-[#050505] leading-tight">{formatCount(stats.posts)}</p>
