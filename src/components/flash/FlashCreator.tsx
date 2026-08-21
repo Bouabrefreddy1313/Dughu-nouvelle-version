@@ -17,6 +17,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { BackgroundPicker, type BackgroundColor } from "@/components/composer/BackgroundPicker"
 import { resolveMediaUrl } from "@/lib/dughu"
+import { toast } from "sonner"
 
 export interface FlashCreatorUser {
   id?: string
@@ -25,11 +26,22 @@ export interface FlashCreatorUser {
   dughu?: { userId?: string }
 }
 
+/** Story Flash renvoyée au parent après création (avec le média local si présent). */
+export interface FlashCreatedStory {
+  id: string
+  userId: string
+  text?: string
+  bg?: string
+  image?: string | null
+  video?: string | null
+  createdAt: string
+}
+
 interface FlashCreatorProps {
   user?: FlashCreatorUser
   open: boolean
   onClose: () => void
-  onCreated?: () => void
+  onCreated?: (story?: FlashCreatedStory) => void
 }
 
 type Step = "select" | "media" | "text"
@@ -124,16 +136,30 @@ export default function FlashCreator({ user, open, onClose, onCreated }: FlashCr
         else payload.append("image", mediaFile)
       }
       const res = await fetch("/api/stories", { method: "POST", body: payload })
-      const data = await res.json()
-      if (data.success) {
+      const data = await res.json().catch(() => ({ success: false, message: `Erreur (${res.status})` }))
+      if (res.ok && data.success) {
+        toast.success("Flash publié !")
+        // L'API Dughu ne renvoie PAS l'image dans getUserStories : on passe donc la
+        // story fraîchement créée avec le média local (blob) pour que la mini-carte
+        // affiche immédiatement l'image que l'utilisateur vient de choisir.
+        const isVideo = !!mediaFile && mediaFile.type.startsWith("video/")
+        onCreated?.({
+          id: String(data.story?.id || Date.now()),
+          userId: String(user?.dughu?.userId || user?.id || ""),
+          text: text || "",
+          bg: selectedColor ? String(selectedColor.bg || "") : "",
+          image: !isVideo && mediaPreview ? mediaPreview : null,
+          video: isVideo && mediaPreview ? mediaPreview : null,
+          createdAt: new Date().toISOString(),
+        })
         resetAll()
-        onCreated?.()
         onClose()
       } else {
         throw new Error(data.message || "Erreur création du Flash")
       }
     } catch (err: any) {
       console.error(err)
+      toast.error(err?.message || "Erreur création du Flash")
     } finally {
       setIsSubmitting(false)
     }

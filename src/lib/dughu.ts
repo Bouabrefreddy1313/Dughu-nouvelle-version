@@ -159,12 +159,13 @@ export const dughuApi = {
     dughu.form(`togglePinStatus/${encodeURIComponent(String(postId))}`, { user_id: String(userId) }),
 
   // ── Stories ──
-  getUserStories: (targetUserId: string | number, opts?: { perPage?: number; page?: number }) =>
-    dughu.get("getUserStories", {
-      target_user_id: String(targetUserId),
-      per_page: opts?.perPage,
-      page: opts?.page,
-    }),
+ getUserStories: (userId: string | number, targetUserId: string | number, opts?: { perPage?: number; page?: number }) =>
+  dughu.get("getUserStories", {
+    user_id: String(userId),
+    target_user_id: String(targetUserId),
+    per_page: opts?.perPage,
+    page: opts?.page,
+  }),
 
   getFriendsStories: (userId: string | number, opts?: { perPage?: number; page?: number }) =>
     dughu.get("getFriendsStories", {

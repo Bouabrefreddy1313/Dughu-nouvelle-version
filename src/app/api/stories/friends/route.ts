@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { flashEnabled, fetchFriendsFlash, FLASH_PAGE_SIZE } from "@/lib/flash-service"
+import { dughuApi } from "@/lib/dughu"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 export const dynamic = "force-dynamic"
@@ -21,7 +22,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, users: [], stories: [], pagination: { page, perPage, total: 0, hasMore: false } })
     }
     const data = await fetchFriendsFlash(userId, { perPage, page })
-    return NextResponse.json({ success: true, ...data })
+    // DEBUG FLASH — réponse BRUTE de Dughu (amis + mes stories) pour identifier
+    // le champ exact de l'image que Dughu renvoie réellement.
+    const [rawFriends, rawMine] = await Promise.all([
+      dughuApi.getFriendsStories(userId, { perPage, page }).catch(() => null),
+      dughuApi.getUserStories(userId, userId, { perPage: 50, page: 1 }).catch(() => null),
+    ])
+    return NextResponse.json({ success: true, ...data, debugRaw: { friends: rawFriends, mine: rawMine } })
   } catch (error) {
     console.error("FLASH FRIENDS ERROR:", error)
     return NextResponse.json({ success: false, message: "Erreur lors du chargement des Flash." }, { status: 500 })

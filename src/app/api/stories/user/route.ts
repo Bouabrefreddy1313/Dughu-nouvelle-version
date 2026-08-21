@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { flashEnabled, fetchUserFlash, FLASH_PAGE_SIZE } from "@/lib/flash-service"
+import { dughuApi } from "@/lib/dughu"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 export const dynamic = "force-dynamic"
@@ -22,7 +23,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, message: "targetUserId requis." }, { status: 422 })
     }
     const data = await fetchUserFlash(userId || targetUserId, targetUserId, { perPage, page })
-    return NextResponse.json({ success: true, ...data })
+    // DEBUG FLASH — réponse BRUTE de Dughu pour voir tous les champs de la story
+    // (le champ image peut exister sous un nom que notre normalisation n'extrait pas).
+    const rawDebug = await dughuApi
+      .getUserStories(userId || targetUserId, targetUserId, { perPage, page })
+      .catch(() => null)
+    console.log("[FLASH DEBUG] getUserStories DUGHU RAW =>", JSON.stringify(rawDebug, null, 2))
+    return NextResponse.json({ success: true, ...data, debugRaw: rawDebug })
   } catch (error) {
     console.error("FLASH USER STORIES ERROR:", error)
     return NextResponse.json({ success: false, message: "Erreur lors du chargement des Flash." }, { status: 500 })

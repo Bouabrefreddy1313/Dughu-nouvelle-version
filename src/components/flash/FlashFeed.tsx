@@ -38,6 +38,16 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
 
   const users: FlashUserStory[] = data?.users || []
 
+  // Ma propre carte : détectée pour afficher mon dernier Flash dans le rail comme
+  // une carte story dédiée (à côté de la carte "Ajouter un flash"), et pour ne
+  // pas la dupliquer dans la liste des amis.
+  const selfId = String(currentUser?.dughu?.userId || currentUser?.id || "")
+  const selfEntry = selfId ? users.find((u) => String(u.userId) === selfId) : undefined
+  const friendUsers = users.filter((u) => String(u.userId) !== selfId)
+
+  // Dernier Flash publié par moi (les stories sont triées, la plus récente en premier).
+  const selfStory = selfEntry?.stories?.[0]
+
   // Statut visuel final : priorité au statut API, sinon état local.
   const isViewed = (u: FlashUserStory) =>
     u.allViewed === true || (u.allViewed === null && locallyViewed.has(u.userId))
@@ -59,6 +69,19 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
       >
         {/* Créer un Flash (rail) */}
         <FlashAddCard currentUser={currentUser} onClick={onAddStory} />
+
+        {/* Mon dernier Flash — carte story dédiée dans le rail, comme les amis */}
+        {selfEntry && selfStory && (
+          <FlashStoryCard
+            key={`self-${selfEntry.userId}`}
+            image={selfStory.image}
+            avatar={currentUser?.avatar || selfEntry.user?.avatar}
+            name={currentUser?.name || selfEntry.user?.name}
+            viewed={isViewed(selfEntry)}
+            ariaLabel="Voir mes Flash"
+            onClick={() => onOpenFlash?.(0, selfEntry.userId)}
+          />
+        )}
 
         {/* État de chargement */}
         {isLoading && (
@@ -84,7 +107,7 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
         )}
 
         {/* Cartes des amis ayant une story active */}
-        {!isLoading && !isError && users.map((u, i) => (
+        {!isLoading && !isError && friendUsers.map((u, i) => (
           <FlashStoryCard
             key={u.userId}
             image={u.stories[0]?.image}

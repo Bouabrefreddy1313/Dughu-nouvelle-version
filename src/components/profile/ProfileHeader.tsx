@@ -320,7 +320,7 @@ export function ProfileHeader({
             <div className="flex items-center gap-4 sm:gap-6">
               <div className="text-center sm:text-right">
                 <p className="font-bold text-[15px] text-[#050505] leading-tight">{formatCount(stats.friends)}</p>
-                <p className="text-[12px] text-[#65676B]">Amis</p>
+                <p className="text-[12px] text-[#65676B]">Fraternisés</p>
               </div>
               <div className="text-center sm:text-right">
                 <p className="font-bold text-[15px] text-[#050505] leading-tight">{formatCount(stats.posts)}</p>
@@ -344,7 +344,7 @@ export function ProfileHeader({
                     className="flex items-center gap-2 bg-[#A35A2A] hover:bg-[#8B4A1F] text-white px-4 sm:px-5 py-2 rounded-lg text-[14px] font-semibold transition"
                   >
                     <UserPlus size={16} />
-                    Éditer le profil
+                    Modifier le profil
                   </button>
                   <button
                     onClick={onMore}

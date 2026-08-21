@@ -1,0 +1,45 @@
+# Dépendances (réinstallées dans l'image)
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build Next.js (régénéré dans l'image)
+.next
+out
+build
+dist
+
+# Env & secrets — NE JAMAIS envoyer dans le contexte Docker
+.env
+.env*.local
+.env.development
+.env.production
+.env.test
+
+# Git
+.git
+.gitignore
+
+# Docker lui-même
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
+
+# Éditeurs / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Tests / couverture
+coverage
+*.test.ts
+*.test.tsx
+
+# Divers
+README.md
+*.log
+.turbo

@@ -1,7 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+
+  // next.config.ts
+
+output: "standalone",
+
+
   images: {
+    
     // Les avatars/couvertures/médias proviennent de nombreux hôtes Dughu/S3
     // (dont certains résolus via NAT64 en adresses jugées privées par
     // l'optimiseur d'images). On sert les images telles quelles pour éviter

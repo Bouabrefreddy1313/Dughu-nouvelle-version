@@ -1,5 +1,6 @@
 "use client"
 
+import { SquarePen } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Sparkles, Images, Film, Play, UserRound, RefreshCcw } from "lucide-react"
@@ -527,13 +528,13 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
   const tabs: { key: Tab; label: string; icon: React.ReactNode; count?: number }[] = [
     {
       key: "interactions",
-      label: "Interactions",
-      icon: <Sparkles size={16} />,
-      count: stats.posts,
+      label: "Mes posts",
+      icon: <SquarePen size={16} />,
+      
     },
     { key: "photos", label: "Photos", icon: <Images size={16} />, count: photos.length },
     { key: "videos", label: "Vidéos", icon: <Film size={16} />, count: videos.length },
-    { key: "apropos", label: "À propos", icon: <UserRound size={16} /> },
+    
   ]
 
   return (

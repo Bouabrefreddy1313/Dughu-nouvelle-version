@@ -39,12 +39,14 @@ export default function FlashViewer({ targetUserId, userId, initialIndex = 0, on
   const [progress, setProgress] = useState(0)
   const touchStartX = useRef<number | null>(null)
   const [mediaError, setMediaError] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
 
   // Remet l'index à 0 quand la cible change
   useEffect(() => {
     setIndex(initialIndex)
     setProgress(0)
     setMediaError(false)
+    setImageLoaded(false)
     setPaused(false)
   }, [targetUserId, initialIndex])
 
@@ -63,12 +65,14 @@ export default function FlashViewer({ targetUserId, userId, initialIndex = 0, on
     })
     setProgress(0)
     setMediaError(false)
+    setImageLoaded(false)
   }, [total, onClose])
 
   const goPrev = useCallback(() => {
     setIndex((i) => Math.max(0, i - 1))
     setProgress(0)
     setMediaError(false)
+    setImageLoaded(false)
   }, [])
 
   // Défilement automatique (progress bar) quand non en pause
@@ -197,11 +201,31 @@ export default function FlashViewer({ targetUserId, userId, initialIndex = 0, on
       </div>
 
       {/* Contenu média / texte */}
-      <div className="flex-1 flex items-center justify-center p-4 relative">
+      <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
         {isVideo ? (
           <video src={safeMediaUrl} className="max-w-full max-h-full object-contain rounded-lg" controls autoPlay onError={() => setMediaError(true)} />
         ) : safeMediaUrl ? (
-          <Image src={safeMediaUrl} alt="" fill unoptimized sizes="(max-width:768px) 100vw" className="object-contain" onError={() => setMediaError(true)} />
+          <>
+            {!imageLoaded && !mediaError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                <div className="w-12 h-12 rounded-full border-4 border-white/20 border-t-[#F2B183] animate-spin" />
+              </div>
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={safeMediaUrl}
+              alt=""
+              className={cn(
+                "max-w-full max-h-full object-contain rounded-lg transition-opacity duration-300",
+                imageLoaded ? "opacity-100" : "opacity-0"
+              )}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => {
+                setMediaError(true)
+                setImageLoaded(false)
+              }}
+            />
+          </>
         ) : currentStory?.text ? (
           <div className="w-full h-full flex items-center justify-center rounded-2xl p-8 text-center" style={{ background: currentStory?.bg || "linear-gradient(45deg,#ff9a9e 0%,#fecfef 100%)" }}>
             <p className="text-2xl font-bold text-white whitespace-pre-wrap max-w-2xl">{currentStory.text}</p>

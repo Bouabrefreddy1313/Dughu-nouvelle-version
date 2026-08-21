@@ -36,7 +36,7 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
   const navItems = [
     { icon: <Home size={24} />, label: "Accueil", active: true, href: "/home" },
     { icon: <Video size={24} />, label: "Vidéos", href: "/videos" },
-    { icon: <Zap size={24} />, label: "Tendances", href: "/tendances" },
+    { icon: <Zap size={24} />, label: "Flash", href: "/flash" },
     { icon: <Play size={24} />, label: "Akwaplay", href: "/akwaplay" },
     { icon: <Users size={24} />, label: "Groupes", href: "/groupes" },
   ]

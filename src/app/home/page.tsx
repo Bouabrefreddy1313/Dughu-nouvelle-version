@@ -27,6 +27,7 @@ import { useFeed } from "@/hooks/queries/use-feed"
 import FlashFeed from "@/components/flash/FlashFeed"
 import FlashViewer from "@/components/flash/FlashViewer"
 import FlashCreator from "@/components/flash/FlashCreator"
+import { type FlashFeedData } from "@/hooks/queries/use-flash"
 import MainLayout from "@/components/layout/MainLayout"
 import { isDefaultDughuMedia } from "@/lib/dughu"
 
@@ -640,7 +641,41 @@ export default function HomePage() {
         user={user}
         open={flashCreatorOpen}
         onClose={() => setFlashCreatorOpen(false)}
-        onCreated={() => queryClient.invalidateQueries({ queryKey: ["flash", "feed"] })}
+        onCreated={(story) => {
+          queryClient.invalidateQueries({ queryKey: ["flash", "feed"] })
+          // L'API Dughu ne renvoie pas l'image dans getUserStories : on injecte la
+          // story fraîchement créée (avec son blob) dans le cache du feed pour que
+          // la mini-carte affiche immédiatement l'image choisie.
+          if (story?.image || story?.video) {
+            queryClient.setQueriesData<FlashFeedData>({ queryKey: ["flash", "feed"] }, (old) => {
+              if (!old) return old
+              const selfId = String(story.userId)
+              const selfUser = (old.users || []).find((u) => String(u.userId) === selfId)
+              const newStory = {
+                id: story.id,
+                userId: selfId,
+                image: story.image || undefined,
+                video: story.video || undefined,
+                text: story.text || "",
+                bg: story.bg || "",
+                viewed: false,
+                createdAt: story.createdAt,
+                user: selfUser?.user || null,
+              }
+              const newEntry = {
+                userId: selfId,
+                user: selfUser?.user || null,
+                stories: [newStory, ...(selfUser?.stories || [])],
+                allViewed: false,
+              }
+              const nextUsers = (old.users || []).slice()
+              const idx = nextUsers.findIndex((u) => String(u.userId) === selfId)
+              if (idx >= 0) nextUsers[idx] = newEntry
+              else nextUsers.unshift(newEntry)
+              return { ...old, users: nextUsers, stories: [newStory, ...(old.stories || [])] }
+            })
+          }
+        }}
       />
 
       {/* Flash viewer (stories d'un utilisateur via /getUserStories) */}

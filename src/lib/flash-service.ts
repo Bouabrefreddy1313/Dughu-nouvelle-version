@@ -19,7 +19,7 @@
 //    Ne pas l'importer dans un composant client.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { dughu, dughuApi, mapStories, resolveMediaUrl, resolveStoryMediaUrl } from "@/lib/dughu"
+import { dughu, dughuApi, mapStories, normalizeStory, resolveMediaUrl, resolveStoryMediaUrl } from "@/lib/dughu"
 
 /** Pagination par défaut du rail Flash. */
 export const FLASH_PAGE_SIZE = 20
@@ -86,9 +86,9 @@ function isVideoPath(p: string): boolean {
   return /\.(mp4|webm|mkv|mov|m4v|3gp|mpeg|avi|ogv|m3u8)(\?|#|$)/i.test(p)
 }
 
-/** Normalise un objet story (appelle mapStories et force la résolution média). */
+/** Normalise un objet story (appelle normalizeStory et force la résolution média). */
 function toFlashStory(raw: any): FlashStory | null {
-  const m = mapStories(raw)[0]
+  const m = normalizeStory(raw) || mapStories(raw)[0]
   if (!m) return null
   const rawPath = pickPath(raw)
   const image = m.image ? resolveStoryMediaUrl(m.image) : rawPath && isImagePath(rawPath) ? resolveStoryMediaUrl(rawPath) : undefined
@@ -115,9 +115,20 @@ function toFlashStory(raw: any): FlashStory | null {
 
 /** Extrait le tableau d'items d'une réponse Dughu (formes multiples). */
 function itemsOf(raw: any): any[] {
+  if (!raw || typeof raw !== "object") return []
   const unwrapped = raw?.result && typeof raw.result === "object" && !Array.isArray(raw.result) ? raw.result : raw
-  const arr = Array.isArray(unwrapped) ? unwrapped : unwrapped?.data || unwrapped?.stories || unwrapped?.items || []
-  return Array.isArray(arr) ? arr : []
+  const items: any[] = []
+  for (const k of ["authStories", "auth_stories", "myStories", "my_stories", "userStories", "user_stories"]) {
+    const list = unwrapped?.[k] || raw?.[k]
+    if (Array.isArray(list)) items.push(...list)
+  }
+  const userStories = raw?.user?.stories || raw?.user?.data || unwrapped?.user?.stories || unwrapped?.user?.data
+  if (Array.isArray(userStories)) items.push(...userStories)
+
+  let arr = Array.isArray(unwrapped) ? unwrapped : unwrapped?.data || unwrapped?.stories || unwrapped?.items || unwrapped?.friends || unwrapped?.friendStories || []
+  if (Array.isArray(arr)) items.push(...arr)
+
+  return items
 }
 
 /** Extrait les métadonnées de pagination d'une réponse (si l'API les renvoie). */
@@ -141,15 +152,29 @@ export async function fetchFriendsFlash(userId: string, opts: FlashPaginationOpt
 }> {
   const perPage = opts.perPage || FLASH_PAGE_SIZE
   const page = opts.page || 1
+
+  // Stories des amis (réponse brute de getFriendsStories) + MES propres
+  // stories (getUserStories) pour que mes Flash apparaissent dans le rail.
   const raw = await dughuApi.getFriendsStories(userId, { perPage, page })
-  const stories = itemsOf(raw)
+  const friendsItems = itemsOf(raw)
+  const myRaw = await dughuApi.getUserStories(userId, userId, { perPage: 50, page: 1 }).catch(() => null)
+  const myItems = myRaw ? itemsOf(myRaw) : []
+
+  const storyItems = [...myItems, ...friendsItems]
+  const stories = storyItems
     .map(toFlashStory)
     .filter((s): s is FlashStory => s !== null && !!s.id)
-  return {
-    users: groupStoriesByUser(stories),
-    stories,
-    pagination: paginationOf(raw, page, perPage),
+
+  // Passe mes propres stories en premier : l'utilisateur courant est le 1er du rail.
+  const grouped = groupStoriesByUser(stories)
+  const selfIndex = grouped.findIndex((g) => String(g.userId) === String(userId))
+  let users = grouped
+  if (selfIndex > 0) {
+    const [self] = users.splice(selfIndex, 1)
+    users = [self, ...users]
   }
+
+  return { users, stories, pagination: paginationOf(raw, page, perPage) }
 }
 
 /**
@@ -163,7 +188,7 @@ export async function fetchUserFlash(
 ): Promise<{ stories: FlashStory[]; pagination: FlashPagination }> {
   const perPage = opts.perPage || FLASH_PAGE_SIZE
   const page = opts.page || 1
-  const raw = await dughuApi.getUserStories(targetUserId, { perPage, page })
+  const raw = await dughuApi.getUserStories(userId, targetUserId, { perPage, page })
   const stories = itemsOf(raw)
     .map(toFlashStory)
     .filter((s): s is FlashStory => s !== null && !!s.id)
@@ -223,3 +248,4 @@ export function likeStory(_userId: string, _storyId: string): Promise<unknown> {
   return Promise.resolve({ success: false })
 }
 
+// probe write ok
