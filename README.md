@@ -33,9 +33,20 @@ Toutes documentées dans [`.env.example`](.env.example). Deux pièges :
   l'inline dans le bundle client au moment du `next build` : la modifier impose
   de reconstruire l'image, un simple redémarrage n'a aucun effet.
 
-## Déploiement en production
+## Déploiement
 
-La branche de déploiement est `production`.
+La branche de déploiement est `production`. L'environnement cible est
+**`testing.dughu.com`**, adossé à l'API de recette `apitest.dughu.com`.
+
+### Prérequis DNS
+
+Avant toute chose, faire pointer un enregistrement **A** (et **AAAA** si le VPS
+a une IPv6) de `testing.dughu.com` vers l'IP du serveur, puis attendre la
+propagation. Certbot échoue tant que le domaine ne résout pas :
+
+```bash
+dig +short testing.dughu.com    # doit renvoyer l'IP du VPS
+```
 
 ### Première installation sur le VPS
 
@@ -61,7 +72,11 @@ sudo cp deploy/nginx/dughu.conf /etc/nginx/sites-available/dughu
 sudo ln -s /etc/nginx/sites-available/dughu /etc/nginx/sites-enabled/dughu
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d dughu.com -d www.dughu.com
+sudo certbot --nginx -d testing.dughu.com
+
+# 6. Pare-feu : seuls 22, 80 et 443 sont exposés. Le conteneur écoute en
+#    loopback, il n'a pas besoin d'être joignable de l'extérieur.
+sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 ```
 
 ### Déploiements suivants
@@ -80,7 +95,7 @@ précédent continue de tourner.
 ```bash
 docker compose logs -f app                 # logs en direct
 docker compose ps                          # état + santé
-curl -s https://dughu.com/api/health       # sonde
+curl -s https://testing.dughu.com/api/health       # sonde
 docker compose restart app                 # redémarrage simple
 git checkout <sha> && ./deploy/deploy.sh --no-pull   # rollback
 ```
@@ -88,8 +103,8 @@ git checkout <sha> && ./deploy/deploy.sh --no-pull   # rollback
 ## Architecture de déploiement
 
 ```
-Internet → Nginx (443, TLS)  →  127.0.0.1:3000  →  conteneur dughu-web
-                                                      └── API Dughu (HTTPS, externe)
+testing.dughu.com → Nginx (443, TLS) → 127.0.0.1:3000 → conteneur dughu-web
+                                                            └── apitest.dughu.com (HTTPS, externe)
 ```
 
 Le conteneur n'écoute qu'en loopback : Nginx est le seul point d'entrée public.
