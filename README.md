@@ -38,46 +38,45 @@ Toutes documentées dans [`.env.example`](.env.example). Deux pièges :
 La branche de déploiement est `production`. L'environnement cible est
 **`testing.dughu.com`**, adossé à l'API de recette `apitest.dughu.com`.
 
-### Le serveur cible est mutualisé — à lire avant toute commande
+### Le serveur à provisionner
 
-`testing.dughu.com` est déployé sur `203.161.53.131`, un serveur qui héberge
-**déjà** d'autres sites en production : `help.dughu.com`, `kibana.dughu.com`,
-`admintesting.dughu.com`. Ils sont servis par **Apache**.
+L'application est déployée sur un **VPS dédié**. Le serveur principal Dughu
+(`203.161.53.131`) a été écarté : il héberge 17 sites en production et il ne
+lui reste que ~676 Mo de RAM disponibles, sans swap. Un `next build` y aurait
+déclenché l'OOM killer sur `mysqld` ou Elasticsearch.
 
-Trois règles en découlent :
+Caractéristiques à prévoir :
 
-- **Ne pas installer nginx.** Il réclamerait le port 80 que détient Apache, et
-  ferait tomber les sites existants. Le reverse proxy utilisé ici est l'Apache
-  déjà en place, auquel on ajoute un vhost.
-- **Ne pas activer ufw** (ni toucher au pare-feu). Le port 443 du serveur est
-  déjà filtré pour n'accepter que les plages Cloudflare ; poser un jeu de
-  règles par-dessus risquerait de couper les autres sites, voire l'accès SSH.
-- **`reload`, jamais `restart`.** Un reload d'Apache ne coupe aucune connexion
-  et est refusé si la configuration est invalide. Un restart couperait tous les
-  sites du serveur.
+| | |
+|---|---|
+| CPU | 2 vCPU |
+| RAM | **4 Go** — l'exécution en demande ~1 Go, mais `next build` monte à ~2 Go |
+| Disque | 20 Go |
+| OS | Ubuntu 22.04 ou 24.04 |
 
-Le port `3000` est libre : le conteneur s'y installe sans rien déranger.
+4 Go est le point important : avec 2 Go, il faut ajouter du swap pour que le
+build passe.
 
 ### Prérequis DNS
 
-Un enregistrement **A** `testing` → IP du serveur doit exister dans la zone
+Un enregistrement **A** `testing` → IP du VPS doit exister dans la zone
 Cloudflare de `dughu.com`, en **DNS only** (nuage gris) le temps d'obtenir le
 certificat. Attention, un wildcard `*.dughu.com` existe : sans enregistrement
 explicite, `testing` résout vers la mauvaise cible.
 
 ```bash
-dig +short testing.dughu.com    # doit renvoyer l'IP du serveur, pas Cloudflare
+dig +short testing.dughu.com    # doit renvoyer l'IP du VPS, pas Cloudflare
 ```
 
 Une fois le site en ligne en HTTPS, repasser l'enregistrement en **Proxied**
-(nuage orange) comme les autres sous-domaines. Cloudflare signale d'ailleurs
-l'exposition de l'IP d'origine tant que le nuage est gris — c'est attendu,
-et cela disparaît à ce moment-là.
+(nuage orange) comme les autres sous-domaines. Cloudflare signale l'exposition
+de l'IP d'origine tant que le nuage est gris — c'est attendu, et cela
+disparaît à ce moment-là.
 
 ### Première installation
 
 ```bash
-# 1. Docker (sauter si déjà présent : docker --version)
+# 1. Docker
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker "$USER" && newgrp docker
 
@@ -93,22 +92,28 @@ cp .env.example .env && nano .env && chmod 600 .env
 ./deploy/deploy.sh --no-pull
 curl -s http://127.0.0.1:3000/api/health     # doit renvoyer {"status":"ok",...}
 
-# 5. Vhost Apache
-sudo a2enmod proxy proxy_http headers rewrite ssl
-sudo cp deploy/apache/testing.dughu.com.conf \
-        /etc/apache2/sites-available/testing.dughu.com.conf
-sudo a2ensite testing.dughu.com
-sudo apache2ctl configtest        # DOIT afficher "Syntax OK" avant de continuer
-sudo systemctl reload apache2
+# 5. Nginx + TLS
+sudo apt install -y nginx certbot python3-certbot-nginx
+sudo cp deploy/nginx/dughu.conf /etc/nginx/sites-available/dughu
+sudo ln -s /etc/nginx/sites-available/dughu /etc/nginx/sites-enabled/dughu
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d testing.dughu.com
 
-# 6. Certificat — certbot crée le vhost :443 et la redirection HTTP -> HTTPS
-sudo apt install -y certbot python3-certbot-apache
-sudo certbot --apache -d testing.dughu.com
+# 6. Pare-feu. Sur le serveur principal Dughu, 80/443 n'acceptent que les
+#    plages Cloudflare — même approche recommandée ici une fois le nuage
+#    repassé en orange :
+#      for ip in $(curl -s https://www.cloudflare.com/ips-v4); do
+#        sudo ufw allow proto tcp from $ip to any port 80,443
+#      done
+#    En attendant le certificat, ouvrir simplement :
+sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 ```
 
-Le détail de chaque étape, et le bloc `mod_remoteip` à activer une fois le
-proxy Cloudflare en place, sont documentés dans
-[`deploy/apache/testing.dughu.com.conf`](deploy/apache/testing.dughu.com.conf).
+> Si l'application devait un jour cohabiter avec des sites déjà servis par
+> Apache, ne pas installer nginx : utiliser
+> [`deploy/apache/testing.dughu.com.conf`](deploy/apache/testing.dughu.com.conf)
+> à la place.
 
 ### Déploiements suivants
 
@@ -134,16 +139,14 @@ git checkout <sha> && ./deploy/deploy.sh --no-pull   # rollback
 ## Architecture de déploiement
 
 ```
-Cloudflare → Apache (443, TLS) → 127.0.0.1:3000 → conteneur dughu-web
-   (proxy)      déjà en place                          └── apitest.dughu.com
+Cloudflare → Nginx (443, TLS) → 127.0.0.1:3000 → conteneur dughu-web
+   (proxy)       VPS dédié                          └── apitest.dughu.com
 ```
 
-Le conteneur n'écoute qu'en loopback : Apache est le seul point d'entrée, et
-il sert aussi les autres sites du serveur. Le vhost ajouté est isolé des leurs.
+Le conteneur n'écoute qu'en loopback : Nginx est le seul point d'entrée public.
 
-Besoins de l'application : ~1 vCPU et ~2 Go de RAM (pas de base de données,
-pas d'optimisation d'images — `images.unoptimized` est actif). À prévoir en
-**plus** de ce que consomment déjà les autres sites du serveur.
+Pas de base de données, pas d'optimisation d'images (`images.unoptimized` est
+actif) : l'exécution est légère. C'est le build qui dimensionne le serveur.
 
 ## Structure
 
@@ -153,6 +156,6 @@ pas d'optimisation d'images — `images.unoptimized` est actif). À prévoir en
 | `src/lib/dughu.ts` | Client de l'API Dughu (timeout, retry, normalisation) |
 | `src/hooks/queries/` | Hooks TanStack Query côté client |
 | `src/proxy.ts` | Garde d'authentification (ex-`middleware.ts`, renommé en Next 16) |
-| `deploy/apache/` | Vhost Apache — **la configuration réellement utilisée** |
-| `deploy/nginx/` | Équivalent nginx, conservé pour un futur serveur dédié |
+| `deploy/nginx/` | Vhost Nginx — **la configuration de référence** |
+| `deploy/apache/` | Variante Apache, pour un serveur mutualisé |
 | `deploy/deploy.sh` | Script de déploiement (build, bascule, sonde de santé) |
