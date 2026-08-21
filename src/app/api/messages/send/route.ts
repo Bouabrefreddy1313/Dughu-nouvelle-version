@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dughuApi, DughuApiError } from "@/lib/dughu"
+import { normalizeMessages } from "@/lib/messages"
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024
 const MAX_FILE_SIZE = 20 * 1024 * 1024
@@ -9,6 +10,7 @@ export async function POST(req: NextRequest) {
     const incoming = await req.formData()
     const userId = String(incoming.get("user_id") || "")
     const targetUserId = String(incoming.get("target_user_id") || "")
+    const authToken = String(incoming.get("auth_token") || "")
     const message = String(incoming.get("message") || "").trim()
     const image = incoming.get("image")
     const video = incoming.get("video")
@@ -51,14 +53,35 @@ export async function POST(req: NextRequest) {
       upstream.set(field, value)
     }
 
-    const result = await dughuApi.sendMessage(upstream)
-    return NextResponse.json({ success: true, result })
+    const upstreamResponse = await dughuApi.sendMessage(upstream, authToken || undefined)
+    if (!upstreamResponse?.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: upstreamResponse?.message || "L’API Dughu a refusé le message.",
+        },
+        { status: 502 }
+      )
+    }
+
+    const sentMessage = normalizeMessages(
+      { messages: upstreamResponse.result ? [upstreamResponse.result] : [] },
+      userId,
+      targetUserId
+    )[0] || null
+
+    return NextResponse.json({
+      success: true,
+      message: upstreamResponse.message || "Message envoyé avec succès.",
+      sentMessage,
+    })
   } catch (error) {
     console.error("SEND MESSAGE ERROR:", error)
     if (error instanceof DughuApiError) {
+      const status = error.status === 401 || error.status === 403 ? 502 : error.status
       return NextResponse.json(
         { success: false, message: "L’API Dughu a refusé le message.", upstream: error.data },
-        { status: error.status }
+        { status }
       )
     }
     return NextResponse.json({ success: false, message: "Impossible d’envoyer le message." }, { status: 502 })

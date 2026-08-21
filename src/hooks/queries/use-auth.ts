@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 
+// La forme complète de l'utilisateur est issue de l'API Dughu et reste dynamique.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function readCachedUser(): any | null {
   if (typeof window === "undefined") return null
   const cached = localStorage.getItem("dughu_user")
@@ -21,8 +23,14 @@ async function fetchCurrentUser() {
     if (res.ok) {
       const data = await res.json()
       if (data.success && data.user) {
-        localStorage.setItem("dughu_user", JSON.stringify(data.user))
-        return data.user
+        // /api/auth/me ne renvoie pas le jeton Dughu. On conserve celui reçu
+        // au login pour les endpoints Dughu qui exigent un Bearer utilisateur.
+        const cached = readCachedUser()
+        const user = cached?.dughu?.token
+          ? { ...data.user, dughu: { ...data.user.dughu, token: cached.dughu.token } }
+          : data.user
+        localStorage.setItem("dughu_user", JSON.stringify(user))
+        return user
       }
     }
   } catch {

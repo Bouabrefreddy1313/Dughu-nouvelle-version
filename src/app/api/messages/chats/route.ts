@@ -78,7 +78,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, chats: enrichedChats })
   } catch (error) {
     console.error("CHATS ERROR:", error)
-    const status = error instanceof DughuApiError ? error.status : 502
+    // Un 401/403 Dughu concerne le service distant, pas la session web locale.
+    // Le propager déclencherait à tort la redirection Axios vers /login.
+    const upstreamStatus = error instanceof DughuApiError ? error.status : 502
+    const status = upstreamStatus === 401 || upstreamStatus === 403 ? 502 : upstreamStatus
     return NextResponse.json({ success: false, message: "Impossible de charger les conversations." }, { status })
   }
 }

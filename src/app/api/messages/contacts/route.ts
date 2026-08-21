@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const raw = await dughuApi.searchUsers({ search: query, username: query, user_id: userId })
+    const raw = await dughuApi.searchChatContacts(query)
     const normalizedQuery = query.toLocaleLowerCase("fr")
     const contacts = normalizeContacts(raw, userId).filter((contact) =>
       `${contact.id} ${contact.name} ${contact.username || ""}`
@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, contacts })
   } catch (error) {
     console.error("MESSAGE CONTACT SEARCH ERROR:", error)
-    const status = error instanceof DughuApiError ? error.status : 502
+    const upstreamStatus = error instanceof DughuApiError ? error.status : 502
+    const status = upstreamStatus === 401 || upstreamStatus === 403 ? 502 : upstreamStatus
     return NextResponse.json({ success: false, message: "Recherche indisponible." }, { status })
   }
 }
