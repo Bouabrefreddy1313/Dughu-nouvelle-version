@@ -96,25 +96,35 @@ export async function POST(req: NextRequest) {
     const requestedDurationSeconds = Number(formData.get("durationSeconds") || 15)
     payload.append("duration", formatDuration(requestedDurationSeconds))
 
-    const validColors = [
-      "#98b262", "#000000", "#ffb0ff", "#0000ff", "#4e26ff", 
-      "#ff0fff", "#ffff00", "#e8670c", "#ff3dff", "#91ff3d", "#ccb38d"
-    ]
+    // Le backend Dughu attend l'ID NUMÉRIQUE de la couleur (17, 18, 19, …)
+    // et non le code hexadécimal. Le frontend envoie désormais l'ID.
+    // Mapping hex → ID pour compatibilité avec les anciens clients.
+    const HEX_TO_ID: Record<string, number> = {
+      "#98b262": 17, "#000000": 18, "#ffb0ff": 19, "#0000ff": 24,
+      "#4e26ff": 25, "#ff0fff": 27, "#ffff00": 30, "#e8670c": 31,
+      "#ff3dff": 32, "#91ff3d": 33, "#ccb38d": 34,
+    }
     const bgColor = formData.get("bgColor")
-    let finalBgColor = "#000000" // Fallback robuste
+    let finalBgColorId = "18" // Fallback robuste : noir (ID 18)
 
     if (typeof bgColor === "string" && bgColor) {
-      const hexMatch = bgColor.match(/#[0-9a-fA-F]{3,8}/i)
-      if (hexMatch) {
-        const hex = hexMatch[0].toLowerCase()
-        if (validColors.includes(hex)) {
-          finalBgColor = hex
+      const trimmed = bgColor.trim()
+      // Cas 1 : l'ID numérique est déjà envoyé (ex. "18")
+      if (/^\d+$/.test(trimmed)) {
+        finalBgColorId = trimmed
+      } else {
+        // Cas 2 : un code hexadécimal est envoyé (compatibilité) → mapper vers l'ID
+        const hexMatch = trimmed.match(/#[0-9a-fA-F]{3,8}/i)
+        if (hexMatch) {
+          const hex = hexMatch[0].toLowerCase()
+          const mappedId = HEX_TO_ID[hex]
+          if (mappedId) finalBgColorId = String(mappedId)
         }
       }
     }
     
-    // On envoie toujours une couleur de fond valide pour satisfaire l'API
-    payload.append("bg_color", finalBgColor)
+    // On envoie toujours un ID de couleur valide pour satisfaire l'API
+    payload.append("bg_color", finalBgColorId)
 
     if (mediaFile && mediaFile.size > 0) {
       // Le backend est pointilleux sur la clé du fichier. Pour être certain

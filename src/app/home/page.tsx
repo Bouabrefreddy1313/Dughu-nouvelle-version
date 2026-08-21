@@ -642,39 +642,38 @@ export default function HomePage() {
         open={flashCreatorOpen}
         onClose={() => setFlashCreatorOpen(false)}
         onCreated={(story) => {
+          if (!story) return
           queryClient.invalidateQueries({ queryKey: ["flash", "feed"] })
           // L'API Dughu ne renvoie pas l'image dans getUserStories : on injecte la
           // story fraîchement créée (avec son blob) dans le cache du feed pour que
-          // la mini-carte affiche immédiatement l'image choisie.
-          if (story?.image || story?.video) {
-            queryClient.setQueriesData<FlashFeedData>({ queryKey: ["flash", "feed"] }, (old) => {
-              if (!old) return old
-              const selfId = String(story.userId)
-              const selfUser = (old.users || []).find((u) => String(u.userId) === selfId)
-              const newStory = {
-                id: story.id,
-                userId: selfId,
-                image: story.image || undefined,
-                video: story.video || undefined,
-                text: story.text || "",
-                bg: story.bg || "",
-                viewed: false,
-                createdAt: story.createdAt,
-                user: selfUser?.user || null,
-              }
-              const newEntry = {
-                userId: selfId,
-                user: selfUser?.user || null,
-                stories: [newStory, ...(selfUser?.stories || [])],
-                allViewed: false,
-              }
-              const nextUsers = (old.users || []).slice()
-              const idx = nextUsers.findIndex((u) => String(u.userId) === selfId)
-              if (idx >= 0) nextUsers[idx] = newEntry
-              else nextUsers.unshift(newEntry)
-              return { ...old, users: nextUsers, stories: [newStory, ...(old.stories || [])] }
-            })
-          }
+          // la mini-carte affiche immédiatement le dernier Flash (image OU texte).
+          queryClient.setQueriesData<FlashFeedData>({ queryKey: ["flash", "feed"] }, (old) => {
+            if (!old) return old
+            const selfId = String(story.userId)
+            const selfUser = (old.users || []).find((u) => String(u.userId) === selfId)
+            const newStory = {
+              id: story.id,
+              userId: selfId,
+              image: story.image || undefined,
+              video: story.video || undefined,
+              text: story.text || "",
+              bg: story.bg || "",
+              viewed: false,
+              createdAt: story.createdAt,
+              user: selfUser?.user || null,
+            }
+            const newEntry = {
+              userId: selfId,
+              user: selfUser?.user || null,
+              stories: [newStory, ...(selfUser?.stories || [])],
+              allViewed: false,
+            }
+            const nextUsers = (old.users || []).slice()
+            const idx = nextUsers.findIndex((u) => String(u.userId) === selfId)
+            if (idx >= 0) nextUsers[idx] = newEntry
+            else nextUsers.unshift(newEntry)
+            return { ...old, users: nextUsers, stories: [newStory, ...(old.stories || [])] }
+          })
         }}
       />
 

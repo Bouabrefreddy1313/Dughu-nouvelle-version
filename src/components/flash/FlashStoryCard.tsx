@@ -115,6 +115,8 @@ export function FlashAddCard({
    ───────────────────────────────────────────────────────────── */
 export function FlashStoryCard({
   image,
+  bg,
+  text,
   avatar,
   name,
   viewed = false,
@@ -122,6 +124,8 @@ export function FlashStoryCard({
   ariaLabel,
 }: {
   image?: string
+  bg?: string
+  text?: string
   avatar?: string | null
   name?: string | null
   viewed?: boolean
@@ -143,6 +147,15 @@ export function FlashStoryCard({
           <div className="absolute inset-0">
             <Image src={image} alt={name || ""} fill className="object-cover transition-transform duration-500 ease-out group-hover/story:scale-105" sizes="104px" />
           </div>
+        ) : bg ? (
+          <div
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ background: bg }}
+          >
+            <span className="text-white text-[13px] font-semibold text-center leading-tight px-2 line-clamp-4 drop-shadow-sm">
+              {text || ""}
+            </span>
+          </div>
         ) : avatarSrc ? (
           <div className="absolute inset-0">
             <Image src={avatarSrc} alt={name || ""} fill className="object-cover transition-transform duration-500 ease-out group-hover/story:scale-105" sizes="104px" />
@@ -156,17 +169,20 @@ export function FlashStoryCard({
         {/* voile dégradé bas pour lisibilité du nom */}
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-        {/* Avatar en haut avec contour de statut */}
-        <div className={cn("absolute top-2.5 left-2.5 w-8 h-8 rounded-full p-[2px]", viewed ? "bg-[#D8DADF]" : "bg-gradient-to-tr from-[#E08543] via-[#E08543] to-[#F2B183]")}>
-          <div className="w-full h-full rounded-full overflow-hidden bg-[#A35A2A] border-2 border-white">
-            {avatarSrc ? (
-              <Image src={avatarSrc} alt={name || ""} fill className="object-cover" sizes="32px" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white text-[10px] font-bold bg-[#A35A2A]">
-                {initial}
-              </div>
-            )}
-          </div>
+        {/* Avatar en haut — anneau épais couleur Dughu, disparaît une fois le Flash lu */}
+        <div
+          className={cn(
+            "absolute top-2.5 left-2.5 w-8 h-8 rounded-full overflow-hidden bg-[#A35A2A]",
+            !viewed && "ring-4 ring-[#E08543]"
+          )}
+        >
+          {avatarSrc ? (
+            <Image src={avatarSrc} alt={name || ""} fill className="object-cover" sizes="32px" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white text-[10px] font-bold bg-[#A35A2A]">
+              {initial}
+            </div>
+          )}
         </div>
 
         {/* Nom incrusté en bas de la carte */}

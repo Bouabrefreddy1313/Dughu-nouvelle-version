@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -36,6 +37,9 @@ interface BackgroundPickerProps {
 export function BackgroundPicker({ onClose, onSelect, currentColor }: BackgroundPickerProps) {
   const [colors, setColors] = useState<BackgroundColor[]>([])
   const [loading, setLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     let cancelled = false
@@ -58,16 +62,14 @@ export function BackgroundPicker({ onClose, onSelect, currentColor }: Background
     return () => { cancelled = true }
   }, [])
 
-  if (loading) {
-    return (
-      <div className="absolute top-full left-0 mt-2 p-4 bg-white rounded-2xl shadow-lg border border-gray-100 z-50 min-w-[280px] flex items-center justify-center h-40">
-        <Loader2 className="w-5 h-5 text-[#A35A2A] animate-spin" />
-      </div>
-    )
-  }
+  if (!mounted) return null
 
-  return (
-    <div className="absolute top-full left-0 mt-2 p-4 bg-white rounded-2xl shadow-lg border border-gray-100 z-50 min-w-[300px] max-w-[360px]">
+  const content = loading ? (
+    <div className="mx-auto max-w-[360px] bg-white rounded-2xl shadow-lg border border-gray-100 p-4 flex items-center justify-center h-40">
+      <Loader2 className="w-5 h-5 text-[#A35A2A] animate-spin" />
+    </div>
+  ) : (
+    <div className="mx-auto max-w-[360px] bg-white rounded-2xl shadow-lg border border-gray-100 p-4">
       <div className="flex justify-between items-center mb-3">
         <h3 className="text-sm font-semibold text-gray-700">Couleur de fond</h3>
         <button
@@ -111,5 +113,15 @@ export function BackgroundPicker({ onClose, onSelect, currentColor }: Background
         ))}
       </div>
     </div>
+  )
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/30 p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      {content}
+    </div>,
+    document.body
   )
 }

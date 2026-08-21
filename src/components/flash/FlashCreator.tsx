@@ -134,7 +134,10 @@ export default function FlashCreator({ user, open, onClose, onCreated }: FlashCr
       payload.append("userId", user.id)
       if (user.dughu?.userId) payload.append("dughuUserId", user.dughu.userId)
       if (text.trim()) payload.append("text", text.trim())
-      if (selectedColor?.bg) payload.append("bgColor", selectedColor.bg)
+      // Le backend Dughu attend l'ID numérique de la couleur (17, 18, 19, …)
+      // et non le code hexadécimal. On envoie donc l'ID si disponible.
+      if (selectedColor?.id != null) payload.append("bgColor", String(selectedColor.id))
+      else if (selectedColor?.bg) payload.append("bgColor", selectedColor.bg)
       if (mediaFile) {
         // Le backend /api/stories attend `image` ou `video`
         if (mediaFile.type.startsWith("video/")) payload.append("video", mediaFile)
