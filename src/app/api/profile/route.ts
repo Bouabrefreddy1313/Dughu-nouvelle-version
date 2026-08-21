@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dughu, dughuApi, normalizeUser, parseCounts, mapPhotos, mapVideos, mapFriends, pick } from "@/lib/dughu"
+import { normalizeProfileRelations } from "@/lib/profile-relations"
 
 const DEFAULT_COVER = "/images/group/default-cover.jpg"
 
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
     const resultObj = raw?.result ?? raw
     const details = parseCounts(resultObj?.details ?? raw?.details ?? raw?.user?.details ?? userObj.details)
     const username = userObj.username || userObj.slug || ""
-    const [photos, friends, videos] = await Promise.all([
+    const [photos, friends, videos, relationRequests] = await Promise.all([
       // Uniquement les photos publiées par l'utilisateur, via l'endpoint dédié
       // profile/{username}/photos (pas d'images extraites des posts/reposts)
       username ? dughuApi.getUserPhotos(username, 1).then((raw) => {
@@ -68,6 +69,12 @@ export async function GET(req: NextRequest) {
         console.log("DUGHU VIDEOS RAW:", JSON.stringify(raw).slice(0, 500))
         return mapVideos(raw)
       }).catch((e) => { console.error("DUGHU VIDEOS ERROR:", e); return [] }) : Promise.resolve([]),
+      viewerDughuId !== "0" && String(userObj.id) !== viewerDughuId
+        ? Promise.all([
+            dughuApi.getRelationRequests(viewerDughuId, userObj.id, "friend").catch(() => null),
+            dughuApi.getRelationRequests(viewerDughuId, userObj.id, "network").catch(() => null),
+          ]).then((responses) => responses.filter(Boolean))
+        : Promise.resolve([]),
     ])
 
     const allPhotos = photos
@@ -120,6 +127,7 @@ export async function GET(req: NextRequest) {
       groups: [],
       pages: { owned: [], liked: [] },
       isFollowing,
+      relations: normalizeProfileRelations(raw, relationRequests, String(userObj.id)),
     })
   } catch (error) {
     console.error("PROFILE GET ERROR:", error)

@@ -24,6 +24,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { dughuApi, resolveMediaUrl } from "@/lib/dughu"
 import { cn } from "@/lib/utils"
+import type { ProfileRelations, RelationType } from "@/lib/profile-relations"
 
 export interface ProfileUser {
   id: string
@@ -57,7 +58,10 @@ interface ProfileHeaderProps {
   stats: ProfileStats
   isOwn: boolean
   isFollowing?: boolean
+  relations?: ProfileRelations
+  relationLoading?: RelationType | null
   onToggleFollow?: () => void
+  onRelationAction?: (type: RelationType) => void
   onMessage?: () => void
   onEditCover?: () => void
   onEditAvatar?: () => void
@@ -148,7 +152,10 @@ export function ProfileHeader({
   stats,
   isOwn,
   isFollowing,
+  relations,
+  relationLoading,
   onToggleFollow,
+  onRelationAction,
   onMessage,
   onEditCover,
   onEditAvatar,
@@ -338,7 +345,7 @@ export function ProfileHeader({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
               {isOwn ? (
                 <>
                   <button
@@ -358,6 +365,44 @@ export function ProfileHeader({
                 </>
               ) : (
                 <>
+                  {(["friend", "network"] as const).map((type) => {
+                    const state = relations?.[type] ?? "none"
+                    const loading = relationLoading === type
+                    const accepted = state === "accepted"
+                    const incoming = state === "incoming_pending"
+                    const outgoing = state === "outgoing_pending"
+                    const label = loading
+                      ? "Chargement…"
+                      : accepted
+                        ? type === "friend" ? "Fraternisé" : "En réseau"
+                        : incoming
+                          ? "Accepter"
+                          : outgoing
+                            ? "Demande envoyée"
+                            : type === "friend" ? "Fraterniser" : "Réseauter"
+                    const Icon = type === "friend" ? (accepted ? UserCheck : UserPlus) : Users
+
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => onRelationAction?.(type)}
+                        disabled={loading || accepted}
+                        title={outgoing ? "Cliquer pour annuler la demande" : undefined}
+                        className={cn(
+                          "flex items-center gap-2 px-4 sm:px-5 py-2 rounded-lg text-[14px] font-semibold transition disabled:cursor-default",
+                          state === "none"
+                            ? "bg-[#A35A2A] hover:bg-[#8B4A1F] text-white"
+                            : incoming
+                              ? "bg-[#1877F2] hover:bg-[#166FE5] text-white"
+                              : "bg-[#F0F2F5] hover:bg-[#E4E6EB] text-[#050505]",
+                          loading && "opacity-70"
+                        )}
+                      >
+                        {loading ? <Loader2 size={16} className="animate-spin" /> : <Icon size={16} />}
+                        {label}
+                      </button>
+                    )
+                  })}
                   <button
                     onClick={onToggleFollow}
                     className={

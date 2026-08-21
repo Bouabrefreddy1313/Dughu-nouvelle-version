@@ -338,6 +338,34 @@ export const dughuApi = {
   unfollow: (authUserId: string | number, userId: string | number) =>
     dughu.form("unfollow", { auth_user_id: String(authUserId), user_id: String(userId) }),
 
+  requestRelation: (authUserId: string | number, userId: string | number, type: "friend" | "network") =>
+    dughu.form("relation/request", {
+      auth_user_id: String(authUserId),
+      user_id: String(userId),
+      type,
+    }),
+
+  getRelationRequests: (authUserId: string | number, userId: string | number, type: "friend" | "network") =>
+    dughu.form("relation/requests", {
+      auth_user_id: String(authUserId),
+      user_id: String(userId),
+      type,
+    }),
+
+  acceptRelation: (authUserId: string | number, userId: string | number, type: "friend" | "network") =>
+    dughu.form("relation/accept", {
+      auth_user_id: String(authUserId),
+      user_id: String(userId),
+      type,
+    }),
+
+  declineRelation: (authUserId: string | number, userId: string | number, type: "friend" | "network") =>
+    dughu.form("relation/decline", {
+      auth_user_id: String(authUserId),
+      user_id: String(userId),
+      type,
+    }),
+
   blockUser: (authUserId: string | number, userId: string | number) =>
     dughu.form("block_user", { auth_user_id: String(authUserId), user_id: String(userId) }),
 
