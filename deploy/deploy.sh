@@ -18,6 +18,17 @@ PULL=1
 log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31mErreur:\033[0m %s\n' "$*" >&2; exit 1; }
 
+# Sur les serveurs où l'utilisateur n'appartient pas au groupe `docker`, le
+# démon n'est joignable qu'en root. On préfixe alors par sudo plutôt que
+# d'ajouter l'utilisateur au groupe docker, ce qui équivaut à lui donner root.
+if docker info >/dev/null 2>&1; then
+  DOCKER="docker"
+elif sudo -n docker info >/dev/null 2>&1; then
+  DOCKER="sudo docker"
+else
+  fail "Le démon Docker est injoignable, y compris via sudo."
+fi
+
 # --- Vérifications préalables ------------------------------------------------
 [[ -f .env ]] || fail "Fichier .env absent. Copie .env.example et remplis-le."
 
@@ -49,26 +60,26 @@ log "Révision déployée : $(git rev-parse --short HEAD) — $(git log -1 --pre
 # Construit la nouvelle image AVANT d'arrêter l'ancienne : si le build échoue,
 # le service en cours continue de tourner.
 log "Construction de l'image"
-docker compose build
+$DOCKER compose build
 
 log "Redémarrage du service"
-docker compose up -d --remove-orphans
+$DOCKER compose up -d --remove-orphans
 
 # --- Vérification ------------------------------------------------------------
 log "Attente de la sonde de santé"
 for i in $(seq 1 30); do
-  status="$(docker inspect --format '{{.State.Health.Status}}' dughu-web 2>/dev/null || echo unknown)"
+  status="$($DOCKER inspect --format '{{.State.Health.Status}}' dughu-web 2>/dev/null || echo unknown)"
   if [[ "${status}" == "healthy" ]]; then
     log "Service sain après ${i}0s. Déploiement terminé."
-    docker image prune -f >/dev/null 2>&1 || true
+    $DOCKER image prune -f >/dev/null 2>&1 || true
     exit 0
   fi
   if [[ "${status}" == "unhealthy" ]]; then
-    docker compose logs --tail=50 app
+    $DOCKER compose logs --tail=50 app
     fail "Le conteneur est unhealthy. Déploiement interrompu."
   fi
   sleep 10
 done
 
-docker compose logs --tail=50 app
+$DOCKER compose logs --tail=50 app
 fail "La sonde de santé n'a pas répondu en 5 minutes."

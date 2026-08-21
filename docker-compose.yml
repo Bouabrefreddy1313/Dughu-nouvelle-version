@@ -14,7 +14,10 @@ services:
     ports:
       # Écoute uniquement en loopback : c'est Nginx qui expose le service
       # au monde, avec TLS. Ne jamais publier sur 0.0.0.0 en production.
-      - "127.0.0.1:3000:3000"
+      # APP_PORT permet de cohabiter avec d'autres services : sur un serveur
+      # où le port 3000 est déjà pris, le définir dans .env suffit — il faut
+      # alors reporter la même valeur dans l'upstream du vhost Nginx.
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
     env_file:
       - .env
     environment:

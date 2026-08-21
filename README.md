@@ -38,24 +38,36 @@ Toutes documentées dans [`.env.example`](.env.example). Deux pièges :
 La branche de déploiement est `production`. L'environnement cible est
 **`testing.dughu.com`**, adossé à l'API de recette `apitest.dughu.com`.
 
-### Le serveur à provisionner
+### Le serveur de déploiement
 
-L'application est déployée sur un **VPS dédié**. Le serveur principal Dughu
-(`203.161.53.131`) a été écarté : il héberge 17 sites en production et il ne
-lui reste que ~676 Mo de RAM disponibles, sans swap. Un `next build` y aurait
-déclenché l'OOM killer sur `mysqld` ou Elasticsearch.
-
-Caractéristiques à prévoir :
+`testing.dughu.com` est déployé sur **`180.149.198.37`** (`vps113221`), Debian 12.
+Le serveur principal Dughu (`203.161.53.131`) a été écarté : 17 sites en
+production et ~676 Mo de RAM disponibles sans swap, un `next build` y aurait
+déclenché l'OOM killer.
 
 | | |
 |---|---|
-| CPU | 2 vCPU |
-| RAM | **4 Go** — l'exécution en demande ~1 Go, mais `next build` monte à ~2 Go |
-| Disque | 20 Go |
-| OS | Ubuntu 22.04 ou 24.04 |
+| Système | Debian 12 bookworm, noyau 6.12 |
+| CPU / RAM | 4 vCPU · 8 Go (dont ~6,9 Go disponibles) · 8 Go de swap |
+| Disque | 147 Go, 88 Go libres |
+| Docker | 29.7.2, déjà installé |
+| Node | v20.19.3 (suffisant pour Next 16) |
+| Façade web | **nginx**, avec Apache derrière ; ISPConfig est installé |
 
-4 Go est le point important : avec 2 Go, il faut ajouter du swap pour que le
-build passe.
+Ce serveur n'est pas dédié : il héberge déjà `mediaservice.dealtoo.co`,
+`services.dealtoo.co` et une pile Docker de production (`/opt/dealtoo-services`
+— API média, Postgres, Prometheus). Trois conséquences :
+
+- **Le port 3000 est occupé** par `mediaservice`. On utilise `APP_PORT=3200`
+  dans le `.env` ; la même valeur doit figurer dans l'`upstream` du vhost.
+- **Les projets Docker vivent dans `/opt/`.** Celui-ci va dans `/opt/dughu-web`.
+- **L'utilisateur n'est pas dans le groupe `docker`.** `deploy.sh` détecte le
+  cas et préfixe par `sudo` — c'est volontaire : appartenir au groupe `docker`
+  équivaut à disposer de root.
+
+Les vhosts nginx y sont écrits à la main dans `/etc/nginx/sites-available/`,
+en `:80` seul, `certbot --nginx` se chargeant du bloc TLS. Le vhost fourni suit
+cette convention.
 
 ### Prérequis DNS
 
