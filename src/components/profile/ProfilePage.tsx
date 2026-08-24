@@ -25,6 +25,7 @@ import { ProfileGroupsPages, type ProfileGroup, type ProfilePage as ProfilePageT
 import { EditProfileModal } from "./EditProfileModal"
 import { ImageEditModal } from "./ImageEditModal"
 import { PostComposer } from "@/components/composer/PostComposer"
+import { EMPTY_PROFILE_RELATIONS, type RelationState, type RelationType } from "@/lib/profile-relations"
 
 const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })), {
   loading: () => (
@@ -112,6 +113,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     isError: notFound,
   } = useProfile(profileParams)
   const profile = profileData ?? null
+  const profileQueryKey = ["profile", target.userId ?? target.slug ?? "me"] as const
   const profileId = profile?.user?.id || ""
   const profileDughuId = profile?.user?.dughu?.userId || ""
   const myDughuId = currentUser?.dughu?.userId || ""
@@ -466,6 +468,48 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     followMutation.mutate()
   }
 
+  const relationMutation = useMutation({
+    mutationFn: async ({ type, state }: { type: RelationType; state: RelationState }) => {
+      const action = state === "incoming_pending"
+        ? "accept"
+        : state === "outgoing_pending"
+          ? "decline"
+          : "request"
+      const res = await fetch("/api/profile/relation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId: profileDughuId, type, action }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.message || "Impossible de mettre à jour la relation")
+      return { ...data, type }
+    },
+    onSuccess: ({ type, state, message }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Le résultat de useProfile n'a pas encore de DTO partagé.
+      queryClient.setQueryData(profileQueryKey, (old: any) => old ? {
+        ...old,
+        relations: {
+          ...(old.relations ?? EMPTY_PROFILE_RELATIONS),
+          [type]: state,
+        },
+      } : old)
+      toast.success(message)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Erreur lors de la relation")
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: profileQueryKey })
+    },
+  })
+
+  const handleRelationAction = (type: RelationType) => {
+    if (!currentUser || !profileDughuId || isOwn || relationMutation.isPending) return
+    const state = profile?.relations?.[type] ?? "none"
+    if (state === "accepted") return
+    relationMutation.mutate({ type, state })
+  }
+
   const handleProfileUpdated = (updated: any) => {
     // Source de vérité : mise à jour du cache React Query (useAuth), plus de localStorage.
     const newUser = { ...(updated || {}) }
@@ -546,7 +590,10 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
         stats={stats}
         isOwn={isOwn}
         isFollowing={isFollowing}
+        relations={profile.relations ?? EMPTY_PROFILE_RELATIONS}
+        relationLoading={relationMutation.isPending ? relationMutation.variables?.type ?? null : null}
         onToggleFollow={handleToggleFollow}
+        onRelationAction={handleRelationAction}
         onMessage={() => {
           if (!currentUser) {
             toast.error("Connectez-vous pour envoyer un message")
