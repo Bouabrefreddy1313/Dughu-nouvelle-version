@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { dughu, dughuApi, mapPost } from "@/lib/dughu"
+import { dughu, dughuApi, mapPost, DughuApiError } from "@/lib/dughu"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 interface RepostBody {
@@ -75,6 +75,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, post }, { status: 201 })
   } catch (error) {
     console.error("REPOST ERROR:", error)
+    if (error instanceof DughuApiError) {
+      const apiMsg =
+        (error.data as any)?.message ||
+        (error.data as any)?.error ||
+        error.message ||
+        "Erreur de l'API Dughu."
+      return NextResponse.json(
+        { success: false, message: apiMsg },
+        { status: error.status || 502 }
+      )
+    }
     return NextResponse.json({ success: false, message: "Erreur interne." }, { status: 500 })
   }
 }

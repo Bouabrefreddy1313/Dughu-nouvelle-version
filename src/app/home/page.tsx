@@ -141,6 +141,7 @@ interface Post {
   akwaplay?: any | null
   isLiked?: boolean
   reacted?: string | null
+  postPrivacy?: 0 | 1 | 2 | 3
   isSaved?: boolean
   isFollowing?: boolean
   canEdit?: boolean
@@ -173,8 +174,11 @@ export default function HomePage() {
   const [pageNum, setPageNum] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [filter, setFilter] = useState<"all" | "following">("all")
-  const [flashTarget, setFlashTarget] = useState<{ userId: string; index: number } | null>(null)
+  const [flashTarget, setFlashTarget] = useState<{ userId: string; userName?: string | null; userAvatar?: string | null } | null>(null)
   const [flashCreatorOpen, setFlashCreatorOpen] = useState(false)
+  // Utilisateurs bloqués (état local de session : le libellé « Bloquer » / « Débloquer »
+  // du menu 3 points bascule selon cette liste et l'endpoint Dughu fait office de toggle).
+  const [blockedAuthors, setBlockedAuthors] = useState<Set<string>>(new Set())
   const queryClient = useQueryClient()
   const [coloredPosts, setColoredPosts] = useState<any[]>([...POST_COLORS])
   const [chatOpen, setChatOpen] = useState(false)
@@ -559,6 +563,39 @@ export default function HomePage() {
     } catch { }
   }
 
+  const handleBlock = async (authorId: string) => {
+    if (!user) { toast.error("Connectez-vous pour bloquer"); return }
+    const targetId = String(authorId)
+    const isBlocked = blockedAuthors.has(targetId)
+    try {
+      const res = await fetch("/api/block_user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authorId: targetId, userId: user?.id, dughuUserId: user?.dughu?.userId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setBlockedAuthors((prev) => {
+          const next = new Set(prev)
+          if (isBlocked) next.delete(targetId)
+          else next.add(targetId)
+          return next
+        })
+        if (isBlocked) {
+          toast.success("Utilisateur débloqué")
+        } else {
+          toast.success("Utilisateur bloqué")
+          // Retire immédiatement les publications de cet utilisateur du fil.
+          setPosts((prev) => prev.filter((p) => String(p.author?.id) !== targetId))
+        }
+      } else {
+        toast.error(data.message || "Erreur lors du blocage")
+      }
+    } catch {
+      toast.error("Erreur lors du blocage")
+    }
+  }
+
   const handleSave = async (postId: string) => {
     try {
       const res = await fetch("/api/store-save", {
@@ -604,11 +641,12 @@ export default function HomePage() {
     router.push(`/searchPosts?searchTerm=${encodeURIComponent(q)}`)
   }
 
-  const handlePostSubmit = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[] }) => {
+  const handlePostSubmit = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[]; privacy?: number }) => {
     const formData = new FormData()
     formData.append("content", data.content)
     formData.append("userId", user?.id)
     formData.append("dughuUserId", user?.dughu?.userId || "")
+    if (data.privacy != null) formData.append("privacy", String(data.privacy))
     if (data.color) {
       formData.append("color", JSON.stringify(data.color))
       if (data.color.id != null) formData.append("color_id", String(data.color.id))
@@ -635,7 +673,9 @@ export default function HomePage() {
         userId={user?.id}
         currentUser={user}
         onAddStory={() => setFlashCreatorOpen(true)}
-        onOpenFlash={(index: number, targetUserId: string) => setFlashTarget({ userId: targetUserId, index })}
+        onOpenFlash={(targetUserId: string, user?: { name?: string | null; avatar?: string | null }) =>
+          setFlashTarget({ userId: targetUserId, userName: user?.name, userAvatar: user?.avatar })
+        }
       />
       <FlashCreator
         user={user}
@@ -683,8 +723,19 @@ export default function HomePage() {
           key={flashTarget.userId}
           targetUserId={flashTarget.userId}
           userId={user?.id}
-          initialIndex={flashTarget.index}
-          onClose={() => setFlashTarget(null)}
+          userName={flashTarget.userName}
+          userAvatar={flashTarget.userAvatar}
+          onClose={() => {
+            setFlashTarget(null)
+            // À la fermeture : rafraîchir le rail pour que les statuts « vu »
+            // (logView côté Dughu) soient à jour → l'anneau orange disparaît.
+            queryClient.invalidateQueries({ queryKey: ["flash", "feed"] })
+            queryClient.invalidateQueries({ queryKey: ["flash", "user"] })
+          }}
+          onStoryDeleted={() => {
+            queryClient.invalidateQueries({ queryKey: ["flash", "feed"] })
+            queryClient.invalidateQueries({ queryKey: ["flash", "user"] })
+          }}
         />
       )}
 
@@ -712,6 +763,7 @@ export default function HomePage() {
           reactions={post.reactions}
           parentPost={post.parentPost}
           onLike={(reactionId) => handleReaction(post.id, reactionId)}
+          postPrivacy={post.postPrivacy}
           onComment={(text, files) => handleComment(post.id, text, files)}
                     onRepost={() => handleRepost(post.id)}
           onRepostWithText={(text) => handleRepostWithText(post.id, text)}
@@ -720,6 +772,8 @@ export default function HomePage() {
           canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
           onSave={() => handleSave(post.id)}
           onHide={() => handleHide(post.id)}
+          onBlock={() => handleBlock(post.author?.id)}
+          isBlocked={blockedAuthors.has(String(post.author?.id))}
           isSaved={post.isSaved}
           className="mb-4"
         />

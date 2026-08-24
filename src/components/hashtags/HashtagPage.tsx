@@ -36,6 +36,9 @@ export function HashtagPage({ tag }: HashtagPageProps) {
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const loadingMoreRef = useRef(false)
   const feedReqRef = useRef(0)
+  // Utilisateurs bloqués (état local de session : le libellé « Bloquer » / « Débloquer »
+  // du menu 3 points bascule selon cette liste et l'endpoint Dughu fait office de toggle).
+  const [blockedAuthors, setBlockedAuthors] = useState<Set<string>>(new Set())
 
   const cleanTag = tag.replace(/^#/, "").trim()
 
@@ -327,6 +330,38 @@ export function HashtagPage({ tag }: HashtagPageProps) {
     } catch { }
   }
 
+  const handleBlock = async (authorId: string) => {
+    if (!user) { toast.error("Connectez-vous pour bloquer"); return }
+    const targetId = String(authorId)
+    const isBlocked = blockedAuthors.has(targetId)
+    try {
+      const res = await fetch("/api/block_user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authorId: targetId, userId: user?.id, dughuUserId: user?.dughu?.userId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setBlockedAuthors((prev) => {
+          const next = new Set(prev)
+          if (isBlocked) next.delete(targetId)
+          else next.add(targetId)
+          return next
+        })
+        if (isBlocked) {
+          toast.success("Utilisateur débloqué")
+        } else {
+          toast.success("Utilisateur bloqué")
+          setPosts((prev) => prev.filter((p) => String(p.author?.id) !== targetId))
+        }
+      } else {
+        toast.error(data.message || "Erreur lors du blocage")
+      }
+    } catch {
+      toast.error("Erreur lors du blocage")
+    }
+  }
+
 return (
     <MainLayout user={user} onLogout={handleLogout} onSearch={handleSearch}>
       {/* En-tête du hashtag */}
@@ -389,6 +424,8 @@ return (
           canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
           onSave={() => handleSave(post.id)}
           onHide={() => handleHide(post.id)}
+          onBlock={() => handleBlock(post.author?.id)}
+          isBlocked={blockedAuthors.has(String(post.author?.id))}
           isSaved={post.isSaved}
           className="mb-4"
         />

@@ -45,11 +45,12 @@ export default function MainLayout({
   }, [mobileMenuOpen])
 
   return (
-    <div className="min-h-screen bg-[#f7f8fa] overflow-x-hidden">
+    <div className="min-h-screen bg-[#f7f8fa]">
       <Header
         user={user}
         onLogout={onLogout}
         onSearch={onSearch}
+        onMenuClick={() => setMobileMenuOpen(true)}
         chatOpen={chatOpen}
         onToggleChat={() => setChatOpen(!chatOpen)}
       />
@@ -60,21 +61,6 @@ export default function MainLayout({
           className="fixed inset-0 bg-black/40 z-40 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
-      )}
-
-      {/* Bouton menu mobile - caché quand le menu est ouvert */}
-      {!mobileMenuOpen && (
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="fixed bottom-4 left-4 z-50 lg:hidden w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#A35A2A] text-white shadow-lg flex items-center justify-center"
-          aria-label="Menu"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
       )}
 
       {/* LeftSidebar - desktop fixe, mobile repliable */}
@@ -107,28 +93,35 @@ export default function MainLayout({
       {/* ConversationSidebar : toujours accessible via le bouton messagerie du header, même sans RightSidebar */}
       <ConversationSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
 
-      {/* Contenu central (feed) */}
-      <main
-        className={cn(
-          "pt-[80px] sm:pt-[88px] pb-16 lg:pb-12 flex justify-center transition-[margin] duration-300 ease-in-out w-full",
-          "lg:ml-[-200px] xl:ml-[-100px]",
-          noRightSidebar
-            ? chatOpen
-              ? "xl:mr-[400px]"
-              : ""
-            : chatOpen
-              ? "xl:mr-[600px]"
-              : "xl:mr-[460px]"
+      {/* Zone de contenu sous le header (réservations d'espace pour les sidebars fixes) */}
+      <div className="flex w-full pt-[80px] sm:pt-[88px]">
+        {/* Réservation espace de la sidebar gauche (fixe en lg+) */}
+        <div className="hidden lg:block lg:w-[270px] lg:shrink-0" aria-hidden="true" />
+
+        {/* Contenu central (timeline) */}
+        <main className="min-w-0 flex-1 px-2 pb-16 sm:px-4 lg:px-6 lg:pb-12">
+          <div
+            className={cn(
+              "mx-auto w-full",
+              wide ? "max-w-[1100px]" : "max-w-[800px]",
+              "space-y-3 sm:space-y-4"
+            )}
+          >
+            {children}
+          </div>
+        </main>
+
+        {/* Réservation espace de la sidebar droite (fixe en xl+) */}
+        {!noRightSidebar && (
+          <div
+            className={cn(
+              "hidden xl:block xl:shrink-0",
+              chatOpen ? "xl:w-[540px]" : "xl:w-[240px]"
+            )}
+            aria-hidden="true"
+          />
         )}
-      >
-        <div className={cn(
-          wide
-            ? "w-full max-w-[1100px] space-y-4 px-2 sm:px-4 lg:px-6"
-            : "w-full max-w-[800px] sm:max-w-[800px] space-y-3 sm:space-y-4 px-2 sm:px-4 lg:px-6"
-        )}>
-          {children}
-        </div>
-      </main>
+      </div>
     </div>
   )
 }
