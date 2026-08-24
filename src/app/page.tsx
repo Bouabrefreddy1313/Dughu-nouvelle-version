@@ -7,5 +7,5 @@ export default async function HomePage() {
     || !!cookieStore.get("dughu_user_id")?.value
 
   // Si déjà connecté (session Dughu persistante), aller directement sur le fil
-  redirect(hasSession ? "/home" : "/register")
+  redirect(hasSession ? "/home" : "/login")
 }

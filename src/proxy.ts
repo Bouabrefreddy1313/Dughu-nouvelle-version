@@ -12,7 +12,7 @@ export function proxy(request: NextRequest) {
 
   // Rediriger vers login si pas de session sur une route protégée
   if (!dughuToken && !dughuUserId && !isPublic && path !== "/") {
-    return NextResponse.redirect(new URL("/register", request.url))
+    return NextResponse.redirect(new URL("/login", request.url))
   }
 
   // Si déjà connecté via Dughu, aller directement sur /home (sauf si non onbording)
