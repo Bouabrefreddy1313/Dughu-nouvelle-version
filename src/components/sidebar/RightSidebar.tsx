@@ -116,7 +116,8 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [suggestedGroups, setSuggestedGroups] = useState<any[]>([])
   const [suggestedPages, setSuggestedPages] = useState<any[]>([])
-  const [pointsToday, setPointsToday] = useState(0)
+  // Total de points de l'utilisateur (endpoint /pointsToday/{id} → `total`).
+  const [totalPoints, setTotalPoints] = useState(0)
 
   // Charger les posts boostés, les activités et les points du jour
   useEffect(() => {
@@ -164,11 +165,13 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
             setTrends(data.hashtags.slice(0, 6).map((t: any) => ({ tag: t.tag, count: t.postCount || 0 })))
           }
         }
-        // Charger les points du jour
-        const pointsRes = await fetch(`/api/pointsToday/${userId}`)
-        const pointsData = await pointsRes.json()
-        if (!cancelled) {
-          setPointsToday(pointsData.points ?? 0)
+        // Charger les points totaux de l'utilisateur
+        if (userId) {
+          const pointsRes = await fetch(`/api/pointsToday/${userId}`)
+          const pointsData = await pointsRes.json()
+          if (!cancelled) {
+            setTotalPoints(pointsData.total ?? 0)
+          }
         }
       } catch {
         /* silent */
@@ -200,10 +203,10 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
   return (
     <aside className={cn(
       "hidden xl:flex flex-col fixed top-[72px] lg:top-[88px] bottom-0 w-[240px] overflow-y-auto scrollbar-hide space-y-5 pb-10 pl-2 pr-3 z-30 transition-[right] duration-300 ease-in-out",
-      chatOpen ? "right-[400px]" : "right-[340px]"
+      chatOpen ? "right-[300px]" : "right-0"
     )}>
       {/* Mini profil */}
-      <MiniProfileCard user={user} />
+      <MiniProfileCard user={user} points={totalPoints} />
 
     
 

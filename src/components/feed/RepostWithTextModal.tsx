@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react"
 import { Send, X, Repeat2 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { resolvePostColorCss } from "@/lib/constants"
 import Avatar from "@/components/common/Avatar"
 import { HashtagText } from "@/components/common/HashtagText"
 
@@ -37,27 +38,9 @@ function ParentPostCardPreview({
   parentPost: NonNullable<RepostWithTextModalProps["parentPost"]>
 }) {
   const content = parentPost.content
-  let bgColor: string | null = null
-  let textColor = "#050505"
-
-  if (parentPost.color) {
-    try {
-      const parsed =
-        typeof parentPost.color === "string"
-          ? JSON.parse(parentPost.color)
-          : parentPost.color
-      if (parsed && typeof parsed === "object") {
-        bgColor = parsed.bg || parsed.background || null
-        textColor = parsed.text || parsed.textColor || "#FFFFFF"
-      } else {
-        bgColor = parsed
-        textColor = "#FFFFFF"
-      }
-    } catch {
-      bgColor = parentPost.color
-      textColor = "#FFFFFF"
-    }
-  }
+  const resolved = resolvePostColorCss(parentPost.color)
+  const bgColor = resolved?.bg ?? null
+  const textColor = resolved?.text ?? "#050505"
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-gray-100 bg-[#F7F8FA]">

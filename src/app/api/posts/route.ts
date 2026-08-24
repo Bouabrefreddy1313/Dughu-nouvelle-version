@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { dughu, dughuApi, mapPosts, mapAlbums, getPageInfo, mapPost } from "@/lib/dughu"
+import { dughu, dughuApi, mapPosts, mapAlbums, getPageInfo, mapPost, DughuApiError } from "@/lib/dughu"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 const POSTS_PER_PAGE = 10
@@ -244,27 +244,27 @@ export async function POST(req: NextRequest) {
     const dForm = new FormData()
     dForm.append("user_id", String(dughuUserId))
 
-    // Confidentialité du post :
-    //  - "0" : Public (tout le monde peut voir)
-    //  - "1" : Amis (seuls les amis peuvent voir)
-    // L'API Dughu attend ce champ sous le nom `postPrivacy`.
-    // On normalise toujours en chaîne ("0" ou "1") pour correspondre au contrat
-    // de l'endpoint, qu'on reçoive un nombre, une chaîne, ou rien (défaut: public).
+    // Confidentialité du post : l'app utilise une base 0 (règle métier Dughu) :
+    //   0 = Public, 1 = Followers/Abonnés, 2 = Réseau, 3 = Amis stricts.
+    // On accepte la valeur telle quelle si elle est dans [0-3], sinon défaut 0.
     const rawPrivacy =
       formData?.get("privacy") ??
       formData?.get("postPrivacy") ??
       jsonBody?.privacy ??
       jsonBody?.postPrivacy
 
-    const normalizedPrivacy =
-      typeof rawPrivacy === "string"
-        ? rawPrivacy.trim()
-        : typeof rawPrivacy === "number"
-          ? String(rawPrivacy)
-          : rawPrivacy
-
-    const postPrivacy = normalizedPrivacy === "1" ? "1" : "0"
-    dForm.append("postPrivacy", postPrivacy)
+    let privacyInt = 0
+    if (rawPrivacy !== null && rawPrivacy !== undefined && rawPrivacy !== "") {
+      const asNum = Number(rawPrivacy)
+      if (Number.isFinite(asNum) && asNum >= 0 && asNum <= 3) {
+        privacyInt = asNum
+      }
+    }
+    // L'API Dughu (POST /post) attend postPrivacy en base 1 :
+    //   1 = Public, 2 = Abonnés, 3 = Réseau, 4 = Amis.
+    // L'app utilise une base 0 (0=Public, 1=Abonnés, 2=Réseau, 3=Amis).
+    // On envoie donc privacyInt + 1.
+    dForm.append("postPrivacy", String(privacyInt + 1))
 
     if (formData) {
       const content = (formData.get("content") as string) || ""
@@ -304,8 +304,6 @@ export async function POST(req: NextRequest) {
       if (parentId) dForm.append("parent_id", parentId)
     }
 
-    // La création de posts (texte coloré compris) passe par l'endpoint POST /post.
-    // L'endpoint GET /colored_posts ne sert pas à la création (voir dughuApi.getColoredPosts).
     const raw = await dughuApi.createPost(dForm)
     if (!raw?.success) {
       return NextResponse.json({ success: false, message: raw?.message || "Erreur de publication (API Dughu)." }, { status: 502 })
@@ -315,6 +313,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, post }, { status: 201 })
   } catch (error) {
     console.error("CREATE POST ERROR:", error)
+    if (error instanceof DughuApiError) {
+      const apiMsg =
+        (error.data as any)?.message ||
+        (error.data as any)?.error ||
+        error.message ||
+        "Erreur de l'API Dughu."
+      return NextResponse.json(
+        { success: false, message: apiMsg },
+        { status: error.status || 502 }
+      )
+    }
     return NextResponse.json({ success: false, message: "Erreur interne." }, { status: 500 })
   }
 }

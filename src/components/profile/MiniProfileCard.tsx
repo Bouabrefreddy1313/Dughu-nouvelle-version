@@ -6,10 +6,13 @@ import { resolveMediaUrl } from "@/lib/dughu"
 
 interface MiniProfileCardProps {
   user?: any
+  /** Solde total de points (endpoint /pointsToday/{id} → `total`). Prioritaire sur user.points. */
+  points?: number
 }
 
-export default function MiniProfileCard({ user }: MiniProfileCardProps) {
+export default function MiniProfileCard({ user, points }: MiniProfileCardProps) {
   const router = useRouter()
+  const totalPoints = points ?? user?.points ?? 0
   return (
     <div
       onClick={() => router.push(`/profile/${user?.username || user?.id || ""}`)}
@@ -18,7 +21,7 @@ export default function MiniProfileCard({ user }: MiniProfileCardProps) {
       {/* Badge points */}
       <div className="bg-[#B87333] text-white text-center py-1.5 rounded-t-[20px]">
         <p className="font-bold text-sm tracking-wide">
-          {user?.points ?? 0} Points
+          {totalPoints.toLocaleString("fr-FR")} Points
         </p>
       </div>
 

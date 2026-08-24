@@ -222,6 +222,16 @@ export const dughuApi = {
 
   toggleLikeStory: (formData: FormData) => dughu.multipart("toggleLikeStory", formData),
 
+  // Log une vue sur une story (POST form-data : user_id + story_id)
+  logStoryView: (formData: FormData) => dughu.multipart("logView", formData),
+
+  // Récupère les vues d'une story (GET /logView?story_id=…&user_id=…)
+  getStoryViewers: (storyId: string | number, userId?: string | number) =>
+    dughu.get("logView", {
+      story_id: String(storyId),
+      user_id: userId ? String(userId) : undefined,
+    }),
+
   getUser: (identifier: string | number, viewer: string | number) =>
     dughu.get(`getSpecificUser/${encodeURIComponent(String(identifier))}/${encodeURIComponent(String(viewer))}`),
 
@@ -352,6 +362,26 @@ export const dughuApi = {
 
   listBlockUser: (authUserId: string | number) =>
     dughu.form("list_block_user", { auth_user_id: String(authUserId) }),
+
+  // ── Points ──
+  // Offre des points à l'auteur d'une publication.
+  // Contrat : POST /points/give { user_id, user_offer_id, points, post_id }
+  givePoints: (params: {
+    user_id: string | number
+    user_offer_id: string | number
+    points: string | number
+    post_id: string | number
+  }) =>
+    dughu.form("points/give", {
+      user_id: String(params.user_id),
+      user_offer_id: String(params.user_offer_id),
+      points: String(params.points),
+      post_id: String(params.post_id),
+    }),
+
+  // Points totaux d'un utilisateur (GET /pointsToday/{userId} → { total, converted, … }).
+  getPointsToday: (userId: string | number) =>
+    dughu.get(`pointsToday/${encodeURIComponent(String(userId))}`),
 
   getUsersWithBadges: () => dughu.get("usersWithBadges"),
 
@@ -1031,18 +1061,31 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     page: pageAuthor
       ? { id: pageAuthor.id, name: pageAuthor.name, username: pageAuthor.username, avatar: pageAuthor.avatar }
       : null,
-    color: pick(p, "color", "background_color") || null,
+    color: (() => {
+      const direct = pick(p, "color", "background_color", "bg_color", "color_id")
+      if (direct) return direct
+      // Certaines versions de l'API renvoient les composantes à plat
+      const c1 = pick(p, "color_1", "color1")
+      const c2 = pick(p, "color_2", "color2")
+      const tc = pick(p, "text_color", "textColor")
+      if (c1 || c2) {
+        return { color_1: c1 || "", color_2: c2 || "", text_color: tc || "#ffffff" }
+      }
+      return null
+    })(),
     reacted: isLiked ? (myReaction || "like") : (myReaction || null),
     isLiked,
     isFollowing: !!author.isFollowing,
     parentPost,
     reactions: extractReactionSummary(p),
-    // Confidentialité renvoyée par l'API Dughu :
-    //  "1" = Amis, "0"/autre = Public. Normalisé en 0 | 1 pour le frontend.
-    postPrivacy: pick(p, "postPrivacy", "post_privacy", "privacy") === 1 ||
-      pick(p, "postPrivacy", "post_privacy", "privacy") === "1"
-      ? 1
-      : 0,
+    // Confidentialité renvoyée par l'API Dughu (entier 0-3) :
+    //   0 = Public, 1 = Followers/Abonnés, 2 = Réseau, 3 = Amis stricts
+    postPrivacy: (() => {
+      const v = pick(p, "postPrivacy", "post_privacy", "privacy")
+      if (v === null || v === undefined || v === "") return 0
+      const n = Number(v)
+      return Number.isFinite(n) && n >= 0 && n <= 3 ? n : 0
+    })(),
     _count: {
       comments,
       likes,

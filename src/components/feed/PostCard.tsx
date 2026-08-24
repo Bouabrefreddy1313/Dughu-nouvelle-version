@@ -23,11 +23,12 @@ import {
   Flag,
   ChevronDown,
   Bookmark,
+  Ban,
+  Gift,
+  Link2,
   EyeOff,
   Smile,
   MessageCircle,
-  Globe,
-  Users,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -35,9 +36,10 @@ import Avatar from "@/components/common/Avatar"
 import FollowButton from "@/components/common/FollowButton"
 import { CommentBody } from "@/components/feed/CommentBody"
 import { toast } from "sonner"
-import { REACTIONS, REACTION_ID_TO_TYPE, REACTION_TYPE_TO_ID } from "@/lib/constants"
+import { REACTIONS, REACTION_ID_TO_TYPE, REACTION_TYPE_TO_ID, POST_PRIVACY_OPTIONS, resolvePostColorCss } from "@/lib/constants"
 import { RepostWithTextModal } from "@/components/feed/RepostWithTextModal"
 import { SharePostModal } from "@/components/feed/SharePostModal"
+import { GivePointsModal } from "@/components/feed/GivePointsModal"
 import { HashtagText } from "@/components/common/HashtagText"
 
 interface Author {
@@ -87,9 +89,8 @@ interface PostCardProps {
     id: string
     name: string | null
     avatar: string | null
-    dughu?: {
-      userId?: string | number | null
-    } | null
+    /** Identité Dughu de l'utilisateur connecté (modération, points, etc.). */
+    dughu?: { userId?: string | number }
   }
   timeAgo?: string
   content?: string
@@ -109,9 +110,11 @@ interface PostCardProps {
   /**
    * Confidentialité du post :
    *  - 0 : Public (tout le monde peut voir)
-   *  - 1 : Amis (seuls les amis peuvent voir)
+   *  - 1 : Abonnés (amis acceptés et abonnés)
+   *  - 2 : Réseau (réseau uniquement)
+   *  - 3 : Amis (amis acceptés uniquement)
    */
-  postPrivacy?: 0 | 1
+  postPrivacy?: 0 | 1 | 2 | 3
   /** Post d'origine embarqué lors d'une republication (repost) */
   parentPost?: {
     id: string
@@ -140,13 +143,14 @@ interface PostCardProps {
   onRepostWithText?: (text: string) => void
   onShare?: () => void
   onMenuClick?: () => void
-  isFollowing?: boolean
-  isFollowLoading?: boolean
-  onToggleFollow?: () => void
-  /** Actions du menu « 3 points » : supprimer / sauvegarder / cacher */
+  /** Actions du menu « 3 points » : supprimer / sauvegarder / cacher / bloquer */
   onDelete?: () => void
   onSave?: () => void
   onHide?: () => void
+  /** Bloquer (ou débloquer si isBlocked) l'auteur du post via /api/block_user. */
+  onBlock?: () => void
+  /** L'auteur est déjà bloqué : le libellé devient « Débloquer ». */
+  isBlocked?: boolean
   isSaved?: boolean
   /** Autorise l'affichage de l'action « Supprimer » (réservé à l'auteur du post). */
   canDelete?: boolean
@@ -333,28 +337,16 @@ function LikesSummary({
 
 /**
  * Petit badge de confidentialité affiché à côté du temps écoulé du post.
- * 0 = Public (globe), 1 = Amis (utilisateurs).
+ * Chaque niveau possède sa propre icône (définie dans POST_PRIVACY_OPTIONS) :
+ * 0 = Public (globe), 1 = Abonnés (rss), 2 = Réseau (network), 3 = Amis (usercheck).
  */
-function PrivacyBadge({ postPrivacy }: { postPrivacy?: 0 | 1 }) {
-  if (postPrivacy === 1) {
-    return (
-      <span
-        className="inline-flex items-center gap-1 text-[#65676B]"
-        title="Visible par vos amis uniquement"
-      >
-        <Users size={12} />
-        
-      </span>
-    )
-  }
-
+function PrivacyBadge({ postPrivacy }: { postPrivacy?: 0 | 1 | 2 | 3 }) {
+  const option =
+    POST_PRIVACY_OPTIONS.find((p) => p.id === postPrivacy) ?? POST_PRIVACY_OPTIONS[0]
+  const Icon = option.icon
   return (
-    <span
-      className="inline-flex items-center gap-1 text-[#65676B]"
-      title="Visible par tout le monde"
-    >
-      <Globe size={12} />
-      
+    <span className="inline-flex items-center gap-1 text-[#65676B]" title={option.title}>
+      <Icon size={12} />
     </span>
   )
 }
@@ -370,25 +362,9 @@ function ParentPostCard({
   parentPost: NonNullable<React.ComponentProps<typeof PostCard>["parentPost"]>
 }) {
   const content = parentPost.content
-  let bgColor: string | null = null
-  let textColor = "#050505"
-
-  if (parentPost.color) {
-    try {
-      const parsed =
-        typeof parentPost.color === "string" ? JSON.parse(parentPost.color) : parentPost.color
-      if (parsed && typeof parsed === "object") {
-        bgColor = parsed.bg || parsed.background || null
-        textColor = parsed.text || parsed.textColor || "#FFFFFF"
-      } else {
-        bgColor = parsed
-        textColor = "#FFFFFF"
-      }
-    } catch {
-      bgColor = parentPost.color
-      textColor = "#FFFFFF"
-    }
-  }
+  const resolved = resolvePostColorCss(parentPost.color)
+  const bgColor = resolved?.bg ?? null
+  const textColor = resolved?.text ?? "#050505"
 
   return (
     <div className="mx-3 sm:mx-4 mt-1 rounded-2xl border border-gray-100 bg-[#F7F8FA] overflow-hidden">
@@ -769,34 +745,8 @@ function ModalPostPreview({
   video?: string
   color?: string | null
 }) {
-  let postColor: {
-    background?: string
-    text?: string
-  } | null = null
-
-  if (color) {
-    try {
-      const parsed =
-        typeof color === "string" ? JSON.parse(color) : color
-
-      if (parsed && typeof parsed === "object") {
-        postColor = {
-          background: parsed.bg || parsed.background,
-          text: parsed.text || parsed.textColor || "#FFFFFF",
-        }
-      } else if (typeof parsed === "string") {
-        postColor = {
-          background: parsed,
-          text: "#FFFFFF",
-        }
-      }
-    } catch {
-      postColor = {
-        background: color,
-        text: "#FFFFFF",
-      }
-    }
-  }
+  const resolved = resolvePostColorCss(color)
+  const postColor = resolved ? { background: resolved.bg, text: resolved.text } : null
 
   return (
     <div className="mb-5 rounded-2xl border border-gray-100 bg-white">
@@ -921,6 +871,8 @@ export function PostCard({
   onDelete,
   onSave,
   onHide,
+  onBlock,
+  isBlocked,
   isSaved,
   canDelete,
   className,
@@ -958,6 +910,8 @@ export function PostCard({
   const [repostModalOpen, setRepostModalOpen] = useState(false)
   // Modal de partage du post vers les réseaux sociaux
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  // Modal « Donner des points » (menu 3 points → gift)
+  const [givePointsOpen, setGivePointsOpen] = useState(false)
 
   const postMenuRef = useRef<HTMLDivElement | null>(null)
   const emojiPickerRef = useRef<HTMLDivElement | null>(null)
@@ -1054,6 +1008,52 @@ export function PostCard({
   }
 
     const currentUserAvatar = currentUser?.avatar || author.avatar
+  // Le post appartient à l'utilisateur connecté : on masque les actions de
+  // modération (bloquer / donner des points) qui n'ont pas de sens sur son propre contenu.
+  const ownPost =
+    !!currentUser?.id &&
+    String(author.id) === String(currentUser.dughu?.userId || "")
+  const canBlock = !!onBlock && !ownPost
+  const canGivePoints = !!currentUser?.id && !!postId && !ownPost
+  // « Copier le lien » est disponible dès qu'on a un identifiant de post.
+  const canCopyLink = !!postId
+
+  // Copie le lien du post dans le presse-papiers (shareUrl de l'API, sinon lien
+  // construit sur le post courant via /home?post=…).
+  const handleCopyLink = async () => {
+    const url =
+      shareUrl ||
+      (typeof window !== "undefined"
+        ? `${window.location.origin}/home?post=${encodeURIComponent(postId || "")}`
+        : "")
+    if (!url) {
+      toast.error("Impossible de générer le lien de la publication.")
+      setPostMenuOpen(false)
+      return
+    }
+    let ok = false
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url)
+        ok = true
+      } else {
+        const el = document.createElement("textarea")
+        el.value = url
+        el.style.position = "fixed"
+        el.style.opacity = "0"
+        document.body.appendChild(el)
+        el.select()
+        document.execCommand("copy")
+        document.body.removeChild(el)
+        ok = true
+      }
+    } catch {
+      ok = false
+    }
+    if (ok) toast.success("Lien copié !")
+    else toast.error("Impossible de copier le lien")
+    setPostMenuOpen(false)
+  }
   // Preview du post republié dans le composer : si le post est lui-même un
   // repost, on réutilise l'original embarqué ; sinon on utilise le post courant.
   const repostPreviewParent = parentPost ?? {
@@ -1927,27 +1927,31 @@ export function PostCard({
   } | null = null
 
   if (color) {
-    try {
-      const parsed =
-        typeof color === "string" ? JSON.parse(color) : color
-
-      if (parsed && typeof parsed === "object") {
-        postColor = {
-          background: parsed.bg || parsed.background,
-          text: parsed.text || parsed.textColor || "#FFFFFF",
-          isImage: parsed.isImage || false,
-          overlayColor: parsed.color_1 || undefined,
-        }
-      } else if (typeof parsed === "string") {
-        postColor = {
-          background: parsed,
-          text: "#FFFFFF",
-        }
-      }
-    } catch {
+    // Résolution commune des IDs numériques, hex, dégradés et JSON.
+    const resolved = resolvePostColorCss(color)
+    if (resolved) {
       postColor = {
-        background: color,
-        text: "#FFFFFF",
+        background: resolved.bg,
+        text: resolved.text,
+      }
+    }
+
+    // Préserve le support des fonds "image" (isImage / overlayColor)
+    // lorsque `color` est un JSON enrichi.
+    if (typeof color === "string") {
+      try {
+        const parsed = JSON.parse(color)
+        if (parsed && typeof parsed === "object" && parsed.isImage) {
+          postColor = {
+            ...(postColor || {}),
+            background: parsed.bg || parsed.background || postColor?.background,
+            text: parsed.text || parsed.textColor || postColor?.text || "#FFFFFF",
+            isImage: true,
+            overlayColor: parsed.color_1 || parsed.overlayColor || undefined,
+          }
+        }
+      } catch {
+        // pas du JSON : ignoré, la résolution commune a déjà fait le travail
       }
     }
   }
@@ -1999,7 +2003,7 @@ export function PostCard({
           <button
             type="button"
             onClick={() => {
-              if (!onDelete && !onSave && !onHide) {
+              if (!onDelete && !onSave && !onHide && !canBlock && !canGivePoints && !canCopyLink) {
                 onMenuClick?.()
                 return
               }
@@ -2064,6 +2068,57 @@ export function PostCard({
                     <EyeOff size={16} className="text-[#65676B]" />
                   </span>
                   <span className="text-[13px] font-medium text-[#050505]">Cacher</span>
+                </button>
+              )}
+              {canBlock && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPostMenuOpen(false)
+                    onBlock?.()
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                >
+                  <span className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                    <Ban size={16} className="text-[#E4405F]" />
+                  </span>
+                  <span className="text-[13px] font-medium text-[#050505]">
+                    {isBlocked ? "Débloquer" : "Bloquer"}
+                  </span>
+                </button>
+              )}
+              {canGivePoints && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPostMenuOpen(false)
+                    setGivePointsOpen(true)
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                >
+                  <span className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                    <Gift size={16} className="text-[#A35A2A]" />
+                  </span>
+                  <span className="text-[13px] font-medium text-[#050505]">
+                    Donner des points
+                  </span>
+                </button>
+              )}
+              {canCopyLink && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPostMenuOpen(false)
+                    void handleCopyLink()
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                >
+                  <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                    <Link2 size={16} className="text-[#65676B]" />
+                  </span>
+                  <span className="text-[13px] font-medium text-[#050505]">
+                    Copier le lien
+                  </span>
                 </button>
               )}
             </div>
@@ -2374,6 +2429,17 @@ export function PostCard({
             setRepostModalOpen(false)
           }}
           parentPost={repostPreviewParent}
+        />
+      )}
+
+      {givePointsOpen && (
+        <GivePointsModal
+          isOpen={givePointsOpen}
+          setIsOpen={setGivePointsOpen}
+          onClose={() => setGivePointsOpen(false)}
+          postId={postId}
+          author={author}
+          currentUser={currentUser}
         />
       )}
 

@@ -14,44 +14,20 @@ import { ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react"
 import { FlashAddCard, FlashStoryCard, type FlashCardUser } from "@/components/flash/FlashStoryCard"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useFlashFeed, type FlashUserStory } from "@/hooks/queries/use-flash"
-
-// Mapping ID couleur Dughu → code CSS (hexadécimal ou dégradé).
-// Le backend renvoie l'ID numérique (17, 18, 19, …) dans bg_color.
-const COLOR_ID_TO_CSS: Record<string, string> = {
-  "17": "linear-gradient(135deg, #98b262, #66a399)",
-  "18": "#000000",
-  "19": "linear-gradient(135deg, #ffb0ff, #8080c0)",
-  "24": "linear-gradient(135deg, #0000ff, #00ff00)",
-  "25": "linear-gradient(135deg, #4e26ff, #ff0000)",
-  "27": "linear-gradient(135deg, #ff0fff, #8080c0)",
-  "30": "linear-gradient(135deg, #ffff00, #8080c0)",
-  "31": "linear-gradient(135deg, #e8670c, #ffffff)",
-  "32": "linear-gradient(135deg, #ff3dff, #ffffff)",
-  "33": "linear-gradient(135deg, #91ff3d, #ff00ff)",
-  "34": "linear-gradient(135deg, #ccb38d, #ffffff)",
-}
+import { resolvePostColorCss } from "@/lib/constants"
 
 // Résout la couleur de fond d'une story : accepte un ID numérique Dughu
 // ("18"), un code hexadécimal ("#000000") ou un dégradé CSS déjà prêt.
 function resolveStoryBg(raw: string | null | undefined): string {
   if (!raw) return ""
-  const v = String(raw).trim()
-  // ID numérique Dughu → mapping
-  if (/^\d+$/.test(v)) {
-    return COLOR_ID_TO_CSS[v] || "#000000"
-  }
-  // Déjà un code hexadécimal ou un dégradé CSS
-  if (v.startsWith("#") || v.startsWith("linear-gradient") || v.startsWith("radial-gradient")) {
-    return v
-  }
-  return v
+  return resolvePostColorCss(raw)?.bg ?? String(raw).trim()
 }
 
 interface FlashFeedProps {
   userId?: string
   currentUser?: FlashCardUser
   onAddStory?: () => void
-  onOpenFlash?: (userIndex: number, targetUserId: string) => void
+  onOpenFlash?: (targetUserId: string, user?: { name?: string | null; avatar?: string | null }) => void
 }
 
 export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash }: FlashFeedProps) {
@@ -81,13 +57,15 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
   // Dernier Flash publié par moi (les stories sont triées, la plus récente en premier).
   const selfStory = selfEntry?.stories?.[0]
 
-  // Statut visuel final : priorité au statut API, sinon état local.
+  // Statut visuel final : l'état local (j'ai ouvert ce Flash) prime, sinon le
+  // statut API. Sans cela, l'anneau orange resterait affiché tant que l'API
+  // n'a pas rafraîchi son propre statut `seen`.
   const isViewed = (u: FlashUserStory) =>
-    u.allViewed === true || (u.allViewed === null && locallyViewed.has(u.userId))
+    locallyViewed.has(u.userId) || u.allViewed === true
 
-  const handleOpen = (index: number, u: FlashUserStory) => {
+  const handleOpen = (u: FlashUserStory) => {
     if (u.allViewed === null || u.allViewed === false) markLocalViewed(u.userId)
-    onOpenFlash?.(index, u.userId)
+    onOpenFlash?.(u.userId, u.user || undefined)
   }
 
   const scroll = (dir: 1 | -1) => {
@@ -108,13 +86,15 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
           <FlashStoryCard
             key={`self-${selfEntry.userId}`}
             image={selfStory.image}
+            video={selfStory.video}
+            thumbnail={selfStory.thumbnail}
             bg={selfStory.bg ? resolveStoryBg(selfStory.bg) : undefined}
             text={selfStory.text}
             avatar={currentUser?.avatar || selfEntry.user?.avatar}
             name={currentUser?.name || selfEntry.user?.name}
             viewed={isViewed(selfEntry)}
             ariaLabel="Voir mes Flash"
-            onClick={() => onOpenFlash?.(0, selfEntry.userId)}
+            onClick={() => onOpenFlash?.(selfEntry.userId, { name: currentUser?.name || selfEntry.user?.name, avatar: currentUser?.avatar || selfEntry.user?.avatar })}
           />
         )}
 
@@ -155,17 +135,19 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
         )}
 
         {/* Cartes des amis ayant une story active */}
-        {!isLoading && !isError && friendUsers.map((u, i) => (
+        {!isLoading && !isError && friendUsers.map((u) => (
           <FlashStoryCard
             key={u.userId}
             image={u.stories[0]?.image}
+            video={u.stories[0]?.video}
+            thumbnail={u.stories[0]?.thumbnail}
             bg={u.stories[0]?.bg ? resolveStoryBg(u.stories[0]?.bg) : undefined}
             text={u.stories[0]?.text}
             avatar={u.user?.avatar}
             name={u.user?.name}
             viewed={isViewed(u)}
             ariaLabel={`Ouvrir les Flash de ${u.user?.name || "Utilisateur"}`}
-            onClick={() => handleOpen(i, u)}
+            onClick={() => handleOpen(u)}
           />
         ))}
       </div>
