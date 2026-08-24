@@ -49,11 +49,35 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 * Création
 * Modification
 * Suppression
+* Confidentialité des publications (niveaux : Public, Abonnés, Réseau, Amis)
+  * Chaque niveau possède une icône distincte sur le badge du post et dans le
+    sélecteur du compositeur : Public = globe, Abonnés = abonnement (RSS),
+    Réseau = réseau (nœuds), Amis = amis validés (utilisateur + coche).
 * Likes
 * Commentaires
 * Republications
 * Médias
 * Partage
+
+#### Mini-profil (sidebar droite)
+
+* La carte « mini-profil » de la sidebar droite affiche le solde **total** de points de
+  l'utilisateur connecté, chargé via `GET /pointsToday/{userId}` (API Dughu) à travers
+  la route interne `/api/pointsToday/[userId]` (champ `total` de la réponse).
+
+#### Menu d'action « 3 points » d'une publication
+
+* Sauvegarder un post (endpoint `store-save`) : enregistre/retire le post des favoris.
+* Bloquer l'auteur d'un post (endpoint `block_user`) : bloque (ou débloque) l'auteur ;
+  les publications de l'utilisateur bloqué sont retirées du fil. Le libellé du menu
+  bascule entre « Bloquer » et « Débloquer » selon l'état local de la session.
+* Donner des points à l'auteur d'un post (endpoint `points/give`) : une modale permet
+  de saisir le nombre de points à offrir. `user_id` = l'auteur du post,
+  `user_offer_id` = l'utilisateur connecté, `points` = montant saisi, `post_id` = la publication.
+* Copier le lien du post (copie locale, presse-papiers) : utilise le lien de partage
+  canonique fourni par l'API (`shareUrl`) ou construit `/home?post={id}` en secours.
+* Ces actions ne s'affichent pas sur ses propres publications (garde côté affichage,
+  la vérification d'autorisation reste côté serveur).
 
 ### Stories
 

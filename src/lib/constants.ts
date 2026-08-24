@@ -2,6 +2,56 @@
 // CONSTANTES PARTAGEES — DUGHU
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import { Globe, Network, Rss, UserCheck } from "lucide-react"
+
+// ── Confidentialité des publications ──────────────────────────────────────────
+
+export interface PostPrivacyOption {
+  id: 0 | 1 | 2 | 3
+  label: string
+  hint: string
+  /** Infobulle affichée sur le badge d'un post. */
+  title: string
+  icon: typeof Globe
+}
+
+/**
+ * Les 4 niveaux de confidentialité Dughu avec une icône DISTINCTE par niveau
+ * (Globe = Public, Rss = Abonnés, Network = Réseau, UserCheck = Amis).
+ * Utilisé par le sélecteur du composer ET le badge des publications pour
+ * éviter que Abonnés / Réseau / Amis partagent la même icône « groupe ».
+ */
+export const POST_PRIVACY_OPTIONS: PostPrivacyOption[] = [
+  {
+    id: 0,
+    label: "Public",
+    hint: "Tout le monde peut voir",
+    title: "Visible par tout le monde",
+    icon: Globe,
+  },
+  {
+    id: 1,
+    label: "Abonnés",
+    hint: "Amis acceptés et abonnés",
+    title: "Visible par vos abonnés",
+    icon: Rss,
+  },
+  {
+    id: 2,
+    label: "Réseau",
+    hint: "Réseau uniquement",
+    title: "Visible par votre réseau",
+    icon: Network,
+  },
+  {
+    id: 3,
+    label: "Amis",
+    hint: "Amis acceptés uniquement",
+    title: "Visible par vos amis uniquement",
+    icon: UserCheck,
+  },
+] as const
+
 // ── Reactions ─────────────────────────────────────────────────────────────────
 
 /** Mapping ID de reaction → type API (utilise pour les appels API) */
@@ -50,3 +100,114 @@ export const POST_COLORS = [
   { bg: "linear-gradient(45deg, #43e97b 0%, #38f9d7 100%)", text: "#333" },
   { bg: "linear-gradient(45deg, #fa709a 0%, #fee140 100%)", text: "#fff" },
 ] as const
+
+// ── Mapping ID couleur Dughu → code CSS (source: /colored_posts) ──────────────
+// Les IDs correspondent aux couleurs créées dans l'API Dughu.
+// Référence unique : à utiliser dans tout le projet (posts, stories, flash).
+export const COLOR_ID_TO_CSS: Record<string, { bg: string; text: string }> = {
+  "17": { bg: "linear-gradient(135deg, #98b262, #66a399)", text: "#000000" },
+  "18": { bg: "#000000", text: "#ffffff" },
+  "19": { bg: "linear-gradient(135deg, #ffb0ff, #8080c0)", text: "#000000" },
+  "24": { bg: "linear-gradient(135deg, #0000ff, #00ff00)", text: "#ffffff" },
+  "25": { bg: "linear-gradient(135deg, #4e26ff, #ff0000)", text: "#000000" },
+  "27": { bg: "linear-gradient(135deg, #ff0fff, #8080c0)", text: "#000000" },
+  "30": { bg: "linear-gradient(135deg, #ffff00, #8080c0)", text: "#000000" },
+  "31": { bg: "linear-gradient(135deg, #e8670c, #ffffff)", text: "#000000" },
+  "32": { bg: "linear-gradient(135deg, #ff3dff, #ffffff)", text: "#000000" },
+  "33": { bg: "linear-gradient(135deg, #91ff3d, #ff00ff)", text: "#000000" },
+  "38": { bg: "linear-gradient(135deg, #ccb38d, #cfb391)", text: "#695366" },
+  "34": { bg: "linear-gradient(135deg, #ccb38d, #ffffff)", text: "#000000" },
+}
+
+/**
+ * Résout une valeur brute de couleur de post en son équivalent CSS.
+ * Accepte tous les formats rencontrés :
+ *  - Objet Dughu { color_1, color_2, text_color } → dégradé ou uni + couleur texte
+ *  - ID numérique Dughu (string "17", number 17) → mapping COLOR_ID_TO_CSS
+ *  - Chaîne hexadécimale ("#ff0000") → retournée telle quelle
+ *  - Dégradé CSS ("linear-gradient(...)") → retourné tel quel
+ *  - Chaîne JSON contenant { bg, text } → parsée et résolue
+ *  - null / undefined / vide → null
+ *
+ * Retourne { bg: string, text: string } | null
+ */
+export function resolvePostColorCss(raw: unknown): { bg: string; text: string } | null {
+  if (raw === null || raw === undefined || raw === "") return null
+
+  // Normalise en objet exploitable (gère le cas string JSON ET le cas objet natif)
+  let obj: Record<string, unknown> | null = null
+
+  if (typeof raw === "object" && raw !== null) {
+    obj = raw as Record<string, unknown>
+  } else if (typeof raw === "string") {
+    const value = raw.trim()
+    if (!value) return null
+
+    // ID numérique Dughu → mapping centralisé
+    if (/^\d+$/.test(value)) {
+      const entry = COLOR_ID_TO_CSS[value]
+      return entry ? { ...entry } : { bg: value, text: "#ffffff" }
+    }
+
+    // Déjà un dégradé CSS ou une couleur hexadécimale
+    if (value.startsWith("#") || value.startsWith("linear-gradient") || value.startsWith("radial-gradient")) {
+      return { bg: value, text: "#ffffff" }
+    }
+
+    // Tente de parser comme JSON
+    try {
+      const parsed = JSON.parse(value)
+      if (typeof parsed === "number") {
+        const entry = COLOR_ID_TO_CSS[String(parsed)]
+        return entry ? { ...entry } : { bg: String(parsed), text: "#ffffff" }
+      }
+      if (parsed && typeof parsed === "object") {
+        obj = parsed as Record<string, unknown>
+      }
+    } catch {
+      // Pas du JSON valide → fallback comme hex/string
+      return { bg: value, text: "#ffffff" }
+    }
+  } else if (typeof raw === "number") {
+    const entry = COLOR_ID_TO_CSS[String(raw)]
+    return entry ? { ...entry } : { bg: String(raw), text: "#ffffff" }
+  }
+
+  // ── On a un objet : essaye les formats supportés ──
+  if (obj) {
+    // Format 1 : { bg, text } déjà construit
+    if (obj.bg || obj.background) {
+      return {
+        bg: String(obj.bg || obj.background || ""),
+        text: String(obj.text || obj.textColor || "#ffffff"),
+      }
+    }
+
+    // Format 2 : { color_1, color_2, text_color } — format natif API Dughu
+    const color1 = String(obj.color_1 || obj.color1 || "")
+    const color2 = String(obj.color_2 || obj.color2 || "")
+    const textColor = String(obj.text_color || obj.textColor || "#ffffff")
+
+    if (color1 || color2) {
+      // Détecter si color_2 est un chemin d'image
+      const isImage =
+        !!color2 &&
+        !color2.startsWith("#") &&
+        (color2.includes("/") || /\.(jpg|jpeg|png|gif|webp|bmp|svg|avif)$/i.test(color2))
+
+      if (isImage) {
+        return { bg: color2, text: textColor }
+      }
+
+      if (color1 && color2) {
+        return { bg: `linear-gradient(135deg, ${color1}, ${color2})`, text: textColor }
+      }
+
+      if (color1) {
+        return { bg: color1, text: textColor }
+      }
+    }
+  }
+
+  return null
+}

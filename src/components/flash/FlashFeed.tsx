@@ -14,37 +14,13 @@ import { ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react"
 import { FlashAddCard, FlashStoryCard, type FlashCardUser } from "@/components/flash/FlashStoryCard"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useFlashFeed, type FlashUserStory } from "@/hooks/queries/use-flash"
-
-// Mapping ID couleur Dughu → code CSS (hexadécimal ou dégradé).
-// Le backend renvoie l'ID numérique (17, 18, 19, …) dans bg_color.
-const COLOR_ID_TO_CSS: Record<string, string> = {
-  "17": "linear-gradient(135deg, #98b262, #66a399)",
-  "18": "#000000",
-  "19": "linear-gradient(135deg, #ffb0ff, #8080c0)",
-  "24": "linear-gradient(135deg, #0000ff, #00ff00)",
-  "25": "linear-gradient(135deg, #4e26ff, #ff0000)",
-  "27": "linear-gradient(135deg, #ff0fff, #8080c0)",
-  "30": "linear-gradient(135deg, #ffff00, #8080c0)",
-  "31": "linear-gradient(135deg, #e8670c, #ffffff)",
-  "32": "linear-gradient(135deg, #ff3dff, #ffffff)",
-  "33": "linear-gradient(135deg, #91ff3d, #ff00ff)",
-  "34": "linear-gradient(135deg, #ccb38d, #ffffff)",
-}
+import { resolvePostColorCss } from "@/lib/constants"
 
 // Résout la couleur de fond d'une story : accepte un ID numérique Dughu
 // ("18"), un code hexadécimal ("#000000") ou un dégradé CSS déjà prêt.
 function resolveStoryBg(raw: string | null | undefined): string {
   if (!raw) return ""
-  const v = String(raw).trim()
-  // ID numérique Dughu → mapping
-  if (/^\d+$/.test(v)) {
-    return COLOR_ID_TO_CSS[v] || "#000000"
-  }
-  // Déjà un code hexadécimal ou un dégradé CSS
-  if (v.startsWith("#") || v.startsWith("linear-gradient") || v.startsWith("radial-gradient")) {
-    return v
-  }
-  return v
+  return resolvePostColorCss(raw)?.bg ?? String(raw).trim()
 }
 
 interface FlashFeedProps {

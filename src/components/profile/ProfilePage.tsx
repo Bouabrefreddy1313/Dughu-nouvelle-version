@@ -65,6 +65,7 @@ interface Post {
   author: { id: string; name: string | null; username: string | null; avatar: string | null }
   color?: string | null
   reacted?: string | null
+  postPrivacy?: 0 | 1 | 2 | 3
   isSaved?: boolean
   reactions?: { type: string; count: number }[]
   parentPost?: {
@@ -93,6 +94,9 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
   const [tab, setTab] = useState<Tab>("interactions")
   const [editOpen, setEditOpen] = useState(false)
   const [imageEdit, setImageEdit] = useState<null | "avatar" | "cover">(null)
+  // Utilisateurs bloqués (état local de session : le libellé « Bloquer » / « Débloquer »
+  // du menu 3 points bascule selon cette liste et l'endpoint Dughu fait office de toggle).
+  const [blockedAuthors, setBlockedAuthors] = useState<Set<string>>(new Set())
 
   // Utilisateur connecté via TanStack Query
   const { data: currentUser } = useAuth()
@@ -197,7 +201,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
   const isFollowing = !!profile?.isFollowing
 
-  const handleCreatePost = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[] }) => {
+  const handleCreatePost = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[]; privacy?: number }) => {
     if (!currentUser) {
       toast.error("Connectez-vous pour publier")
       return
@@ -207,6 +211,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       formData.append("content", data.content)
       formData.append("userId", currentUser.id)
       formData.append("dughuUserId", currentUser?.dughu?.userId || "")
+      if (data.privacy != null) formData.append("privacy", String(data.privacy))
       const colorRaw = data.color ? JSON.stringify(data.color) : null
       if (colorRaw) {
         formData.append("color", colorRaw)
@@ -434,6 +439,38 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     }
   }
 
+  const handleBlock = async (authorId: string) => {
+    if (!currentUser) { toast.error("Connectez-vous pour bloquer"); return }
+    const targetId = String(authorId)
+    const isBlocked = blockedAuthors.has(targetId)
+    try {
+      const res = await fetch("/api/block_user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authorId: targetId, userId: currentUser?.id, dughuUserId: currentUser?.dughu?.userId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setBlockedAuthors((prev) => {
+          const next = new Set(prev)
+          if (isBlocked) next.delete(targetId)
+          else next.add(targetId)
+          return next
+        })
+        if (isBlocked) {
+          toast.success("Utilisateur débloqué")
+        } else {
+          toast.success("Utilisateur bloqué")
+          setPosts((prev) => prev.filter((p) => String(p.author?.id) !== targetId))
+        }
+      } else {
+        toast.error(data.message || "Erreur lors du blocage")
+      }
+    } catch {
+      toast.error("Erreur lors du blocage")
+    }
+  }
+
   const followMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/profile/follow", {
@@ -640,6 +677,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                   reactions={post.reactions}
                   parentPost={post.parentPost}
                   onLike={(r) => handleReaction(post.id, r)}
+                  postPrivacy={post.postPrivacy}
                   onComment={(text) => handleComment(post.id, text)}
                                     onRepost={() => handleRepost(post.id)}
                   onRepostWithText={(text) => handleRepostWithText(post.id, text)}
@@ -648,6 +686,8 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                   canDelete={!!currentUser && String(post.author?.id) === String(currentUser?.dughu?.userId)}
                   onSave={() => handleSave(post.id)}
                   onHide={() => handleHide(post.id)}
+                  onBlock={() => handleBlock(post.author?.id)}
+                  isBlocked={blockedAuthors.has(String(post.author?.id))}
                   isSaved={post.isSaved}
                   className="mb-4"
                 />

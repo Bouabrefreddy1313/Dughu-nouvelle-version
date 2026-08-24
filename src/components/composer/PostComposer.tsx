@@ -11,8 +11,6 @@ import {
   Smile,
   Video,
   Type,
-  Globe,
-  Users,
   Lock,
   ChevronDown,
   ChevronLeft,
@@ -23,6 +21,7 @@ import {
   Mic,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { POST_PRIVACY_OPTIONS } from "@/lib/constants"
 import { DEFAULT_COLORS, BackgroundColor } from "./BackgroundPicker"
 import Avatar from "@/components/common/Avatar"
 import { Button } from "@/components/ui/button"
@@ -70,16 +69,13 @@ interface PostComposerProps {
 }
 
 /**
- * Confidentialité d'un post selon l'API Dughu :
- *  - 0 : Public (tout le monde peut voir)
- *  - 1 : Amis (seuls les amis peuvent voir)
+ * Confidentialité d'un post selon l'API Dughu (entier 0-3) :
+ *  - 0 : Public (tout le monde)
+ *  - 1 : Abonnés (amis acceptés + abonnés)
+ *  - 2 : Réseau (réseau uniquement)
+ *  - 3 : Amis (amis acceptés uniquement)
  */
-type PostPrivacy = 0 | 1
-
-const PRIVACY_OPTIONS: { id: PostPrivacy; label: string; hint: string; icon: typeof Globe }[] = [
-  { id: 0, label: "Public", hint: "Tout le monde peut voir", icon: Globe },
-  { id: 1, label: "Amis", hint: "Seuls vos amis peuvent voir", icon: Users },
-]
+type PostPrivacy = 0 | 1 | 2 | 3
 
 const QUICK_EMOJIS = ["😀", "😍", "😂", "🔥", "🙏", "🎉", "❤️", "😮", "😢", "👏"]
 
@@ -498,7 +494,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
     }
   }
 
-  const PrivacyIcon = PRIVACY_OPTIONS.find((p) => p.id === privacy)!.icon
+  const PrivacyIcon = POST_PRIVACY_OPTIONS.find((p) => p.id === privacy)!.icon
 
   // ---------- shared bits ----------
 
@@ -725,12 +721,12 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
               className="flex items-center gap-1 text-[12px] font-medium text-[#65676B] bg-gray-100 hover:bg-gray-200 rounded-full px-2 py-0.5 transition"
             >
               <PrivacyIcon size={12} />
-              <span>{PRIVACY_OPTIONS.find((p) => p.id === privacy)!.label}</span>
+              <span>{POST_PRIVACY_OPTIONS.find((p) => p.id === privacy)!.label}</span>
               <ChevronDown size={12} />
             </button>
             {privacyOpen && (
               <div className="absolute z-20 top-full mt-1 left-0 w-64 bg-white rounded-xl shadow-xl border border-gray-100 p-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-                {PRIVACY_OPTIONS.map((p) => {
+                {POST_PRIVACY_OPTIONS.map((p) => {
                   const Icon = p.icon
                   return (
                     <button
@@ -1019,7 +1015,11 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
           {recordError}
         </p>
       )}
+    </>
+  )
 
+  const composeFooter = () => (
+    <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-4 bg-white rounded-b-3xl">
       <Button
         onClick={handleSubmit}
         disabled={!hasContent || overLimit || isSubmitting}
@@ -1039,7 +1039,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
           "Publier"
         )}
       </Button>
-    </>
+    </div>
   )
 
   return (
@@ -1125,9 +1125,10 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
                 <X size={18} className="text-[#65676B]" />
               </button>
             </div>
-            <div className="p-4">
+            <div className="p-4 pb-0">
               {composerBody()}
             </div>
+            {composeFooter()}
           </div>
         </div>
       )}

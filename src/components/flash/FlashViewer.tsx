@@ -31,6 +31,8 @@ import { timeAgo } from "@/lib/helpers"
 import { resolveStoryMediaUrl } from "@/lib/dughu"
 import { toast } from "sonner"
 
+import { resolvePostColorCss } from "@/lib/constants"
+
 const BRAND = {
   orange: "#E08543",
   orangeDeep: "#C96A2A",
@@ -44,26 +46,11 @@ const BRAND = {
   stage: "#0D0705",
 }
 
-const COLOR_ID_TO_CSS: Record<string, string> = {
-  "17": "linear-gradient(135deg, #98b262, #66a399)",
-  "18": "#000000",
-  "19": "linear-gradient(135deg, #ffb0ff, #8080c0)",
-  "24": "linear-gradient(135deg, #0000ff, #00ff00)",
-  "25": "linear-gradient(135deg, #4e26ff, #ff0000)",
-  "27": "linear-gradient(135deg, #ff0fff, #8080c0)",
-  "30": "linear-gradient(135deg, #ffff00, #8080c0)",
-  "31": "linear-gradient(135deg, #e8670c, #ffffff)",
-  "32": "linear-gradient(135deg, #ff3dff, #ffffff)",
-  "33": "linear-gradient(135deg, #91ff3d, #ff00ff)",
-  "34": "linear-gradient(135deg, #ccb38d, #ffffff)",
-}
-
 function resolveStoryBg(raw: string | null | undefined): string {
   if (!raw) return "linear-gradient(135deg, #7d3f20, #e08543)"
-  const value = String(raw).trim()
-  if (/^\d+$/.test(value)) return COLOR_ID_TO_CSS[value] || BRAND.brownDeep
-  if (value.startsWith("#") || value.startsWith("linear-gradient") || value.startsWith("radial-gradient")) return value
-  return value
+  const resolved = resolvePostColorCss(raw)
+  if (resolved) return resolved.bg
+  return String(raw).trim()
 }
 
 export interface FlashStoryGroup {
@@ -281,7 +268,7 @@ export default function FlashViewer({
               <div className="w-full h-full rounded-full overflow-hidden bg-white" style={{ border: `2px solid ${BRAND.cream}` }}>
                 {ownGroup.avatar ? <Image src={ownGroup.avatar} alt={ownGroup.name} width={44} height={44} className="object-cover w-full h-full" /> : <div className="w-full h-full flex items-center justify-center font-bold text-white" style={{ background: BRAND.brown }}>{ownGroup.name.charAt(0).toUpperCase()}</div>}
               </div>
-              {onCreateFlash && <span onClick={(event) => { event.stopPropagation(); onCreateFlash() }} className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white ring-2" style={{ background: BRAND.orange, ringColor: BRAND.cream }}><Plus size={13} strokeWidth={3} /></span>}
+              {onCreateFlash && <span onClick={(event) => { event.stopPropagation(); onCreateFlash() }} className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white ring-2" style={{ background: BRAND.orange }}><Plus size={13} strokeWidth={3} /></span>}
             </div>
             <div className="flex flex-col min-w-0"><span className="text-sm font-semibold truncate" style={{ color: BRAND.brownDeep }}>{ownGroup.name}</span><span className="text-xs truncate" style={{ color: BRAND.brownMuted }}>{ownGroup.lastCreatedAt ? timeAgo(ownGroup.lastCreatedAt) : "Voir votre story"}</span></div>
           </button>

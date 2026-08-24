@@ -50,6 +50,7 @@ export default function MainLayout({
         user={user}
         onLogout={onLogout}
         onSearch={onSearch}
+        onMenuClick={() => setMobileMenuOpen(true)}
         chatOpen={chatOpen}
         onToggleChat={() => setChatOpen(!chatOpen)}
       />
@@ -60,21 +61,6 @@ export default function MainLayout({
           className="fixed inset-0 bg-black/40 z-40 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
-      )}
-
-      {/* Bouton menu mobile - caché quand le menu est ouvert */}
-      {!mobileMenuOpen && (
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="fixed bottom-4 left-4 z-50 lg:hidden w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#A35A2A] text-white shadow-lg flex items-center justify-center"
-          aria-label="Menu"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
       )}
 
       {/* LeftSidebar - desktop fixe, mobile repliable */}
@@ -130,7 +116,7 @@ export default function MainLayout({
           <div
             className={cn(
               "hidden xl:block xl:shrink-0",
-              chatOpen ? "xl:w-[640px]" : "xl:w-[580px]"
+              chatOpen ? "xl:w-[540px]" : "xl:w-[240px]"
             )}
             aria-hidden="true"
           />
