@@ -3,14 +3,11 @@ import { dughu, dughuApi, normalizeUser, parseCounts, mapPhotos, mapVideos, mapF
 import { normalizeProfileRelations } from "@/lib/profile-relations"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
-const DEFAULT_COVER = "/images/group/default-cover.jpg"
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const userId = searchParams.get("userId")
     const slug = searchParams.get("slug")
-    const currentUserId = searchParams.get("currentUserId")
     const dughuUserId = searchParams.get("dughuUserId")
 
     if (!userId && !slug) {
@@ -68,8 +65,10 @@ export async function GET(req: NextRequest) {
       }).catch((e) => { console.error("DUGHU VIDEOS ERROR:", e); return [] }) : Promise.resolve([]),
       viewerDughuId !== "0" && String(userObj.id) !== viewerDughuId
         ? Promise.all([
-            dughuApi.getRelationRequests(viewerDughuId, userObj.id, "friend").catch(() => null),
-            dughuApi.getRelationRequests(viewerDughuId, userObj.id, "network").catch(() => null),
+            dughuApi.getRelationRequests(viewerDughuId, userObj.id, "friend")
+              .then((response) => ({ type: "friend" as const, response })).catch(() => null),
+            dughuApi.getRelationRequests(viewerDughuId, userObj.id, "network")
+              .then((response) => ({ type: "network" as const, response })).catch(() => null),
           ]).then((responses) => responses.filter(Boolean))
         : Promise.resolve([]),
     ])
@@ -78,14 +77,15 @@ export async function GET(req: NextRequest) {
 
     // Les vrais compteurs sont des champs numériques au niveau supérieur de la
     // réponse Dughu (NbrPostsTotal, followersNbr, followingsNbr), pas `details`.
-    const pickNbr = (primary: any, fallback: number) => {
+    const pickNbr = (primary: unknown, fallback: number) => {
       const n = Number(primary)
       return Number.isFinite(n) ? n : fallback
     }
 
-    const followValue = pick(raw, "is_following", "isFollowing", "follow_status", "followStatus")
+    const followValue = pick(raw, "is_following", "isFollowing", "follow_status", "followStatus") ??
+      pick(resultObj, "is_following", "isFollowing", "follow_status", "followStatus")
     const isFollowing =
-      followValue === true || followValue === 1 || followValue === "1" || userObj.isFollowing
+      followValue === true || followValue === 1 || followValue === "1" || followValue === "true" || userObj.isFollowing
 
     return NextResponse.json({
       success: true,

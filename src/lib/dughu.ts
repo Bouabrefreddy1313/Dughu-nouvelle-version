@@ -575,8 +575,10 @@ export function normalizeUser(u: any): Record<string, any> | null {
     birthdate: normalizeBirthday(pick(u, ["birthdate", "birthday", "dateNaissance", "dob"], "")) || null,
     online: onlineValue === true || onlineValue === 1 || onlineValue === "1" || onlineValue === "true",
     lastSeen: pick(u, ["last_seen", "lastSeen", "last_activity", "lastActivity"], "") || null,
-    isFollowing: !!(pick(u, ["is_following", "isFollowing", "follow_status", "followStatus", "following"], false) === true ||
-      pick(u, ["is_following", "isFollowing", "follow_status"], "0") === "1"),
+    isFollowing: (() => {
+      const value = pick(u, ["is_following", "isFollowing", "follow_status", "followStatus", "following"], false)
+      return value === true || value === 1 || value === "1" || value === "true"
+    })(),
   }
 }
 
