@@ -17,6 +17,8 @@ interface MainLayoutProps {
   wide?: boolean
   /** Masque la sidebarre droite (RightSidebar + ConversationSidebar). */
   noRightSidebar?: boolean
+  active?: string
+  workspace?: boolean
 }
 
 export default function MainLayout({
@@ -28,6 +30,8 @@ export default function MainLayout({
   onFilterChange,
   wide = false,
   noRightSidebar = false,
+  active = "feed",
+  workspace = false,
 }: MainLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -86,7 +90,7 @@ export default function MainLayout({
        )}>
         <LeftSidebar
           user={user}
-          active="feed"
+          active={active}
           filter={filter}
           onFilterChange={(f) => {
             onFilterChange?.(f)
@@ -105,24 +109,30 @@ export default function MainLayout({
       )}
 
       {/* ConversationSidebar : toujours accessible via le bouton messagerie du header, même sans RightSidebar */}
-      <ConversationSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
+      <ConversationSidebar user={user} open={chatOpen} onClose={() => setChatOpen(false)} />
 
       {/* Contenu central (feed) */}
       <main
         className={cn(
           "pt-[80px] sm:pt-[88px] pb-16 lg:pb-12 flex justify-center transition-[margin] duration-300 ease-in-out w-full",
-          "lg:ml-[-200px] xl:ml-[-100px]",
-          noRightSidebar
+          workspace
+            ? "lg:ml-[270px] lg:w-[calc(100%-270px)] lg:justify-start"
+            : "lg:ml-[-200px] xl:ml-[-100px]",
+          !workspace && noRightSidebar
             ? chatOpen
               ? "xl:mr-[400px]"
               : ""
-            : chatOpen
+            : !workspace && chatOpen
               ? "xl:mr-[600px]"
-              : "xl:mr-[460px]"
+              : !workspace && !noRightSidebar
+                ? "xl:mr-[460px]"
+                : ""
         )}
       >
         <div className={cn(
-          wide
+          workspace
+            ? "w-full max-w-none px-3 sm:px-4 lg:px-5"
+            : wide
             ? "w-full max-w-[1100px] space-y-4 px-2 sm:px-4 lg:px-6"
             : "w-full max-w-[800px] sm:max-w-[800px] space-y-3 sm:space-y-4 px-2 sm:px-4 lg:px-6"
         )}>

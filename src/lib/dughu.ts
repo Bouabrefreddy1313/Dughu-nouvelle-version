@@ -3,6 +3,11 @@ const BASE_URL = (process.env.DUGHU_API_BASE_URL || "https://apitest.dughu.com/a
 const API_TOKEN = process.env.DUGHU_API_KEY || ""
 // Origine racine du serveur Dughu (sans le suffixe /api) pour résoudre les fichiers relatifs
 const DUGHU_ORIGIN = BASE_URL.replace(/\/api\/?$/, "")
+// Par défaut, la messagerie utilise le même environnement que le reste de
+// l'application. Cela évite d'envoyer un ID provenant d'apitest vers la base
+// de production, où cet utilisateur n'existe pas.
+const CHAT_BASE_URL = (process.env.DUGHU_CHAT_API_BASE_URL || BASE_URL).replace(/\/+$/, "")
+const CHAT_ORIGIN = CHAT_BASE_URL.replace(/\/api\/?$/, "")
 const TIMEOUT_MS = (Number(process.env.DUGHU_API_TIMEOUT) || 15) * 1000
 const RETRY_TIMES = Number(process.env.DUGHU_API_RETRY_TIMES) || 2
 const RETRY_SLEEP_MS = Number(process.env.DUGHU_API_RETRY_SLEEP) || 200
@@ -21,11 +26,16 @@ export class DughuApiError extends Error {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-async function dughuFetch(path: string, init: RequestInit = {}, retries = RETRY_TIMES): Promise<any> {
+async function dughuFetch(
+  path: string,
+  init: RequestInit = {},
+  retries = RETRY_TIMES,
+  baseUrl = BASE_URL
+): Promise<any> {
   if (!API_TOKEN) {
     throw new DughuApiError("DUGHU_API_KEY manquant dans .env", 500)
   }
-  const url = `${BASE_URL}/${path.replace(/^\/+/, "")}`
+  const url = `${baseUrl}/${path.replace(/^\/+/, "")}`
 
   let attempt = 0
   while (true) {
@@ -35,6 +45,18 @@ async function dughuFetch(path: string, init: RequestInit = {}, retries = RETRY_
       const headers = new Headers(init.headers)
       headers.set("X-AppApiToken", API_TOKEN)
       headers.set("Accept", "application/json")
+      // Debug: log request metadata in non-production for troubleshooting
+      if (process.env.NODE_ENV !== "production") {
+        try {
+          const method = (init.method || "GET").toUpperCase()
+          const headerKeys = Array.from(headers.keys())
+          const safeBody = typeof init.body === "string" ? init.body.slice(0, 1000) : undefined
+          // Ne jamais logger la valeur du token — seulement l'existence de l'en-tête
+          console.debug(`[dughuFetch] ${method} ${url} | hasToken:${headers.has("X-AppApiToken")} | headers:${headerKeys.join(",")} | bodyPreview:${safeBody ?? ""}`)
+        } catch {
+          /* ignore logging errors */
+        }
+      }
       const res = await fetch(url, { ...init, headers, signal: controller.signal })
       const text = await res.text()
       let data: unknown = null
@@ -87,6 +109,25 @@ export const dughu = {
 
   multipart: (path: string, formData: FormData) =>
     dughuFetch(path, { method: "POST", body: formData }),
+
+  rootGet: (path: string, params?: Record<string, string | number | undefined>) =>
+    dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }, RETRY_TIMES, DUGHU_ORIGIN),
+
+  rootMultipart: (path: string, formData: FormData) =>
+    dughuFetch(path, { method: "POST", body: formData }, RETRY_TIMES, DUGHU_ORIGIN),
+
+  chatGet: (path: string, params?: Record<string, string | number | undefined>) =>
+    dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }, RETRY_TIMES, CHAT_BASE_URL),
+
+  chatRootMultipart: (path: string, formData: FormData) =>
+    dughuFetch(path, { method: "POST", body: formData }, RETRY_TIMES, CHAT_ORIGIN),
+
+  chatMultipart: (path: string, formData: FormData, authToken?: string) =>
+    dughuFetch(path, {
+      method: "POST",
+      body: formData,
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+    }, RETRY_TIMES, CHAT_BASE_URL),
 }
 
 // ── Endpoints connus de l'API Dughu ──────────────────────────────────────────
@@ -311,6 +352,25 @@ export const dughuApi = {
   getOnline: (userId: string | number, token: string) =>
     dughu.get(`getOnline/${encodeURIComponent(String(userId))}/${encodeURIComponent(token)}`),
 
+  // Messagerie Dughu : ces routes vivent à la racine, hors du préfixe /api.
+  getUserChats: (userId: string | number) =>
+    dughu.chatGet(`getUserChats/${encodeURIComponent(String(userId))}`),
+
+  getConversationMessages: (userId: string | number, targetUserId: string | number) =>
+    dughu.chatGet("getConversationMessages", {
+      user_id: String(userId),
+      target_user_id: String(targetUserId),
+    }),
+
+  getChatContact: (userId: string | number) =>
+    dughu.chatGet(`contactChat/${encodeURIComponent(String(userId))}`),
+
+  searchChatContacts: (query: string) =>
+    dughu.chatGet("searchContact", { query }),
+
+  sendMessage: (formData: FormData, authToken?: string) =>
+    dughu.chatMultipart("sendMessage", formData, authToken),
+
   updateProfile: (formData: FormData) => dughu.multipart("updateProfile", formData),
 
   updatePrivacySettings: (formData: FormData) => dughu.multipart("updatePrivacySettings", formData),
@@ -490,6 +550,7 @@ export function normalizeUser(u: any): Record<string, any> | null {
     pick(u, ["name", "full_name", "fullName", "nickname"], "") ||
     [firstName, lastName].filter(Boolean).join(" ").trim() ||
     "Utilisateur"
+  const onlineValue = pick(u, ["is_online", "isOnline", "online"], false)
   return {
     id: String(id),
     firstName: String(firstName),
@@ -506,6 +567,8 @@ export function normalizeUser(u: any): Record<string, any> | null {
     gender: pick(u, ["gender", "sexe", "sex"], ""),
     phone: pick(u, ["phone", "phone_number", "phoneNumber", "telephone"], ""),
     birthdate: normalizeBirthday(pick(u, ["birthdate", "birthday", "dateNaissance", "dob"], "")) || null,
+    online: onlineValue === true || onlineValue === 1 || onlineValue === "1" || onlineValue === "true",
+    lastSeen: pick(u, ["last_seen", "lastSeen", "last_activity", "lastActivity"], "") || null,
     isFollowing: !!(pick(u, ["is_following", "isFollowing", "follow_status", "followStatus", "following"], false) === true ||
       pick(u, ["is_following", "isFollowing", "follow_status"], "0") === "1"),
   }
@@ -882,6 +945,7 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
         name: p.page.page_name || p.page.page_title || "Page",
         username: p.page.page_title || p.page.username || "",
         avatar: toUrl(p.page.avatar) || "/images/avatar.png",
+        isFollowing: false,
       }
     : null
   const author =
@@ -893,6 +957,7 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       name: String(fallbackAuthor?.name || "Utilisateur"),
       username: String(fallbackAuthor?.username || ""),
       avatar: toUrl(fallbackAuthor?.avatar) || "/images/avatar.png",
+      isFollowing: false,
     }
 
   const rawLikes = pick(p, "likes", "like_count", "likeCount", "nombre_likes", "total_likes", "reaction_count", "count_likes")
@@ -953,6 +1018,7 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       name: author.name,
       username: author.username,
       avatar: author.avatar,
+      isFollowing: !!author.isFollowing,
     },
     page: pageAuthor
       ? { id: pageAuthor.id, name: pageAuthor.name, username: pageAuthor.username, avatar: pageAuthor.avatar }
@@ -960,6 +1026,7 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     color: pick(p, "color", "background_color") || null,
     reacted: isLiked ? (myReaction || "like") : (myReaction || null),
     isLiked,
+    isFollowing: !!author.isFollowing,
     parentPost,
     reactions: extractReactionSummary(p),
     // Confidentialité renvoyée par l'API Dughu :

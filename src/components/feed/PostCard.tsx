@@ -32,6 +32,7 @@ import {
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
+import FollowButton from "@/components/common/FollowButton"
 import { CommentBody } from "@/components/feed/CommentBody"
 import { toast } from "sonner"
 import { REACTIONS, REACTION_ID_TO_TYPE, REACTION_TYPE_TO_ID } from "@/lib/constants"
@@ -45,6 +46,7 @@ interface Author {
   avatar: string | null
   username?: string | null
   verified?: boolean
+  isFollowing?: boolean
 }
 
 interface CommentUser {
@@ -78,12 +80,16 @@ interface ReactionSummaryItem {
 }
 
 interface PostCardProps {
+  
   postId?: string
   author: Author
   currentUser?: {
     id: string
     name: string | null
     avatar: string | null
+    dughu?: {
+      userId?: string | number | null
+    } | null
   }
   timeAgo?: string
   content?: string
@@ -115,7 +121,9 @@ interface PostCardProps {
     video?: string | null
     color?: string | null
     timeAgo?: string
+    
   } | null
+  
   /**
    * Répartition des réactions utilisées sur ce post, ex :
    * [{ type: "like", count: 12 }, { type: "love", count: 4 }]
@@ -132,6 +140,9 @@ interface PostCardProps {
   onRepostWithText?: (text: string) => void
   onShare?: () => void
   onMenuClick?: () => void
+  isFollowing?: boolean
+  isFollowLoading?: boolean
+  onToggleFollow?: () => void
   /** Actions du menu « 3 points » : supprimer / sauvegarder / cacher */
   onDelete?: () => void
   onSave?: () => void
@@ -797,19 +808,21 @@ function ModalPostPreview({
           verified={author.verified}
         />
 
-        <div className="flex-1 min-w-0">
-          <a
-            href={`/profile/${author.username || author.id}`}
-            className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
-          >
-            {author.name}
-          </a>
+        <div className="flex-1 min-w-0 flex items-center justify-between">
+          <div className="min-w-0">
+            <a
+              href={`/profile/${author.username || author.id}`}
+              className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
+            >
+              {author.name}
+            </a>
 
-          {timeAgo && (
-            <p className="text-[12px] text-[#65676B]">
-              {timeAgo}
-            </p>
-          )}
+            {timeAgo && (
+              <p className="text-[12px] text-[#65676B]">
+                {timeAgo}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -902,6 +915,9 @@ export function PostCard({
   onRepostWithText,
   shareUrl,
   onMenuClick,
+  isFollowing = false,
+  isFollowLoading = false,
+  onToggleFollow,
   onDelete,
   onSave,
   onHide,
@@ -1966,6 +1982,18 @@ export function PostCard({
             <PrivacyBadge postPrivacy={postPrivacy} />
           </div>
         </div>
+
+        {onToggleFollow &&
+          !isFollowing &&
+          currentUser?.dughu?.userId != null &&
+          String(currentUser.dughu.userId) !== String(author.id) && (
+            <FollowButton
+              isFollowing={isFollowing}
+              isLoading={isFollowLoading}
+              onClick={onToggleFollow}
+              className="mr-1"
+            />
+          )}
 
         <div className="relative shrink-0" ref={postMenuRef}>
           <button

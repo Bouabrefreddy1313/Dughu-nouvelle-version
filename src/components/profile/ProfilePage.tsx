@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Sparkles, Images, Film, Play, UserRound, RefreshCcw } from "lucide-react"
 import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
 import { useQueryClient, useMutation } from "@tanstack/react-query"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -82,6 +83,7 @@ interface Post {
 type Tab = "interactions" | "photos" | "videos" | "apropos"
 
 export function ProfilePage({ target, onSubmitVerification, isVerifying }: { target: { userId?: string; slug?: string }; onSubmitVerification?: () => void; isVerifying?: boolean }) {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [posts, setPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(false)
@@ -545,11 +547,18 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
         isOwn={isOwn}
         isFollowing={isFollowing}
         onToggleFollow={handleToggleFollow}
-        onMessage={() =>
-          currentUser
-            ? toast.info("Messagerie — bientôt disponible")
-            : toast.error("Connectez-vous pour envoyer un message")
-        }
+        onMessage={() => {
+          if (!currentUser) {
+            toast.error("Connectez-vous pour envoyer un message")
+            return
+          }
+          const targetDughuId = profile.user?.dughu?.userId || profile.user?.dughuUserId
+          if (!targetDughuId) {
+            toast.error("Identifiant Dughu du contact introuvable")
+            return
+          }
+          router.push(`/messages?target=${encodeURIComponent(String(targetDughuId))}`)
+        }}
         onEditCover={() => setImageEdit("cover")}
         onEditAvatar={() => setImageEdit("avatar")}
         onEditProfile={() => setEditOpen(true)}
