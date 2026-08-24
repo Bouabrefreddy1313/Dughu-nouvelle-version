@@ -4,6 +4,69 @@ import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 const POSTS_PER_PAGE = 10
 
+function readFollowingState(raw: any): boolean {
+  const candidates = [
+    raw,
+    raw?.user,
+    raw?.data,
+    raw?.profile,
+    raw?.result,
+    raw?.data?.user,
+    raw?.result?.user,
+    raw?.result?.data,
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") continue
+    const value =
+      candidate.is_following ??
+      candidate.isFollowing ??
+      candidate.follow_status ??
+      candidate.followStatus ??
+      candidate.following
+    if (value !== undefined && value !== null) {
+      return value === true || value === 1 || value === "1" || value === "true"
+    }
+  }
+
+  return false
+}
+
+async function getFollowingAuthorIds(posts: any[], viewerId: string): Promise<Set<string>> {
+  const authorIds = [...new Set(
+    posts
+      .map((post) => String(post?.author?.id || ""))
+      .filter((id) => id && id !== viewerId)
+  )]
+
+  const states = await Promise.all(
+    authorIds.map(async (authorId) => {
+      try {
+        const profile = await dughuApi.getUser(authorId, viewerId)
+        return [authorId, readFollowingState(profile)] as const
+      } catch (error) {
+        console.warn(`FOLLOW STATE ERROR (${authorId}):`, error)
+        return [authorId, false] as const
+      }
+    })
+  )
+
+  return new Set(states.filter(([, following]) => following).map(([id]) => id))
+}
+
+function applyFollowingState(posts: any[], followingIds: Set<string>) {
+
+  return posts.map((post) => {
+    const authorId = String(post?.author?.id || "")
+    const isFollowing = authorId !== "" && followingIds.has(authorId)
+    return {
+      ...post,
+      isFollowing,
+      author: post.author ? { ...post.author, isFollowing } : post.author,
+    }
+  })
+}
+
 // Fusionne le fil des publications des pages avec les posts de l'utilisateur
 // lui-même (créés directement depuis l'API Dughu), sans doublon.
 function mergeFeedPosts(pagePosts: any[], userPosts: any[]): any[] {

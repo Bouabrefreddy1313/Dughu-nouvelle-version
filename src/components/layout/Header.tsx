@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Home, Video, Zap, Play, Users, Search, X, LayoutGrid } from "lucide-react"
+import { Home, Video, Zap, Play, Search, X, LayoutGrid, UserCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Badge from "@/components/common/Badge"
 import ProfileMenu from "@/components/layout/ProfileMenu"
@@ -26,7 +25,6 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const mobileSearchRef = useRef<HTMLInputElement>(null)
-  useRouter()
 
   useEffect(() => {
     if (mobileSearchOpen) {
@@ -39,7 +37,7 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
     { icon: <Video size={24} />, label: "Vidéos", href: "/videos" },
     { icon: <Zap size={24} />, label: "Flash", href: "/flash" },
     { icon: <Play size={24} />, label: "Akwaplay", href: "/akwaplay" },
-    { icon: <Users size={24} />, label: "Groupes", href: "/groupes" },
+    { icon: <UserCheck size={24} />, label: "Abonnés" },
   ]
 
   return (
@@ -81,7 +79,8 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
         {navItems.map((item, i) => (
           <a
             key={i}
-            href={item.href}
+            href={item.href ?? "#"}
+            onClick={(event) => !item.href && event.preventDefault()}
             className={cn(
               "relative flex items-center justify-center h-full px-3 lg:px-8 xl:px-10 2xl:px-14 cursor-pointer transition-colors duration-200",
               item.active

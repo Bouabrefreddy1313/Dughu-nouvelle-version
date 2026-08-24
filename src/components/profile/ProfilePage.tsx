@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Sparkles, Images, Film, Play, UserRound, RefreshCcw } from "lucide-react"
 import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
 import { useQueryClient, useMutation } from "@tanstack/react-query"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -15,6 +16,7 @@ import { REACTION_ID_TO_TYPE } from "@/lib/constants"
 import { timeAgo } from "@/lib/helpers"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { useProfile } from "@/hooks/queries/use-profile"
+import { useRelation } from "@/hooks/useRelation"
 import { ProfileHeader } from "./ProfileHeader"
 import { ProfileAbout, type ProfileInfo } from "./ProfileAbout"
 import { ProfilePhotos } from "./ProfilePhotos"
@@ -24,6 +26,7 @@ import { ProfileGroupsPages, type ProfileGroup, type ProfilePage as ProfilePageT
 import { EditProfileModal } from "./EditProfileModal"
 import { ImageEditModal } from "./ImageEditModal"
 import { PostComposer } from "@/components/composer/PostComposer"
+import { EMPTY_PROFILE_RELATIONS, type RelationType } from "@/lib/profile-relations"
 
 const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })), {
   loading: () => (
@@ -83,6 +86,7 @@ interface Post {
 type Tab = "interactions" | "photos" | "videos" | "apropos"
 
 export function ProfilePage({ target, onSubmitVerification, isVerifying }: { target: { userId?: string; slug?: string }; onSubmitVerification?: () => void; isVerifying?: boolean }) {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [posts, setPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(false)
@@ -121,6 +125,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     isError: notFound,
   } = useProfile(profileParams ?? { userId: "" })
   const profile = profileData ?? null
+  const profileQueryKey = ["profile", target.userId ?? target.slug ?? "me"] as const
   const profileId = profile?.user?.id || ""
   const profileDughuId = profile?.user?.dughu?.userId || ""
   const myDughuId = currentUser?.dughu?.userId || ""
@@ -508,6 +513,20 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     followMutation.mutate()
   }
 
+  const { triggerRelationAction, isPending: relationLoading, pendingType } = useRelation()
+
+  const handleRelationAction = (type: RelationType) => {
+    if (!currentUser || !profileDughuId || isOwn || relationLoading) return
+    const currentState = profile?.relations?.[type] ?? "none"
+    if (currentState === "outgoing_pending") return
+    triggerRelationAction({
+      type,
+      currentState,
+      targetId: profileDughuId,
+      profileQueryKey,
+    })
+  }
+
   const handleProfileUpdated = (updated: any) => {
     // Source de vérité : mise à jour du cache React Query (useAuth), plus de localStorage.
     const newUser = { ...(updated || {}) }
@@ -591,12 +610,22 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
         stats={stats}
         isOwn={isOwn}
         isFollowing={isFollowing}
+        relations={profile.relations ?? EMPTY_PROFILE_RELATIONS}
+        relationLoadingType={pendingType}
         onToggleFollow={handleToggleFollow}
-        onMessage={() =>
-          currentUser
-            ? toast.info("Messagerie — bientôt disponible")
-            : toast.error("Connectez-vous pour envoyer un message")
-        }
+        onRelationAction={handleRelationAction}
+        onMessage={() => {
+          if (!currentUser) {
+            toast.error("Connectez-vous pour envoyer un message")
+            return
+          }
+          const targetDughuId = profile.user?.dughu?.userId || profile.user?.dughuUserId
+          if (!targetDughuId) {
+            toast.error("Identifiant Dughu du contact introuvable")
+            return
+          }
+          router.push(`/messages?target=${encodeURIComponent(String(targetDughuId))}`)
+        }}
         onEditCover={() => setImageEdit("cover")}
         onEditAvatar={() => setImageEdit("avatar")}
         onEditProfile={() => setEditOpen(true)}

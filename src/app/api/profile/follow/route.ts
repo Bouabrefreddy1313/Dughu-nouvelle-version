@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { dughu, dughuApi, pick } from "@/lib/dughu"
+import { dughu, dughuApi, pick, DughuApiError } from "@/lib/dughu"
+import { resolveDughuUserIdFromLocalId } from "@/lib/dughu-user"
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { userId, targetId } = body
+    const { userId, targetId, following: requestedFollowing } = body
 
     if (!userId || !targetId) {
       return NextResponse.json({ success: false, message: "Utilisateurs requis." }, { status: 422 })
@@ -20,9 +21,28 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Résoudre les identifiants locaux (Prisma) vers les IDs numériques Dughu si nécessaire
+    let actorDughuId = String(userId || "")
+    let targetDughuId = String(targetId || "")
+
+    const looksNumeric = (s: string) => /^[0-9]+$/.test(String(s || ""))
+    if (!looksNumeric(actorDughuId)) {
+      const resolved = await resolveDughuUserIdFromLocalId(actorDughuId)
+      if (resolved) actorDughuId = resolved
+    }
+    if (!looksNumeric(targetDughuId)) {
+      const resolved = await resolveDughuUserIdFromLocalId(targetDughuId)
+      if (resolved) targetDughuId = resolved
+    }
+
+    if (!actorDughuId || !targetDughuId) {
+      return NextResponse.json({ success: false, message: "Impossible de résoudre les IDs Dughu requis." }, { status: 422 })
+    }
+
     // ── Mode Dughu API (source de vérité) ──
+    // viewer = actorDughuId, identifier = targetDughuId
     const currentState = await dughuApi
-      .getUser(targetId, userId)
+      .getUser(targetDughuId, actorDughuId)
       .then((raw) => {
         const u = raw?.user || raw?.data || raw?.profile || raw?.result || raw
         return !!(pick(u, "is_following", "isFollowing", "follow_status", "followStatus") === true ||
@@ -30,11 +50,14 @@ export async function POST(req: NextRequest) {
       })
       .catch(() => false)
 
-    const following = !currentState
+    // Les nouveaux clients indiquent l'état désiré. Cela évite qu'un bouton
+    // remonté dans le fil inverse un abonnement déjà existant. On garde le
+    // fallback toggle pour les anciens appelants (ex. la page profil).
+    const following = typeof requestedFollowing === "boolean" ? requestedFollowing : !currentState
     if (following) {
-      await dughuApi.follow(userId, targetId)
+      await dughuApi.follow(actorDughuId, targetDughuId)
     } else {
-      await dughuApi.unfollow(userId, targetId)
+      await dughuApi.unfollow(actorDughuId, targetDughuId)
     }
 
     // Taille de la liste des abonnés pour le compteur
@@ -48,6 +71,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, following, followers })
   } catch (error) {
     console.error("FOLLOW ERROR:", error)
+    // Si l'erreur vient de l'API Dughu, renvoyer des détails utiles pour le debug
+    if (error instanceof DughuApiError) {
+      return NextResponse.json(
+        { success: false, message: "Erreur upstream (API Dughu)", upstreamStatus: error.status, upstreamData: error.data },
+        { status: 502 }
+      )
+    }
     return NextResponse.json({ success: false, message: "Erreur interne (API Dughu)." }, { status: 502 })
   }
 }

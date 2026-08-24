@@ -24,6 +24,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { dughuApi, resolveMediaUrl } from "@/lib/dughu"
 import { cn } from "@/lib/utils"
+import type { ProfileRelations, RelationType } from "@/lib/profile-relations"
 
 export interface ProfileUser {
   id: string
@@ -40,6 +41,8 @@ export interface ProfileUser {
   location?: string | null
   verified?: boolean
   online?: boolean
+  dughu?: { userId?: string | number | null } | null
+  dughuUserId?: string | number | null
   points?: number
 }
 
@@ -55,7 +58,10 @@ interface ProfileHeaderProps {
   stats: ProfileStats
   isOwn: boolean
   isFollowing?: boolean
+  relations?: ProfileRelations
+  relationLoadingType?: RelationType | null
   onToggleFollow?: () => void
+  onRelationAction?: (type: RelationType) => void
   onMessage?: () => void
   onEditCover?: () => void
   onEditAvatar?: () => void
@@ -146,7 +152,10 @@ export function ProfileHeader({
   stats,
   isOwn,
   isFollowing,
+  relations,
+  relationLoadingType,
   onToggleFollow,
+  onRelationAction,
   onMessage,
   onEditCover,
   onEditAvatar,
@@ -157,6 +166,7 @@ export function ProfileHeader({
 }: ProfileHeaderProps) {
   const [step1Open, setStep1Open] = useState(false)
   const [step2Open, setStep2Open] = useState(false)
+  const [relationToRemove, setRelationToRemove] = useState<RelationType | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [step1Data, setStep1Data] = useState<{
     name: string
@@ -319,10 +329,6 @@ export function ProfileHeader({
           <div className="flex flex-col items-start sm:items-end gap-3 shrink-0">
             <div className="flex items-center gap-4 sm:gap-6">
               <div className="text-center sm:text-right">
-                <p className="font-bold text-[15px] text-[#050505] leading-tight">{formatCount(stats.friends)}</p>
-                <p className="text-[12px] text-[#65676B]">Fraternisés</p>
-              </div>
-              <div className="text-center sm:text-right">
                 <p className="font-bold text-[15px] text-[#050505] leading-tight">{formatCount(stats.posts)}</p>
                 <p className="text-[12px] text-[#65676B]">Interactions</p>
               </div>
@@ -336,7 +342,7 @@ export function ProfileHeader({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
               {isOwn ? (
                 <>
                   <button
@@ -356,6 +362,42 @@ export function ProfileHeader({
                 </>
               ) : (
                 <>
+                  {(["friend", "network"] as const).map((type) => {
+                    const state = relations?.[type] ?? "none"
+                    const loading = relationLoadingType === type
+                    const label = state === "accepted"
+                      ? type === "friend" ? "Fraternisé" : "Réseauté"
+                      : state === "incoming_pending"
+                        ? type === "friend" ? "Accepter fraterniser" : "Accepter réseauter"
+                        : state === "outgoing_pending"
+                          ? "Demande envoyée"
+                          : type === "friend" ? "Fraterniser" : "Réseauter"
+                    const Icon = type === "friend" ? (state === "accepted" ? UserCheck : UserPlus) : Users
+
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        disabled={state === "outgoing_pending" || loading || (!!relationLoadingType && !loading)}
+                        title={state === "outgoing_pending" ? "En attente d'acceptation" : undefined}
+                        onClick={() => {
+                          if (state === "accepted") setRelationToRemove(type)
+                          else onRelationAction?.(type)
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 px-4 sm:px-5 py-2 rounded-lg text-[14px] font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed",
+                          state === "none"
+                            ? "bg-[#A35A2A] hover:bg-[#8B4A1F] text-white"
+                            : state === "incoming_pending"
+                              ? "bg-[#1877F2] hover:bg-[#166FE5] text-white"
+                              : "bg-[#F0F2F5] hover:bg-[#E4E6EB] text-[#050505]"
+                        )}
+                      >
+                        {loading ? <Loader2 size={16} className="animate-spin" /> : <Icon size={16} />}
+                        {loading ? "Chargement…" : label}
+                      </button>
+                    )
+                  })}
                   <button
                     onClick={onToggleFollow}
                     className={
@@ -365,7 +407,7 @@ export function ProfileHeader({
                     }
                   >
                     {isFollowing ? <UserCheck size={16} /> : <UserPlus size={16} />}
-                    {isFollowing ? "Abonné" : "Suivre"}
+                    {isFollowing ? "Abonné" : "S'abonner"}
                   </button>
                   <button
                     onClick={onMessage}
@@ -380,6 +422,62 @@ export function ProfileHeader({
           </div>
         </div>
       </div>
+
+      {relationToRemove && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setRelationToRemove(null)
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-relation-title"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="remove-relation-title" className="text-lg font-bold text-[#050505]">
+                  {relationToRemove === "friend" ? "Annuler la fraternisation ?" : "Annuler le réseautage ?"}
+                </h2>
+                <p className="mt-2 text-sm text-[#65676B]">
+                  {relationToRemove === "friend"
+                    ? "Voulez-vous vraiment annuler cette fraternisation ?"
+                    : "Voulez-vous vraiment quitter cette relation de réseautage ?"}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Fermer"
+                onClick={() => setRelationToRemove(null)}
+                className="rounded-full p-2 text-[#65676B] hover:bg-[#F0F2F5]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRelationToRemove(null)}
+                className="rounded-lg bg-[#F0F2F5] px-4 py-2 text-sm font-semibold text-[#050505] hover:bg-[#E4E6EB]"
+              >
+                Conserver
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onRelationAction?.(relationToRemove)
+                  setRelationToRemove(null)
+                }}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Confirmer la suppression
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════════ */}
       {/* Modal Étape 1 : Passez au statut Certifié — REDESIGN */}

@@ -17,6 +17,10 @@ interface MainLayoutProps {
   wide?: boolean
   /** Masque la sidebarre droite (RightSidebar + ConversationSidebar). */
   noRightSidebar?: boolean
+  active?: string
+  workspace?: boolean
+  /** Réserve la largeur de la sidebar gauche au contenu sur desktop. */
+  reserveLeftSidebar?: boolean
 }
 
 export default function MainLayout({
@@ -28,6 +32,9 @@ export default function MainLayout({
   onFilterChange,
   wide = false,
   noRightSidebar = false,
+  active = "feed",
+  workspace = false,
+  reserveLeftSidebar = false,
 }: MainLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -72,7 +79,7 @@ export default function MainLayout({
        )}>
         <LeftSidebar
           user={user}
-          active="feed"
+          active={active}
           filter={filter}
           onFilterChange={(f) => {
             onFilterChange?.(f)
@@ -91,7 +98,7 @@ export default function MainLayout({
       )}
 
       {/* ConversationSidebar : toujours accessible via le bouton messagerie du header, même sans RightSidebar */}
-      <ConversationSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
+      <ConversationSidebar user={user} open={chatOpen} onClose={() => setChatOpen(false)} />
 
       {/* Zone de contenu sous le header (réservations d'espace pour les sidebars fixes) */}
       <div className="flex w-full pt-[80px] sm:pt-[88px]">
