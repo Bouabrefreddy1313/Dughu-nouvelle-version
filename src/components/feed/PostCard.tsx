@@ -82,7 +82,9 @@ interface ReactionSummaryItem {
 }
 
 interface PostCardProps {
-  
+  isFollowing?: boolean;
+  isFollowLoading?: boolean;
+  onToggleFollow?: () => void;
   postId?: string
   author: Author
   currentUser?: {
@@ -124,9 +126,9 @@ interface PostCardProps {
     video?: string | null
     color?: string | null
     timeAgo?: string
-    
+
   } | null
-  
+
   /**
    * Répartition des réactions utilisées sur ce post, ex :
    * [{ type: "like", count: 12 }, { type: "love", count: 4 }]
@@ -137,7 +139,7 @@ interface PostCardProps {
   reactions?: ReactionSummaryItem[]
   onLike?: (reactionId?: number) => void
   onComment?: (text: string, files?: File[]) => void | Promise<void>
-    /** Republier directement, sans texte d'accompagnement. */
+  /** Republier directement, sans texte d'accompagnement. */
   onRepost?: () => void
   /** Republier en ajoutant un texte d'accompagnement (commentaire) au post partagé. */
   onRepostWithText?: (text: string) => void
@@ -457,11 +459,11 @@ function CommentActionButton({
       className={cn(
         "flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors",
         variant === "danger" &&
-          "text-[#65676B] hover:bg-red-50 hover:text-red-600",
+        "text-[#65676B] hover:bg-red-50 hover:text-red-600",
         variant === "warning" &&
-          "text-[#65676B] hover:bg-orange-50 hover:text-[#E4405F]",
+        "text-[#65676B] hover:bg-orange-50 hover:text-[#E4405F]",
         variant === "default" &&
-          "text-[#65676B] hover:bg-[#A35A2A]/10 hover:text-[#A35A2A]"
+        "text-[#65676B] hover:bg-[#A35A2A]/10 hover:text-[#A35A2A]"
       )}
     >
       <Icon size={12} />
@@ -861,7 +863,7 @@ export function PostCard({
   postPrivacy = 0,
   onLike,
   onComment,
-    onRepost,
+  onRepost,
   onRepostWithText,
   shareUrl,
   onMenuClick,
@@ -940,7 +942,7 @@ export function PostCard({
       document.addEventListener("mousedown", handler)
       return () => document.removeEventListener("mousedown", handler)
     }
-    }, [showEmojiPicker])
+  }, [showEmojiPicker])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1007,7 +1009,7 @@ export function PostCard({
     }, 180)
   }
 
-    const currentUserAvatar = currentUser?.avatar || author.avatar
+  const currentUserAvatar = currentUser?.avatar || author.avatar
   // Le post appartient à l'utilisateur connecté : on masque les actions de
   // modération (bloquer / donner des points) qui n'ont pas de sens sur son propre contenu.
   const ownPost =
@@ -1154,7 +1156,7 @@ export function PostCard({
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             currentVideo.muted = true
-            currentVideo.play().catch(() => {})
+            currentVideo.play().catch(() => { })
           } else {
             currentVideo.pause()
           }
@@ -1625,8 +1627,8 @@ export function PostCard({
                   <span>
                     {reactionId
                       ? REACTIONS.find(
-                          (reaction) => reaction.id === reactionId
-                        )?.icon
+                        (reaction) => reaction.id === reactionId
+                      )?.icon
                       : "👍"}
                   </span>
 
@@ -1806,8 +1808,8 @@ export function PostCard({
                   <span>
                     {reactionId
                       ? REACTIONS.find(
-                          (reaction) => reaction.id === reactionId
-                        )?.icon
+                        (reaction) => reaction.id === reactionId
+                      )?.icon
                       : "👍"}
                   </span>
 
@@ -1963,7 +1965,7 @@ export function PostCard({
         className
       )}
     >
-      
+
       <div className="flex items-center gap-3 px-4 pt-4 pb-2">
         <Avatar
           src={author.avatar}
@@ -2132,15 +2134,15 @@ export function PostCard({
           style={
             postColor.isImage
               ? {
-                  backgroundImage: `url(${postColor.background})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  color: postColor.text,
-                }
+                backgroundImage: `url(${postColor.background})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                color: postColor.text,
+              }
               : {
-                  background: postColor.background,
-                  color: postColor.text,
-                }
+                background: postColor.background,
+                color: postColor.text,
+              }
           }
         >
           {postColor.isImage && (
@@ -2153,35 +2155,35 @@ export function PostCard({
             />
           )}
           <p className="relative z-10 min-w-0 max-w-full text-[28px] font-bold text-center whitespace-pre-wrap leading-relaxed [overflow-wrap:anywhere] [word-break:break-word]">
-  <HashtagText
-    text={content}
-    hashtagClassName="text-inherit underline"
-  />
-</p>
+            <HashtagText
+              text={content}
+              hashtagClassName="text-inherit underline"
+            />
+          </p>
 
         </div>
       ) : content ? (
         <div className="min-w-0 w-full max-w-full overflow-hidden px-4 py-2">
-  <p
-    className={cn(
-      "min-w-0 max-w-full text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed",
-      "[overflow-wrap:anywhere] [word-break:break-word]",
-      !contentExpanded && isLongContent && "line-clamp-6"
-    )}
-  >
-    <HashtagText text={content} />
-  </p>
+          <p
+            className={cn(
+              "min-w-0 max-w-full text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed",
+              "[overflow-wrap:anywhere] [word-break:break-word]",
+              !contentExpanded && isLongContent && "line-clamp-6"
+            )}
+          >
+            <HashtagText text={content} />
+          </p>
 
-  {isLongContent && (
-    <button
-      type="button"
-      onClick={() => setContentExpanded((previous) => !previous)}
-      className="mt-1 text-[13px] font-medium text-[#A35A2A]"
-    >
-      {contentExpanded ? "Voir moins" : "Voir plus"}
-    </button>
-  )}
-</div>
+          {isLongContent && (
+            <button
+              type="button"
+              onClick={() => setContentExpanded((previous) => !previous)}
+              className="mt-1 text-[13px] font-medium text-[#A35A2A]"
+            >
+              {contentExpanded ? "Voir moins" : "Voir plus"}
+            </button>
+          )}
+        </div>
 
       ) : null}
 
@@ -2408,7 +2410,7 @@ export function PostCard({
           <Share2 size={18} />
           Partager
         </button>
-            </div>
+      </div>
 
       {shareModalOpen && (
         <SharePostModal
@@ -2558,7 +2560,7 @@ export function PostCard({
               )}
               title="Choisir un émoji"
             >
-             <Smile size={18} />
+              <Smile size={18} />
             </button>
 
             {showEmojiPicker && (
