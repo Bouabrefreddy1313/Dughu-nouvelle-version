@@ -16,6 +16,7 @@ import { REACTION_ID_TO_TYPE } from "@/lib/constants"
 import { timeAgo } from "@/lib/helpers"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { useProfile } from "@/hooks/queries/use-profile"
+import { useRelation } from "@/hooks/useRelation"
 import { ProfileHeader } from "./ProfileHeader"
 import { ProfileAbout, type ProfileInfo } from "./ProfileAbout"
 import { ProfilePhotos } from "./ProfilePhotos"
@@ -25,7 +26,7 @@ import { ProfileGroupsPages, type ProfileGroup, type ProfilePage as ProfilePageT
 import { EditProfileModal } from "./EditProfileModal"
 import { ImageEditModal } from "./ImageEditModal"
 import { PostComposer } from "@/components/composer/PostComposer"
-import { EMPTY_PROFILE_RELATIONS, type RelationState, type RelationType } from "@/lib/profile-relations"
+import { EMPTY_PROFILE_RELATIONS, type RelationType } from "@/lib/profile-relations"
 
 const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })), {
   loading: () => (
@@ -468,46 +469,18 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     followMutation.mutate()
   }
 
-  const relationMutation = useMutation({
-    mutationFn: async ({ type, state }: { type: RelationType; state: RelationState }) => {
-      const action = state === "incoming_pending"
-        ? "accept"
-        : state === "outgoing_pending"
-          ? "decline"
-          : "request"
-      const res = await fetch("/api/profile/relation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetId: profileDughuId, type, action }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.message || "Impossible de mettre à jour la relation")
-      return { ...data, type }
-    },
-    onSuccess: ({ type, state, message }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Le résultat de useProfile n'a pas encore de DTO partagé.
-      queryClient.setQueryData(profileQueryKey, (old: any) => old ? {
-        ...old,
-        relations: {
-          ...(old.relations ?? EMPTY_PROFILE_RELATIONS),
-          [type]: state,
-        },
-      } : old)
-      toast.success(message)
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Erreur lors de la relation")
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: profileQueryKey })
-    },
-  })
+  const { triggerRelationAction, isPending: relationLoading, pendingType } = useRelation()
 
   const handleRelationAction = (type: RelationType) => {
-    if (!currentUser || !profileDughuId || isOwn || relationMutation.isPending) return
-    const state = profile?.relations?.[type] ?? "none"
-    if (state === "accepted") return
-    relationMutation.mutate({ type, state })
+    if (!currentUser || !profileDughuId || isOwn || relationLoading) return
+    const currentState = profile?.relations?.[type] ?? "none"
+    if (currentState === "outgoing_pending") return
+    triggerRelationAction({
+      type,
+      currentState,
+      targetId: profileDughuId,
+      profileQueryKey,
+    })
   }
 
   const handleProfileUpdated = (updated: any) => {
@@ -591,7 +564,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
         isOwn={isOwn}
         isFollowing={isFollowing}
         relations={profile.relations ?? EMPTY_PROFILE_RELATIONS}
-        relationLoading={relationMutation.isPending ? relationMutation.variables?.type ?? null : null}
+        relationLoadingType={pendingType}
         onToggleFollow={handleToggleFollow}
         onRelationAction={handleRelationAction}
         onMessage={() => {

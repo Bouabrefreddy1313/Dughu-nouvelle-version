@@ -339,33 +339,13 @@ export const dughuApi = {
   unfollow: (authUserId: string | number, userId: string | number) =>
     dughu.form("unfollow", { auth_user_id: String(authUserId), user_id: String(userId) }),
 
-  requestRelation: (authUserId: string | number, userId: string | number, type: "friend" | "network") =>
-    dughu.form("relation/request", {
-      auth_user_id: String(authUserId),
-      user_id: String(userId),
-      type,
-    }),
-
-  getRelationRequests: (authUserId: string | number, userId: string | number, type: "friend" | "network") =>
-    dughu.form("relation/requests", {
-      auth_user_id: String(authUserId),
-      user_id: String(userId),
-      type,
-    }),
-
-  acceptRelation: (authUserId: string | number, userId: string | number, type: "friend" | "network") =>
-    dughu.form("relation/accept", {
-      auth_user_id: String(authUserId),
-      user_id: String(userId),
-      type,
-    }),
-
-  declineRelation: (authUserId: string | number, userId: string | number, type: "friend" | "network") =>
-    dughu.form("relation/decline", {
-      auth_user_id: String(authUserId),
-      user_id: String(userId),
-      type,
-    }),
+  getRelationRequests: (authUserId: string | number, userId: string | number, type: "friend" | "network") => {
+    const formData = new FormData()
+    formData.append("auth_user_id", String(authUserId))
+    formData.append("user_id", String(userId))
+    formData.append("type", type)
+    return dughu.multipart("relation/requests", formData)
+  },
 
   blockUser: (authUserId: string | number, userId: string | number) =>
     dughu.form("block_user", { auth_user_id: String(authUserId), user_id: String(userId) }),
@@ -374,8 +354,6 @@ export const dughuApi = {
     dughu.form("list_block_user", { auth_user_id: String(authUserId) }),
 
   getUsersWithBadges: () => dughu.get("usersWithBadges"),
-
-  fraternises: (userId: string | number) => dughu.get(`fraternise/${encodeURIComponent(String(userId))}`),
 
   getOnline: (userId: string | number, token: string) =>
     dughu.get(`getOnline/${encodeURIComponent(String(userId))}/${encodeURIComponent(token)}`),

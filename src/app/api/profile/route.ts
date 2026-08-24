@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dughu, dughuApi, normalizeUser, parseCounts, mapPhotos, mapVideos, mapFriends, pick } from "@/lib/dughu"
 import { normalizeProfileRelations } from "@/lib/profile-relations"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 const DEFAULT_COVER = "/images/group/default-cover.jpg"
 
@@ -11,7 +12,6 @@ export async function GET(req: NextRequest) {
     const slug = searchParams.get("slug")
     const currentUserId = searchParams.get("currentUserId")
     const dughuUserId = searchParams.get("dughuUserId")
-    const viewerDughuUserId = searchParams.get("viewerDughuUserId")
 
     if (!userId && !slug) {
       return NextResponse.json({ success: false, message: "Identifiant requis." }, { status: 422 })
@@ -24,10 +24,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // ID Dughu du visiteur connecté : fourni par le frontend, sinon lecteur depuis
-    // le cookie de session (plus de compte local).
-    let viewerDughuId = viewerDughuUserId || ""
-    if (!viewerDughuId) viewerDughuId = "0"
+    const viewerDughuId = await getDughuUserIdFromCookies() || "0"
 
     // Résoudre l'identifiant Dughu cible : dughuUserId fourni, sinon slug/username
     // (le profil Dughu est la source de vérité).

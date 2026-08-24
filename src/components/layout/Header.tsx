@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Home, Video, Zap, Play, Search, X, LayoutGrid, UserRoundPlus, UserCheck } from "lucide-react"
+import { Home, Video, Zap, Play, Search, X, LayoutGrid, UserCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Badge from "@/components/common/Badge"
 import ProfileMenu from "@/components/layout/ProfileMenu"
@@ -36,7 +36,6 @@ export default function Header({ user, onLogout, onSearch, chatOpen, onToggleCha
     { icon: <Video size={24} />, label: "Vidéos", href: "/videos" },
     { icon: <Zap size={24} />, label: "Flash", href: "/flash" },
     { icon: <Play size={24} />, label: "Akwaplay", href: "/akwaplay" },
-    { icon: <UserRoundPlus size={24} />, label: "Réseauter" },
     { icon: <UserCheck size={24} />, label: "Abonnés" },
   ]
 
