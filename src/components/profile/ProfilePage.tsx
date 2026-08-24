@@ -99,16 +99,23 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
   // Profil via TanStack Query
   const dughuUserId = currentUser?.dughu?.userId || ""
+
+  // Résoudre les paramètres de profil UNIQUEMENT quand on a un identifiant valide.
+  // Évite d'envoyer une requête avec un userId vide qui retourne "Profil introuvable"
+  // avant que l'utilisateur connecté ne soit chargé (self === true).
   const profileParams = target.userId
     ? { userId: target.userId, currentUserId: currentUser?.id, dughuUserId: target.userId === currentUser?.id ? dughuUserId : undefined, viewerDughuUserId: dughuUserId }
     : target.slug
       ? { slug: target.slug, currentUserId: currentUser?.id, viewerDughuUserId: dughuUserId }
-      : { userId: "" }
+      : null
+
+  const hasIdentifier = profileParams !== null
+
   const {
     data: profileData,
     isLoading: loading,
     isError: notFound,
-  } = useProfile(profileParams)
+  } = useProfile(profileParams ?? { userId: "" })
   const profile = profileData ?? null
   const profileId = profile?.user?.id || ""
   const profileDughuId = profile?.user?.dughu?.userId || ""
@@ -472,7 +479,10 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     queryClient.invalidateQueries({ queryKey: ["auth", "me"] })
   }
 
-  if (loading) {
+  // Tant qu'aucun identifiant n'est connu (par ex. profil "moi" en attente du
+  // chargement de l'utilisateur connecté), on affiche le skeleton au lieu de
+  // l'erreur "Profil introuvable".
+  if (!hasIdentifier || loading) {
     return (
       <div className="space-y-4">
         {/* Skeleton couverture */}

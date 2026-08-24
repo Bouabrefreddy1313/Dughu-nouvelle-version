@@ -45,7 +45,7 @@ export default function MainLayout({
   }, [mobileMenuOpen])
 
   return (
-    <div className="min-h-screen bg-[#f7f8fa] overflow-x-hidden">
+    <div className="min-h-screen bg-[#f7f8fa]">
       <Header
         user={user}
         onLogout={onLogout}
@@ -107,28 +107,35 @@ export default function MainLayout({
       {/* ConversationSidebar : toujours accessible via le bouton messagerie du header, même sans RightSidebar */}
       <ConversationSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
 
-      {/* Contenu central (feed) */}
-      <main
-        className={cn(
-          "pt-[80px] sm:pt-[88px] pb-16 lg:pb-12 flex justify-center transition-[margin] duration-300 ease-in-out w-full",
-          "lg:ml-[-200px] xl:ml-[-100px]",
-          noRightSidebar
-            ? chatOpen
-              ? "xl:mr-[400px]"
-              : ""
-            : chatOpen
-              ? "xl:mr-[600px]"
-              : "xl:mr-[460px]"
+      {/* Zone de contenu sous le header (réservations d'espace pour les sidebars fixes) */}
+      <div className="flex w-full pt-[80px] sm:pt-[88px]">
+        {/* Réservation espace de la sidebar gauche (fixe en lg+) */}
+        <div className="hidden lg:block lg:w-[270px] lg:shrink-0" aria-hidden="true" />
+
+        {/* Contenu central (timeline) */}
+        <main className="min-w-0 flex-1 px-2 pb-16 sm:px-4 lg:px-6 lg:pb-12">
+          <div
+            className={cn(
+              "mx-auto w-full",
+              wide ? "max-w-[1100px]" : "max-w-[800px]",
+              "space-y-3 sm:space-y-4"
+            )}
+          >
+            {children}
+          </div>
+        </main>
+
+        {/* Réservation espace de la sidebar droite (fixe en xl+) */}
+        {!noRightSidebar && (
+          <div
+            className={cn(
+              "hidden xl:block xl:shrink-0",
+              chatOpen ? "xl:w-[640px]" : "xl:w-[580px]"
+            )}
+            aria-hidden="true"
+          />
         )}
-      >
-        <div className={cn(
-          wide
-            ? "w-full max-w-[1100px] space-y-4 px-2 sm:px-4 lg:px-6"
-            : "w-full max-w-[800px] sm:max-w-[800px] space-y-3 sm:space-y-4 px-2 sm:px-4 lg:px-6"
-        )}>
-          {children}
-        </div>
-      </main>
+      </div>
     </div>
   )
 }

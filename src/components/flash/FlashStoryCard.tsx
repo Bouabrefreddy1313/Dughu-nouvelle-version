@@ -115,6 +115,8 @@ export function FlashAddCard({
    ───────────────────────────────────────────────────────────── */
 export function FlashStoryCard({
   image,
+  video,
+  thumbnail,
   bg,
   text,
   avatar,
@@ -124,6 +126,8 @@ export function FlashStoryCard({
   ariaLabel,
 }: {
   image?: string
+  video?: string
+  thumbnail?: string | null
   bg?: string
   text?: string
   avatar?: string | null
@@ -133,6 +137,9 @@ export function FlashStoryCard({
   ariaLabel?: string
 }) {
   const avatarSrc = avatar ? resolveMediaUrl(avatar) : null
+  const thumbRaw = thumbnail || image
+  const thumbSrc = thumbRaw ? resolveMediaUrl(thumbRaw) : null
+  const videoSrc = video ? resolveMediaUrl(video) : null
   const initial = name?.charAt(0)?.toUpperCase() || "U"
 
   return (
@@ -143,9 +150,13 @@ export function FlashStoryCard({
       className="flex flex-col items-center shrink-0 cursor-pointer group/story relative"
     >
       <div className="w-[120px] h-[168px] rounded-2xl overflow-hidden relative flex flex-col border border-gray-200/80 shadow-sm transition-all duration-300 ease-out group-hover/story:shadow-lg group-hover/story:shadow-[#E08543]/15 group-hover/story:-translate-y-0.5">
-        {image ? (
+        {thumbSrc ? (
           <div className="absolute inset-0">
-            <Image src={image} alt={name || ""} fill className="object-cover transition-transform duration-500 ease-out group-hover/story:scale-105" sizes="104px" />
+            <Image src={thumbSrc} alt={name || ""} fill className="object-cover transition-transform duration-500 ease-out group-hover/story:scale-105" sizes="104px" />
+          </div>
+        ) : videoSrc ? (
+          <div className="absolute inset-0 bg-black">
+            <video src={videoSrc} muted playsInline preload="metadata" className="h-full w-full object-cover" />
           </div>
         ) : bg ? (
           <div

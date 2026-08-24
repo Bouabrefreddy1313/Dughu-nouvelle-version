@@ -38,6 +38,58 @@ export interface FlashUserStory {
   allViewed: boolean | null
 }
 
+/* ─────────────────────────────────────────────────────────────
+   ACTIONS Flash côté client (j'aime / suppression / vues)
+   ───────────────────────────────────────────────────────────── */
+
+/** Bascule le « j'aime » de l'utilisateur courant sur une story. */
+export async function toggleStoryLikeClient({ storyId, userId }: { storyId: string; userId?: string }) {
+  const res = await fetch("/api/stories/like", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ storyId, userId }),
+  })
+  const data = await res.json().catch(() => ({ success: false }))
+  if (!res.ok || !data.success) {
+    throw new Error(data.message || "Erreur de réaction")
+  }
+  return data as { success: boolean; liked?: boolean }
+}
+
+/** Supprime un Flash (auteur uniquement). */
+export async function deleteStoryClient(storyId: string) {
+  const res = await fetch(`/api/stories/${encodeURIComponent(storyId)}`, { method: "DELETE" })
+  const data = await res.json().catch(() => ({ success: false }))
+  if (!res.ok || !data.success) {
+    throw new Error(data.message || "Erreur suppression")
+  }
+  return data
+}
+
+/** Enregistre une vue sur une story. */
+export async function logStoryViewClient({ storyId, userId }: { storyId: string; userId?: string }) {
+  const res = await fetch("/api/stories/logView", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ storyId, userId }),
+  })
+  const data = await res.json().catch(() => ({ success: false }))
+  return { ok: res.ok && !!data.success }
+}
+
+/** Récupère la liste des personnes ayant vu une story (auteur uniquement). */
+export async function fetchStoryViewers({ storyId, userId }: { storyId: string; userId?: string }) {
+  const qs = new URLSearchParams()
+  qs.set("storyId", storyId)
+  if (userId) qs.set("userId", userId)
+  const res = await fetch(`/api/stories/logView?${qs}`)
+  const data = await res.json().catch(() => ({ success: false, viewers: [] as any[] }))
+  if (!res.ok || !data.success) {
+    return [] as any[]
+  }
+  return (data.viewers as any[]) || []
+}
+
 export interface FlashFeedData {
   users: FlashUserStory[]
   stories: any[]

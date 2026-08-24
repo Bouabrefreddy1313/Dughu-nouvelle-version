@@ -173,7 +173,7 @@ export default function HomePage() {
   const [pageNum, setPageNum] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [filter, setFilter] = useState<"all" | "following">("all")
-  const [flashTarget, setFlashTarget] = useState<{ userId: string; index: number } | null>(null)
+  const [flashTarget, setFlashTarget] = useState<{ userId: string; userName?: string | null; userAvatar?: string | null } | null>(null)
   const [flashCreatorOpen, setFlashCreatorOpen] = useState(false)
   const queryClient = useQueryClient()
   const [coloredPosts, setColoredPosts] = useState<any[]>([...POST_COLORS])
@@ -635,7 +635,9 @@ export default function HomePage() {
         userId={user?.id}
         currentUser={user}
         onAddStory={() => setFlashCreatorOpen(true)}
-        onOpenFlash={(index: number, targetUserId: string) => setFlashTarget({ userId: targetUserId, index })}
+        onOpenFlash={(targetUserId: string, user?: { name?: string | null; avatar?: string | null }) =>
+          setFlashTarget({ userId: targetUserId, userName: user?.name, userAvatar: user?.avatar })
+        }
       />
       <FlashCreator
         user={user}
@@ -683,8 +685,19 @@ export default function HomePage() {
           key={flashTarget.userId}
           targetUserId={flashTarget.userId}
           userId={user?.id}
-          initialIndex={flashTarget.index}
-          onClose={() => setFlashTarget(null)}
+          userName={flashTarget.userName}
+          userAvatar={flashTarget.userAvatar}
+          onClose={() => {
+            setFlashTarget(null)
+            // À la fermeture : rafraîchir le rail pour que les statuts « vu »
+            // (logView côté Dughu) soient à jour → l'anneau orange disparaît.
+            queryClient.invalidateQueries({ queryKey: ["flash", "feed"] })
+            queryClient.invalidateQueries({ queryKey: ["flash", "user"] })
+          }}
+          onStoryDeleted={() => {
+            queryClient.invalidateQueries({ queryKey: ["flash", "feed"] })
+            queryClient.invalidateQueries({ queryKey: ["flash", "user"] })
+          }}
         />
       )}
 

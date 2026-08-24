@@ -181,6 +181,16 @@ export const dughuApi = {
 
   toggleLikeStory: (formData: FormData) => dughu.multipart("toggleLikeStory", formData),
 
+  // Log une vue sur une story (POST form-data : user_id + story_id)
+  logStoryView: (formData: FormData) => dughu.multipart("logView", formData),
+
+  // Récupère les vues d'une story (GET /logView?story_id=…&user_id=…)
+  getStoryViewers: (storyId: string | number, userId?: string | number) =>
+    dughu.get("logView", {
+      story_id: String(storyId),
+      user_id: userId ? String(userId) : undefined,
+    }),
+
   getUser: (identifier: string | number, viewer: string | number) =>
     dughu.get(`getSpecificUser/${encodeURIComponent(String(identifier))}/${encodeURIComponent(String(viewer))}`),
 

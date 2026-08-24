@@ -28,6 +28,17 @@ export async function GET(req: NextRequest) {
       dughuApi.getFriendsStories(userId, { perPage, page }).catch(() => null),
       dughuApi.getUserStories(userId, userId, { perPage: 50, page: 1 }).catch(() => null),
     ])
+    console.log(
+      "[FLASH FRIENDS] userId=%s users=%d stories=%d friendsKeys=%s",
+      userId,
+      data.users?.length,
+      data.stories?.length,
+      Object.keys(rawFriends || {})
+    )
+    if (data.users?.length) {
+      console.log("[FLASH FRIENDS] users =>", data.users.map((u: any) => `${u.userId}:${u.user?.name || "?"}`).join(", "))
+    }
+    if (rawFriends) console.log("[FLASH FRIENDS RAW]", JSON.stringify(rawFriends).slice(0, 1500))
     return NextResponse.json({ success: true, ...data, debugRaw: { friends: rawFriends, mine: rawMine } })
   } catch (error) {
     console.error("FLASH FRIENDS ERROR:", error)
