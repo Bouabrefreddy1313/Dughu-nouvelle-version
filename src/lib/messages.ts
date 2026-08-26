@@ -17,6 +17,8 @@ export interface ChatSummary {
   updatedAt: string
   unreadCount: number
   lastMessageKey: string
+  /** Accusé de lecture du dernier message (s'il a été envoyé par moi). */
+  lastMessageReceipt?: MessageReceipt | null
 }
 
 export interface ChatAttachment {
@@ -25,19 +27,138 @@ export interface ChatAttachment {
   name?: string | null
 }
 
+/**
+ * État d'accusé de lecture pour les messages envoyés :
+ * - `"sent"` : envoyé, mais pas encore distribué (destinataire hors ligne).
+ * - `"delivered"` : distribué (reçu par le destinataire), pas encore lu.
+ * - `"read"` : lu par le destinataire.
+ */
+export type MessageReceipt = "sent" | "delivered" | "read"
+
 export interface ChatMessage {
   id: string
   senderId: string
   receiverId: string
   text: string
   createdAt: string
-  isMine: boolean
+    isMine: boolean
   attachments: ChatAttachment[]
+  /** Timestamp de lecture (`seen`) Dughu, normalisé en ISO — null si le destinataire n'a pas ouvert. */
+  seenAt: string | null
+  /** Accusé de lecture (uniquement pour mes messages envoyés). */
+  receipt?: MessageReceipt | null
   reply?: {
     id?: string | null
     sender?: string | null
     text?: string | null
   } | null
+}
+
+/**
+ * Détermine si un `reply` reçu du serveur (ou construit localement)
+ * correspond à une VRAIE citation, et pas à un objet vide/placeholder
+ * (`{ id: "", sender: "", text: "" }`) que l'API peut renvoyer pour les
+ * messages qui ne répondent à rien.
+ *
+ * Sans ce garde-fou, un objet vide reste "truthy" en JS : les tests du
+ * type `message.reply && ...` ou `replyInfo ?? sent.reply ?? null`
+ * laissent passer l'objet vide, et l'aperçu de citation retombe sur ses
+ * valeurs par défaut ("Message" / "Pièce jointe"), faisant apparaître à
+ * tort un encart de citation au-dessus d'un message qui n'est pourtant
+ * pas une réponse.
+ */
+export function isMeaningfulReply(
+  reply: ChatMessage["reply"] | null | undefined
+): reply is NonNullable<ChatMessage["reply"]> {
+  if (!reply) return false
+  const id = reply.id?.trim() || ""
+  const text = reply.text?.trim() || ""
+  const sender = reply.sender?.trim() || ""
+  // `id === "0"` est la valeur sentinelle Dughu « pas de réponse » : le champ
+  // `reply_id` est toujours présent dans un message, à 0 pour un message qui
+  // ne répond à rien. Sans ce garde-fou, chaque message normal serait pris
+  // pour une citation et afficherait l'encart « Message / Pièce jointe ».
+  return Boolean((id && id !== "0") || text || sender)
+}
+
+/**
+ * Reconstruit un aperçu de citation lisible même quand `reply.sender` /
+ * `reply.text` arrivent vides depuis l'API (seul `reply.id` est fiable) :
+ * on retrouve alors le message original dans l'historique déjà chargé.
+ *
+ * Renvoie `null` si `reply` n'est pas une VRAIE citation (voir
+ * `isMeaningfulReply`) — c'est ce qui empêche l'encart "Message / Pièce
+ * jointe" de s'afficher sur un message qui ne répond à rien.
+ */
+export function resolveReplyPreview(
+  reply: ChatMessage["reply"] | null | undefined,
+  messages: ChatMessage[],
+  contactName: string
+): { sender: string; text: string } | null {
+  if (!isMeaningfulReply(reply)) return null
+  const original = reply!.id ? messages.find((item) => item.id === reply!.id) : undefined
+  const sender =
+    reply!.sender || (original ? (original.isMine ? "Vous" : contactName || "Utilisateur") : "") || "Message"
+  const text = reply!.text || original?.text || "Pièce jointe"
+  return { sender, text }
+}
+
+// ── Persistance locale des citations (« réponse à ») ─────────────────────────
+// L'API Dughu ne restitue pas la citation d'une réponse dans
+// `getConversationMessages` : le champ `reply_id` reste à 0 même pour une vraie
+// réponse. On persiste donc côté client (localStorage) la citation de chaque
+// message envoyé, pour qu'elle survive au rechargement de la page — au même titre
+// que les réactions de message.
+const MESSAGE_REPLIES_STORAGE_KEY = "dughu:message-replies"
+
+export function readPersistedReplies(): Record<string, NonNullable<ChatMessage["reply"]>> {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(MESSAGE_REPLIES_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, NonNullable<ChatMessage["reply"]>>
+    const result: Record<string, NonNullable<ChatMessage["reply"]>> = {}
+    for (const [id, reply] of Object.entries(parsed)) {
+      if (reply && isMeaningfulReply(reply)) result[id] = reply
+    }
+    return result
+  } catch {
+    return {}
+  }
+}
+
+export function persistMessageReply(messageId: string, reply: ChatMessage["reply"]) {
+  if (typeof window === "undefined" || !messageId) return
+  const all = readPersistedReplies()
+  if (reply && isMeaningfulReply(reply)) {
+    all[messageId] = reply
+  } else {
+    delete all[messageId]
+  }
+  try {
+    window.localStorage.setItem(MESSAGE_REPLIES_STORAGE_KEY, JSON.stringify(all))
+  } catch {
+    /* localStorage plein ou désactivé : on ignore */
+  }
+}
+
+/**
+ * Fusionne les citations conservées localement avec les messages renvoyés par le
+ * serveur : pour chaque message sans citation serveur, on rattache la citation
+ * gardée en mémoire (state courant) ou dans le localStorage. C'est ce qui fait
+ * réapparaître la « réponse à » après un rechargement de page.
+ */
+export function mergeLocalReplies(
+  serverMessages: ChatMessage[],
+  inMemoryReplies?: Map<string, NonNullable<ChatMessage["reply"]>>
+): ChatMessage[] {
+  const persisted = readPersistedReplies()
+  return serverMessages.map((message) => {
+    if (isMeaningfulReply(message.reply)) return message
+    const local = message.id ? inMemoryReplies?.get(message.id) : undefined
+    const reply = local ?? (message.id ? persisted[message.id] : undefined)
+    return reply ? { ...message, reply } : message
+  })
 }
 
 function first<T>(...values: T[]): T | undefined {
@@ -57,6 +178,131 @@ function readDate(item: any): string {
   return Number.isFinite(unixTime) && unixTime > 0
     ? new Date(unixTime * 1000).toISOString()
     : ""
+}
+
+/**
+ * Extrait les informations de citation (« réponse à un message ») depuis un
+ * message brut Dughu. L'API peut renvoyer ces données sous plusieurs formes :
+ *  - champs aplatis : reply_doc_id / reply_text / reply_sender…
+ *  - objet imbriqué : reply, reply_to, quoted, parent…
+ *  - champs « parent_* » (Firestore / formats alternatifs)
+ */
+function normalizeReply(item: any): { id: string | null; sender: string | null; text: string | null } | null {
+  const readId = (...values: any[]): string | null => {
+    const value = first(...values)
+    if (value === undefined || value === null) return null
+    const str = String(value).trim()
+    // Le champ `reply_id` Dughu est toujours présent et vaut 0 pour un message
+    // qui ne répond à rien : on neutralise « 0 » pour ne pas créer de citation
+    // fantôme (voir isMeaningfulReply).
+    if (!str || str === "0") return null
+    return str
+  }
+  const readText = (...values: any[]): string | null => {
+    const value = first(...values)
+    return value !== undefined && value !== null ? String(value) : null
+  }
+  const readSender = (...values: any[]): string | null => {
+    const value = first(...values)
+    return value !== undefined && value !== null ? String(value) : null
+  }
+
+  // 1) Objet imbriqué (reply / reply_to / quoted / parent…)
+  for (const key of [
+    "reply",
+    "reply_to",
+    "replyTo",
+    "quoted",
+    "quoted_message",
+    "quotedMessage",
+    "parent",
+    "parent_message",
+    "parentMessage",
+    "referenced_message",
+  ]) {
+    const nested = item[key]
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      const id = readId(
+        nested.id,
+        nested.message_id,
+        nested.messageId,
+        nested.doc_id,
+        nested.docId,
+        nested._id,
+        nested.reply_id,
+        nested.replyId
+      )
+      const text = readText(
+        nested.text,
+        nested.message,
+        nested.content,
+        nested.body,
+        nested.text_preview,
+        nested.textPreview,
+        nested.preview
+      )
+      const sender = readSender(
+        nested.sender,
+        nested.sender_name,
+        nested.senderName,
+        nested.sender_username,
+        nested.user,
+        nested.username,
+        nested.name
+      )
+      if (id || text || sender) {
+        return { id, sender, text }
+      }
+    }
+  }
+
+  // 2) Champs aplatis / alternatifs
+  const id = readId(
+    item.reply_doc_id,
+    item.replyDocId,
+    item.reply_id,
+    item.replyId,
+    item.reply_to_id,
+    item.replyToId,
+    item.parent_id,
+    item.parentId,
+    item.quoted_message_id,
+    item.quotedMessageId,
+    item.referenced_message_id,
+    item.referencedMessageId
+  )
+  const text = readText(
+    item.reply_text,
+    item.replyText,
+    item.reply_message,
+    item.replyMessage,
+    item.reply_content,
+    item.replyContent,
+    item.parent_text,
+    item.parentText,
+    item.quoted_text,
+    item.quotedText,
+    item.referenced_text,
+    item.referencedText
+  )
+  const sender = readSender(
+    item.reply_sender,
+    item.replySender,
+    item.reply_sender_name,
+    item.replySenderName,
+    item.reply_user,
+    item.replyUser,
+    item.reply_username,
+    item.replyUsername,
+    item.parent_sender,
+    item.parentSender
+  )
+
+  if (id || text || sender) {
+    return { id, sender, text }
+  }
+
+  return null
 }
 
 function findArray(raw: any, keys: string[]): any[] {
@@ -211,7 +457,12 @@ export function normalizeChats(raw: any, currentUserId: string): ChatSummary[] {
       readDate(last || item),
       ""
     ) || "")
-    const lastId = String(first(last?.id, last?.doc_id, last?.message_id, item.last_message_id, "") || "")
+            const lastId = String(first(last?.id, last?.doc_id, last?.message_id, item.last_message_id, "") || "")
+    // Accusé de lecture du dernier message : on ne le calcule que si ce dernier
+    // message a été ENVOYÉ par moi (sinon, rien à afficher côté émetteur).
+    const lastSenderId = String(first(last?.from_id, last?.fromId, last?.sender_id, last?.senderId, ""))
+    const lastMessageReceipt =
+      lastSenderId === String(currentUserId) ? computeMessageReceipt(last, lastSenderId, String(currentUserId)) : null
     return [{
       id: String(first(
         item.id,
@@ -227,6 +478,7 @@ export function normalizeChats(raw: any, currentUserId: string): ChatSummary[] {
       updatedAt,
       unreadCount: Number(first(item.unread_count, item.unreadCount, item.unread, 0)) || 0,
       lastMessageKey: lastId || `${updatedAt}:${lastMessage}`,
+      lastMessageReceipt,
     }]
   })
 }
@@ -279,7 +531,59 @@ function readMineFlag(item: any): boolean | undefined {
   const direction = String(first(item.direction, item.message_direction, item.messageDirection, "")).toLowerCase()
   if (["outgoing", "outbound", "sent", "send"].includes(direction)) return true
   if (["incoming", "inbound", "received", "receive"].includes(direction)) return false
-  return undefined
+    return undefined
+}
+
+// ── Accusé de lecture (« vu ») ──────────────────────────────────────────────
+// L'API Dughu porte la lecture du destinataire dans le champ `seen` :
+//  - `null` / absent / `0` → le message n'a pas encore été lu par le destinataire
+//    (mais il a été délivré au serveur Dughu → « délivré »).
+//  - une valeur numérique (timestamp unix) → le destinataire a ouvert → « lu ».
+// Le statut `sent` (1 coche) est réservé à l'écho local optimiste, juste après
+// l'envoi, avant que le serveur confirme la présence du message — il est donc
+// composé côté client au moment de l'envoi (voir handleSend dans les pages), et
+// remplacé par `delivered`/`read` dès le rechargement serveur.
+
+/** @returns le timestamp de lecture (>0 = lu) ou `null` (non lu / absent). */
+function readSeenTimestamp(item: any): number | null {
+  const rawValue = first(item?.seen, item?.seen_at, item?.seenAt, item?.read_at, item?.readAt)
+  if (rawValue === undefined || rawValue === null || rawValue === "") return null
+  const num = Number(rawValue)
+  return Number.isFinite(num) && num > 0 ? num : null
+}
+
+/**
+ * Calcule le statut d'accusé de lecture d'un message **envoyé par moi**.
+ * Ne s'applique qu'aux messages dont je suis l'expéditeur (sinon `undefined`,
+ * car on ne montre pas de coches sur les messages reçus).
+ *
+ * - `seen > 0`   → `"read"`      (le destinataire a ouvert le message)
+ * - `seen === 0` → `"delivered"` (déjà présent dans l'historique serveur du
+ *   destinataire, donc délivré à l'autre bout mais pas encore lu).
+ */
+export function computeMessageReceipt(
+  item: any,
+  senderId: string | undefined,
+  currentUserId: string
+): MessageReceipt | undefined {
+  const seen = readSeenTimestamp(item)
+  if (seen) return "read"
+  return senderId === currentUserId ? "delivered" : undefined
+}
+
+/**
+ * Convertit un timestamp de vue (epoch seconds, comme renvoyé par Dughu) en une
+ * chaîne ISO exploitable par `formatMessageDate` / `new Date(...)`.
+ * Renvoie `null` si le message n'a pas été vu.
+ */
+export function seenTimestampToIso(seen: string | number | null | undefined): string | null {
+  if (!seen) return null
+  const num = Number(seen)
+  if (!Number.isFinite(num)) return null
+  // Dughu envoie un timestamp en secondes Unix.
+  const ms = num < 1e12 ? num * 1000 : num
+  const d = new Date(ms)
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null
 }
 
 export function normalizeMessages(raw: any, currentUserId: string, targetUserId?: string): ChatMessage[] {
@@ -346,7 +650,7 @@ export function normalizeMessages(raw: any, currentUserId: string, targetUserId?
           : "document"
       addAttachment(type, { url: media, name: mediaName })
     }
-    return {
+        return {
       id: String(first(item.id, item.doc_id, item.message_id, `${senderId}-${index}`)),
       senderId,
       receiverId,
@@ -354,13 +658,10 @@ export function normalizeMessages(raw: any, currentUserId: string, targetUserId?
       createdAt: readDate(item),
       isMine,
       attachments,
-      reply: first(item.reply_doc_id, item.reply_text)
-        ? {
-            id: first(item.reply_doc_id, item.replyDocId) as string | null,
-            sender: first(item.reply_sender, item.replySender) as string | null,
-            text: first(item.reply_text, item.replyText) as string | null,
-          }
-        : null,
+      /** Timestamp de lecture (`seen`) Dughu, normalisé en ISO (null si jamais lu). */
+      seenAt: seenTimestampToIso(first(item.seen, item.seen_at, item.seenAt)),
+      receipt: computeMessageReceipt(item, senderId, String(currentUserId)),
+      reply: normalizeReply(item),
     }
   }).filter((message) => {
     if (!targetUserId) return true

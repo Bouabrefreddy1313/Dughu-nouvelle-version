@@ -1,14 +1,39 @@
 import { NextRequest, NextResponse } from "next/server"
-import { dughu, dughuApi } from "@/lib/dughu"
+import { cookies } from "next/headers"
+import { dughu, dughuApi, DughuApiError } from "@/lib/dughu"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 const REACTION_TYPES = ["like", "love", "haha", "wow", "sad", "angry"]
 
+/** Tire un message lisible depuis la donnée d'erreur upstream (peut être string, objet ou JSON). */
+function upstreamMessage(data: unknown, fallback = "Erreur de réaction (API Dughu)."): string {
+  if (typeof data === "string" && data.trim()) return data.trim()
+  if (data && typeof data === "object") {
+    const value = (data as { message?: unknown; error?: unknown }).message
+      ?? (data as { message?: unknown; error?: unknown }).error
+    if (typeof value === "string" && value.trim()) return value.trim()
+    try {
+      const parsed = JSON.stringify(data)
+      if (parsed && parsed !== "{}") return parsed.length > 200 ? `${parsed.slice(0, 200)}…` : parsed
+    } catch {
+      /* ignore */
+    }
+  }
+  return fallback
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { postId, userId, type = "like", dughuUserId: dughuUserIdParam } = await req.json()
+    const {
+      postId,
+      messageId,
+      targetUserId,
+      userId,
+      type = "like",
+      dughuUserId: dughuUserIdParam,
+    } = await req.json()
 
-    if (!postId || !userId) {
+    if ((!postId && !messageId) || !userId) {
       return NextResponse.json({ success: false, message: "Paramètres requis." }, { status: 422 })
     }
     const reactionType = REACTION_TYPES.includes(type) ? type : "like"
@@ -30,6 +55,59 @@ export async function POST(req: NextRequest) {
     if (!dughuUserId) {
       return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
     }
+
+    // ── Réaction à un message (messagerie Dughu) ──
+    if (messageId) {
+      try {
+        const authToken = (await cookies()).get("dughu_token")?.value || ""
+        const dForm = new FormData()
+        dForm.append("user_id", String(dughuUserId))
+        dForm.append("reaction", String(reactionId))
+        if (targetUserId) dForm.append("target_user_id", String(targetUserId))
+        const raw = await dughuApi.reactMessage(messageId, dForm, authToken || undefined)
+        if (!raw?.success) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: raw?.message || "Erreur de réaction (API Dughu).",
+              upstream: raw,
+            },
+            { status: 502 }
+          )
+        }
+        const reacted = Boolean(raw?.reacted ?? raw?.is_like ?? true)
+        const currentReactionId = raw?.reaction?.reaction ?? raw?.reaction_id ?? raw?.reactionId
+        const currentType = currentReactionId
+          ? REACTION_TYPES[Number(currentReactionId) - 1] || reactionType
+          : reactionType
+        return NextResponse.json({
+          success: true,
+          reacted,
+          type: reacted ? currentType : null,
+        })
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("DUGHU_API_KEY manquant")) throw err
+        console.error("DUGHU TOGGLE MESSAGE REACTION ERROR:", err)
+        if (err instanceof DughuApiError) {
+          const status = err.status === 401 || err.status === 403 ? 502 : err.status
+          return NextResponse.json(
+            {
+              success: false,
+              message: upstreamMessage(err.data),
+              upstream: err.data,
+              upstreamStatus: err.status,
+            },
+            { status }
+          )
+        }
+        return NextResponse.json(
+          { success: false, message: "Erreur de réaction (API Dughu).", upstreamStatus: 502 },
+          { status: 502 }
+        )
+      }
+    }
+
+    // ── Réaction à une publication (comportement existant) ──
     try {
       const dForm = new FormData()
       dForm.append("user_id", String(dughuUserId))

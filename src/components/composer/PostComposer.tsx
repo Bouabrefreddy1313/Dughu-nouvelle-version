@@ -924,9 +924,9 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
       )}
 
       {/* action toolbar */}
-      <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-3 py-2.5 mb-4">
-        <span className="text-[13px] font-medium text-[#65676B] hidden sm:block">Ajouter à la publication</span>
-        <div className="flex items-center gap-1 ml-auto">
+      <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-2 sm:px-3 py-2.5 mb-4 overflow-x-auto scrollbar-hide gap-1">
+        <span className="text-[12px] sm:text-[13px] font-medium text-[#65676B] hidden sm:block shrink-0">Ajouter à la publication</span>
+        <div className="flex items-center gap-1 ml-auto shrink-0">
           <ToolbarIcon
             icon={ImageIcon}
             color="#45BD62"

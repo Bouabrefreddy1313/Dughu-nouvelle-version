@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { ChevronRight, HelpCircle, Languages, LogOut, Settings2, UserCircle2, Shield } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
 import { Separator } from "@/components/ui/separator"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 type ProfileMenuProps = {
   user?: {
@@ -32,6 +34,7 @@ type MenuItem = {
 export default function ProfileMenu({ user, onLogout, open, onOpenChange }: ProfileMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
   useEffect(() => {
     if (!open) return
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
@@ -172,7 +175,7 @@ export default function ProfileMenu({ user, onLogout, open, onOpenChange }: Prof
                 type="button"
                 onClick={() => {
                   onOpenChange(false)
-                  onLogout?.()
+                  setConfirmLogoutOpen(true)
                 }}
                 className="flex w-full items-center gap-3 rounded-[18px] px-3 py-2.5 text-left text-[#050505] transition hover:bg-[#F0F2F5] focus-visible:bg-[#F0F2F5] focus-visible:ring-2 focus-visible:ring-[#A35A2A]/20"
                 role="menuitem"
@@ -187,6 +190,37 @@ export default function ProfileMenu({ user, onLogout, open, onOpenChange }: Prof
           </div>
         </div>
       )}
+
+      {/* Modale de confirmation de déconnexion */}
+      <Dialog open={confirmLogoutOpen} onOpenChange={setConfirmLogoutOpen}>
+        <DialogContent showCloseButton className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF3F4] text-[#E4405F]">
+                <LogOut size={17} />
+              </span>
+              Se déconnecter
+            </DialogTitle>
+            <DialogDescription>
+              Voulez-vous vraiment vous déconnecter de Dughu ? Vous devrez vous reconnecter pour accéder à votre compte.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setConfirmLogoutOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirmLogoutOpen(false)
+                onLogout?.()
+              }}
+            >
+              Se déconnecter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

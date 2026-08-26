@@ -128,6 +128,23 @@ export const dughu = {
       body: formData,
       headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
     }, RETRY_TIMES, CHAT_BASE_URL),
+
+  // Form-urlencoded sur la base de messagerie (pour les opérations sans fichiers :
+  // update/delete — multipart peut perturber le contrôleur Dughu).
+  chatForm: (path: string, params: Record<string, string | number | undefined>, authToken?: string) => {
+    const body = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== "") body.set(k, String(v))
+    }
+    return dughuFetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: body.toString(),
+    }, RETRY_TIMES, CHAT_BASE_URL)
+  },
 }
 
 // ── Endpoints connus de l'API Dughu ──────────────────────────────────────────
@@ -407,6 +424,18 @@ export const dughuApi = {
   sendMessage: (formData: FormData, authToken?: string) =>
     dughu.chatMultipart("sendMessage", formData, authToken),
 
+  reactMessage: (messageId: string | number, formData: FormData, authToken?: string) =>
+    dughu.chatMultipart(`reactMessage/${encodeURIComponent(String(messageId))}`, formData, authToken),
+
+  updateMessage: (messageId: string | number, params: Record<string, string | number | undefined>, authToken?: string) =>
+    dughu.chatForm(`updateMessage/${encodeURIComponent(String(messageId))}`, params, authToken),
+
+  deleteMessage: (messageId: string | number, params: Record<string, string | number | undefined>, authToken?: string) =>
+    dughu.chatForm(`deleteMessage/${encodeURIComponent(String(messageId))}`, params, authToken),
+
+  deleteConversation: (conversationId: string | number, params: Record<string, string | number | undefined>, authToken?: string) =>
+    dughu.chatForm(`deleteConversation/${encodeURIComponent(String(conversationId))}`, params, authToken),
+
   updateProfile: (formData: FormData) => dughu.multipart("updateProfile", formData),
 
   updatePrivacySettings: (formData: FormData) => dughu.multipart("updatePrivacySettings", formData),
@@ -578,7 +607,7 @@ export function isDefaultDughuMedia(v: string): boolean {
 
 export function normalizeUser(u: any): Record<string, any> | null {
   if (!u || typeof u !== "object") return null
-  const id = pick(u, "id", "ID", "user_id", "userId", "userID") || ""
+  const id = pick(u, "user_id", "userId", "id", "ID", "userID") || ""
   if (!id) return null
   const firstName = pick(u, ["first_name", "firstName", "firstname"], "") || ""
   const lastName = pick(u, ["last_name", "lastName", "lastname"], "") || ""

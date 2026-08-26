@@ -26,6 +26,12 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 * Récupération de compte
 * Sécurisation des accès
 
+#### Déconnexion
+
+* La déconnexion demande une confirmation : une modale « Voulez-vous vraiment
+  vous déconnecter de Dughu ? » s'affiche avant de fermer la session. L'utilisateur
+  peut « Annuler » ou confirmer « Se déconnecter ».
+
 ### Profil
 
 * Profil utilisateur
@@ -58,7 +64,12 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 * Republications
 * Médias
 * Partage
-
+* Gratifier : bouton d’action rapide qui envoie **100 points** à l’auteur du post
+  en un clic (endpoint `points/give`). Une modale de confirmation (« Voulez-vous
+  vraiment offrir 100 points à … ? ») s’affiche avant l’envoi pour éviter les
+  erreurs. Le bouton est masqué sur ses propres publications et un spinner de
+  chargement apparaît dans la modale pendant l’envoi. Un menu « Donner des
+  points » distinct (3 points → « Donner des points ») permet quant à lui de
 #### Mini-profil (sidebar droite)
 
 * La carte « mini-profil » de la sidebar droite affiche le solde **total** de points de
@@ -145,6 +156,75 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 * Messages
 * Conversations
 * Notifications
+
+#### Fenêtres de conversation (popups)
+
+* Cliquer sur une conversation dans la messagerie de l'en-tête ouvre une petite
+  fenêtre de conversation ancrée en bas de l'écran (comme Facebook) au lieu de
+  rediriger vers la page `/messages`.
+* Chaque fenêtre peut être : rabattue (repliée à son en-tête), rouverte,
+  fermée, ou agrandie pour ouvrir la conversation dans la page `/messages`
+  (`/messages?target={id}`).
+* Plusieurs conversations peuvent être ouvertes simultanément (jusqu'à 3,
+  alignées côte à côte sur desktop ; sur mobile seule la dernière ouverte est
+  affichée en bottom sheet).
+* Les messages sont chargés et rafraîchis périodiquement, et l'envoi de message
+  est possible directement depuis la fenêtre : texte, image, vidéo et fichier
+  (boutons d'envoi de pièces jointes dans la zone de saisie).
+* L'en-tête de la fenêtre utilise la couleur du logo Dughu et affiche l'état du
+  contact : « En ligne », « Dernière connexion : … » (date et heure) ou
+  « Hors ligne ».
+* Un menu d'actions (⋯) est disponible sur ses propres messages : **Modifier**
+  un message (`POST /updateMessage/{message_id}`, contenu édité dans la bulle)
+  ou **Supprimer** un message (`POST /deleteMessage/{message_id}`). La
+  suppression demande à l'utilisateur s'il veut supprimer le message
+  **pour tout le monde** (le message disparaît chez lui et chez son
+  interlocuteur) ou **uniquement pour lui** (il disparaît seulement de sa
+  propre vue). Le choix est transmis à l'API Dughu via le paramètre
+  `delete_type` (`me` / `all`), qui pilote les champs `deleted_one` /
+    `deleted_two` du message. Ces actions ne s'affichent que sur les messages
+  que l'on a envoyés.
+* **Accusé de lecture** (ticks) sur les messages envoyés, dans la page `/messages`,
+  la fenêtre de conversation (popup) **et** la sidebar :
+  - **1 coche gris** = message en cours d'envoi (écho local optimiste) ;
+  - **2 coches grises** = message délivré au destinataire (stocké côté serveur
+    Dughu, pas encore lu) ;
+  - **2 coches bleues** = message **lu** par le destinataire.
+  La lecture est détectée depuis le champ `seen` (timestamp Unix) renvoyé par
+  l'API Dughu sur chaque message : une valeur > 0 signifie que le destinataire
+  a ouvert la conversation. Les statuts sont rafraîchis automatiquement grâce
+  au polling périodique (5 s) de la messagerie. Le composant partagé
+  `ReceiptTicks` (`src/components/messages/ReceiptTicks.tsx`) centralise l'affichage.
+* La fenêtre de conversation (popup) propose également le bouton **Répondre**
+  (icône réponse) sur chaque message : une barre « Réponse à … » s'affiche
+  au-dessus de la zone de saisie et la citation est envoyée avec le message
+  (`reply_doc_id`, `reply_sender`, `reply_text`), comme sur la page `/messages`.
+  La citation affichée est **persistée localement** (localStorage) car l'API
+  Dughu ne restitue pas la citation d'une réponse dans
+  `getConversationMessages` (`reply_id` reste à 0) ; elle est donc visible côté
+  utilisateur et réattribuée au message après un rechargement de page.
+* Dans la fenêtre de conversation, les actions (Répondre, réaction, menu ⋯
+  Modifier/Supprimer) ne sont pas dans la bulle : elles apparaissent **devant**
+  (à gauche) de chaque message envoyé et **derrière** (à droite) de chaque
+  message reçu, au survol (ou au focus).
+* Chaque message peut recevoir une **réaction par emoji** (6 réactions :
+  J'aime, J'adore, Haha, Wow, Triste, Grr). Le sélecteur d'emojis s'ouvre à
+  côté des actions, l'emoji réagi s'affiche en badge sur la bulle. Les
+  réactions sont **persistées localement** (localStorage) car l'API Dughu
+  n'expose pas d'endpoint de réaction de message (`reactMessage/{id}` → 404) ;
+  elles sont donc visibles seulement côté utilisateur tant qu'un vrai
+  endpoint n'est pas disponible.
+* Une conversation entière peut être **supprimée** (`POST
+  /deleteConversation/{conversation_id}`) depuis l'en-tête de la conversation
+  (page `/messages` ou fenêtre de conversation), avec confirmation. La
+  suppression est irréversible.
+
+#### Chargement des conversations
+
+* Pendant le chargement de la liste des conversations (page `/messages` et liste
+  de la messagerie accessible via l'icône message de l'en-tête), des squelettes
+  (skeleton) reproduisant la mise en page d'une conversation (avatar, nom,
+  dernier message) s'affichent à la place du spinner.
 
 ### Recherche
 
