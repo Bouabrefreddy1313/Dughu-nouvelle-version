@@ -35,6 +35,43 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 * Modification du profil
 * Publications de l'utilisateur
 
+#### Paramètres du profil
+
+* La modification des informations textuelles s'effectue sur la page dédiée
+  `/profile/settings`, et non dans une modale, afin de répartir les informations
+  dans trois sections responsives : « Infos », « Réseaux » et « Retrouvailles ».
+* Sur mobile et tablette, les trois sections sont présentées dans une navigation
+  compacte sans défilement horizontal et les champs sont affichés sur une seule
+  colonne. La navigation latérale et les champs sur deux colonnes sont réservés
+  aux écrans suffisamment larges. Les actions de sauvegarde occupent toute la
+  largeur sur mobile pour rester facilement accessibles au toucher.
+* Le nom d'utilisateur est affiché en lecture seule et ne peut pas être modifié.
+* La section « Infos » permet de modifier la photo de profil, le nom, les prénoms,
+  le téléphone, l'email, le sexe, la date de naissance, le code postal, le pays,
+  la ville actuelle, la biographie et la signature.
+* La liste des pays provient de `GET /getCountries`. Seuls les pays actifs sont
+  proposés ; leur `nom` est affiché et leur `id` est envoyé à Dughu avec
+  `country_id`.
+* La section « Réseaux » permet de renseigner Facebook, Instagram, Twitter/X,
+  LinkedIn, YouTube, Google, un site web, Discord et WeChat.
+* Les informations de retrouvailles sont enregistrées via `POST /saveInfos` avec
+  l'identifiant de session résolu côté serveur. Cette route gère la ville actuelle,
+  la ville d'origine, l'établissement fréquenté, le domaine d'activité, la
+  profession, l'entreprise actuelle, les entreprises passées, les centres
+  d'intérêt, les compétences et les lieux fréquentés.
+* Les entreprises passées, centres d'intérêt, compétences et lieux fréquentés
+  sont des listes éditées sous forme d'étiquettes ajoutables et supprimables.
+  Elles sont envoyées à Dughu sous forme de tableaux JSON.
+* Les valeurs enregistrées sont relues depuis `getSpecificUser` ; `school` est
+  normalisé comme établissement fréquenté et `working` comme profession.
+* Les informations publiques de retrouvailles sont présentées dans la section
+  « À propos » du profil, avec des étiquettes responsives pour les listes.
+* Les champs sans contrat backend confirmé restent désactivés et portent la
+  mention « Bientôt modifiable ». Aucune clé API de substitution n'est inventée
+  et ces champs ne sont pas envoyés à Dughu.
+* La mise à jour du profil est liée à l'utilisateur identifié par le cookie de
+  session côté serveur, et non à un identifiant utilisateur fourni par le client.
+
 #### Comportement de chargement et d'erreur du profil
 
 * Un squelette de chargement (skeleton) s'affiche pendant le chargement du profil,
@@ -45,6 +82,9 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 * Aucune requête `/api/profile` n'est envoyée avec un identifiant vide.
 
 #### Relations Fraterniser et Réseauter
+
+La documentation technique et la passation détaillée de cette fonctionnalité
+sont disponibles dans `docs/FEATURE_RELATIONS_FRATERNISER_RESEAUTER.md`.
 
 * Sur le profil d'un autre utilisateur, les relations `friend` et `network` sont
   gérées indépendamment par les boutons « Fraterniser » et « Réseauter ».

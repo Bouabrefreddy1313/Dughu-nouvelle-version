@@ -22,6 +22,16 @@ interface ProfileAboutProps {
     username?: string | null
     bio?: string | null
     birthdate?: string | null
+    city?: string | null
+    villeOrigine?: string | null
+    etablissementFrequente?: string | null
+    domaineActivite?: string | null
+    profession?: string | null
+    entrepriseActuelle?: string | null
+    entreprisePassee?: string[] | null
+    centresInteret?: string[] | null
+    competences?: string[] | null
+    lieuxFrequentes?: string[] | null
   }
   info?: ProfileInfo
   isOwn: boolean
@@ -41,6 +51,8 @@ export function ProfileAbout({ user, info, isOwn, onEdit }: ProfileAboutProps) {
         : null,
     },
     { icon: <MapPin size={16} />, label: "Pays", value: info?.country?.name },
+    { icon: <MapPin size={16} />, label: "Ville actuelle", value: user.city },
+    { icon: <MapPin size={16} />, label: "Ville d'origine", value: user.villeOrigine },
     {
       icon: <CalendarDays size={16} />,
       label: "Membre depuis",
@@ -49,6 +61,20 @@ export function ProfileAbout({ user, info, isOwn, onEdit }: ProfileAboutProps) {
         : info?.registered,
     },
   ].filter((i) => i.value)
+
+  const careerItems = [
+    { label: "Poste / Fonction", value: user.profession },
+    { label: "Entreprise actuelle", value: user.entrepriseActuelle },
+    { label: "Domaine d'activité", value: user.domaineActivite },
+    { label: "École / Université", value: user.etablissementFrequente },
+    { label: "Anciennes entreprises", value: user.entreprisePassee?.join(", ") },
+  ].filter((item) => item.value)
+
+  const discoveryItems = [
+    { label: "Centres d'intérêt", values: user.centresInteret },
+    { label: "Compétences", values: user.competences },
+    { label: "Lieux fréquentés", values: user.lieuxFrequentes },
+  ].filter((item) => Array.isArray(item.values) && item.values.length > 0)
 
   return (
     <Card className="p-4">
@@ -91,6 +117,36 @@ export function ProfileAbout({ user, info, isOwn, onEdit }: ProfileAboutProps) {
             ))}
           </ul>
         </>
+      )}
+
+      {careerItems.length > 0 && (
+        <div className="mt-4 border-t border-gray-100 pt-4">
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[#65676B]">Parcours professionnel et formation</p>
+          <ul className="space-y-2.5">
+            {careerItems.map((item) => (
+              <li key={item.label} className="text-[13px] text-[#2D2D2D]">
+                <span className="block text-[11px] font-semibold text-[#65676B]">{item.label}</span>
+                <span className="break-words">{item.value}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {discoveryItems.length > 0 && (
+        <div className="mt-4 border-t border-gray-100 pt-4">
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[#65676B]">Centres d&apos;intérêt et compétences</p>
+          <div className="space-y-3">
+            {discoveryItems.map((item) => (
+              <div key={item.label}>
+                <span className="block text-[11px] font-semibold text-[#65676B]">{item.label}</span>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {item.values?.map((value) => <span key={value} className="max-w-full break-words rounded-full bg-[#F5EFE8] px-2.5 py-1 text-[11px] font-medium text-[#6B3F1D]">{value}</span>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </Card>
   )

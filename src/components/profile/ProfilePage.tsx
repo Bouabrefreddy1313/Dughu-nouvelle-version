@@ -23,7 +23,6 @@ import { ProfilePhotos } from "./ProfilePhotos"
 import { ProfileVideos } from "./ProfileVideos"
 import { ProfileFriends } from "./ProfileFriends"
 import { ProfileGroupsPages, type ProfileGroup, type ProfilePage as ProfilePageType } from "./ProfileGroupsPages"
-import { EditProfileModal } from "./EditProfileModal"
 import { ImageEditModal } from "./ImageEditModal"
 import { PostComposer } from "@/components/composer/PostComposer"
 import { EMPTY_PROFILE_RELATIONS, type RelationAction, type RelationType } from "@/lib/profile-relations"
@@ -96,7 +95,6 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
   const loadingMoreRef = useRef(false)
 
   const [tab, setTab] = useState<Tab>("interactions")
-  const [editOpen, setEditOpen] = useState(false)
   const [imageEdit, setImageEdit] = useState<null | "avatar" | "cover">(null)
   // Utilisateurs bloqués (état local de session : le libellé « Bloquer » / « Débloquer »
   // du menu 3 points bascule selon cette liste et l'endpoint Dughu fait office de toggle).
@@ -527,14 +525,6 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     })
   }
 
-  const handleProfileUpdated = (updated: any) => {
-    // Source de vérité : mise à jour du cache React Query (useAuth), plus de localStorage.
-    const newUser = { ...(updated || {}) }
-    queryClient.setQueryData(["auth", "me"], newUser)
-    queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
-    queryClient.invalidateQueries({ queryKey: ["auth", "me"] })
-  }
-
   // Tant qu'aucun identifiant n'est connu (par ex. profil "moi" en attente du
   // chargement de l'utilisateur connecté), on affiche le skeleton au lieu de
   // l'erreur "Profil introuvable".
@@ -628,7 +618,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
         }}
         onEditCover={() => setImageEdit("cover")}
         onEditAvatar={() => setImageEdit("avatar")}
-        onEditProfile={() => setEditOpen(true)}
+        onEditProfile={() => router.push("/profile/settings")}
         onMore={() => toast.info("Options de profil — bientôt disponible")}
         onSubmitVerification={onSubmitVerification}
         isVerifying={isVerifying}
@@ -662,7 +652,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
             user={user}
             info={profile.info as ProfileInfo}
             isOwn={isOwn}
-            onEdit={isOwn ? () => setEditOpen(true) : undefined}
+            onEdit={isOwn ? () => router.push("/profile/settings") : undefined}
           />
           <ProfilePhotos photos={photos} onSeeAll={() => setTab("photos")} />
           <ProfileVideos videos={videos} onSeeAll={() => setTab("videos")} />
@@ -815,7 +805,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
           {tab === "apropos" && (
             <div className="space-y-4">
-              <ProfileAbout user={user} info={profile.info as ProfileInfo} isOwn={isOwn} onEdit={isOwn ? () => setEditOpen(true) : undefined} />
+              <ProfileAbout user={user} info={profile.info as ProfileInfo} isOwn={isOwn} onEdit={isOwn ? () => router.push("/profile/settings") : undefined} />
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
                 <h3 className="text-[16px] font-bold text-[#2D2D2D] mb-3">Résumé</h3>
                 <ul className="space-y-3 text-[14px] text-[#4A4A4A]">
@@ -839,12 +829,6 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       </div>
 
       {/* Modaux */}
-      <EditProfileModal
-        open={editOpen}
-        user={user}
-        onClose={() => setEditOpen(false)}
-        onSaved={(u) => handleProfileUpdated(u)}
-      />
       <ImageEditModal
         open={imageEdit === "avatar"}
         type="avatar"

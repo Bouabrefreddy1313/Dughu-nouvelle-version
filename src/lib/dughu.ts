@@ -110,6 +110,13 @@ export const dughu = {
   multipart: (path: string, formData: FormData) =>
     dughuFetch(path, { method: "POST", body: formData }),
 
+  json: (path: string, body: Record<string, unknown>) =>
+    dughuFetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
   rootGet: (path: string, params?: Record<string, string | number | undefined>) =>
     dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }, RETRY_TIMES, DUGHU_ORIGIN),
 
@@ -234,6 +241,8 @@ export const dughuApi = {
 
   getUser: (identifier: string | number, viewer: string | number) =>
     dughu.get(`getSpecificUser/${encodeURIComponent(String(identifier))}/${encodeURIComponent(String(viewer))}`),
+
+  getCountries: () => dughu.get("getCountries"),
 
   getAllUsers: (page = 1) => dughu.get("getAllUsers", { page }),
 
@@ -408,6 +417,20 @@ export const dughuApi = {
     dughu.chatMultipart("sendMessage", formData, authToken),
 
   updateProfile: (formData: FormData) => dughu.multipart("updateProfile", formData),
+
+  saveProfileInfos: (data: {
+    user_id: string | number
+    ville_actuelle: string
+    ville_origine: string
+    etablissement_frequente: string
+    domaine_activite: string
+    profession: string
+    entreprise_actuelle: string
+    entreprise_passee: string[]
+    centres_interet: string[]
+    competences: string[]
+    lieux_frequentes: string[]
+  }) => dughu.json("saveInfos", data),
 
   updatePrivacySettings: (formData: FormData) => dughu.multipart("updatePrivacySettings", formData),
 
@@ -587,6 +610,18 @@ export function normalizeUser(u: any): Record<string, any> | null {
     [firstName, lastName].filter(Boolean).join(" ").trim() ||
     "Utilisateur"
   const onlineValue = pick(u, ["is_online", "isOnline", "online"], false)
+  const stringList = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean)
+    if (typeof value === "string" && value.trim()) {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) return parsed.map((item) => String(item).trim()).filter(Boolean)
+      } catch {
+        return value.split(",").map((item) => item.trim()).filter(Boolean)
+      }
+    }
+    return []
+  }
   return {
     id: String(id),
     firstName: String(firstName),
@@ -599,10 +634,32 @@ export function normalizeUser(u: any): Record<string, any> | null {
     cover: resolveMediaUrl(toUrl(
       pick(u, ["cover", "cover_image", "coverImage", "background", "banner", "coverImageUrl"], "")
     )) || "/images/group/default-cover.jpg",
-    bio: pick(u, ["bio", "about", "description", "about_me"], ""),
+    bio: pick(u, ["bio", "description", "about_me"], ""),
+    signature: pick(u, ["signature"], ""),
     gender: pick(u, ["gender", "sexe", "sex"], ""),
     phone: pick(u, ["phone", "phone_number", "phoneNumber", "telephone"], ""),
     birthdate: normalizeBirthday(pick(u, ["birthdate", "birthday", "dateNaissance", "dob"], "")) || null,
+    countryId: pick(u, ["country_id", "countryId"], "") || "",
+    city: pick(u, ["city"], "") || "",
+    postcode: pick(u, ["postode zip"], "") || "",
+    villeOrigine: pick(u, ["ville_origine"], "") || "",
+    etablissementFrequente: pick(u, ["etablissement_frequente", "school"], "") || "",
+    domaineActivite: pick(u, ["domaine_activite"], "") || "",
+    profession: pick(u, ["profession", "working"], "") || "",
+    entrepriseActuelle: pick(u, ["entreprise_actuelle"], "") || "",
+    entreprisePassee: stringList(pick(u, ["entreprise_passee"], [])),
+    facebook: pick(u, ["facebook"], "") || "",
+    instagram: pick(u, ["instagram"], "") || "",
+    twitter: pick(u, ["twitter"], "") || "",
+    linkedin: pick(u, ["linkedin"], "") || "",
+    youtube: pick(u, ["youtube"], "") || "",
+    google: pick(u, ["google"], "") || "",
+    website: pick(u, ["website"], "") || "",
+    discord: pick(u, ["discord"], "") || "",
+    wechat: pick(u, ["wechat"], "") || "",
+    centresInteret: stringList(pick(u, ["centres_interet"], [])),
+    competences: stringList(pick(u, ["competences"], [])),
+    lieuxFrequentes: stringList(pick(u, ["lieux_frequentes"], [])),
     online: onlineValue === true || onlineValue === 1 || onlineValue === "1" || onlineValue === "true",
     lastSeen: pick(u, ["last_seen", "lastSeen", "last_activity", "lastActivity"], "") || null,
     isFollowing: (() => {
