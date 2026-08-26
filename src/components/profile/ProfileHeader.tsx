@@ -24,7 +24,15 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { dughuApi, resolveMediaUrl } from "@/lib/dughu"
 import { cn } from "@/lib/utils"
-import type { ProfileRelations, RelationType } from "@/lib/profile-relations"
+import type { ProfileRelations, RelationAction, RelationType } from "@/lib/profile-relations"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export interface ProfileUser {
   id: string
@@ -61,7 +69,7 @@ interface ProfileHeaderProps {
   relations?: ProfileRelations
   relationLoadingType?: RelationType | null
   onToggleFollow?: () => void
-  onRelationAction?: (type: RelationType) => void
+  onRelationAction?: (type: RelationType, action: RelationAction) => void
   onMessage?: () => void
   onEditCover?: () => void
   onEditAvatar?: () => void
@@ -166,7 +174,10 @@ export function ProfileHeader({
 }: ProfileHeaderProps) {
   const [step1Open, setStep1Open] = useState(false)
   const [step2Open, setStep2Open] = useState(false)
-  const [relationToRemove, setRelationToRemove] = useState<RelationType | null>(null)
+  const [relationDialog, setRelationDialog] = useState<{
+    type: RelationType
+    state: "outgoing_pending" | "incoming_pending" | "accepted"
+  } | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [step1Data, setStep1Data] = useState<{
     name: string
@@ -368,9 +379,9 @@ export function ProfileHeader({
                     const label = state === "accepted"
                       ? type === "friend" ? "Fraternisé" : "Réseauté"
                       : state === "incoming_pending"
-                        ? type === "friend" ? "Accepter fraterniser" : "Accepter réseauter"
+                        ? "Accepter la demande"
                         : state === "outgoing_pending"
-                          ? "Demande envoyée"
+                          ? type === "friend" ? "Fraterniser envoyé" : "Réseauter envoyé"
                           : type === "friend" ? "Fraterniser" : "Réseauter"
                     const Icon = type === "friend" ? (state === "accepted" ? UserCheck : UserPlus) : Users
 
@@ -378,11 +389,10 @@ export function ProfileHeader({
                       <button
                         key={type}
                         type="button"
-                        disabled={state === "outgoing_pending" || loading || (!!relationLoadingType && !loading)}
-                        title={state === "outgoing_pending" ? "En attente d'acceptation" : undefined}
+                        disabled={loading || (!!relationLoadingType && !loading)}
                         onClick={() => {
-                          if (state === "accepted") setRelationToRemove(type)
-                          else onRelationAction?.(type)
+                          if (state === "none") onRelationAction?.(type, "request")
+                          else setRelationDialog({ type, state })
                         }}
                         className={cn(
                           "flex items-center gap-2 px-4 sm:px-5 py-2 rounded-lg text-[14px] font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed",
@@ -423,61 +433,79 @@ export function ProfileHeader({
         </div>
       </div>
 
-      {relationToRemove && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setRelationToRemove(null)
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="remove-relation-title"
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 id="remove-relation-title" className="text-lg font-bold text-[#050505]">
-                  {relationToRemove === "friend" ? "Annuler la fraternisation ?" : "Annuler le réseautage ?"}
-                </h2>
-                <p className="mt-2 text-sm text-[#65676B]">
-                  {relationToRemove === "friend"
-                    ? "Voulez-vous vraiment annuler cette fraternisation ?"
-                    : "Voulez-vous vraiment quitter cette relation de réseautage ?"}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Fermer"
-                onClick={() => setRelationToRemove(null)}
-                className="rounded-full p-2 text-[#65676B] hover:bg-[#F0F2F5]"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRelationToRemove(null)}
-                className="rounded-lg bg-[#F0F2F5] px-4 py-2 text-sm font-semibold text-[#050505] hover:bg-[#E4E6EB]"
-              >
-                Conserver
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onRelationAction?.(relationToRemove)
-                  setRelationToRemove(null)
-                }}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-              >
-                Confirmer la suppression
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={relationDialog !== null} onOpenChange={(open) => { if (!open) setRelationDialog(null) }}>
+        <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] max-w-md overflow-y-auto p-6" showCloseButton>
+          {relationDialog && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-lg font-bold text-[#050505]">
+                  {relationDialog.state === "incoming_pending"
+                    ? relationDialog.type === "friend" ? "Demande de fraternisation" : "Demande de réseautage"
+                    : relationDialog.state === "outgoing_pending"
+                      ? "Annuler la demande ?"
+                      : relationDialog.type === "friend" ? "Supprimer la fraternisation ?" : "Supprimer le réseautage ?"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#65676B]">
+                  {relationDialog.state === "incoming_pending"
+                    ? "Souhaitez-vous accepter ou refuser cette demande ?"
+                    : relationDialog.state === "outgoing_pending"
+                      ? "Cette demande envoyée sera annulée."
+                      : "Cette relation sera supprimée après votre confirmation."}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="mt-2 bg-white px-0 pb-0">
+                {relationDialog.state === "incoming_pending" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRelationAction?.(relationDialog.type, "decline")
+                        setRelationDialog(null)
+                      }}
+                      className="min-h-11 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+                    >
+                      Refuser
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRelationAction?.(relationDialog.type, "accept")
+                        setRelationDialog(null)
+                      }}
+                      className="min-h-11 rounded-lg bg-[#A35A2A] px-4 py-2 text-sm font-semibold text-white hover:bg-[#8B4A1F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2"
+                    >
+                      Accepter
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setRelationDialog(null)}
+                      className="min-h-11 rounded-lg bg-[#F0F2F5] px-4 py-2 text-sm font-semibold text-[#050505] hover:bg-[#E4E6EB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2"
+                    >
+                      Conserver
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRelationAction?.(
+                          relationDialog.type,
+                          relationDialog.state === "accepted" ? "remove" : "decline"
+                        )
+                        setRelationDialog(null)
+                      }}
+                      className="min-h-11 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+                    >
+                      {relationDialog.state === "accepted" ? "Supprimer" : "Annuler la demande"}
+                    </button>
+                  </>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ═══════════════════════════════════════════════ */}
       {/* Modal Étape 1 : Passez au statut Certifié — REDESIGN */}

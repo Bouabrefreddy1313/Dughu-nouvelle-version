@@ -26,7 +26,7 @@ import { ProfileGroupsPages, type ProfileGroup, type ProfilePage as ProfilePageT
 import { EditProfileModal } from "./EditProfileModal"
 import { ImageEditModal } from "./ImageEditModal"
 import { PostComposer } from "@/components/composer/PostComposer"
-import { EMPTY_PROFILE_RELATIONS, type RelationType } from "@/lib/profile-relations"
+import { EMPTY_PROFILE_RELATIONS, type RelationAction, type RelationType } from "@/lib/profile-relations"
 
 const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })), {
   loading: () => (
@@ -515,13 +515,13 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
   const { triggerRelationAction, isPending: relationLoading, pendingType } = useRelation()
 
-  const handleRelationAction = (type: RelationType) => {
+  const handleRelationAction = (type: RelationType, action: RelationAction) => {
     if (!currentUser || !profileDughuId || isOwn || relationLoading) return
     const currentState = profile?.relations?.[type] ?? "none"
-    if (currentState === "outgoing_pending") return
     triggerRelationAction({
       type,
       currentState,
+      action,
       targetId: profileDughuId,
       profileQueryKey,
     })

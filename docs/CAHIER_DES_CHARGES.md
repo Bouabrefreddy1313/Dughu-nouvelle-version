@@ -44,6 +44,23 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
   n'existe réellement pas ou a quitté Dughu (erreur API / utilisateur absent).
 * Aucune requête `/api/profile` n'est envoyée avec un identifiant vide.
 
+#### Relations Fraterniser et Réseauter
+
+* Sur le profil d'un autre utilisateur, les relations `friend` et `network` sont
+  gérées indépendamment par les boutons « Fraterniser » et « Réseauter ».
+* Une demande envoyée affiche respectivement « Fraterniser envoyé » ou
+  « Réseauter envoyé ». Un nouveau clic demande confirmation avant son annulation.
+* Une demande reçue affiche « Accepter la demande ». Son ouverture permet soit
+  de la refuser, soit de l'accepter.
+* Une demande acceptée affiche « Fraternisé » ou « Réseauté ». Un nouveau clic
+  demande confirmation avant la suppression de la relation.
+* Les états acceptés proviennent des champs `is_friend` et `is_network` du profil
+  Dughu. Le sens entrant ou sortant d'une demande en attente provient des listes
+  `incoming` et `outgoing` de l'endpoint `relation/requests`, filtrées par
+  utilisateur ciblé et par type de relation.
+* Toutes les mutations de relation sont authentifiées côté serveur et transmises
+  à l'API Dughu en `multipart/form-data` avec `auth_user_id`, `user_id` et `type`.
+
 ### Publications
 
 * Création

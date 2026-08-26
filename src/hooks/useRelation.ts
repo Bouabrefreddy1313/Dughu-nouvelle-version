@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import {
   EMPTY_PROFILE_RELATIONS,
   type ProfileRelations,
+  type RelationAction,
   type RelationState,
   type RelationType,
 } from "@/lib/profile-relations"
@@ -10,6 +11,7 @@ import {
 interface RelationMutationArgs {
   type: RelationType
   currentState: RelationState
+  action: RelationAction
   profileQueryKey: readonly unknown[]
   targetId: string
 }
@@ -23,16 +25,16 @@ interface RelationResponse {
   message?: string
 }
 
-function actionFor(state: RelationState): "request" | "accept" | "decline" | null {
-  if (state === "none") return "request"
-  if (state === "incoming_pending") return "accept"
-  if (state === "accepted") return "decline"
-  return null
+function actionAllowed(state: RelationState, action: RelationAction): boolean {
+  if (state === "none") return action === "request"
+  if (state === "outgoing_pending") return action === "decline"
+  if (state === "incoming_pending") return action === "accept" || action === "decline"
+  return action === "remove"
 }
 
-function nextStateFor(state: RelationState): RelationState {
-  if (state === "none") return "outgoing_pending"
-  if (state === "incoming_pending") return "accepted"
+function nextStateFor(action: RelationAction): RelationState {
+  if (action === "request") return "outgoing_pending"
+  if (action === "accept") return "accepted"
   return "none"
 }
 
@@ -41,7 +43,7 @@ async function readResponse(res: Response): Promise<RelationResponse> {
   try {
     return text ? JSON.parse(text) as RelationResponse : { success: false }
   } catch {
-    throw new Error("Réponse serveur invalide")
+    throw new Error("Une erreur est survenue. Veuillez réessayer.")
   }
 }
 
@@ -49,9 +51,10 @@ export function useRelation() {
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
-    mutationFn: async ({ type, currentState, targetId }: RelationMutationArgs) => {
-      const action = actionFor(currentState)
-      if (!action) throw new Error("Aucune action disponible pour cette demande")
+    mutationFn: async ({ type, currentState, action, targetId }: RelationMutationArgs) => {
+      if (!actionAllowed(currentState, action)) {
+        throw new Error("Cette action n'est plus disponible")
+      }
       const res = await fetch("/api/profile/relation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,15 +62,15 @@ export function useRelation() {
       })
       const data = await readResponse(res)
       if (!res.ok || !data.success) {
-        throw new Error(data.message ?? "Erreur lors de la mise à jour")
+        throw new Error(data.message ?? "Impossible de mettre à jour cette relation.")
       }
       return data
     },
 
-    onMutate: async ({ type, currentState, profileQueryKey }: RelationMutationArgs) => {
+    onMutate: async ({ type, action, profileQueryKey }: RelationMutationArgs) => {
       await queryClient.cancelQueries({ queryKey: profileQueryKey })
       const previousData = queryClient.getQueryData(profileQueryKey)
-      const nextState = nextStateFor(currentState)
+      const nextState = nextStateFor(action)
 
       queryClient.setQueryData<ProfileCacheData>(profileQueryKey, (old) => old ? {
         ...old,
@@ -84,19 +87,16 @@ export function useRelation() {
       if (context?.previousData !== undefined) {
         queryClient.setQueryData(profileQueryKey, context.previousData)
       }
-      toast.error(error instanceof Error ? error.message : "Erreur relation")
+      toast.error(error instanceof Error ? error.message : "Impossible de mettre à jour cette relation.")
     },
 
-    onSuccess: (data, { type, currentState }) => {
-      const message = currentState === "accepted"
-        ? type === "friend" ? "Fraternisation annulée" : "Relation de réseautage annulée"
-        : data.message ?? "Action effectuée"
-      toast.success(message)
+    onSuccess: (data) => {
+      toast.success(data.message ?? "Action effectuée")
     },
   })
 
   const triggerRelationAction = (args: RelationMutationArgs) => {
-    if (!actionFor(args.currentState)) return
+    if (!actionAllowed(args.currentState, args.action)) return
     mutation.mutate(args)
   }
 

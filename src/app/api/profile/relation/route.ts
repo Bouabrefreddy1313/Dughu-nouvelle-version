@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dughu, DughuApiError } from "@/lib/dughu"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
-import type { RelationType } from "@/lib/profile-relations"
+import type { RelationAction, RelationType } from "@/lib/profile-relations"
 
 const ENDPOINTS = {
   request: "relation/request",
   accept: "relation/accept",
   decline: "relation/decline",
+  remove: "relation/remove",
 } as const
-
-type RelationAction = keyof typeof ENDPOINTS
 
 interface RelationBody {
   targetId?: string | number
@@ -39,7 +38,7 @@ export async function POST(req: NextRequest) {
     if (
       !/^\d+$/.test(targetUserId) ||
       !["friend", "network"].includes(type) ||
-      !["request", "accept", "decline"].includes(action)
+      !["request", "accept", "decline", "remove"].includes(action)
     ) {
       return NextResponse.json({ success: false, message: "Paramètres invalides" }, { status: 400 })
     }
@@ -57,7 +56,10 @@ export async function POST(req: NextRequest) {
 
     const data = await dughu.multipart(ENDPOINTS[action], formData)
     if (data?.success === false) {
-      return NextResponse.json({ success: false, message: messageFrom(data, "Erreur backend") }, { status: 400 })
+      return NextResponse.json(
+        { success: false, message: messageFrom(data, "Impossible de mettre à jour cette relation.") },
+        { status: 400 }
+      )
     }
 
     return NextResponse.json({ success: true, message: messageFrom(data, "Action effectuée") })
@@ -65,10 +67,13 @@ export async function POST(req: NextRequest) {
     console.error("PROFILE RELATION ERROR:", error)
     if (error instanceof DughuApiError) {
       return NextResponse.json(
-        { success: false, message: messageFrom(error.data, "Erreur backend") },
+        { success: false, message: messageFrom(error.data, "Impossible de mettre à jour cette relation.") },
         { status: error.status >= 400 && error.status <= 599 ? error.status : 502 }
       )
     }
-    return NextResponse.json({ success: false, message: "Erreur interne" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "Une erreur est survenue. Veuillez réessayer." },
+      { status: 500 }
+    )
   }
 }
