@@ -19,6 +19,8 @@ export interface ChatSummary {
   lastMessageKey: string
   /** Accusé de lecture du dernier message (s'il a été envoyé par moi). */
   lastMessageReceipt?: MessageReceipt | null
+  /** Le dernier message du fil a été envoyé par l'utilisateur courant. */
+  lastMessageIsMine?: boolean
 }
 
 export interface ChatAttachment {
@@ -463,6 +465,15 @@ export function normalizeChats(raw: any, currentUserId: string): ChatSummary[] {
     const lastSenderId = String(first(last?.from_id, last?.fromId, last?.sender_id, last?.senderId, ""))
     const lastMessageReceipt =
       lastSenderId === String(currentUserId) ? computeMessageReceipt(last, lastSenderId, String(currentUserId)) : null
+    // Dernier message envoyé par moi ? (sinon il vient du contact)
+    const lastMessageIsMine = lastSenderId !== "" && lastSenderId === String(currentUserId)
+    // Message non lu : l'API Dughu n'expose pas de compteur de non-lus fiable sur
+    // la liste des conversations. On le déduit du dernier message du fil : s'il a
+    // été envoyé par le contact et n'est pas encore marqué « vu » (champ seen du
+    // message), la conversation compte au moins un message non lu. Si l'API
+    // fournit tout de même son propre compteur, on garde le maximum des deux.
+    const incomingUnread =
+      last && lastSenderId !== "" && !lastMessageIsMine && readSeenTimestamp(last) === null ? 1 : 0
     return [{
       id: String(first(
         item.id,
@@ -476,9 +487,10 @@ export function normalizeChats(raw: any, currentUserId: string): ChatSummary[] {
       contact,
       lastMessage,
       updatedAt,
-      unreadCount: Number(first(item.unread_count, item.unreadCount, item.unread, 0)) || 0,
+      unreadCount: Math.max(Number(first(item.unread_count, item.unreadCount, item.unread, 0)) || 0, incomingUnread),
       lastMessageKey: lastId || `${updatedAt}:${lastMessage}`,
       lastMessageReceipt,
+      lastMessageIsMine,
     }]
   })
 }

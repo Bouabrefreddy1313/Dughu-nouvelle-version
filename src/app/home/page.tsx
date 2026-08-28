@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import dynamic from "next/dynamic"
@@ -30,8 +30,15 @@ import FlashFeed from "@/components/flash/FlashFeed"
 import FlashViewer from "@/components/flash/FlashViewer"
 import FlashCreator from "@/components/flash/FlashCreator"
 import { type FlashFeedData } from "@/hooks/queries/use-flash"
+import CapsuleRail from "@/components/capsule/CapsuleRail"
+import CapsuleViewer from "@/components/capsule/CapsuleViewer"
+import { useCapsulesFeed } from "@/hooks/queries/use-capsules"
+import type { Capsule } from "@/lib/capsule-service"
 import MainLayout from "@/components/layout/MainLayout"
+import { ConfirmDialog } from "@/components/common/ConfirmDialog"
 import { isDefaultDughuMedia } from "@/lib/dughu"
+
+import { useFlashFeed } from "@/hooks/queries/use-flash"
 
 const PostComposer = dynamic(() => import("@/components/composer/PostComposer").then((mod) => ({ default: mod.PostComposer })), {
   loading: () => null,
@@ -179,10 +186,15 @@ export default function HomePage() {
   const [filter, setFilter] = useState<"all" | "following">("all")
   const [flashTarget, setFlashTarget] = useState<{ userId: string; userName?: string | null; userAvatar?: string | null } | null>(null)
   const [flashCreatorOpen, setFlashCreatorOpen] = useState(false)
+  // Publication en attente de confirmation de suppression (modale au lieu du confirm natif).
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  // Capsules : index d'ouverture de la visionneuse plein écran (null = fermée).
+  const [capsuleViewerStart, setCapsuleViewerStart] = useState<number | null>(null)
   // Utilisateurs bloqués (état local de session : le libellé « Bloquer » / « Débloquer »
   // du menu 3 points bascule selon cette liste et l'endpoint Dughu fait office de toggle).
   const [blockedAuthors, setBlockedAuthors] = useState<Set<string>>(new Set())
   const queryClient = useQueryClient()
+
   const [coloredPosts, setColoredPosts] = useState<any[]>([...POST_COLORS])
   const [chatOpen, setChatOpen] = useState(false)
   const [followingAuthorIds, setFollowingAuthorIds] = useState<Set<string>>(
@@ -227,6 +239,41 @@ export default function HomePage() {
     cover: rawUser.cover || '/images/group/default-cover.jpg',
     _count: rawUser._count || { posts: 0, followers: 0, following: 0 },
   } : null, [rawUser])
+
+  // Flash des amis / contacts : permet de détecter les auteurs de posts ayant un
+  // Flash actif (anneau marron sur l'avatar) et d'ouvrir leur Flash au clic.
+  // Placé après la définition de `user` (utilisé comme identifiant du viewer).
+  const { data: flashData } = useFlashFeed(user?.id)
+  const activeFlashIds = useMemo(
+    () => new Set((flashData?.users || []).map((u) => String(u.userId))),
+    [flashData]
+  )
+  // Auteurs dont tous les Flash ont déjà été vus : l'anneau de leur avatar passe en gris.
+  const viewedFlashIds = useMemo(
+    () =>
+      new Set(
+        (flashData?.users || [])
+          .filter((u) => u.allViewed === true)
+          .map((u) => String(u.userId))
+      ),
+    [flashData]
+  )
+
+  // ── Capsules ────────────────────────────────────────────────────────────────
+  // Rail de 3 capsules aléatoires inséré après les 4 premiers posts + visionneuse
+  // plein écran. Réutilise le cache React Query de la page /capsules.
+  const { data: capsulesData, isLoading: capsulesLoading } = useCapsulesFeed({
+    userId: String(user?.dughu?.userId || ""),
+  })
+  const capsules = useMemo(() => capsulesData?.capsules || [], [capsulesData])
+
+  const openCapsuleViewer = useCallback(
+    (capsule: Capsule) => {
+      const index = capsules.findIndex((c) => c.id === capsule.id)
+      setCapsuleViewerStart(index >= 0 ? index : 0)
+    },
+    [capsules]
+  )
 
   // Charger posts
   const loadPosts = useCallback(async (page: number, reset = false) => {
@@ -603,7 +650,6 @@ export default function HomePage() {
   }
 
   const handleDelete = async (postId: string) => {
-    if (!confirm("Supprimer cette publication ?")) return
     try {
       const res = await fetch(`/api/deletePost/${postId}`, { method: "DELETE" })
       if (res.ok) {
@@ -611,6 +657,7 @@ export default function HomePage() {
         toast.success("Post supprimé")
       }
     } catch { toast.error("Erreur suppression") }
+    setDeleteTarget(null)
   }
 
   const handlePin = async (postId: string) => {
@@ -821,7 +868,8 @@ export default function HomePage() {
       <PostComposer user={user} onSubmit={handlePostSubmit} className="mb-4" />
 
       {/* Posts Feed */}
-      {posts.map((post) => (
+      {posts.map((post, postIndex) => (
+        <Fragment key={post.id}>
         <PostCard
           key={post.id}
           postId={post.id}
@@ -848,15 +896,33 @@ export default function HomePage() {
           isFollowing={!!post.author.isFollowing}
           isFollowLoading={followingAuthorIds.has(String(post.author.id))}
           onToggleFollow={() => handleToggleFollow(post.author)}
-          onDelete={() => handleDelete(post.id)}
+          onDelete={() => setDeleteTarget(post.id)}
           canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
           onSave={() => handleSave(post.id)}
           onHide={() => handleHide(post.id)}
           onBlock={() => handleBlock(post.author?.id)}
           isBlocked={blockedAuthors.has(String(post.author?.id))}
           isSaved={post.isSaved}
+          hasActiveFlash={activeFlashIds.has(String(post.author?.id))}
+          flashViewed={viewedFlashIds.has(String(post.author?.id))}
+          onOpenAuthorFlash={(author) =>
+            setFlashTarget({
+              userId: author.id,
+              userName: author.name,
+              userAvatar: author.avatar,
+            })
+          }
           className="mb-4"
         />
+        {/* Rail Capsules : 3 capsules aléatoires après les 4 premiers posts */}
+        {postIndex === 3 && (
+          <CapsuleRail
+            capsules={capsules}
+            loading={capsulesLoading}
+            onOpen={openCapsuleViewer}
+          />
+        )}
+        </Fragment>
       ))}
 
       {/* Skeleton Loading (premier chargement / auth en cours) */}
@@ -907,6 +973,26 @@ export default function HomePage() {
           <Button onClick={() => loadPosts(1, true)} className="mt-3 bg-[#A35A2A] text-white rounded-full">Actualiser</Button>
         </div>
       )}
+
+      {/* Visionneuse Capsules (plein écran, type Reels) */}
+      {capsuleViewerStart !== null && capsules.length > 0 && (
+        <CapsuleViewer
+          capsules={capsules}
+          startIndex={capsuleViewerStart}
+          userId={String(user?.dughu?.userId || "")}
+          onClose={() => setCapsuleViewerStart(null)}
+        />
+      )}
+
+      {/* Confirmation de suppression (vrai popup, pas de confirm() natif) */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title="Supprimer la publication ?"
+        description="Cette action est irréversible. Voulez-vous vraiment supprimer cette publication ?"
+        confirmLabel="Supprimer"
+        onConfirm={() => (deleteTarget ? handleDelete(deleteTarget) : undefined)}
+      />
     </MainLayout>
   )
 }

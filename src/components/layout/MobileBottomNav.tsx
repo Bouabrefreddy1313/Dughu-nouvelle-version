@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, usePathname } from "next/navigation"
-import { Home, Zap, Play, Video, UserCircle2 } from "lucide-react"
+import { Home, Zap, Play, Video, UserCircle2, Clapperboard } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface MobileBottomNavProps {
@@ -11,6 +11,7 @@ interface MobileBottomNavProps {
 const NAV_ITEMS = [
   { href: "/home", icon: Home, label: "Accueil" },
   { href: "/flash", icon: Zap, label: "Flash" },
+  { href: "/capsules", icon: Clapperboard, label: "Capsules" },
   { href: "/akwaplay", icon: Play, label: "Play" },
   { href: "/videos", icon: Video, label: "Vidéos" },
   { href: "/profile", icon: UserCircle2, label: "Profil" },

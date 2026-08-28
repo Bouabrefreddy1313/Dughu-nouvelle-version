@@ -159,6 +159,12 @@ interface PostCardProps {
   isSaved?: boolean
   /** Autorise l'affichage de l'action « Supprimer » (réservé à l'auteur du post). */
   canDelete?: boolean
+  /** L'auteur a un Flash actif : affiche un anneau autour de sa photo de profil. */
+  hasActiveFlash?: boolean
+  /** Les Flash de l'auteur ont déjà été vus : l'anneau devient gris au lieu du dégradé marron. */
+  flashViewed?: boolean
+  /** Clic sur la photo de profil d'un auteur ayant un Flash → ouvre le visualiseur de Flash. */
+  onOpenAuthorFlash?: (author: Author) => void
   className?: string
 }
 
@@ -880,6 +886,9 @@ export function PostCard({
   isBlocked,
   isSaved,
   canDelete,
+  hasActiveFlash = false,
+  flashViewed = false,
+  onOpenAuthorFlash,
   className,
 }: PostCardProps) {
   const [commentText, setCommentText] = useState("")
@@ -2010,12 +2019,36 @@ export function PostCard({
     >
 
       <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-        <Avatar
-          src={author.avatar}
-          name={author.name}
-          size="md"
-          verified={author.verified}
-        />
+        {hasActiveFlash ? (
+          <button
+            type="button"
+            onClick={() => onOpenAuthorFlash?.(author)}
+            aria-label={`Voir les Flash de ${author.name || "cet utilisateur"}`}
+            title="Voir ses Flash"
+            className={cn(
+              "group relative shrink-0 rounded-full p-[3px] transition hover:opacity-90 hover:shadow-md",
+              flashViewed
+                ? "bg-gray-300 hover:shadow-gray-400/30"
+                : "bg-gradient-to-br from-[#E08543] to-[#A35A2A] hover:shadow-[#A35A2A]/30"
+            )}
+          >
+            <span className="block rounded-full bg-white p-[2px]">
+              <Avatar
+                src={author.avatar}
+                name={author.name}
+                size="md"
+                verified={author.verified}
+              />
+            </span>
+          </button>
+        ) : (
+          <Avatar
+            src={author.avatar}
+            name={author.name}
+            size="md"
+            verified={author.verified}
+          />
+        )}
 
         <div className="flex-1 min-w-0">
           <a
@@ -2332,7 +2365,7 @@ export function PostCard({
         </div>
       </div>
 
-      <div className="mx-2 sm:mx-4 border-t border-gray-100 flex relative overflow-x-auto scrollbar-hide">
+      <div className="mx-2 sm:mx-4 border-t border-gray-100 flex relative">
         <div
           className="flex-1 relative min-w-0"
           onMouseEnter={() => {
@@ -2386,7 +2419,7 @@ export function PostCard({
           <button
             type="button"
             onClick={() => setConfirmPointsOpen(true)}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1 transition"
+            className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1 transition"
             aria-label="Gratifier l'auteur de ce post de 100 points"
           >
             <Image
@@ -2400,7 +2433,7 @@ export function PostCard({
           </button>
         )}
 
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <button
             type="button"
             onClick={() => setRepostMenuOpen((v) => !v)}
@@ -2448,7 +2481,7 @@ export function PostCard({
         <button
           type="button"
           onClick={() => setShareModalOpen(true)}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
+          className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
         >
           <Share2 size={18} />
           <span className="hidden sm:inline">Partager</span>

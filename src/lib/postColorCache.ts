@@ -1,6 +1,7 @@
 // Cache persistant (localStorage) des couleurs de posts.
-// L'API Dughu ne renvoie pas toujours la couleur dans les posts (ex. POST /post
-// accepte color_1/color_2/text_color mais ne les restitue pas dans GET /posts).
+// L'API Dughu ne renvoie pas toujours la couleur dans les posts (POST /post
+// accepte `post_color_input` (id), color_1/color_2/text_color mais ne les
+// restitue pas systématiquement dans GET /posts).
 // On persiste donc côté client pour que le fond coloré survive au refresh.
 const STORAGE_KEY = "dughu_post_colors"
 

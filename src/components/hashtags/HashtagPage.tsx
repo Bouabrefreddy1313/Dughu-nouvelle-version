@@ -1,12 +1,15 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Hash, StickyNote } from "lucide-react"
 import { toast } from "sonner"
 import MainLayout from "@/components/layout/MainLayout"
 import { PostCard } from "@/components/feed/PostCard"
+import { ConfirmDialog } from "@/components/common/ConfirmDialog"
+import FlashViewer from "@/components/flash/FlashViewer"
 import { useAuth } from "@/hooks/queries/use-auth"
+import { useFlashFeed } from "@/hooks/queries/use-flash"
 import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import { REACTION_ID_TO_TYPE } from "@/lib/constants"
 import { timeAgo } from "@/lib/helpers"
@@ -39,6 +42,27 @@ export function HashtagPage({ tag }: HashtagPageProps) {
   // Utilisateurs bloqués (état local de session : le libellé « Bloquer » / « Débloquer »
   // du menu 3 points bascule selon cette liste et l'endpoint Dughu fait office de toggle).
   const [blockedAuthors, setBlockedAuthors] = useState<Set<string>>(new Set())
+  // Publication en attente de confirmation de suppression (modale au lieu du confirm natif).
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  // Flash à ouvrir (clic sur la photo de profil d'un auteur ayant un Flash).
+  const [flashTarget, setFlashTarget] = useState<{ userId: string; userName?: string | null; userAvatar?: string | null } | null>(null)
+
+  // Flash des amis / contacts : détection des auteurs de posts ayant un Flash actif.
+  const { data: flashData } = useFlashFeed(user?.id)
+  const activeFlashIds = useMemo(
+    () => new Set((flashData?.users || []).map((u) => String(u.userId))),
+    [flashData]
+  )
+  // Auteurs dont tous les Flash ont déjà été vus : l'anneau de leur avatar passe en gris.
+  const viewedFlashIds = useMemo(
+    () =>
+      new Set(
+        (flashData?.users || [])
+          .filter((u) => u.allViewed === true)
+          .map((u) => String(u.userId))
+      ),
+    [flashData]
+  )
 
   const cleanTag = tag.replace(/^#/, "").trim()
 
@@ -291,7 +315,6 @@ export function HashtagPage({ tag }: HashtagPageProps) {
   }
 
   const handleDelete = async (postId: string) => {
-    if (!confirm("Supprimer cette publication ?")) return
     try {
       const res = await fetch(`/api/deletePost/${postId}`, { method: "DELETE" })
       if (res.ok) {
@@ -299,6 +322,7 @@ export function HashtagPage({ tag }: HashtagPageProps) {
         toast.success("Post supprimé")
       }
     } catch { toast.error("Erreur suppression") }
+    setDeleteTarget(null)
   }
 
   const handleSave = async (postId: string) => {
@@ -420,13 +444,22 @@ return (
           onComment={(text, files) => handleComment(post.id, text, files)}
           onRepost={() => handleRepost(post.id)}
           onRepostWithText={(text) => handleRepostWithText(post.id, text)}
-          onDelete={() => handleDelete(post.id)}
+          onDelete={() => setDeleteTarget(post.id)}
           canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
           onSave={() => handleSave(post.id)}
           onHide={() => handleHide(post.id)}
           onBlock={() => handleBlock(post.author?.id)}
           isBlocked={blockedAuthors.has(String(post.author?.id))}
           isSaved={post.isSaved}
+          hasActiveFlash={activeFlashIds.has(String(post.author?.id))}
+          flashViewed={viewedFlashIds.has(String(post.author?.id))}
+          onOpenAuthorFlash={(author) =>
+            setFlashTarget({
+              userId: author.id,
+              userName: author.name,
+              userAvatar: author.avatar,
+            })
+          }
           className="mb-4"
         />
       ))}
@@ -489,6 +522,28 @@ return (
             Créer une publication
           </button>
         </div>
+      )}
+
+      {/* Confirmation de suppression (vrai popup, pas de confirm() natif) */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title="Supprimer la publication ?"
+        description="Cette action est irréversible. Voulez-vous vraiment supprimer cette publication ?"
+        confirmLabel="Supprimer"
+        onConfirm={() => (deleteTarget ? handleDelete(deleteTarget) : undefined)}
+      />
+
+      {/* Visualiseur Flash — ouvert au clic sur la photo de profil d'un auteur ayant un Flash */}
+      {flashTarget && (
+        <FlashViewer
+          key={flashTarget.userId}
+          targetUserId={flashTarget.userId}
+          userId={user?.id}
+          userName={flashTarget.userName}
+          userAvatar={flashTarget.userAvatar}
+          onClose={() => setFlashTarget(null)}
+        />
       )}
     </MainLayout>
   )

@@ -55,13 +55,49 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 * Création
 * Modification
 * Suppression
+  * La suppression d'une publication demande une confirmation via un **popup**
+    (composant `ConfirmDialog`, pas le `confirm()` natif du navigateur), avec les
+    boutons **Annuler** / **Supprimer** et un état de chargement pendant la
+    suppression. Il indique que l'action est irréversible.
+* Photo de profil de l'auteur :
+  * Si l'auteur d'une publication a un **Flash actif**, sa photo de profil est
+    entourée d'un **anneau marron** (dégradé du même orange que le rail Flash).
+    Un clic sur la photo ouvre le **visualiseur Flash** de cet auteur (survol de
+    la photo en indice « Voir ses Flash »). Sans Flash actif, la photo n'est pas
+    entourée et n'ouvre pas le visualiseur.
+  * Une fois les Flash de l'auteur **consultés**, l'anneau devient **gris**
+    (il reste cliquable pour revoir les Flash). Le statut « vu » est partagé
+    via le cache du feed Flash et mis à jour immédiatement à l'ouverture du
+    visualiseur.
 * Confidentialité des publications (niveaux : Public, Abonnés, Réseau, Amis)
   * Chaque niveau possède une icône distincte sur le badge du post et dans le
     sélecteur du compositeur : Public = globe, Abonnés = abonnement (RSS),
     Réseau = réseau (nœuds), Amis = amis validés (utilisateur + coche).
+* Post à fond coloré : la liste des couleurs disponibles provient de
+  `GET /getPostColors` (chaque couleur expose un `id`, `color_1`, `color_2`,
+  `text_color`). À la création d'un post, l'`id` de la couleur choisie est
+  transmis à `POST /post` dans le champ `post_color_input` (entier), en plus des
+  champs `color_1`/`color_2`/`text_color`. La résolution id → CSS est centralisée
+  dans `lib/constants.ts` (`resolvePostColorCss`).
 * Likes
 * Commentaires
 * Republications
+  * Au survol du bouton « J'aime », un sélecteur de **réactions** (6 réactions) s'affiche
+    au-dessus du bouton ; la sélection change l'emoji du bouton et transmet la
+    réaction choisie. Le bouton « Republier » ouvre un menu avec « Republier
+    directement » ou « Écrire un commentaire » (republication avec texte).
+    Le sélecteur de réactions et le menu de republication s'affichent sans être
+    rognés par la barre d'actions.
+  * L'enregistrement d'une réaction (like et autres) ne doit pas échouer lorsque
+    l'API Dughu répond avec une forme de succès sans champ `success` explicite
+    (`{}`, `{done:true}`, `{is_like:1}`…) : seul un `success: false` explicite
+    est considéré comme une erreur, et l'état « aimé » est déduit des champs
+    `is_like` / `liked`. L'UI applique une mise à jour optimiste du compteur et
+    de l'emoji.
+  * Les réactions autres que « J'aime » (love, haha, wow, sad, angry) sont
+    transmises à l'API Dughu avec **les deux champs** `type` (nom) et `reaction`
+    (numéro 1-6), comme pour le like de commentaire — sans `type`, l'API Dughu
+    ne traite que le like par défaut.
 * Médias
 * Partage
 * Gratifier : bouton d’action rapide qui envoie **100 points** à l’auteur du post
@@ -70,6 +106,10 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
   erreurs. Le bouton est masqué sur ses propres publications et un spinner de
   chargement apparaît dans la modale pendant l’envoi. Un menu « Donner des
   points » distinct (3 points → « Donner des points ») permet quant à lui de
+choisir le montant. La détection du post « sien » se base sur l'identifiant
+  Dughu de l'auteur (`user_id`) comparé au `dughu.userId` de l'utilisateur
+  connecté ; toute publication d'un tiers (ou dont l'auteur est inconnu : id
+  vide ou post de page) affiche le bouton.
 #### Mini-profil (sidebar droite)
 
 * La carte « mini-profil » de la sidebar droite affiche le solde **total** de points de
@@ -119,6 +159,11 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 
 * Sur sa propre story, l'utilisateur ne voit pas le champ de message
   (« Envoyer un message… ») ni les boutons d'émojis de réaction.
+* Sur sa propre story, un bouton **corbeille** permet de supprimer le Flash.
+  La suppression demande une confirmation via un **popup** (`ConfirmDialog`,
+  pas le `confirm()` natif du navigateur), avec les boutons **Annuler** /
+  **Supprimer** et un état de chargement pendant la suppression. Il indique
+  que l'action est irréversible.
 
 #### Chargement (skeleton)
 
@@ -144,12 +189,99 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 * Dans le rail des stories, chaque mini-carte affiche le thumbnail (vignette) de
   la story. Pour une vidéo, c'est la vignette vidéo qui est affichée, sans icône
   ni bouton de lecture.
+* L'avatar de la mini-carte porte un **anneau épais** : **orange** tant que les
+  Flash de la personne n'ont pas été vus, **gris** une fois consultés (l'anneau
+  ne disparaît plus).
 * Si l'API ne fournit pas de vignette pour une vidéo, la première image de la
   vidéo (première frame) est utilisée comme vignette.
 * Un flash image affiche son image ; un flash en texte coloré affiche le fond
   coloré avec le texte.
 * La photo de profil n'est utilisée en fond de carte que lorsqu'aucun média
   (image, vidéo ou vignette) ni texte coloré n'est disponible pour la story.
+
+### Capsules
+
+Les **Capsules** sont les vidéos verticales courtes de Dughu (l'équivalent des
+Reels de Facebook). Elles s'appuient sur les 13 endpoints Dughu du dossier
+« Capsule » (création, feed, like/dislike, vues, commentaires + réponses
+imbriquées, like de commentaire, signalement, suppression), encapsulés dans
+`src/lib/capsule-service.ts` (serveur) et exposés au client via les routes
+internes `/api/capsules/*` + le hook `useCapsulesFeed`
+(`src/hooks/queries/use-capsules.ts`).
+
+#### Sur le profil
+
+* Un onglet **« Capsules »** (avec compteur) est présent dans la barre
+  d'onglets du profil, à côté de Photos et Vidéos.
+* Un bloc **« Capsules »** (résumé, 6 vignettes 9:16, réutilise `CapsuleCard`)
+  figure dans la colonne gauche du profil, avec un lien « Voir toutes les
+  capsules » ; l'onglet affiche la liste complète.
+* Les capsules proviennent de `GET /api/capsules/user/[userId]` (endpoint
+  Dughu `GET /shortsUser/{user_id}`) via le hook `useUserCapsules` ; un clic
+  sur une vignette ouvre la visionneuse plein écran (`CapsuleViewer`), qui
+  permet notamment la suppression par l'auteur.
+
+#### Dans le fil d'actualité
+
+* Après les **4 premières publications** du fil, un bloc « **Capsules** »
+  insère **3 capsules choisies aléatoirement** (tirage stable par liste, sans
+  scintillement au re-render), sous forme de vignettes verticales 9:16
+  (`CapsuleRail` + `CapsuleCard`).
+* Chaque vignette affiche la miniature, le nombre de vues, l'avatar et le nom
+  de l'auteur, et la légende. Au **survol** (ou au focus clavier), la **vidéo
+  se joue automatiquement en muet** ; au départ du survol, elle est remplacée
+  par la miniature.
+* Un lien « Voir tout » mène à la page `/capsules`.
+* Un clic sur une vignette ouvre la **visionneuse plein écran** (`CapsuleViewer`)
+  positionnée sur la capsule cliquée.
+
+#### Page Capsules (`/capsules`)
+
+* Page dédiée (`CapsulesPage`) présentant le feed complet des capsules en
+  grille de vignettes verticales, avec squelettes pendant le chargement et
+  état d'erreur réessayable. Entrées de navigation « Capsules » dans la barre
+  de navigation mobile **et la sidebar gauche** (élément
+  « Capsule », qui redirige vers `/capsules` et s'active quand la page est
+  courante). L'en-tête desktop ne contient pas d'entrée Capsules.
+* Un bouton **« Créer »** dans l'en-tête de la page (utilisateur connecté)
+  ouvre la modale de création `CapsuleCreator`.
+* Au **survol** d'une vignette, la **vidéo de la capsule se joue
+  automatiquement** (muet) ; au départ du survol, la miniature réapparaît.
+
+#### Création d'une capsule (CapsuleCreator)
+
+* Modale de création (pattern `FlashCreator`) en deux étapes : sélection d'une
+  **vidéo** (MP4/WebM, 100 Mo maximum, validation type + taille côté client) →
+  **aperçu** (lecture 9:16) + **légende** (500 caractères maximum) → bouton
+  **Publier** avec état de chargement.
+* Envoi en multipart vers `POST /api/capsules` (endpoint Dughu
+  `POST /store/capsule`) via `createCapsuleClient`
+  (`src/hooks/queries/use-capsules.ts`). À la réussite : toast « Capsule
+  publiée. », fermeture de la modale et invalidation du cache React Query du
+  feed (la nouvelle capsule apparaît immédiatement). Erreurs techniques
+  transformées en messages utilisateur (toasts `sonner`).
+
+#### Visionneuse (CapsuleViewer)
+
+* Défilement vertical d'une capsule à l'autre (type Reels), vidéo en lecture
+  automatique muette.
+* Actions : **like / dislike** (mise à jour optimiste), **commentaires**
+  (liste, ajout, réponses imbriquées, like de commentaire), **vue**
+  enregistrée une seule fois par capsule (`POST /trackView` via la route
+  interne), **signalement**, et **suppression** par l'auteur (confirmation via
+  le popup `ConfirmDialog`, pas de `confirm()` natif).
+* Chaque bouton d'action (J'aime, Je n'aime pas, Commentaires, Vues) affiche
+  son compteur **en dessous**, en permanence (y compris `0`) ; le compteur de
+  « J'aime » s'incrémente en temps réel au clic (optimiste, rollback sur
+  échec) et le compteur de Commentaires s'incrémente à chaque ajout de
+  commentaire ou de réponse.
+* Commentaires : l'affichage, l'ajout et les réponses utilisent le contrat Dughu réel
+  (`fetchComments`, `storeComment/capsule`, `replyCapsuleComment`, `replyCapsuleReply`,
+  `toggleLike/capsule/comment` : `capsule_id` + `text` + `user_id`…). Les erreurs
+  de validation de l'API sont traduites en messages utilisateur.
+* Confidentialité : l'auteur d'un commentaire s'affiche sous **« Utilisateur »**
+  lorsqu'il s'agit de l'utilisateur connecté ; les autres commentateurs
+  conservent leur nom affiché.
 
 ### Communication
 
@@ -195,6 +327,17 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
   a ouvert la conversation. Les statuts sont rafraîchis automatiquement grâce
   au polling périodique (5 s) de la messagerie. Le composant partagé
   `ReceiptTicks` (`src/components/messages/ReceiptTicks.tsx`) centralise l'affichage.
+* **Messages non lus** dans les listes de conversations (sidebar de messagerie et
+  page `/messages`) : une conversation contenant un message **reçu non lu**
+  affiche un badge orange avec le nombre de non-lus, le nom du contact et
+  l'aperçu du message **en gras**, et un fond légèrement teinté. L'aperçu du
+  dernier message est préfixé « Vous : » (avec les coches d'accusé de lecture)
+  lorsque ce dernier message a été envoyé par l'utilisateur courant, ce qui
+  distingue visuellement un message envoyé d'un message reçu. L'état non lu est
+  déduit du champ `seen` du dernier message (l'API Dughu n'exposant pas de
+  compteur de non-lus fiable) ; ouvrir la conversation la marque comme lue
+  (localStorage partagé entre la sidebar et la page `/messages`), retirant le
+  badge immédiatement.
 * La fenêtre de conversation (popup) propose également le bouton **Répondre**
   (icône réponse) sur chaque message : une barre « Réponse à … » s'affiche
   au-dessus de la zone de saisie et la citation est envoyée avec le message

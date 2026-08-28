@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import Image from "next/image"
 import {
   AlertTriangle,
@@ -26,10 +27,13 @@ import {
   deleteStoryClient,
   logStoryViewClient,
   fetchStoryViewers,
+  markFlashFeedUserViewed,
 } from "@/hooks/queries/use-flash"
 import { timeAgo } from "@/lib/helpers"
 import { resolveStoryMediaUrl } from "@/lib/dughu"
 import { toast } from "sonner"
+
+import { ConfirmDialog } from "@/components/common/ConfirmDialog"
 
 import { resolvePostColorCss } from "@/lib/constants"
 
@@ -91,6 +95,7 @@ export default function FlashViewer({
   onCreateFlash,
 }: FlashViewerProps) {
   const { data, isLoading, isError, refetch } = useUserStories(targetUserId, userId)
+  const queryClient = useQueryClient()
   const stories = data?.stories || []
   const [index, setIndex] = useState(initialIndex)
   const [paused, setPaused] = useState(false)
@@ -100,6 +105,8 @@ export default function FlashViewer({
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set())
   const [liking, setLiking] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // Popup de confirmation avant suppression de Flash (au lieu du confirm() natif).
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [reply, setReply] = useState("")
   const [showReply, setShowReply] = useState(false)
   const [viewers, setViewers] = useState<any[]>([])
@@ -202,8 +209,11 @@ export default function FlashViewer({
     const storyKey = String(currentStory.id)
     if (loggedViews.current.has(storyKey)) return
     loggedViews.current.add(storyKey)
+    // Mise à jour immédiate du cache feed Flash : l'anneau autour des avatars
+    // (rail Flash + cartes de posts) passe en gris sans attendre le refresh API.
+    markFlashFeedUserViewed(queryClient, userId, targetUserId)
     void logStoryViewClient({ storyId: currentStory.id, userId }).catch(() => loggedViews.current.delete(storyKey))
-  }, [currentStory?.id, isOwnStory, userId])
+  }, [currentStory?.id, isOwnStory, userId, queryClient, targetUserId])
 
   const handleToggleLike = async () => {
     if (!currentStory?.id || !userId || liking) return
@@ -235,7 +245,7 @@ export default function FlashViewer({
   }
 
   const handleDelete = async () => {
-    if (!currentStory?.id || deleting || !window.confirm("Supprimer ce Flash ?")) return
+    if (!currentStory?.id || deleting) return
     setDeleting(true)
     try {
       await deleteStoryClient(currentStory.id)
@@ -246,6 +256,7 @@ export default function FlashViewer({
       toast.error(error?.message || "Erreur suppression")
     } finally {
       setDeleting(false)
+      setDeleteDialogOpen(false)
     }
   }
 
@@ -343,8 +354,18 @@ export default function FlashViewer({
 
         {isOwnStory && <div className="absolute right-4 top-20 bottom-20 hidden w-56 overflow-hidden rounded-2xl border md:flex md:flex-col" style={{ background: "rgba(13,7,5,.72)", borderColor: `${BRAND.orange}44` }}><div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: `${BRAND.orange}33` }}><span className="text-xs font-semibold uppercase tracking-wide" style={{ color: BRAND.peach }}>Vues ({viewers.length})</span><button type="button" onClick={() => currentStory.id && loadViewers(currentStory.id)} disabled={loadingViewers} className="text-white/70"><RefreshCw size={14} className={loadingViewers ? "animate-spin" : ""} /></button></div><div className="flex-1 overflow-y-auto p-2">{viewers.length === 0 ? <p className="py-6 text-center text-xs text-white/60">Aucune vue pour le moment.</p> : viewers.map((viewer) => <div key={viewer.id} className="flex items-center gap-2 py-1.5"><div className="h-8 w-8 overflow-hidden rounded-full bg-white/10">{viewer.avatar ? <Image src={viewer.avatar} alt={viewer.name || ""} width={32} height={32} className="h-full w-full object-cover" /> : null}</div><span className="truncate text-xs text-white">{viewer.name || "Utilisateur"}</span></div>)}</div></div>}
 
-        {isOwnStory && <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2"><button type="button" onClick={() => currentStory.id && loadViewers(currentStory.id)} className="flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/80"><Eye size={14} />{viewers.length}</button><button type="button" onClick={handleDelete} disabled={deleting} className="rounded-full bg-white/10 p-2 text-white/75 hover:text-red-400">{deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}</button></div>}
+        {isOwnStory && <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2"><button type="button" onClick={() => currentStory.id && loadViewers(currentStory.id)} className="flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/80"><Eye size={14} />{viewers.length}</button><button type="button" onClick={() => setDeleteDialogOpen(true)} disabled={deleting} className="rounded-full bg-white/10 p-2 text-white/75 hover:text-red-400">{deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}</button></div>}
       </section>
+
+      {/* Confirmation de suppression (vrai popup, pas de confirm() natif) */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Supprimer ce Flash ?"
+        description="Cette action est irréversible. Voulez-vous vraiment supprimer ce Flash ?"
+        confirmLabel="Supprimer"
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }

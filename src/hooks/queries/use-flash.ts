@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, type QueryClient } from "@tanstack/react-query"
 import type { FlashPagination } from "@/lib/flash-service"
 
 interface FetchParams {
@@ -118,4 +118,29 @@ export function useUserStories(targetUserId?: string, userId?: string, page = 1)
     enabled: !!targetUserId,
     staleTime: 30_000,
   })
+}
+
+/**
+ * Marque immédiatement les Flash d'un utilisateur comme « vus » dans le cache
+ * React Query du feed Flash (toutes les pages mises en cache). Utilisé par le
+ * visualiseur au moment où il enregistre une vue, pour que l'anneau autour des
+ * avatars (rail Flash + cartes de posts) passe en gris sans attendre que l'API
+ * Dughu rafraîchisse son propre statut « vu ».
+ */
+export function markFlashFeedUserViewed(
+  queryClient: QueryClient,
+  ownerId: string | undefined,
+  targetUserId: string | number
+) {
+  if (!ownerId || !targetUserId) return
+  queryClient.setQueriesData<FlashFeedData>(
+    { queryKey: ["flash", "feed", ownerId] },
+    (previous) => {
+      if (!previous?.users) return previous
+      const users = previous.users.map((u) =>
+        String(u.userId) === String(targetUserId) ? { ...u, allViewed: true } : u
+      )
+      return { ...previous, users }
+    }
+  )
 }

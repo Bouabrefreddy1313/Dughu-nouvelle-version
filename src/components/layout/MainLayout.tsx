@@ -49,9 +49,12 @@ export default function MainLayout({
   const [openConversations, setOpenConversations] = useState<ChatSummary[]>([])
 
   const openConversationPopup = useCallback((conversation: ChatSummary) => {
+    // Ouvrir la conversation = la lire : on retire le compteur de non-lus de la
+    // copie affichée, sinon la bulle rabattue garderait un badge obsolète.
+    const readConversation: ChatSummary = { ...conversation, unreadCount: 0 }
     setOpenConversations((current) => {
       if (current.some((item) => item.contact.id === conversation.contact.id)) return current
-      const next = [...current, conversation]
+      const next = [...current, readConversation]
       return next.length > MAX_CONVERSATION_POPUPS
         ? next.slice(next.length - MAX_CONVERSATION_POPUPS)
         : next

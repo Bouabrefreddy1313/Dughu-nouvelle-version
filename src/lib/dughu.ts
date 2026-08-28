@@ -110,6 +110,9 @@ export const dughu = {
   multipart: (path: string, formData: FormData) =>
     dughuFetch(path, { method: "POST", body: formData }),
 
+  // DELETE sur la base Dughu (ex. /capsule/{id}, /deletePost/{id})
+  del: (path: string) => dughuFetch(path, { method: "DELETE" }),
+
   rootGet: (path: string, params?: Record<string, string | number | undefined>) =>
     dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }, RETRY_TIMES, DUGHU_ORIGIN),
 
@@ -188,8 +191,12 @@ export const dughuApi = {
 
   createPost: (formData: FormData) => dughu.multipart("post", formData),
 
-  // Endpoint dédié aux publications de texte coloré (contrat : GET)
-  // GET /colored_posts?post_id=&user_id=&boost_days=   → header X-AppApiToken
+  // Liste des couleurs pour les posts à fond coloré (contrat : GET)
+  // GET /getPostColors → tableau de couleurs { id, color_1, color_2, text_color }
+  // L'`id` d'une couleur est à transmettre dans `post_color_input` de POST /post.
+  getPostColors: () => dughu.get("getPostColors", {}),
+
+  // Endpoint legacy (conservé en repli) : GET /colored_posts
   getColoredPosts: (params: {
     post_id?: string | number
     user_id?: string | number

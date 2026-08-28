@@ -24,6 +24,9 @@ interface ConversationSidebarProps {
 }
 
 const POLL_INTERVAL_MS = 5_000
+// Même clé que la page /messages (MessagesPageClient) : lire une conversation
+// d'un côté la marque comme lue partout (badge retiré dans les deux listes).
+const READ_CHATS_STORAGE_KEY = "dughu:read-conversations"
 
 function formatChatDate(value: string) {
   if (!value) return ""
@@ -41,6 +44,9 @@ export default function ConversationSidebar({ user, open, onClose, onOpenConvers
   const [conversations, setConversations] = useState<ChatSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  // Messages lus localement : { idContact: cléDuDernierMessageLu } — même
+  // mécanisme que la page /messages, persisté en localStorage par utilisateur.
+  const [readKeys, setReadKeys] = useState<Record<string, string>>({})
   const currentUserId = String(user?.dughu?.userId || "")
 
   const loadConversations = useCallback(async (showLoader = false) => {
@@ -67,6 +73,41 @@ export default function ConversationSidebar({ user, open, onClose, onOpenConvers
     return () => window.clearInterval(timer)
   }, [currentUserId, loadConversations, open])
 
+  useEffect(() => {
+    if (!currentUserId) return
+    try {
+      const stored = window.localStorage.getItem(`${READ_CHATS_STORAGE_KEY}:${currentUserId}`)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setReadKeys(stored ? JSON.parse(stored) : {})
+    } catch {
+      setReadKeys({})
+    }
+  }, [currentUserId])
+
+  // Conversation non lue : l'API compte des messages non lus ET le dernier
+  // message du fil n'a pas encore été marqué comme lu localement.
+  const isUnread = useCallback(
+    (conversation: ChatSummary) =>
+      conversation.unreadCount > 0 && readKeys[conversation.contact.id] !== conversation.lastMessageKey,
+    [readKeys]
+  )
+
+  const markConversationRead = useCallback(
+    (conversation: ChatSummary) => {
+      if (!isUnread(conversation)) return
+      setReadKeys((current) => {
+        const next = { ...current, [conversation.contact.id]: conversation.lastMessageKey }
+        try {
+          window.localStorage.setItem(`${READ_CHATS_STORAGE_KEY}:${currentUserId}`, JSON.stringify(next))
+        } catch {
+          // stockage indisponible : l'état local reste valable pour la session
+        }
+        return next
+      })
+    },
+    [currentUserId, isUnread]
+  )
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return conversations
@@ -76,6 +117,8 @@ export default function ConversationSidebar({ user, open, onClose, onOpenConvers
   }, [conversations, search])
 
   const openConversation = (conversation: ChatSummary) => {
+    // Ouvrir la conversation = la lire : le badge disparaît immédiatement.
+    markConversationRead(conversation)
     onClose?.()
     onOpenConversation?.(conversation)
   }
@@ -116,30 +159,34 @@ export default function ConversationSidebar({ user, open, onClose, onOpenConvers
             <div className="px-5 py-10 text-center"><p className="text-sm text-red-600">{error}</p><button onClick={() => void loadConversations(true)} className="mt-3 text-xs font-semibold text-[#A35A2A]">Réessayer</button></div>
           ) : filtered.length === 0 ? (
             <p className="px-5 py-10 text-center text-sm text-[#65676B]">Aucune conversation.</p>
-          ) : filtered.map((conversation) => (
-            <button key={conversation.id} onClick={() => openConversation(conversation)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer transition-all duration-200 text-left hover:bg-[#F0F2F5]">
-              <div className="relative shrink-0">
-                <Avatar src={conversation.contact.avatar} name={conversation.contact.name} size="md" className="w-11 h-11" />
-                {conversation.contact.online && <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2"><p className="text-[14px] truncate font-medium text-[#2D2D2D]">{conversation.contact.name}</p><span className="text-[11px] text-[#65676B] shrink-0">{formatChatDate(conversation.updatedAt)}</span></div>
-                                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[12px] text-[#65676B] truncate">
-                    {conversation.lastMessage || "Aucun message"}
-                  </p>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {conversation.unreadCount > 0 && (
-                      <span className="bg-[#A35A2A] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center">
-                        {conversation.unreadCount}
-                      </span>
-                    )}
-                    <ReceiptTicks receipt={conversation.lastMessageReceipt || null} />
+          ) : filtered.map((conversation) => {
+            const unread = isUnread(conversation)
+            return (
+              <button key={conversation.id} onClick={() => openConversation(conversation)} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer transition-all duration-200 text-left hover:bg-[#F0F2F5]", unread && "bg-[#FFF7F0] hover:bg-[#FDEFE2]")} aria-label={unread ? `Conversation non lue avec ${conversation.contact.name}` : `Conversation avec ${conversation.contact.name}`}>
+                <div className="relative shrink-0">
+                  <Avatar src={conversation.contact.avatar} name={conversation.contact.name} size="md" className="w-11 h-11" />
+                  {conversation.contact.online && <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2"><p className={cn("text-[14px] truncate", unread ? "font-bold text-[#2D2D2D]" : "font-medium text-[#2D2D2D]")}>{conversation.contact.name}</p><span className="text-[11px] text-[#65676B] shrink-0">{formatChatDate(conversation.updatedAt)}</span></div>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={cn("text-[12px] truncate", unread ? "font-semibold text-[#2D2D2D]" : "text-[#65676B]")}>
+                      {conversation.lastMessageIsMine ? "Vous : " : ""}
+                      {conversation.lastMessage || "Aucun message"}
+                    </p>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {unread && (
+                        <span className="bg-[#A35A2A] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center">
+                          {conversation.unreadCount}
+                        </span>
+                      )}
+                      {conversation.lastMessageIsMine && <ReceiptTicks receipt={conversation.lastMessageReceipt || null} />}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </div>
       </Card>
     </aside>
