@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { Home, Video, Zap, Play, Search, X, LayoutGrid, UserCheck } from "lucide-react"
+import { useState } from "react"
+import { BriefcaseBusiness, Home, Video, Zap, Play, Search, X, LayoutGrid, UsersRound } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Badge from "@/components/common/Badge"
 import ProfileMenu from "@/components/layout/ProfileMenu"
+import GlobalSearch from "@/components/common/GlobalSearch"
 
 interface HeaderProps {
   user?: {
@@ -20,24 +21,22 @@ interface HeaderProps {
   onToggleChat?: () => void
 }
 
-export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen, onToggleChat }: HeaderProps) {
-  const [q, setQ] = useState("")
+export default function Header({ user, onLogout, onMenuClick, chatOpen, onToggleChat }: HeaderProps) {
+  const [desktopQuery, setDesktopQuery] = useState("")
+  const [mobileQuery, setMobileQuery] = useState("")
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
-  const mobileSearchRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (mobileSearchOpen) {
-      mobileSearchRef.current?.focus()
-    }
-  }, [mobileSearchOpen])
 
   const navItems = [
-    { icon: <Home size={24} />, label: "Accueil", active: true, href: "/home" },
-    { icon: <Video size={24} />, label: "Vidéos", href: "/videos" },
-    { icon: <Zap size={24} />, label: "Flash", href: "/flash" },
-    { icon: <Play size={24} />, label: "Akwaplay", href: "/akwaplay" },
-    { icon: <UserCheck size={24} />, label: "Abonnés" },
+    { icon: <Home size={22} />, label: "Accueil", active: true, href: "/home", tooltipId: "accueil-tooltip" },
+    { icon: <Video size={22} />, label: "Vidéos", href: "/videos", tooltipId: "videos-tooltip" },
+    { icon: <Zap size={22} />, label: "Flash", href: "/flash", tooltipId: "flash-tooltip" },
+    { icon: <Play size={22} />, label: "Akwaplay", href: "/akwaplay", tooltipId: "akwaplay-tooltip" },
+  ]
+
+  const staticRelationItems = [
+    { icon: <UsersRound size={22} />, label: "Fraternisés", tooltipId: "fraternises-tooltip" },
+    { icon: <BriefcaseBusiness size={22} />, label: "Réseautés", tooltipId: "reseautes-tooltip" },
   ]
 
   return (
@@ -61,40 +60,55 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
         </a>
 
         {/* Barre de recherche AGRANDIE (desktop) */}
-        <div className="hidden lg:flex min-w-0 items-center bg-[#F0F2F5] rounded-full px-3 py-2 w-56">
-          <Search size={16} className="text-[#65676B] mr-2 shrink-0" />
-          <input
-            type="text"
-            placeholder="Rechercher sur Dughu..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onSearch?.(q)}
-            className="bg-transparent outline-none text-[15px] w-full text-[#050505] placeholder-[#65676B] min-w-0"
-          />
-        </div>
+        <GlobalSearch value={desktopQuery} onChange={setDesktopQuery} className="hidden w-56 lg:block" inputClassName="text-[15px]" />
       </div>
 
       {/* ═════ CENTRE : Navigation ═════ */}
-      <nav className="hidden lg:flex min-w-0 items-center justify-center h-full">
-        {navItems.map((item, i) => (
+      <nav className="hidden lg:flex min-w-0 items-center justify-center gap-20 h-full">
+        {navItems.map((item) => (
           <a
-            key={i}
-            href={item.href ?? "#"}
-            onClick={(event) => !item.href && event.preventDefault()}
+            key={item.label}
+            href={item.href}
+            aria-label={item.label}
+            aria-describedby={item.tooltipId}
+            aria-current={item.active ? "page" : undefined}
             className={cn(
-              "relative flex items-center justify-center h-full px-3 lg:px-8 xl:px-10 2xl:px-14 cursor-pointer transition-colors duration-200",
+              "group relative flex h-10 items-center justify-center rounded-lg px-3 transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A35A2A]",
               item.active
                 ? "text-[#A35A2A]"
-                : "text-[#65676B] hover:bg-[#F0F2F5] hover:text-[#050505] rounded-lg mx-1"
+                : "text-[#65676B] hover:bg-[#F0F2F5] hover:text-[#050505]"
             )}
-            title={item.label}
           >
             {item.icon}
-            {/* Indicateur actif en dessous */}
             {item.active && (
-              <div className="absolute bottom-0 -left-3 -right-3 h-[3px] bg-[#A35A2A] rounded-t-full" />
+              <span aria-hidden="true" className="absolute -bottom-2 left-0 right-0 h-[3px] rounded-t-full bg-[#A35A2A]" />
             )}
+            <span
+              id={item.tooltipId}
+              role="tooltip"
+              className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#2D2D2D] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+            >
+              {item.label}
+            </span>
           </a>
+        ))}
+        {staticRelationItems.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            aria-label={item.label}
+            aria-describedby={item.tooltipId}
+            className="group relative flex h-10 items-center justify-center rounded-lg px-3 text-[#65676B] transition-colors duration-200 hover:bg-[#F0F2F5] hover:text-[#050505] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A35A2A]"
+          >
+            {item.icon}
+            <span
+              id={item.tooltipId}
+              role="tooltip"
+              className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#2D2D2D] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+            >
+              {item.label}
+            </span>
+          </button>
         ))}
       </nav>
 
@@ -103,6 +117,7 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
         {/* Recherche (mobile / tablette) */}
         <button
           onClick={() => setMobileSearchOpen((v) => !v)}
+          aria-label={mobileSearchOpen ? "Fermer la recherche" : "Ouvrir la recherche"}
           className="lg:hidden w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-[#65676B] hover:bg-[#E4E6EB]"
         >
           {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
@@ -142,23 +157,13 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
       {/* ═════ MOBILE/TABLETTE : Barre de recherche overlay ═════ */}
       {mobileSearchOpen && (
         <div className="absolute top-full left-0 right-0 bg-white shadow-md p-3 lg:hidden z-50">
-          <div className="flex items-center bg-[#F0F2F5] rounded-full px-4 py-2.5">
-            <Search size={18} className="text-[#65676B] mr-2.5 shrink-0" />
-            <input
-              ref={mobileSearchRef}
-              type="text"
-              placeholder="Recherche sur Dughu..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  onSearch?.(q)
-                  setMobileSearchOpen(false)
-                }
-              }}
-              className="bg-transparent outline-none text-sm w-full text-[#050505] placeholder-[#65676B]"
-            />
-          </div>
+          <GlobalSearch
+            value={mobileQuery}
+            onChange={setMobileQuery}
+            autoFocus
+            onNavigate={() => setMobileSearchOpen(false)}
+            className="w-full"
+          />
         </div>
       )}
     </header>

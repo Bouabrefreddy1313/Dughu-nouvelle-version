@@ -11,6 +11,15 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-08-28
+
+### Ajouts
+
+* Recherche globale de l'en-tête : connexion à `POST /searchAll` via une route serveur sécurisée, normalisation des utilisateurs, publications, pages, groupes et hashtags, panneau de résultats responsive, temporisation des requêtes et navigation au clavier.
+* Correction du contrat de `searchAll` après validation sur la réponse réelle de l'API : envoi des champs obligatoires `query` et `user_id`, et prise en charge de `result.{posts,pages,groups,users}.data` ainsi que du champ de publication `postText`.
+* Navigation de l'en-tête : remplacement du bouton statique « Abonnés » par les boutons accessibles « Fraternisés » et « Réseautés », avec infobulles au survol et au clavier ainsi qu'une icône de mallette pour « Réseautés ».
+* Harmonisation des accès « Accueil », « Vidéos », « Flash » et « Akwaplay » avec les boutons relationnels : format compact, infobulles accessibles et focus clavier visible.
+
 ## 2026-08-24
 
 ### Corrections

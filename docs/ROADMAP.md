@@ -48,9 +48,9 @@ Elle peut évoluer selon les besoins du projet.
 
 ## Phase 6 — Recherche
 
-* ⚪ Recherche utilisateurs
-* ⚪ Recherche publications
-* ⚪ Recherche globale
+* 🟢 Recherche utilisateurs
+* 🟢 Recherche publications
+* 🟢 Recherche globale
 
 ## Phase 7 — Performance
 

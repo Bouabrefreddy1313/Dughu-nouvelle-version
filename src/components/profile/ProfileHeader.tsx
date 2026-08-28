@@ -405,7 +405,7 @@ export function ProfileHeader({
                           state === "none"
                             ? "bg-[#A35A2A] hover:bg-[#8B4A1F] text-white"
                             : state === "incoming_pending"
-                              ? "bg-[#1877F2] hover:bg-[#166FE5] text-white"
+                              ? "bg-[#A35A2A] hover:bg-[#8B4A1F] text-white"
                               : "bg-[#F0F2F5] hover:bg-[#E4E6EB] text-[#050505]"
                         )}
                       >
@@ -470,7 +470,7 @@ export function ProfileHeader({
                         onRelationAction?.(relationDialog.type, "decline")
                         setRelationDialog(null)
                       }}
-                      className="min-h-11 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+                      className="min-h-11 rounded-lg border border-[#A35A2A] bg-transparent px-4 py-2 text-sm font-semibold text-[#A35A2A] hover:bg-[#F5EFE8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2"
                     >
                       Refuser
                     </button>

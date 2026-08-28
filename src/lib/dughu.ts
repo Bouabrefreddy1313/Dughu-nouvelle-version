@@ -273,10 +273,10 @@ export const dughuApi = {
   getAlbums: (userId: string | number) =>
     dughu.get("album", { user_id: String(userId) }),
 
-  searchAll: (params: { search?: string; q?: string; type?: string; page?: number }) =>
+  searchAll: (params: { query: string; user_id: string | number; page?: number }) =>
     dughu.form("searchAll", {
-      search: params.search || params.q || "",
-      type: params.type || "",
+      query: params.query,
+      user_id: String(params.user_id),
       page: String(params.page || 1),
     }),
 

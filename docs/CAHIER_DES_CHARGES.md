@@ -109,7 +109,8 @@ La normalisation technique de ces états est documentée dans
   `relation/request`, qui fonctionne comme un toggle et annule la demande sortante.
   L'endpoint `relation/decline` reste réservé au refus d'une demande reçue.
 * Une demande reçue affiche « Accepter la demande ». Son ouverture permet soit
-  de la refuser, soit de l'accepter.
+  de la refuser, soit de l'accepter. Le bouton utilise le marron principal Dughu ;
+  dans la modale, « Refuser » utilise une bordure et un texte marron sans fond plein.
 * Une demande acceptée affiche « Fraternisé » ou « Réseauté ». Un nouveau clic
   demande confirmation avant la suppression de la relation.
 * Les états acceptés proviennent des champs `is_friend` et `is_network` du profil
@@ -245,9 +246,16 @@ La normalisation technique de ces états est documentée dans
 
 ### Recherche
 
-* Recherche d'utilisateurs
-* Recherche de contenus
-* Recherche selon les fonctionnalités disponibles
+* La barre située dans l'en-tête effectue une recherche globale à partir de deux caractères via l'endpoint Dughu `searchAll`, avec le terme (`query`) et l'identifiant de l'utilisateur connecté (`user_id`) requis par l'API.
+* Les résultats peuvent regrouper les utilisateurs, publications, pages, groupes et hashtags renvoyés par l'API.
+* La saisie est temporisée afin de limiter les appels réseau ; une nouvelle saisie annule la requête précédente.
+* Le panneau de résultats est disponible sur mobile, tablette et desktop, avec navigation au clavier et états de chargement, résultat vide et erreur compréhensible.
+* Les utilisateurs et hashtags ouvrent leur vue Dughu correspondante. Les publications disposant d'un auteur ouvrent son profil ; les types sans route dédiée restent informatifs.
+
+### Navigation principale
+
+* Sur desktop, les accès « Accueil », « Vidéos », « Flash » et « Akwaplay » sont présentés sous forme d'icônes compactes, régulièrement espacées, avec une infobulle accessible au survol et au clavier, tout en conservant leur navigation respective et l'indicateur de page active.
+* L'en-tête présente également deux accès statiques distincts « Fraternisés » (icône de groupe) et « Réseautés » (icône de mallette). Ils remplacent l'ancien accès « Abonnés », suivent la même présentation avec infobulle accessible, et n'effectuent aucune navigation tant que leurs vues dédiées ne sont pas disponibles.
 
 ## 4. Fonctionnalités futures
 
