@@ -619,7 +619,6 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
         onEditCover={() => setImageEdit("cover")}
         onEditAvatar={() => setImageEdit("avatar")}
         onEditProfile={() => router.push("/profile/settings")}
-        onMore={() => toast.info("Options de profil — bientôt disponible")}
         onSubmitVerification={onSubmitVerification}
         isVerifying={isVerifying}
       />

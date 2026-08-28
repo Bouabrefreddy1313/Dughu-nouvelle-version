@@ -35,6 +35,22 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 * Modification du profil
 * Publications de l'utilisateur
 
+#### Menu du profil personnel
+
+* Sur son propre profil, le bouton à trois points placé à côté de « Modifier le
+  profil » ouvre une modale responsive intitulée « Menu du profil ».
+* La modale présente les accès « Paramètres », « Mon univers », « Mes activités »,
+  « Code QR », « Gestion des relations » et « Autre », chacun accompagné d'une
+  courte description.
+* « Gestion des relations » ouvre la page dédiée `/profile/relations`. Les autres
+  rubriques, y compris « Paramètres », affichent actuellement une information
+  claire indiquant leur disponibilité prochaine. L'accès « Paramètres » de ce
+  menu est distinct de la modification du profil et ne redirige donc pas vers
+  `/profile/settings`.
+* La modale peut être parcourue au clavier, fermée avec son bouton de fermeture ou
+  avec les mécanismes standards de dialogue, et reste contenue dans la hauteur de
+  l'écran sur mobile.
+
 #### Paramètres du profil
 
 * La modification des informations textuelles s'effectue sur la page dédiée
@@ -83,6 +99,9 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 
 #### Relations Fraterniser et Réseauter
 
+La normalisation technique de ces états est documentée dans
+`docs/NORMALISATION_RELATIONS.md`.
+
 * Sur le profil d'un autre utilisateur, les relations `friend` et `network` sont
   gérées indépendamment par les boutons « Fraterniser » et « Réseauter ».
 * Une demande envoyée affiche respectivement « Fraterniser envoyé » ou
@@ -106,6 +125,21 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
   qu'il a reçue. Une lecture orientée viewer reste utilisée en compatibilité.
 * Toutes les mutations de relation sont authentifiées côté serveur et transmises
   à l'API Dughu en `multipart/form-data` avec `auth_user_id`, `user_id` et `type`.
+* La page `/profile/relations`, accessible depuis le menu du profil personnel,
+  affiche les demandes reçues et permet de les filtrer par type : toutes,
+  fraternisation (`friend`) ou réseau (`network`).
+* Les demandes sont chargées côté serveur depuis `POST /relation/requests` pour
+  chacun des deux types. L'identifiant de l'utilisateur connecté provient du
+  cookie de session ; les réponses externes sont normalisées avant d'être
+  exposées au navigateur et seules les données utiles à l'affichage sont renvoyées.
+* Chaque demande peut être acceptée ou refusée avec les routes de mutation déjà
+  authentifiées. Après une action réussie, elle disparaît immédiatement de la
+  liste et un message confirme le résultat.
+* Dans chaque carte, l'action principale « Accepter » utilise un fond marron
+  Dughu, tandis que « Refuser » utilise un texte marron avec une bordure orange.
+* La page prévoit un squelette de chargement, un état vide adapté au filtre, une
+  erreur avec possibilité de réessayer et un avertissement en cas d'indisponibilité
+  partielle d'un type de relation.
 
 ### Publications
 

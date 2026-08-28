@@ -24,6 +24,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { dughuApi, resolveMediaUrl } from "@/lib/dughu"
 import { cn } from "@/lib/utils"
+import { ProfileMenuDialog } from "./ProfileMenuDialog"
 import type { ProfileRelations, RelationAction, RelationType } from "@/lib/profile-relations"
 import {
   Dialog,
@@ -74,7 +75,6 @@ interface ProfileHeaderProps {
   onEditCover?: () => void
   onEditAvatar?: () => void
   onEditProfile?: () => void
-  onMore?: () => void
   onSubmitVerification?: (data: {
     userId: string
     name: string
@@ -168,12 +168,12 @@ export function ProfileHeader({
   onEditCover,
   onEditAvatar,
   onEditProfile,
-  onMore,
   onSubmitVerification,
   isVerifying,
 }: ProfileHeaderProps) {
   const [step1Open, setStep1Open] = useState(false)
   const [step2Open, setStep2Open] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [relationDialog, setRelationDialog] = useState<{
     type: RelationType
     state: "outgoing_pending" | "incoming_pending" | "accepted"
@@ -364,9 +364,12 @@ export function ProfileHeader({
                     Modifier le profil
                   </button>
                   <button
-                    onClick={onMore}
+                    type="button"
+                    onClick={() => setProfileMenuOpen(true)}
                     aria-label="Plus d'options"
-                    className="flex items-center justify-center bg-[#F0F2F5] hover:bg-[#E4E6EB] text-[#050505] w-[38px] h-[38px] rounded-lg transition"
+                    aria-haspopup="dialog"
+                    aria-expanded={profileMenuOpen}
+                    className="flex items-center justify-center bg-[#F0F2F5] hover:bg-[#E4E6EB] text-[#050505] w-[38px] h-[38px] rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2"
                   >
                     <MoreHorizontal size={18} />
                   </button>
@@ -435,6 +438,8 @@ export function ProfileHeader({
           </div>
         </div>
       </div>
+
+      <ProfileMenuDialog open={profileMenuOpen} onOpenChange={setProfileMenuOpen} />
 
       <Dialog open={relationDialog !== null} onOpenChange={(open) => { if (!open) setRelationDialog(null) }}>
         <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] max-w-md overflow-y-auto p-6" showCloseButton>
