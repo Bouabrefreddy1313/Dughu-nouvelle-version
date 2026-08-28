@@ -27,13 +27,16 @@ interface RelationResponse {
 
 function actionAllowed(state: RelationState, action: RelationAction): boolean {
   if (state === "none") return action === "request"
-  if (state === "outgoing_pending") return action === "decline"
+  if (state === "outgoing_pending") return action === "request"
   if (state === "incoming_pending") return action === "accept" || action === "decline"
-  return action === "remove"
+  if (state === "accepted") return action === "remove"
+  return false
 }
 
-function nextStateFor(action: RelationAction): RelationState {
-  if (action === "request") return "outgoing_pending"
+function nextStateFor(state: RelationState, action: RelationAction): RelationState {
+  if (action === "request") {
+    return state === "outgoing_pending" ? "none" : "outgoing_pending"
+  }
   if (action === "accept") return "accepted"
   return "none"
 }
@@ -67,10 +70,10 @@ export function useRelation() {
       return data
     },
 
-    onMutate: async ({ type, action, profileQueryKey }: RelationMutationArgs) => {
+    onMutate: async ({ type, currentState, action, profileQueryKey }: RelationMutationArgs) => {
       await queryClient.cancelQueries({ queryKey: profileQueryKey })
       const previousData = queryClient.getQueryData(profileQueryKey)
-      const nextState = nextStateFor(action)
+      const nextState = nextStateFor(currentState, action)
 
       queryClient.setQueryData<ProfileCacheData>(profileQueryKey, (old) => old ? {
         ...old,

@@ -83,13 +83,12 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 
 #### Relations Fraterniser et Réseauter
 
-La documentation technique et la passation détaillée de cette fonctionnalité
-sont disponibles dans `docs/FEATURE_RELATIONS_FRATERNISER_RESEAUTER.md`.
-
 * Sur le profil d'un autre utilisateur, les relations `friend` et `network` sont
   gérées indépendamment par les boutons « Fraterniser » et « Réseauter ».
 * Une demande envoyée affiche respectivement « Fraterniser envoyé » ou
-  « Réseauter envoyé ». Un nouveau clic demande confirmation avant son annulation.
+  « Réseauter envoyé ». Un nouveau clic ouvre une confirmation puis rappelle
+  `relation/request`, qui fonctionne comme un toggle et annule la demande sortante.
+  L'endpoint `relation/decline` reste réservé au refus d'une demande reçue.
 * Une demande reçue affiche « Accepter la demande ». Son ouverture permet soit
   de la refuser, soit de l'accepter.
 * Une demande acceptée affiche « Fraternisé » ou « Réseauté ». Un nouveau clic
@@ -98,6 +97,13 @@ sont disponibles dans `docs/FEATURE_RELATIONS_FRATERNISER_RESEAUTER.md`.
   Dughu. Le sens entrant ou sortant d'une demande en attente provient des listes
   `incoming` et `outgoing` de l'endpoint `relation/requests`, filtrées par
   utilisateur ciblé et par type de relation.
+* Après rechargement, une demande sortante identifiée conserve l'état « envoyé ».
+  Si les appels de vérification échouent, les boutons affichent « Vérification… »
+  et restent inactifs afin d'éviter un second toggle accidentel.
+* La réponse `relation/requests` est d'abord interprétée du point de vue du profil
+  visité : le viewer trouvé dans `incoming` correspond à une demande qu'il a
+  envoyée, tandis que le viewer trouvé dans `outgoing` correspond à une demande
+  qu'il a reçue. Une lecture orientée viewer reste utilisée en compatibilité.
 * Toutes les mutations de relation sont authentifiées côté serveur et transmises
   à l'API Dughu en `multipart/form-data` avec `auth_user_id`, `user_id` et `type`.
 

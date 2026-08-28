@@ -378,6 +378,8 @@ export function ProfileHeader({
                     const loading = relationLoadingType === type
                     const label = state === "accepted"
                       ? type === "friend" ? "Fraternisé" : "Réseauté"
+                      : state === "unknown"
+                        ? "Vérification…"
                       : state === "incoming_pending"
                         ? "Accepter la demande"
                         : state === "outgoing_pending"
@@ -389,10 +391,11 @@ export function ProfileHeader({
                       <button
                         key={type}
                         type="button"
-                        disabled={loading || (!!relationLoadingType && !loading)}
+                        disabled={state === "unknown" || loading || (!!relationLoadingType && !loading)}
+                        title={state === "unknown" ? "Impossible de vérifier cette relation pour le moment" : undefined}
                         onClick={() => {
                           if (state === "none") onRelationAction?.(type, "request")
-                          else setRelationDialog({ type, state })
+                          else if (state !== "unknown") setRelationDialog({ type, state })
                         }}
                         className={cn(
                           "flex items-center gap-2 px-4 sm:px-5 py-2 rounded-lg text-[14px] font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed",
@@ -442,14 +445,14 @@ export function ProfileHeader({
                   {relationDialog.state === "incoming_pending"
                     ? relationDialog.type === "friend" ? "Demande de fraternisation" : "Demande de réseautage"
                     : relationDialog.state === "outgoing_pending"
-                      ? "Annuler la demande ?"
+                      ? "Annuler la demande envoyée ?"
                       : relationDialog.type === "friend" ? "Supprimer la fraternisation ?" : "Supprimer le réseautage ?"}
                 </DialogTitle>
                 <DialogDescription className="text-sm text-[#65676B]">
                   {relationDialog.state === "incoming_pending"
                     ? "Souhaitez-vous accepter ou refuser cette demande ?"
                     : relationDialog.state === "outgoing_pending"
-                      ? "Cette demande envoyée sera annulée."
+                      ? "Cette action annulera la demande que vous avez envoyée."
                       : "Cette relation sera supprimée après votre confirmation."}
                 </DialogDescription>
               </DialogHeader>
@@ -491,13 +494,13 @@ export function ProfileHeader({
                       onClick={() => {
                         onRelationAction?.(
                           relationDialog.type,
-                          relationDialog.state === "accepted" ? "remove" : "decline"
+                          relationDialog.state === "outgoing_pending" ? "request" : "remove"
                         )
                         setRelationDialog(null)
                       }}
                       className="min-h-11 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
                     >
-                      {relationDialog.state === "accepted" ? "Supprimer" : "Annuler la demande"}
+                      {relationDialog.state === "outgoing_pending" ? "Annuler la demande" : "Supprimer"}
                     </button>
                   </>
                 )}

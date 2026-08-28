@@ -66,10 +66,24 @@ export async function GET(req: NextRequest) {
       viewerDughuId !== "0" && String(userObj.id) !== viewerDughuId
         ? Promise.all([
             dughuApi.getRelationRequests(viewerDughuId, userObj.id, "friend")
-              .then((response) => ({ type: "friend" as const, response })).catch(() => null),
+              .then((response) => ({ type: "friend" as const, ok: response?.success !== false, response }))
+              .catch((error) => {
+                console.error(
+                  "PROFILE FRIEND REQUESTS ERROR:",
+                  error instanceof Error ? error.message : "Erreur inconnue"
+                )
+                return { type: "friend" as const, ok: false, response: null }
+              }),
             dughuApi.getRelationRequests(viewerDughuId, userObj.id, "network")
-              .then((response) => ({ type: "network" as const, response })).catch(() => null),
-          ]).then((responses) => responses.filter(Boolean))
+              .then((response) => ({ type: "network" as const, ok: response?.success !== false, response }))
+              .catch((error) => {
+                console.error(
+                  "PROFILE NETWORK REQUESTS ERROR:",
+                  error instanceof Error ? error.message : "Erreur inconnue"
+                )
+                return { type: "network" as const, ok: false, response: null }
+              }),
+          ])
         : Promise.resolve([]),
     ])
 
@@ -128,7 +142,7 @@ export async function GET(req: NextRequest) {
       groups: [],
       pages: { owned: [], liked: [] },
       isFollowing,
-      relations: normalizeProfileRelations(raw, relationRequests, String(userObj.id)),
+      relations: normalizeProfileRelations(raw, relationRequests, String(userObj.id), viewerDughuId),
     })
   } catch (error) {
     console.error("PROFILE GET ERROR:", error)
