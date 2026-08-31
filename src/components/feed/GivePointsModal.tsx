@@ -104,7 +104,7 @@ export function GivePointsModal({
       }}
     >
       <div
-        className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl animate-[scaleIn_0.18s_ease-out]"
+        className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl animate-[scaleIn_0.18s_ease-out] mx-3"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

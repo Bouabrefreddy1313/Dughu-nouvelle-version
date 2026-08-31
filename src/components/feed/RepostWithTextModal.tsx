@@ -166,11 +166,11 @@ export function RepostWithTextModal({
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-2 sm:p-4 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]"
       onClick={() => setIsOpen(false)}
     >
       <div
-        className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl animate-[scaleIn_0.18s_ease-out]"
+        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white mx-auto shadow-2xl animate-[scaleIn_0.18s_ease-out]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

@@ -67,6 +67,34 @@ function applyFollowingState(posts: any[], followingIds: Set<string>) {
   })
 }
 
+/**
+ * Détermine l'id Dughu d'une couleur de fond (post à fond coloré).
+ * Priorité : champ `color_id` (« 17 ») puis champ `id` de l'objet JSON `color`
+ * (ou id numérique direct). Cet id est transmis à POST /post dans le champ
+ * `post_color_input` (entier) — l'id d'une couleur retournée par GET /getPostColors.
+ */
+function resolveColorInputId(colorIdRaw: string | undefined, colorRaw: unknown): string {
+  const fromColorId = (colorIdRaw || "").trim()
+  if (/^\d+$/.test(fromColorId)) return fromColorId
+
+  if (typeof colorRaw === "number") return String(colorRaw)
+
+  if (typeof colorRaw === "string" && colorRaw.trim()) {
+    try {
+      const parsed = JSON.parse(colorRaw)
+      if (typeof parsed === "number") return String(parsed)
+      if (parsed && typeof parsed === "object" && parsed.id != null) return String(parsed.id)
+    } catch {
+      // valeur non-JSON (hex, dégradé CSS…) : aucun id à transmettre
+    }
+  } else if (colorRaw && typeof colorRaw === "object") {
+    const id = (colorRaw as { id?: unknown }).id
+    if (id != null) return String(id)
+  }
+
+  return ""
+}
+
 // Fusionne le fil des publications des pages avec les posts de l'utilisateur
 // lui-même (créés directement depuis l'API Dughu), sans doublon.
 function mergeFeedPosts(pagePosts: any[], userPosts: any[]): any[] {
@@ -283,6 +311,12 @@ export async function POST(req: NextRequest) {
       if (color_1) dForm.append("color_1", color_1)
       if (color_2) dForm.append("color_2", color_2)
       if (text_color) dForm.append("text_color", text_color)
+
+      // Documentation API : POST /post attend l'`id` d'une couleur issue de
+      // GET /getPostColors dans le champ `post_color_input` (entier) pour les
+      // posts à fond coloré.
+      const colorInputId = resolveColorInputId(color_id, color)
+      if (colorInputId) dForm.append("post_color_input", colorInputId)
       if (location) dForm.append("location", location)
       if (feeling) dForm.append("postFeeling", feeling)
       if (postType) dForm.append("postType", postType)
@@ -302,6 +336,8 @@ export async function POST(req: NextRequest) {
       if (body.color) dForm.append("color", body.color)
       if (body.feeling) dForm.append("postFeeling", body.feeling)
       if (parentId) dForm.append("parent_id", parentId)
+      const colorInputId = resolveColorInputId("", body.color)
+      if (colorInputId) dForm.append("post_color_input", colorInputId)
     }
 
     const raw = await dughuApi.createPost(dForm)

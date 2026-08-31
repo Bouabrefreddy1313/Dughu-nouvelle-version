@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { dughu, dughuApi } from "@/lib/dughu"
+import { dughu, dughuApi, DughuApiError } from "@/lib/dughu"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 /**
@@ -47,6 +47,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("GIVE POINTS ERROR:", error)
-    return NextResponse.json({ success: false, message: "Erreur lors du don de points." }, { status: 500 })
+    if (error instanceof DughuApiError) {
+      const apiData = error.data as Record<string, unknown> | string | null
+      let apiMessage: string | undefined
+      if (typeof apiData === "object" && apiData !== null) {
+        apiMessage =
+          (apiData.message as string) ||
+          (apiData.error as string) ||
+          (apiData.msg as string) ||
+          (apiData.error_msg as string) ||
+          (apiData.errors as string)
+      } else if (typeof apiData === "string" && apiData) {
+        apiMessage = apiData
+      }
+      return NextResponse.json(
+        {
+          success: false,
+          message: apiMessage || `Erreur API Dughu (${error.status}).`,
+        },
+        { status: 502 }
+      )
+    }
+    return NextResponse.json(
+      { success: false, message: "Erreur lors du don de points." },
+      { status: 500 }
+    )
   }
 }

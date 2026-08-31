@@ -3,16 +3,47 @@
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { resolveMediaUrl } from "@/lib/dughu"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface MiniProfileCardProps {
   user?: any
   /** Solde total de points (endpoint /pointsToday/{id} → `total`). Prioritaire sur user.points. */
   points?: number
+  /** Pendant la résolution des données (auth + points) : squelettes, pas de repli. */
+  loading?: boolean
 }
 
-export default function MiniProfileCard({ user, points }: MiniProfileCardProps) {
+export default function MiniProfileCard({ user, points, loading = false }: MiniProfileCardProps) {
   const router = useRouter()
   const totalPoints = points ?? user?.points ?? 0
+
+  // Pendant le chargement, on affiche des squelettes au lieu des placeholders
+  // (« 0 Points », couverture/avatar par défaut, « Utilisateur », stats à 0).
+  if (loading) {
+    return (
+      <div className="w-full overflow-hidden rounded-[20px] bg-white shadow-sm" aria-busy="true">
+        <Skeleton className="h-9 w-full rounded-none border-0" />
+        <Skeleton className="h-[90px] w-full rounded-none border-0" />
+        <div className="-mt-6 mb-1 flex justify-center">
+          <Skeleton className="h-[64px] w-[64px] rounded-full" />
+        </div>
+        <div className="mt-3 space-y-2 px-4">
+          <Skeleton className="mx-auto h-3.5 w-1/2" />
+          <Skeleton className="mx-auto h-2.5 w-1/3" />
+        </div>
+        <div className="mt-3 flex justify-around pb-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex-1 space-y-1.5 text-center">
+              <Skeleton className="mx-auto h-3 w-6" />
+              <Skeleton className="mx-auto h-2 w-10" />
+            </div>
+          ))}
+        </div>
+        <span className="sr-only">Chargement du profil…</span>
+      </div>
+    )
+  }
+
   return (
     <div
       onClick={() => router.push(`/profile/${user?.username || user?.id || ""}`)}

@@ -1,11 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import Header from "@/components/layout/Header"
 import LeftSidebar from "@/components/sidebar/LeftSidebar"
 import RightSidebar from "@/components/sidebar/RightSidebar"
 import ConversationSidebar from "@/components/sidebar/ConversationSidebar"
+import ConversationPopup from "@/components/sidebar/ConversationPopup"
+import MobileBottomNav from "@/components/layout/MobileBottomNav"
+import type { ChatSummary } from "@/lib/messages"
+
+/** Nombre maximal de fenêtres de conversation ouvertes simultanément. */
+const MAX_CONVERSATION_POPUPS = 3
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -37,7 +44,39 @@ export default function MainLayout({
   reserveLeftSidebar = false,
 }: MainLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false)
+  // Total de messages non lus, remonté par ConversationSidebar → badge rouge
+  // sur l'icône messagerie du header.
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const router = useRouter()
+  const [openConversations, setOpenConversations] = useState<ChatSummary[]>([])
+
+  const openConversationPopup = useCallback((conversation: ChatSummary) => {
+    // Ouvrir la conversation = la lire : on retire le compteur de non-lus de la
+    // copie affichée, sinon la bulle rabattue garderait un badge obsolète.
+    const readConversation: ChatSummary = { ...conversation, unreadCount: 0 }
+    setOpenConversations((current) => {
+      if (current.some((item) => item.contact.id === conversation.contact.id)) return current
+      const next = [...current, readConversation]
+      return next.length > MAX_CONVERSATION_POPUPS
+        ? next.slice(next.length - MAX_CONVERSATION_POPUPS)
+        : next
+    })
+  }, [])
+
+  const closeConversationPopup = useCallback((targetUserId: string) => {
+    setOpenConversations((current) =>
+      current.filter((item) => item.contact.id !== targetUserId)
+    )
+  }, [])
+
+  const openFullConversation = useCallback(
+    (targetUserId: string) => {
+      setOpenConversations([])
+      router.push(`/messages?target=${encodeURIComponent(targetUserId)}`)
+    },
+    [router]
+  )
 
   // Empêcher le scroll du body quand le menu mobile est ouvert
   useEffect(() => {
@@ -60,6 +99,7 @@ export default function MainLayout({
         onMenuClick={() => setMobileMenuOpen(true)}
         chatOpen={chatOpen}
         onToggleChat={() => setChatOpen(!chatOpen)}
+        messageUnreadCount={messageUnreadCount}
       />
 
       {/* Overlay mobile pour le menu */}
@@ -98,7 +138,49 @@ export default function MainLayout({
       )}
 
       {/* ConversationSidebar : toujours accessible via le bouton messagerie du header, même sans RightSidebar */}
-      <ConversationSidebar user={user} open={chatOpen} onClose={() => setChatOpen(false)} />
+      <ConversationSidebar
+        user={user}
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        onOpenConversation={openConversationPopup}
+        onUnreadCountChange={setMessageUnreadCount}
+      />
+
+      {/* Fenêtres de conversation (popups en bas, comme Facebook) */}
+      {openConversations.length > 0 && (
+        <>
+          {/* Mobile : dernière conversation en bottom sheet */}
+          <div className="fixed inset-x-0 bottom-0 z-[60] p-3 sm:hidden">
+            {(() => {
+              const last = openConversations[openConversations.length - 1]
+              return last ? (
+                <ConversationPopup
+                  currentUserId={String(user?.dughu?.userId || "")}
+                  conversation={last}
+                  myName={user?.name}
+                  onClose={() => closeConversationPopup(last.contact.id)}
+                  onOpenFull={openFullConversation}
+                />
+              ) : null
+            })()}
+          </div>
+
+          {/* Desktop/tablette : fenêtres côte à côte */}
+          <div className="pointer-events-none fixed bottom-0 right-0 z-[60] hidden items-end gap-3 p-4 sm:flex">
+            {openConversations.map((conversation) => (
+              <div key={conversation.contact.id} className="pointer-events-auto w-[330px]">
+                <ConversationPopup
+                  currentUserId={String(user?.dughu?.userId || "")}
+                  conversation={conversation}
+                  myName={user?.name}
+                  onClose={() => closeConversationPopup(conversation.contact.id)}
+                  onOpenFull={openFullConversation}
+                />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Zone de contenu sous le header (réservations d'espace pour les sidebars fixes) */}
       <div className="flex w-full pt-[80px] sm:pt-[88px]">
@@ -106,7 +188,7 @@ export default function MainLayout({
         <div className="hidden lg:block lg:w-[270px] lg:shrink-0" aria-hidden="true" />
 
         {/* Contenu central (timeline) */}
-        <main className="min-w-0 flex-1 px-2 pb-16 sm:px-4 lg:px-6 lg:pb-12">
+        <main className="min-w-0 flex-1 px-2 pb-20 sm:px-4 sm:pb-16 lg:px-6 lg:pb-12">
           <div
             className={cn(
               "mx-auto w-full",
@@ -129,6 +211,9 @@ export default function MainLayout({
           />
         )}
       </div>
+
+      {/* Barre de navigation mobile (tab bar en bas) */}
+      <MobileBottomNav user={user} />
     </div>
   )
 }

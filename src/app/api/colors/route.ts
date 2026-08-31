@@ -22,16 +22,29 @@ export async function GET() {
       })
     }
 
-    const raw = await dughuApi.getColoredPosts({})
+    // Documentation API : GET /getPostColors → tableau { id, color_1, color_2,
+    // text_color }. Repli sur l'endpoint legacy GET /colored_posts si le nouveau
+    // endpoint est indisponible.
+    let raw: any
+    try {
+      raw = await dughuApi.getPostColors()
+    } catch (e) {
+      console.warn("getPostColors indisponible, repli sur colored_posts :", e)
+      raw = await dughuApi.getColoredPosts({})
+    }
     const items: any[] = Array.isArray(raw?.data)
       ? raw.data
       : Array.isArray(raw?.result)
         ? raw.result
-        : Array.isArray(raw?.coloredPosts)
-          ? raw.coloredPosts
-          : Array.isArray(raw)
-            ? raw
-            : []
+        : Array.isArray(raw?.postColors)
+          ? raw.postColors
+          : Array.isArray(raw?.coloredPosts)
+            ? raw.coloredPosts
+            : Array.isArray(raw?.colors)
+              ? raw.colors
+              : Array.isArray(raw)
+                ? raw
+                : []
 
     const colors: ColoredBackground[] = items
       .map(transformColorItem)

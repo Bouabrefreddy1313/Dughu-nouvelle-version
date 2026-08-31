@@ -3,7 +3,7 @@
 import { SquarePen } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { Sparkles, Images, Film, Play, UserRound, RefreshCcw } from "lucide-react"
+import { Sparkles, Images, Film, Play, UserRound, RefreshCcw, Clapperboard } from "lucide-react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { useQueryClient, useMutation } from "@tanstack/react-query"
@@ -21,11 +21,16 @@ import { ProfileHeader } from "./ProfileHeader"
 import { ProfileAbout, type ProfileInfo } from "./ProfileAbout"
 import { ProfilePhotos } from "./ProfilePhotos"
 import { ProfileVideos } from "./ProfileVideos"
+import { ProfileCapsules } from "./ProfileCapsules"
 import { ProfileFriends } from "./ProfileFriends"
 import { ProfileGroupsPages, type ProfileGroup, type ProfilePage as ProfilePageType } from "./ProfileGroupsPages"
 import { ImageEditModal } from "./ImageEditModal"
 import { PostComposer } from "@/components/composer/PostComposer"
-import { EMPTY_PROFILE_RELATIONS, type RelationAction, type RelationType } from "@/lib/profile-relations"
+import { ConfirmDialog } from "@/components/common/ConfirmDialog"
+import FlashViewer from "@/components/flash/FlashViewer"
+import { useFlashFeed } from "@/hooks/queries/use-flash"
+import { useUserCapsules } from "@/hooks/queries/use-capsules"
+import { EMPTY_PROFILE_RELATIONS, type RelationType } from "@/lib/profile-relations"
 
 const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })), {
   loading: () => (
@@ -82,7 +87,7 @@ interface Post {
   _count: { comments: number; likes: number; reposts: number }
 }
 
-type Tab = "interactions" | "photos" | "videos" | "apropos"
+type Tab = "interactions" | "photos" | "videos" | "capsules" | "apropos"
 
 export function ProfilePage({ target, onSubmitVerification, isVerifying }: { target: { userId?: string; slug?: string }; onSubmitVerification?: () => void; isVerifying?: boolean }) {
   const router = useRouter()
@@ -99,9 +104,30 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
   // Utilisateurs bloqués (état local de session : le libellé « Bloquer » / « Débloquer »
   // du menu 3 points bascule selon cette liste et l'endpoint Dughu fait office de toggle).
   const [blockedAuthors, setBlockedAuthors] = useState<Set<string>>(new Set())
+  // Publication en attente de confirmation de suppression (modale au lieu du confirm natif).
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   // Utilisateur connecté via TanStack Query
   const { data: currentUser } = useAuth()
+
+  // Flash des amis / contacts : détection des auteurs de posts ayant un Flash actif.
+  const { data: flashData } = useFlashFeed(currentUser?.id)
+  const activeFlashIds = useMemo(
+    () => new Set((flashData?.users || []).map((u) => String(u.userId))),
+    [flashData]
+  )
+  // Auteurs dont tous les Flash ont déjà été vus : l'anneau de leur avatar passe en gris.
+  const viewedFlashIds = useMemo(
+    () =>
+      new Set(
+        (flashData?.users || [])
+          .filter((u) => u.allViewed === true)
+          .map((u) => String(u.userId))
+      ),
+    [flashData]
+  )
+  // Flash à ouvrir (clic sur la photo de profil d'un auteur ayant un Flash).
+  const [flashTarget, setFlashTarget] = useState<{ userId: string; userName?: string | null; userAvatar?: string | null } | null>(null)
 
   // Profil via TanStack Query
   const dughuUserId = currentUser?.dughu?.userId || ""
@@ -203,6 +229,14 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
   }, [hasMore, postsLoading, pageNum, loadPosts])
 
   const isFollowing = !!profile?.isFollowing
+
+  // Capsules de l'utilisateur du profil (endpoint Dughu /shortsUser/{user_id}).
+  // L'ID Dughu de la cible est prioritaire (l'API attend user_id Dughu).
+  const { data: userCapsulesData, isLoading: capsulesLoading } = useUserCapsules(
+    profileDughuId || profileId || undefined,
+    myDughuId || undefined
+  )
+  const userCapsules = useMemo(() => userCapsulesData ?? [], [userCapsulesData])
 
   const handleCreatePost = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[]; privacy?: number }) => {
     if (!currentUser) {
@@ -392,7 +426,6 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
   }
 
   const handleDelete = async (postId: string) => {
-    if (!confirm("Supprimer cette publication ?")) return
     try {
       const res = await fetch(`/api/deletePost/${postId}`, { method: "DELETE" })
       if (res.ok) {
@@ -403,6 +436,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     } catch {
       toast.error("Erreur suppression")
     }
+    setDeleteTarget(null)
   }
 
   const handleSave = async (postId: string) => {
@@ -590,7 +624,8 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     },
     { key: "photos", label: "Photos", icon: <Images size={16} />, count: photos.length },
     { key: "videos", label: "Vidéos", icon: <Film size={16} />, count: videos.length },
-    
+    { key: "capsules", label: "Capsules", icon: <Clapperboard size={16} />, count: userCapsules.length },
+    { key: "apropos", label: "À propos", icon: <UserRound size={16} /> },
   ]
 
   return (
@@ -646,7 +681,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
       <div className="flex flex-col lg:flex-row gap-4 lg:items-start">
         {/* ═════ COUCHE GAUCHE ═════ */}
-        <div className="w-full lg:w-[260px] shrink-0 space-y-4">
+        <div className="hidden lg:block lg:w-[260px] shrink-0 space-y-4">
           <ProfileAbout
             user={user}
             info={profile.info as ProfileInfo}
@@ -655,6 +690,12 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
           />
           <ProfilePhotos photos={photos} onSeeAll={() => setTab("photos")} />
           <ProfileVideos videos={videos} onSeeAll={() => setTab("videos")} />
+          <ProfileCapsules
+            capsules={userCapsules}
+            loading={capsulesLoading}
+            currentUserId={myDughuId}
+            onSeeAll={() => setTab("capsules")}
+          />
           <ProfileFriends friends={friends} total={stats.friends} userId={user.id} />
           <ProfileGroupsPages groups={groups} pages={profile.pages} isOwn={isOwn} />
         </div>
@@ -700,13 +741,22 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                                     onRepost={() => handleRepost(post.id)}
                   onRepostWithText={(text) => handleRepostWithText(post.id, text)}
                   shareUrl={post.shareUrl || null}
-                  onDelete={() => handleDelete(post.id)}
+                  onDelete={() => setDeleteTarget(post.id)}
                   canDelete={!!currentUser && String(post.author?.id) === String(currentUser?.dughu?.userId)}
                   onSave={() => handleSave(post.id)}
                   onHide={() => handleHide(post.id)}
                   onBlock={() => handleBlock(post.author?.id)}
                   isBlocked={blockedAuthors.has(String(post.author?.id))}
                   isSaved={post.isSaved}
+                  hasActiveFlash={activeFlashIds.has(String(post.author?.id))}
+                  flashViewed={viewedFlashIds.has(String(post.author?.id))}
+                  onOpenAuthorFlash={(author) =>
+                    setFlashTarget({
+                      userId: author.id,
+                      userName: author.name,
+                      userAvatar: author.avatar,
+                    })
+                  }
                   className="mb-4"
                 />
               ))}
@@ -802,6 +852,14 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
             </div>
           )}
 
+          {tab === "capsules" && (
+            <ProfileCapsules
+              capsules={userCapsules}
+              loading={capsulesLoading}
+              currentUserId={myDughuId}
+            />
+          )}
+
           {tab === "apropos" && (
             <div className="space-y-4">
               <ProfileAbout user={user} info={profile.info as ProfileInfo} isOwn={isOwn} onEdit={isOwn ? () => router.push("/profile/settings") : undefined} />
@@ -822,12 +880,49 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                   </li>
                 </ul>
               </div>
+              <ProfilePhotos photos={photos} onSeeAll={() => setTab("photos")} />
+              <ProfileVideos videos={videos} onSeeAll={() => setTab("videos")} />
+              <ProfileCapsules
+                capsules={userCapsules}
+                loading={capsulesLoading}
+                currentUserId={myDughuId}
+                onSeeAll={() => setTab("capsules")}
+              />
+              <ProfileFriends friends={friends} total={stats.friends} userId={user.id} />
+              <ProfileGroupsPages groups={groups} pages={profile.pages} isOwn={isOwn} />
             </div>
           )}
         </div>
       </div>
 
       {/* Modaux */}
+      <EditProfileModal
+        open={editOpen}
+        user={user}
+        onClose={() => setEditOpen(false)}
+        onSaved={(u) => handleProfileUpdated(u)}
+      />
+      {/* Confirmation de suppression (vrai popup, pas de confirm() natif) */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title="Supprimer la publication ?"
+        description="Cette action est irréversible. Voulez-vous vraiment supprimer cette publication ?"
+        confirmLabel="Supprimer"
+        onConfirm={() => (deleteTarget ? handleDelete(deleteTarget) : undefined)}
+      />
+
+      {/* Visualiseur Flash — ouvert au clic sur la photo de profil d'un auteur ayant un Flash */}
+      {flashTarget && (
+        <FlashViewer
+          key={flashTarget.userId}
+          targetUserId={flashTarget.userId}
+          userId={currentUser?.id}
+          userName={flashTarget.userName}
+          userAvatar={flashTarget.userAvatar}
+          onClose={() => setFlashTarget(null)}
+        />
+      )}
       <ImageEditModal
         open={imageEdit === "avatar"}
         type="avatar"

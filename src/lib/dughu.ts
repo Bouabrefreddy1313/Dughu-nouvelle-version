@@ -92,17 +92,31 @@ function buildQuery(params?: Record<string, string | number | undefined>) {
 export const dughu = {
   enabled: !!API_TOKEN,
 
-  get: (path: string, params?: Record<string, string | number | undefined>) =>
-    dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }),
+  /**
+   * GET vers l'API Dughu. `authToken` (facultatif) = token de session utilisateur
+   * (cookie dughu_token) transmis en `Authorization: Bearer` : plusieurs endpoints
+   * Dughu (ex. fetchComments) exigent ce token, sans lui la requête échoue.
+   */
+  get: (path: string, params?: Record<string, string | number | undefined>, authToken?: string) =>
+    dughuFetch(`${path}${buildQuery(params)}`, {
+      method: "GET",
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+    }),
 
-  form: (path: string, params: Record<string, string | number | undefined>) => {
+  /**
+   * POST form-urlencoded vers l'API Dughu. `authToken` (facultatif) : voir `get`.
+   */
+  form: (path: string, params: Record<string, string | number | undefined>, authToken?: string) => {
     const body = new URLSearchParams()
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null && v !== "") body.set(k, String(v))
     }
     return dughuFetch(path, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
       body: body.toString(),
     })
   },
@@ -116,6 +130,8 @@ export const dughu = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  // DELETE sur la base Dughu (ex. /capsule/{id}, /deletePost/{id})
+  del: (path: string) => dughuFetch(path, { method: "DELETE" }),
 
   rootGet: (path: string, params?: Record<string, string | number | undefined>) =>
     dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }, RETRY_TIMES, DUGHU_ORIGIN),
@@ -135,6 +151,23 @@ export const dughu = {
       body: formData,
       headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
     }, RETRY_TIMES, CHAT_BASE_URL),
+
+  // Form-urlencoded sur la base de messagerie (pour les opérations sans fichiers :
+  // update/delete — multipart peut perturber le contrôleur Dughu).
+  chatForm: (path: string, params: Record<string, string | number | undefined>, authToken?: string) => {
+    const body = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== "") body.set(k, String(v))
+    }
+    return dughuFetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: body.toString(),
+    }, RETRY_TIMES, CHAT_BASE_URL)
+  },
 }
 
 // ── Endpoints connus de l'API Dughu ──────────────────────────────────────────
@@ -178,8 +211,12 @@ export const dughuApi = {
 
   createPost: (formData: FormData) => dughu.multipart("post", formData),
 
-  // Endpoint dédié aux publications de texte coloré (contrat : GET)
-  // GET /colored_posts?post_id=&user_id=&boost_days=   → header X-AppApiToken
+  // Liste des couleurs pour les posts à fond coloré (contrat : GET)
+  // GET /getPostColors → tableau de couleurs { id, color_1, color_2, text_color }
+  // L'`id` d'une couleur est à transmettre dans `post_color_input` de POST /post.
+  getPostColors: () => dughu.get("getPostColors", {}),
+
+  // Endpoint legacy (conservé en repli) : GET /colored_posts
   getColoredPosts: (params: {
     post_id?: string | number
     user_id?: string | number
@@ -416,6 +453,18 @@ export const dughuApi = {
   sendMessage: (formData: FormData, authToken?: string) =>
     dughu.chatMultipart("sendMessage", formData, authToken),
 
+  reactMessage: (messageId: string | number, formData: FormData, authToken?: string) =>
+    dughu.chatMultipart(`reactMessage/${encodeURIComponent(String(messageId))}`, formData, authToken),
+
+  updateMessage: (messageId: string | number, params: Record<string, string | number | undefined>, authToken?: string) =>
+    dughu.chatForm(`updateMessage/${encodeURIComponent(String(messageId))}`, params, authToken),
+
+  deleteMessage: (messageId: string | number, params: Record<string, string | number | undefined>, authToken?: string) =>
+    dughu.chatForm(`deleteMessage/${encodeURIComponent(String(messageId))}`, params, authToken),
+
+  deleteConversation: (conversationId: string | number, params: Record<string, string | number | undefined>, authToken?: string) =>
+    dughu.chatForm(`deleteConversation/${encodeURIComponent(String(conversationId))}`, params, authToken),
+
   updateProfile: (formData: FormData) => dughu.multipart("updateProfile", formData),
 
   // Une mutation de mot de passe ne doit pas être rejouée automatiquement :
@@ -607,7 +656,7 @@ export function isDefaultDughuMedia(v: string): boolean {
 
 export function normalizeUser(u: any): Record<string, any> | null {
   if (!u || typeof u !== "object") return null
-  const id = pick(u, "id", "ID", "user_id", "userId", "userID") || ""
+  const id = pick(u, "user_id", "userId", "id", "ID", "userID") || ""
   if (!id) return null
   const firstName = pick(u, ["first_name", "firstName", "firstname"], "") || ""
   const lastName = pick(u, ["last_name", "lastName", "lastname"], "") || ""

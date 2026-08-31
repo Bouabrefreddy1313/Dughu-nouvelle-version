@@ -101,7 +101,7 @@ export const POST_COLORS = [
   { bg: "linear-gradient(45deg, #fa709a 0%, #fee140 100%)", text: "#fff" },
 ] as const
 
-// ── Mapping ID couleur Dughu → code CSS (source: /colored_posts) ──────────────
+// ── Mapping ID couleur Dughu → code CSS (source: GET /getPostColors) ────────
 // Les IDs correspondent aux couleurs créées dans l'API Dughu.
 // Référence unique : à utiliser dans tout le projet (posts, stories, flash).
 export const COLOR_ID_TO_CSS: Record<string, { bg: string; text: string }> = {

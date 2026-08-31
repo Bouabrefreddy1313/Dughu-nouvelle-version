@@ -180,11 +180,11 @@ export function FlashStoryCard({
         {/* voile dégradé bas pour lisibilité du nom */}
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-        {/* Avatar en haut — anneau épais couleur Dughu, disparaît une fois le Flash lu */}
+        {/* Avatar en haut — anneau épais : orange Dughu (Flash non lu) → gris (Flash vu) */}
         <div
           className={cn(
-            "absolute top-2.5 left-2.5 w-8 h-8 rounded-full overflow-hidden bg-[#A35A2A]",
-            !viewed && "ring-4 ring-[#E08543]"
+            "absolute top-2.5 left-2.5 w-8 h-8 rounded-full overflow-hidden bg-[#A35A2A] ring-4",
+            viewed ? "ring-gray-300" : "ring-[#E08543]"
           )}
         >
           {avatarSrc ? (

@@ -39,8 +39,11 @@ export default function Avatar({ src, name, size = "md", className, verified, ba
   const resolved = src ? resolveMediaUrl(src) : ""
   const avatarSrc = (failed || !resolved) ? FALLBACK_AVATAR : resolved
 
+  // Le conteneur externe est arrondi (rounded-full) : une bordure passée via
+  // `className` (ex. border-2) épouse la forme ronde de la photo au lieu de
+  // former un carré derrière l'avatar.
   return (
-    <div className={cn("relative shrink-0", className)}>
+    <div className={cn("relative shrink-0 rounded-full", className)}>
       <div className={cn(
         SIZES[size],
         bare

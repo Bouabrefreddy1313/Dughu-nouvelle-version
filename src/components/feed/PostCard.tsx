@@ -26,6 +26,7 @@ import {
   Ban,
   Gift,
   Link2,
+  Loader2,
   EyeOff,
   Smile,
   MessageCircle,
@@ -41,6 +42,8 @@ import { RepostWithTextModal } from "@/components/feed/RepostWithTextModal"
 import { SharePostModal } from "@/components/feed/SharePostModal"
 import { GivePointsModal } from "@/components/feed/GivePointsModal"
 import { HashtagText } from "@/components/common/HashtagText"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button as UIButton } from "@/components/ui/button"
 
 interface Author {
   id: string
@@ -156,6 +159,12 @@ interface PostCardProps {
   isSaved?: boolean
   /** Autorise l'affichage de l'action « Supprimer » (réservé à l'auteur du post). */
   canDelete?: boolean
+  /** L'auteur a un Flash actif : affiche un anneau autour de sa photo de profil. */
+  hasActiveFlash?: boolean
+  /** Les Flash de l'auteur ont déjà été vus : l'anneau devient gris au lieu du dégradé marron. */
+  flashViewed?: boolean
+  /** Clic sur la photo de profil d'un auteur ayant un Flash → ouvre le visualiseur de Flash. */
+  onOpenAuthorFlash?: (author: Author) => void
   className?: string
 }
 
@@ -877,6 +886,9 @@ export function PostCard({
   isBlocked,
   isSaved,
   canDelete,
+  hasActiveFlash = false,
+  flashViewed = false,
+  onOpenAuthorFlash,
   className,
 }: PostCardProps) {
   const [commentText, setCommentText] = useState("")
@@ -914,6 +926,10 @@ export function PostCard({
   const [shareModalOpen, setShareModalOpen] = useState(false)
   // Modal « Donner des points » (menu 3 points → gift)
   const [givePointsOpen, setGivePointsOpen] = useState(false)
+  // Envoi rapide de 100 points via le bouton « Gratifier »
+  const [sendingPoints, setSendingPoints] = useState(false)
+  // Modal de confirmation avant d'envoyer 100 points
+  const [confirmPointsOpen, setConfirmPointsOpen] = useState(false)
 
   const postMenuRef = useRef<HTMLDivElement | null>(null)
   const emojiPickerRef = useRef<HTMLDivElement | null>(null)
@@ -1056,6 +1072,42 @@ export function PostCard({
     else toast.error("Impossible de copier le lien")
     setPostMenuOpen(false)
   }
+
+  /**
+   * Offre 100 points à l'auteur du post en un clic (bouton « Gratifier »).
+   * Appelle POST /api/points/give (qui encapsule POST /points/give de l'API Dughu).
+   * Appelée depuis la modale de confirmation.
+   */
+  const handleGivePoints = async () => {
+    if (!canGivePoints) return
+
+    setSendingPoints(true)
+    try {
+      const res = await fetch("/api/points/give", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          postId,
+          authorId: author.id,
+          points: 100,
+          userId: currentUser!.id,
+          dughuUserId: currentUser?.dughu?.userId || "",
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success("100 points offerts à l'auteur.")
+        setConfirmPointsOpen(false)
+      } else {
+        toast.error(data.message || "Impossible d'offrir des points.")
+      }
+    } catch {
+      toast.error("Impossible d'offrir des points.")
+    } finally {
+      setSendingPoints(false)
+    }
+  }
+
   // Preview du post republié dans le composer : si le post est lui-même un
   // repost, on réutilise l'original embarqué ; sinon on utilise le post courant.
   const repostPreviewParent = parentPost ?? {
@@ -1967,12 +2019,36 @@ export function PostCard({
     >
 
       <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-        <Avatar
-          src={author.avatar}
-          name={author.name}
-          size="md"
-          verified={author.verified}
-        />
+        {hasActiveFlash ? (
+          <button
+            type="button"
+            onClick={() => onOpenAuthorFlash?.(author)}
+            aria-label={`Voir les Flash de ${author.name || "cet utilisateur"}`}
+            title="Voir ses Flash"
+            className={cn(
+              "group relative shrink-0 rounded-full p-[3px] transition hover:opacity-90 hover:shadow-md",
+              flashViewed
+                ? "bg-gray-300 hover:shadow-gray-400/30"
+                : "bg-gradient-to-br from-[#E08543] to-[#A35A2A] hover:shadow-[#A35A2A]/30"
+            )}
+          >
+            <span className="block rounded-full bg-white p-[2px]">
+              <Avatar
+                src={author.avatar}
+                name={author.name}
+                size="md"
+                verified={author.verified}
+              />
+            </span>
+          </button>
+        ) : (
+          <Avatar
+            src={author.avatar}
+            name={author.name}
+            size="md"
+            verified={author.verified}
+          />
+        )}
 
         <div className="flex-1 min-w-0">
           <a
@@ -2291,7 +2367,7 @@ export function PostCard({
 
       <div className="mx-2 sm:mx-4 border-t border-gray-100 flex relative">
         <div
-          className="flex-1 relative"
+          className="flex-1 relative min-w-0"
           onMouseEnter={() => {
             clearHideReactionsTimer()
             setShowReactions(true)
@@ -2306,19 +2382,16 @@ export function PostCard({
               onLike?.(reactionId)
             }}
             className={cn(
-              "w-full flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium rounded-lg my-1 transition",
+              "w-full flex items-center justify-center gap-1 sm:gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium rounded-lg my-1 transition",
               selectedReaction
                 ? "text-[#1877F2]"
                 : "text-[#65676B] hover:bg-gray-50"
             )}
           >
-            <span className="text-[16px]">
+            <span className="text-[16px] sm:text-[18px] shrink-0">
               {selectedReactionDefinition?.icon || "👍"}
             </span>
-
-            <span>
-              {selectedReactionDefinition?.name || "J'aime"}
-            </span>
+            <span className="hidden sm:inline">{selectedReactionDefinition?.name || "J'aime"}</span>
           </button>
 
           {showReactions && (
@@ -2342,29 +2415,32 @@ export function PostCard({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => onLike?.(selectedReaction || 1)}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
-        >
-          <Image
-            src="/images/dixip.png"
-            alt="Gracier"
-            width={20}
-            height={20}
-            className="w-5 h-5 object-contain"
-          />
-          Gratifier
-        </button>
+        {canGivePoints && (
+          <button
+            type="button"
+            onClick={() => setConfirmPointsOpen(true)}
+            className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1 transition"
+            aria-label="Gratifier l'auteur de ce post de 100 points"
+          >
+            <Image
+              src="/images/dixip.png"
+              alt="Gratifier"
+              width={20}
+              height={20}
+              className="w-5 h-5 object-contain"
+            />
+            <span className="hidden sm:inline">Gratifier</span>
+          </button>
+        )}
 
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <button
             type="button"
             onClick={() => setRepostMenuOpen((v) => !v)}
             className="flex w-full items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
           >
             <Repeat2 size={18} />
-            Republier
+            <span className="hidden sm:inline">Republier</span>
           </button>
 
           {repostMenuOpen && (
@@ -2405,10 +2481,10 @@ export function PostCard({
         <button
           type="button"
           onClick={() => setShareModalOpen(true)}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
+          className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
         >
           <Share2 size={18} />
-          Partager
+          <span className="hidden sm:inline">Partager</span>
         </button>
       </div>
 
@@ -2444,6 +2520,47 @@ export function PostCard({
           currentUser={currentUser}
         />
       )}
+
+      {/* Modale de confirmation du bouton « Gratifier » */}
+      <Dialog open={confirmPointsOpen} onOpenChange={setConfirmPointsOpen}>
+        <DialogContent showCloseButton className="max-w-sm max-h-[90vh] overflow-y-auto mx-3">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-50">
+                <Gift size={18} className="text-[#A35A2B]" />
+              </span>
+              Gratifier l'auteur
+            </DialogTitle>
+            <DialogDescription>
+              Voulez-vous vraiment offrir <strong>100 points</strong> à{" "}
+              <strong>{author.name || "cet utilisateur"}</strong> pour cette publication ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2">
+            <UIButton
+              variant="outline"
+              onClick={() => setConfirmPointsOpen(false)}
+              disabled={sendingPoints}
+            >
+              Annuler
+            </UIButton>
+            <UIButton
+              className="bg-[#A35A2B] text-white hover:bg-[#8B4A1F]"
+              onClick={() => void handleGivePoints()}
+              disabled={sendingPoints}
+            >
+              {sendingPoints ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" />
+                  Envoi...
+                </span>
+              ) : (
+                "Confirmer"
+              )}
+            </UIButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {(visibleComments.length > 0 || loadingComments) && (
         <div className="px-4 py-3">
@@ -2524,7 +2641,7 @@ export function PostCard({
           <button
             type="button"
             onClick={() => commentImageRef.current?.click()}
-            className="p-1.5 rounded-full text-[#65676B] hover:bg-gray-200 transition"
+            className="p-1.5 rounded-full text-[#65676B] hover:bg-gray-200 transition hidden sm:flex"
             title="Ajouter une image"
           >
             <ImageIcon size={16} />
@@ -2533,7 +2650,7 @@ export function PostCard({
           <button
             type="button"
             onClick={() => commentVideoRef.current?.click()}
-            className="p-1.5 rounded-full text-[#65676B] hover:bg-gray-200 transition"
+            className="p-1.5 rounded-full text-[#65676B] hover:bg-gray-200 transition hidden sm:flex"
             title="Ajouter une vidéo"
           >
             <Video size={16} />
@@ -2542,7 +2659,7 @@ export function PostCard({
           <button
             type="button"
             onClick={() => commentDocRef.current?.click()}
-            className="p-1.5 rounded-full text-[#65676B] hover:bg-gray-200 transition"
+            className="p-1.5 rounded-full text-[#65676B] hover:bg-gray-200 transition hidden sm:flex"
             title="Joindre un fichier"
           >
             <FileText size={16} />

@@ -213,7 +213,12 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<Image src="/images/capsule.png" alt="Capsule" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Capsule"
+            active={active === "capsules"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/capsules")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
