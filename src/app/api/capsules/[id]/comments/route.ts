@@ -1,30 +1,49 @@
 import { NextRequest, NextResponse } from "next/server"
 import { capsuleEnabled, fetchCapsuleComments, addCapsuleComment } from "@/lib/capsule-service"
-import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
+import { getDughuUserIdFromCookies, getDughuTokenFromCookies } from "@/lib/dughu-user"
 
 export const dynamic = "force-dynamic"
 
 /**
  * GET /api/capsules/[id]/comments — commentaires d'une capsule (POST /fetchComments Dughu).
- * Query : userId?.
+ * Query : userId?, page? (page par défaut : 1, contrat Dughu `?page=N` + user token).
+ * `/fetchComments` étant authentifié par utilisateur, une session Dughu (user_id +
+ * dughu_token) est requise : sinon → 401 « Connectez-vous… ».
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     if (!capsuleEnabled) {
-      return NextResponse.json({ success: true, comments: [] })
+      return NextResponse.json({ success: true, comments: [], pagination: { page: 1, perPage: 5, total: 0, lastPage: 1, hasMore: false } })
     }
     const { id } = await params
     const { searchParams } = new URL(req.url)
-    let userId = searchParams.get("userId") || (await getDughuUserIdFromCookies())
-    if (!userId) userId = "0"
+    const userId = searchParams.get("userId") || (await getDughuUserIdFromCookies())
+    const token = await getDughuTokenFromCookies()
+    const page = Math.max(1, Number.parseInt(searchParams.get("page") || "1", 10) || 1)
     if (!id) {
       return NextResponse.json({ success: false, message: "capsuleId requis." }, { status: 422 })
     }
-    const comments = await fetchCapsuleComments(id, userId)
-    return NextResponse.json({ success: true, comments })
+    // L'endpoint Dughu exige une session utilisateur (id + token) : sans elle,
+    // on répond « Connectez-vous » au lieu d'une erreur technique 500.
+    if (!/^\d+$/.test(userId) || !token) {
+      return NextResponse.json(
+        { success: false, message: "Connectez-vous pour afficher les commentaires." },
+        { status: 401 }
+      )
+    }
+    const result = await fetchCapsuleComments(id, userId, page, token)
+    return NextResponse.json({
+      success: true,
+      page: result.pagination.page,
+      comments: result.comments,
+      pagination: result.pagination,
+    })
   } catch (error) {
     console.error("CAPSULE COMMENTS ERROR:", error)
-    return NextResponse.json({ success: false, message: "Erreur lors du chargement des commentaires." }, { status: 500 })
+    // On propage le message déjà traduit par le service (session expirée, API…)
+    // au lieu d'un message générique qui masque la cause.
+    const message = error instanceof Error ? error.message : "Erreur lors du chargement des commentaires."
+    return NextResponse.json({ success: false, message }, { status: 502 })
   }
 }
 

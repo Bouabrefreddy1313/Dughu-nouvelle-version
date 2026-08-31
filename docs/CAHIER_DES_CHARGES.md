@@ -50,6 +50,35 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
   n'existe réellement pas ou a quitté Dughu (erreur API / utilisateur absent).
 * Aucune requête `/api/profile` n'est envoyée avec un identifiant vide.
 
+#### Responsive de la page profil
+
+* Sur mobile et petits écrans (< `lg`), la colonne de gauche (À propos, Photos,
+  Vidéos, Capsules, Amis, Groupes & Pages) est masquée. Le contenu principal
+  (onglets + publications) s'affiche directement sous l'en-tête de profil.
+* Les onglets disponibles sur la page profil sont : **Mes posts**, **Photos**,
+  **Vidéos**, **Capsules** et **À propos**.
+* L'onglet **Mes posts** est sélectionné par défaut.
+* L'onglet **À propos** affiche : les informations personnelles, le résumé
+  (statistiques), les photos, vidéos, capsules, amis, et groupes & pages —
+  soit tout le contenu de la colonne de gauche habituellement visible sur desktop.
+* Sur desktop (`lg` et plus), la colonne de gauche est visible et le layout
+  à deux colonnes est conservé.
+
+### Navigation mobile
+
+* La barre de navigation mobile (`MobileBottomNav`) s'affiche en bas de l'écran
+  sur les écrans inférieurs à `lg`.
+* Les onglets de la barre de navigation mobile sont : **Accueil**, **Capsules**,
+  **Akwaplay** et **Vidéos**.
+* Les onglets **Flash** et **Profil** ne sont pas présents dans la barre de
+  navigation mobile.
+
+### Bouton S'abonner (PostCard)
+
+* Le bouton « S'abonner » affiché dans les cartes de publication est plus compact
+  sur mobile (texte `11px`, padding réduit, icône `13px`) et reprend sa taille
+  normale sur les écrans `sm` et plus.
+
 ### Publications
 
 * Création
@@ -115,6 +144,16 @@ choisir le montant. La détection du post « sien » se base sur l'identifiant
 * La carte « mini-profil » de la sidebar droite affiche le solde **total** de points de
   l'utilisateur connecté, chargé via `GET /pointsToday/{userId}` (API Dughu) à travers
   la route interne `/api/pointsToday/[userId]` (champ `total` de la réponse).
+* La **`MiniProfileCard`** a une prop `loading` : pendant la résolution (auth +
+  points) elle affiche des **squelettes** (badge points, couverture, avatar,
+  identité, stats) au lieu des placeholders (« 0 Points », cover/avatar par
+  défaut, « Utilisateur », stats à 0).
+* La sidebar droite (mini-profil, posts boostés, groupes, espaces, dernière
+  activité, tendances) charge ses données via `/api/suggestions` (+
+  `/api/pointsToday/[userId]`) : pendant la résolution, chaque bloc affiche des
+  **squelettes** (état `loading` de `RightSidebar`/`GroupCarousel`) et **jamais**
+  de repli statique — les jeux de données codés en dur (`GROUPS`, `SPACES`,
+  tendances) ne servent de repli que si l'API renvoie réellement une liste vide.
 
 #### Menu d'action « 3 points » d'une publication
 
@@ -238,8 +277,10 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
 #### Page Capsules (`/capsules`)
 
 * Page dédiée (`CapsulesPage`) présentant le feed complet des capsules en
-  grille de vignettes verticales, avec squelettes pendant le chargement et
-  état d'erreur réessayable. Entrées de navigation « Capsules » dans la barre
+  grille 9:16 (chargement infini au scroll). États gérés : **squeletons** pendant
+  la résolution de l'auth et le premier fetch (aucune fausse liste vide au
+  rechargement), erreur réessayable, liste réellement vide, et grille.
+  Entrées de navigation « Capsules » dans la barre
   de navigation mobile **et la sidebar gauche** (élément
   « Capsule », qui redirige vers `/capsules` et s'active quand la page est
   courante). L'en-tête desktop ne contient pas d'entrée Capsules.
@@ -263,8 +304,12 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
 
 #### Visionneuse (CapsuleViewer)
 
-* Défilement vertical d'une capsule à l'autre (type Reels), vidéo en lecture
-  automatique muette.
+* Défilement vertical d'une capsule à l'autre (type Reels) : **molette et flèches
+  clavier sur desktop**, **glissement vertical tactile sur mobile / tablette**
+  (vers le haut = capsule suivante, vers le bas = capsule précédente — seuil
+  60 px, les gestes démarrant sur un bouton, lien ou champ sont ignorés) ;
+  vidéo en lecture automatique muette. La carte vidéo occupe l'essentiel de
+  l'écran en mobile (`w-[min(86vw,680px)]`).
 * Actions : **like / dislike** (mise à jour optimiste), **commentaires**
   (liste, ajout, réponses imbriquées, like de commentaire), **vue**
   enregistrée une seule fois par capsule (`POST /trackView` via la route
@@ -276,9 +321,19 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
   échec) et le compteur de Commentaires s'incrémente à chaque ajout de
   commentaire ou de réponse.
 * Commentaires : l'affichage, l'ajout et les réponses utilisent le contrat Dughu réel
-  (`fetchComments`, `storeComment/capsule`, `replyCapsuleComment`, `replyCapsuleReply`,
-  `toggleLike/capsule/comment` : `capsule_id` + `text` + `user_id`…). Les erreurs
-  de validation de l'API sont traduites en messages utilisateur.
+  — **affichage** `POST /fetchComments?page=N` : `page` en query string (défaut 1),
+  corps `capsule_id` + `user_id`, et **token de session utilisateur**
+  (`Authorization: Bearer <dughu_token>` du cookie httpOnly, requis par l'API —
+  vérifié en direct : sans token erreur générique, token invalide → `Unauthorized`).
+  Réponse Laravel paginée : tableau dans `result.data`, métadonnées
+  `current_page / last_page / per_page / total` propagées de bout en bout ;
+  le panneau affiche les commentaires **distants**, page 1 au chargement
+  + bouton « Charger plus » (bandeau « Réessayer » si la lecture échoue).
+  L'**ajout** (`storeComment/capsule`), les **réponses** (`replyCapsuleComment`,
+  `replyCapsuleReply`) et le **like de commentaire** (`toggleLike/capsule/comment`)
+  envoient `capsule_id` + `text` + `user_id` (vérifiés 201/200). Le **like / dislike**
+  de capsule utilise `GET /toggleLikeShort/{capsule_id}/{user_id}` (= `toggleDislikeShort`).
+  Les erreurs de validation de l'API sont traduites en messages utilisateur.
 * Confidentialité : l'auteur d'un commentaire s'affiche sous **« Utilisateur »**
   lorsqu'il s'agit de l'utilisateur connecté ; les autres commentateurs
   conservent leur nom affiché.
@@ -338,6 +393,15 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
   compteur de non-lus fiable) ; ouvrir la conversation la marque comme lue
   (localStorage partagé entre la sidebar et la page `/messages`), retirant le
   badge immédiatement.
+* **Badge de non-lus sur l'icône messagerie du header** : le **total** des
+  messages non lus (même logique et même style que les badges de la liste) est
+  affiché en orange sur l'icône messagerie de l'en-tête (plafonné à « 99+ »).
+  `ConversationSidebar` le calcule et le remonte via `onUnreadCountChange`
+  (câblé dans `MainLayout` → `Header`), en chargeant les conversations en
+  continu (**même panneau fermé**, polling 5 s). Quand une conversation est lue
+  (sidebar ou page `/messages`), l'événement custom `dughu:read-conversations-changed`
+  (même onglet) et l'événement `storage` (autre onglet) mettent le badge du
+  header à jour immédiatement.
 * La fenêtre de conversation (popup) propose également le bouton **Répondre**
   (icône réponse) sur chaque message : une barre « Réponse à … » s'affiche
   au-dessus de la zone de saisie et la citation est envoyée avec le message

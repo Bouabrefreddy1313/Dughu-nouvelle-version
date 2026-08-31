@@ -62,6 +62,21 @@ export interface CapsuleComment {
   replies: CapsuleComment[]
 }
 
+/** Pagination des commentaires d'une capsule (contrat Laravel : result.current_page / last_page / per_page / total). */
+export interface CapsuleCommentsPagination {
+  page: number
+  perPage: number
+  total: number
+  lastPage: number
+  hasMore: boolean
+}
+
+/** Résultat de POST /fetchComments côté Dughu. */
+export interface CapsuleCommentsResult {
+  comments: CapsuleComment[]
+  pagination: CapsuleCommentsPagination
+}
+
 export interface CapsulePagination {
   page: number
   perPage: number
@@ -95,23 +110,42 @@ function readFlag(value: any): boolean {
 /**
  * Extrait un message utilisateur d'une erreur API Dughu : privilégie le premier
  * message de validation renvoyé par l'API (ex. « Le texte du commentaire est
- * obligatoire. ») plutôt que l'erreur technique brute (HTTP 422…).
+ * obligatoire. ») plutôt que l'erreur technique brute (HTTP 422…). Les erreurs de
+ * session (HTTP 401/403, « Unauthorized », « connectez-vous. », token invalide /
+ * expiré) sont traduites en message clair.
  */
 function dughuErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof DughuApiError && error.data && typeof error.data === "object") {
-    const data = error.data as Record<string, unknown>
-    const firstString = (v: unknown): string | null => {
-      if (Array.isArray(v) && typeof v[0] === "string" && v[0]) return v[0]
-      return null
+  const firstString = (v: unknown): string | null => {
+    if (Array.isArray(v) && typeof v[0] === "string" && v[0]) return v[0]
+    return null
+  }
+  if (error instanceof DughuApiError) {
+    const status = error.status
+    const data = error.data && typeof error.data === "object" ? (error.data as Record<string, unknown>) : null
+    const rawText = typeof error.data === "string" ? error.data : ""
+    const m: string | null =
+      (data && typeof data.message === "string" && data.message) ||
+      (data && typeof data.error === "string" && data.error) ||
+      rawText ||
+      null
+    const haystack = `${status ?? ""} ${String(m || "")}`.toLowerCase()
+    if (
+      status === 401 ||
+      status === 403 ||
+      /unauthorized|connectez-vous|connecte-toi|non connect|not authenticated|token.*(invalid|expir)|session.*expir/i.test(haystack)
+    ) {
+      return "Votre session Dughu semble expirée ou invalide. Reconnectez-vous puis réessayez."
     }
-    const errors = data.errors as Record<string, unknown> | undefined
+    const errors = data?.errors as Record<string, unknown> | undefined
     if (errors && typeof errors === "object") {
       const firstField = Object.values(errors).map(firstString).find(Boolean)
       if (firstField) return firstField
     }
-    if (typeof data.message === "string" && data.message && !data.message.includes("Erreur de validation")) {
+    if (typeof data?.message === "string" && data.message && !data.message.includes("Erreur de validation")) {
       return data.message
     }
+    if (typeof data?.error === "string" && data.error) return data.error
+    return fallback
   }
   if (error instanceof Error && error.message) return error.message
   return fallback
@@ -263,24 +297,46 @@ export async function fetchUserCapsules(
 
 /** Like / unlike une capsule (GET /toggleLikeShort/{id}/{user_id}). */
 export async function toggleCapsuleLike(capsuleId: string, userId: string) {
-  const raw = await dughu.get(
-    `toggleLikeShort/${encodeURIComponent(String(capsuleId))}/${encodeURIComponent(String(userId))}`
-  )
+  let raw: any
+  try {
+    raw = await dughu.get(
+      `toggleLikeShort/${encodeURIComponent(String(capsuleId))}/${encodeURIComponent(String(userId))}`
+    )
+  } catch (error) {
+    throw new Error(dughuErrorMessage(error, "Erreur de réaction"))
+  }
   if (raw && typeof raw === "object" && raw.success === false) {
-    throw new Error(String(raw.message || "Erreur de réaction"))
+    throw new Error(dughuSessionMessage(String(raw.message || "Erreur de réaction"), "Erreur de réaction"))
   }
   return { liked: readFlag(firstValue(raw?.is_like, raw?.liked, raw?.is_liked, raw?.status)) }
 }
 
 /** Dislike / undislike une capsule (GET /toggleDislikeShort/{id}/{user_id}). */
 export async function toggleCapsuleDislike(capsuleId: string, userId: string) {
-  const raw = await dughu.get(
-    `toggleDislikeShort/${encodeURIComponent(String(capsuleId))}/${encodeURIComponent(String(userId))}`
-  )
+  let raw: any
+  try {
+    raw = await dughu.get(
+      `toggleDislikeShort/${encodeURIComponent(String(capsuleId))}/${encodeURIComponent(String(userId))}`
+    )
+  } catch (error) {
+    throw new Error(dughuErrorMessage(error, "Erreur de réaction"))
+  }
   if (raw && typeof raw === "object" && raw.success === false) {
-    throw new Error(String(raw.message || "Erreur de réaction"))
+    throw new Error(dughuSessionMessage(String(raw.message || "Erreur de réaction"), "Erreur de réaction"))
   }
   return { disliked: readFlag(firstValue(raw?.is_dislike, raw?.disliked, raw?.is_disliked, raw?.status)) }
+}
+
+/**
+ * Traduit une erreur de session Dughu (« connectez-vous. » renvoyé quand le
+ * user_id fourni n'existe pas / n'est pas connecté) en message utilisateur clair.
+ */
+function dughuSessionMessage(message: string, fallback: string): string {
+  const m = String(message || "").trim()
+  if (/connectez-vous|connecte-toi|non connect/i.test(m)) {
+    return "Votre session Dughu semble expirée. Reconnectez-vous puis réessayez."
+  }
+  return m || fallback
 }
 
 /** Enregistre une vue sur une capsule (POST /trackView). */
@@ -295,27 +351,70 @@ export async function trackCapsuleView(capsuleId: string, userId: string) {
 
 /* ── Commentaires ──────────────────────────────────────────────────────────── */
 //
-// Contrats Dughu vérifiés en direct (diagnostic 2026-08-28) :
+// Contrats Dughu vérifiés en direct (diagnostic + Postman 2026-08-31) :
 //   storeComment/capsule  : capsule_id + text + user_id        → 201 {comment}
 //   replyCapsuleComment   : capsule_id + comment_id + text + user_id → 201 {comment}
 //   replyCapsuleReply     : capsule_id + reply_id + text + user_id   → 201 {comment}
 //   toggleLike/capsule/comment : capsule_id + comment_id + user_id   → 200 {is_liked, likes_count}
-//   fetchComments         : HTTP 500 systématique (bug côté Dughu, toutes
-//                           variantes testées) — géré sans bloquer l'ajout.
+//   fetchComments         : POST /fetchComments?page=N (page en query string), body
+//                           capsule_id + user_id, et `Authorization: Bearer
+//                           <dughu_token>` (token de session utilisateur) — sans
+//                           token l'API renvoie une erreur générique / Unauthorized.
+//                           Réponse : { success, message, result: { current_page,
+//                           per_page, last_page, total, data: [commentaire] } } où
+//                           chaque commentaire porte user imbriqué + replies récursives.
 
-/** Commentaires d'une capsule (POST /fetchComments). */
-export async function fetchCapsuleComments(capsuleId: string, userId: string): Promise<CapsuleComment[]> {
+/**
+ * Commentaires d'une capsule (POST /fetchComments).
+ *
+ * Contrat Dughu réel : `page` en **query string** (`?page=N`, pagination Laravel),
+ * corps `capsule_id` + `user_id`, token de session utilisateur (dughu_token) en
+ * `Authorization: Bearer`. On renvoie les commentaires **distants** normalisés +
+ * les métadonnées de pagination (page, dernière page, total, hasMore).
+ */
+export async function fetchCapsuleComments(
+  capsuleId: string,
+  userId: string,
+  page = 1,
+  authToken?: string
+): Promise<CapsuleCommentsResult> {
+  const safePage = Math.max(1, Number(page) || 1)
   let raw: any
   try {
-    raw = await dughu.form("fetchComments", {
-      capsule_id: String(capsuleId),
-      user_id: String(userId),
-    })
+    raw = await dughu.form(
+      `fetchComments?page=${encodeURIComponent(String(safePage))}`,
+      {
+        capsuleId: String(capsuleId),
+        auth_user_id: String(userId),
+      },
+      authToken
+    )
   } catch (error) {
     throw new Error(dughuErrorMessage(error, "Les commentaires ne sont pas disponibles pour le moment."))
   }
-  const items = findArray(raw, ["comments", "data", "result", "results", "items"])
-  return items.map(normalizeCapsuleComment).filter((c): c is CapsuleComment => c !== null)
+  if (raw && typeof raw === "object" && raw.success === false) {
+    throw new Error(String(raw.message || "Les commentaires ne sont pas disponibles pour le moment."))
+  }
+  // Réponse Laravel : le tableau est dans result.data (ou data à la racine).
+  const meta = raw?.result && typeof raw.result === "object" ? raw.result : raw
+  const items = findArray(meta, ["data", "comments", "items", "result", "results"])
+  const comments = items.map(normalizeCapsuleComment).filter((c): c is CapsuleComment => c !== null)
+
+  const currentPage = readNumber(pick(meta, "current_page", "currentPage")) || safePage
+  const lastPage = readNumber(pick(meta, "last_page", "lastPage"))
+  const perPage = readNumber(pick(meta, "per_page", "perPage")) || comments.length || 5
+  const total = readNumber(pick(meta, "total", "total_comments")) || comments.length
+
+  return {
+    comments,
+    pagination: {
+      page: currentPage,
+      perPage,
+      total,
+      lastPage,
+      hasMore: lastPage > currentPage,
+    },
+  }
 }
 
 /** Ajoute un commentaire sur une capsule (POST /storeComment/capsule). */

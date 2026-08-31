@@ -5,7 +5,7 @@
 // /api/capsules/* + actions client (like, dislike, vue, commentaires…).
 
 import { useQuery } from "@tanstack/react-query"
-import type { Capsule, CapsuleComment } from "@/lib/capsule-service"
+import type { Capsule, CapsuleComment, CapsuleCommentsResult } from "@/lib/capsule-service"
 
 interface FeedParams {
   userId?: string
@@ -66,14 +66,28 @@ export async function logCapsuleViewClient({ capsuleId, userId }: { capsuleId: s
   }
 }
 
-/** Commentaires d'une capsule. */
-export async function fetchCapsuleCommentsClient({ capsuleId, userId }: { capsuleId: string; userId?: string }) {
+/** Commentaires d'une capsule (page demandée → commentaires distants + pagination). */
+export async function fetchCapsuleCommentsClient({
+  capsuleId,
+  userId,
+  page = 1,
+}: {
+  capsuleId: string
+  userId?: string
+  page?: number
+}): Promise<CapsuleCommentsResult> {
   const qs = new URLSearchParams()
   if (userId) qs.set("userId", userId)
+  qs.set("page", String(Math.max(1, page)))
   const res = await fetch(`/api/capsules/${encodeURIComponent(capsuleId)}/comments?${qs}`)
   const data = await res.json().catch(() => ({ success: false }))
   if (!res.ok || !data.success) throw new Error(data.message || "Erreur commentaires")
-  return (data.comments || []) as CapsuleComment[]
+  const safePage = Math.max(1, page)
+  const fallback = { page: safePage, perPage: 5, total: 0, lastPage: safePage, hasMore: false }
+  return {
+    comments: (data.comments || []) as CapsuleComment[],
+    pagination: data.pagination || fallback,
+  }
 }
 
 /** Ajoute un commentaire sur une capsule. */

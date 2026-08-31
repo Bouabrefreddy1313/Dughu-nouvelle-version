@@ -25,7 +25,7 @@ export function FollowButton({
       disabled={isLoading}
       aria-pressed={isFollowing}
       className={cn(
-        "inline-flex min-w-[104px] items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+        "inline-flex items-center justify-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70 min-w-0 sm:min-w-[104px] sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[13px]",
         isFollowing
           ? "bg-[#F0F2F5] text-[#65676B] hover:bg-[#E4E6E9]"
           : "bg-[#A35A2A] text-white hover:bg-[#8B4A1F]",
@@ -33,9 +33,9 @@ export function FollowButton({
       )}
     >
       {isLoading ? (
-        <LoaderCircle size={15} className="animate-spin" aria-hidden="true" />
+        <LoaderCircle size={13} className="animate-spin sm:w-[15px] sm:h-[15px]" aria-hidden="true" />
       ) : (
-        <Icon size={15} aria-hidden="true" />
+        <Icon size={13} className="sm:w-[15px] sm:h-[15px]" aria-hidden="true" />
       )}
       <span>{isFollowing ? "Abonné" : "S'abonner"}</span>
     </button>

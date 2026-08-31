@@ -635,7 +635,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     { key: "photos", label: "Photos", icon: <Images size={16} />, count: photos.length },
     { key: "videos", label: "Vidéos", icon: <Film size={16} />, count: videos.length },
     { key: "capsules", label: "Capsules", icon: <Clapperboard size={16} />, count: userCapsules.length },
-    
+    { key: "apropos", label: "À propos", icon: <UserRound size={16} /> },
   ]
 
   return (
@@ -692,7 +692,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
       <div className="flex flex-col lg:flex-row gap-4 lg:items-start">
         {/* ═════ COUCHE GAUCHE ═════ */}
-        <div className="w-full lg:w-[260px] shrink-0 space-y-4">
+        <div className="hidden lg:block lg:w-[260px] shrink-0 space-y-4">
           <ProfileAbout
             user={user}
             info={profile.info as ProfileInfo}
@@ -891,6 +891,16 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                   </li>
                 </ul>
               </div>
+              <ProfilePhotos photos={photos} onSeeAll={() => setTab("photos")} />
+              <ProfileVideos videos={videos} onSeeAll={() => setTab("videos")} />
+              <ProfileCapsules
+                capsules={userCapsules}
+                loading={capsulesLoading}
+                currentUserId={myDughuId}
+                onSeeAll={() => setTab("capsules")}
+              />
+              <ProfileFriends friends={friends} total={stats.friends} userId={user.id} />
+              <ProfileGroupsPages groups={groups} pages={profile.pages} isOwn={isOwn} />
             </div>
           )}
         </div>

@@ -21,12 +21,17 @@ interface ConversationSidebarProps {
   open?: boolean
   onClose?: () => void
   onOpenConversation?: (conversation: ChatSummary) => void
+  /** Remonte le total de messages non lus (utilisé pour le badge de l'icône messagerie du header). */
+  onUnreadCountChange?: (count: number) => void
 }
 
 const POLL_INTERVAL_MS = 5_000
 // Même clé que la page /messages (MessagesPageClient) : lire une conversation
 // d'un côté la marque comme lue partout (badge retiré dans les deux listes).
 const READ_CHATS_STORAGE_KEY = "dughu:read-conversations"
+// Événement personnalisé broadcasté dans le même onglet après une écriture des
+// lectures (le navigateur ne déclenche pas `storage` dans l'onglet d'origine).
+const READ_CHATS_EVENT = "dughu:read-conversations-changed"
 
 function formatChatDate(value: string) {
   if (!value) return ""
@@ -39,7 +44,7 @@ function formatChatDate(value: string) {
   return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })
 }
 
-export default function ConversationSidebar({ user, open, onClose, onOpenConversation }: ConversationSidebarProps) {
+export default function ConversationSidebar({ user, open, onClose, onOpenConversation, onUnreadCountChange }: ConversationSidebarProps) {
   const [search, setSearch] = useState("")
   const [conversations, setConversations] = useState<ChatSummary[]>([])
   const [loading, setLoading] = useState(false)
@@ -65,10 +70,12 @@ export default function ConversationSidebar({ user, open, onClose, onOpenConvers
   }, [currentUserId])
 
   useEffect(() => {
-    if (!open || !currentUserId) return
-    // Le chargement distant est déclenché à l'ouverture de la fenêtre.
+    if (!currentUserId) return
+    // Les conversations sont chargées en continu (panneau ouvert ou non) pour
+    // alimenter le badge de non-lus de l'icône messagerie du header ; le
+    // squelette de la liste n'est affiché que lorsque le panneau est ouvert.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadConversations(true)
+    void loadConversations(open)
     const timer = window.setInterval(() => void loadConversations(false), POLL_INTERVAL_MS)
     return () => window.clearInterval(timer)
   }, [currentUserId, loadConversations, open])
@@ -81,6 +88,40 @@ export default function ConversationSidebar({ user, open, onClose, onOpenConvers
       setReadKeys(stored ? JSON.parse(stored) : {})
     } catch {
       setReadKeys({})
+    }
+  }, [currentUserId])
+
+  // Garde `readKeys` synchronisé quand la clé de lectures change dans un autre
+  // onglet (ex. lecture faite depuis /messages) → le badge du header se met à
+  // jour sans attendre la prochaine requête.
+  useEffect(() => {
+    if (!currentUserId) return
+    const storageKey = `${READ_CHATS_STORAGE_KEY}:${currentUserId}`
+    const syncFromStorage = () => {
+      try {
+        const stored = window.localStorage.getItem(storageKey)
+        setReadKeys(stored ? JSON.parse(stored) : {})
+      } catch {
+        setReadKeys({})
+      }
+    }
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === storageKey) syncFromStorage()
+    }
+    // Même onglet : lectures faites depuis /messages ou un autre composant.
+    const onReadChatsChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId: string; keys: Record<string, string> }>).detail
+      if (detail?.userId === currentUserId) {
+        setReadKeys(detail.keys || {})
+      } else {
+        syncFromStorage()
+      }
+    }
+    window.addEventListener("storage", onStorage)
+    window.addEventListener(READ_CHATS_EVENT, onReadChatsChanged)
+    return () => {
+      window.removeEventListener("storage", onStorage)
+      window.removeEventListener(READ_CHATS_EVENT, onReadChatsChanged)
     }
   }, [currentUserId])
 
@@ -99,6 +140,11 @@ export default function ConversationSidebar({ user, open, onClose, onOpenConvers
         const next = { ...current, [conversation.contact.id]: conversation.lastMessageKey }
         try {
           window.localStorage.setItem(`${READ_CHATS_STORAGE_KEY}:${currentUserId}`, JSON.stringify(next))
+          // Broadcast dans le même onglet (header / autres composants montés) :
+          // le badge des non-lus doit se mettre à jour immédiatement.
+          window.dispatchEvent(
+            new CustomEvent(READ_CHATS_EVENT, { detail: { userId: currentUserId, keys: next } })
+          )
         } catch {
           // stockage indisponible : l'état local reste valable pour la session
         }
@@ -107,6 +153,18 @@ export default function ConversationSidebar({ user, open, onClose, onOpenConvers
     },
     [currentUserId, isUnread]
   )
+
+  // Total de messages non lus (même logique `isUnread` que la liste), remonté
+  // au header pour le badge de l'icône messagerie. Recalculé à chaque
+  // changement de liste ou de lectures locales.
+  useEffect(() => {
+    if (!onUnreadCountChange) return
+    const total = conversations.reduce(
+      (sum, conversation) => sum + (isUnread(conversation) ? conversation.unreadCount : 0),
+      0
+    )
+    onUnreadCountChange(total)
+  }, [conversations, isUnread, onUnreadCountChange])
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()

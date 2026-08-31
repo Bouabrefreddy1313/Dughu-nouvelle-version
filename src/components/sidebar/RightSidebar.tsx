@@ -5,6 +5,7 @@ import { BarChart3, Users, Globe, TrendingUp, Activity as ActivityIcon, Heart, M
 import { cn } from "@/lib/utils"
 import Card from "@/components/common/Card"
 import Avatar from "@/components/common/Avatar"
+import { Skeleton } from "@/components/ui/skeleton"
 import MiniProfileCard from "@/components/profile/MiniProfileCard"
 import BoostedPostCard from "@/components/promotion/BoostedPostCard"
 import GroupCarousel from "@/components/sidebar/GroupCarousel"
@@ -118,13 +119,23 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
   const [suggestedPages, setSuggestedPages] = useState<any[]>([])
   // Total de points de l'utilisateur (endpoint /pointsToday/{id} → `total`).
   const [totalPoints, setTotalPoints] = useState(0)
+  // `true` tant que les données distantes (suggestions + points) ne sont pas
+  // arrivées : on affiche des squelettes au lieu des replis statiques (GROUPS,
+  // SPACES, tendances…) pour ne pas « flasher » de fausses infos au chargement.
+  const [loading, setLoading] = useState(true)
 
   // Charger les posts boostés, les activités et les points du jour
   useEffect(() => {
     let cancelled = false
     const loadData = async () => {
+      // On repasse en chargement à chaque (re)lancé (changement de user)
+      // pour ne jamais afficher de repli statique pendant une attente réseau.
+      setLoading(true)
+      const userId = user?.id || ""
+      // Session pas encore résolue (auth en cours) : on garde les squelettes,
+      // l'effet se relancera quand `user` arrivera.
+      if (!userId) return
       try {
-        const userId = user?.id || ""
         // Charger les suggestions
         const res = await fetch(`/api/suggestions?userId=${userId}`)
         const data = await res.json()
@@ -175,6 +186,8 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
         }
       } catch {
         /* silent */
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     }
     loadData()
@@ -206,7 +219,7 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
       chatOpen ? "right-[300px]" : "right-0"
     )}>
       {/* Mini profil */}
-      <MiniProfileCard user={user} points={totalPoints} />
+      <MiniProfileCard user={user} points={totalPoints} loading={loading} />
 
     
 
@@ -218,7 +231,20 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
         </div>
 
         <div className="flex flex-col gap-3">
-          {currentBoosted.length > 0 ? (
+          {loading ? (
+            <div className="flex flex-col gap-3" aria-busy="true">
+              {[1, 2].map((i) => (
+                <div key={i} className="flex gap-3">
+                  <Skeleton className="h-14 w-14 shrink-0 rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3 w-4/5" />
+                    <Skeleton className="h-3 w-3/5" />
+                  </div>
+                </div>
+              ))}
+              <span className="sr-only">Chargement des posts boostés…</span>
+            </div>
+          ) : currentBoosted.length > 0 ? (
             currentBoosted.map((p, i) => (
               <BoostedPostCard
                 key={`${activeDot}-${p.id}-${i}`}
@@ -259,6 +285,7 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
       {/* Groupes */}
       <GroupCarousel
         title="Groupe suggéré"
+        loading={loading}
         items={suggestedGroups.length > 0 ? suggestedGroups : GROUPS}
         defaultCover="/images/group/default-cover.jpg"
         defaultAvatar="/images/group/default-avatar.jpg"
@@ -270,6 +297,7 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
       {/* Espaces */}
       <GroupCarousel
         title="Espace suggéré"
+        loading={loading}
         items={suggestedPages.length > 0 ? suggestedPages : SPACES}
         defaultCover="/images/page/default-cover.jpg"
         defaultAvatar="/images/page/default-avatar.jpg"
@@ -288,7 +316,21 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
         </div>
 
         <div className="flex flex-col">
-          {activities.length > 0 ? (
+          {loading ? (
+            <div className="flex flex-col space-y-3" aria-busy="true">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3 py-2">
+                  <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3 w-3/5" />
+                    <Skeleton className="h-2.5 w-1/3" />
+                  </div>
+                  <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
+                </div>
+              ))}
+              <span className="sr-only">Chargement de l&apos;activité…</span>
+            </div>
+          ) : activities.length > 0 ? (
             activities.slice(0, 5).map((act, i) => {
               const meta = getActivityMeta(act.activityType)
               const userName = act.user?.name || user?.name || "Utilisateur"
@@ -328,7 +370,20 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
       <Card className="p-5 rounded-[24px]">
         <h4 className="font-bold text-[16px] mb-3 text-[#2D2D2D]">On parle de ça</h4>
         <div className="space-y-1">
-          {trends.map((t) => (
+          {loading ? (
+            <div className="space-y-3" aria-busy="true">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3 py-2">
+                  <Skeleton className="h-5 w-5 shrink-0 rounded-lg" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3 w-3/5" />
+                    <Skeleton className="h-2.5 w-1/3" />
+                  </div>
+                </div>
+              ))}
+              <span className="sr-only">Chargement des tendances…</span>
+            </div>
+          ) : trends.map((t) => (
             <div key={t.tag} className="flex items-center gap-3 hover:bg-[#F0F2F5] p-3 rounded-xl cursor-pointer transition">
               <BarChart3 size={18} className="text-[#E4405F] shrink-0" />
               <div className="min-w-0">

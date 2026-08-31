@@ -19,12 +19,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 const PAGE_SIZE = 12
 
 export default function CapsulesPage() {
-  const { data: rawUser } = useAuth()
+  const { data: rawUser, isLoading: authLoading } = useAuth()
   const userId = String(rawUser?.dughu?.userId || "")
   const queryClient = useQueryClient()
   const [creatorOpen, setCreatorOpen] = useState(false)
 
   const [capsules, setCapsules] = useState<Capsule[]>([])
+  // `hydrated` : la 1re page de React Query a été recopiée dans `capsules`.
+  // Tant qu'elle ne l'est pas, on rend `data.capsules` directement pour ne
+  // jamais afficher « Aucune capsule » pendant le chargement (et on évite la
+  // réapparition de capsules supprimées après une suppression optimiste).
+  const [hydrated, setHydrated] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
@@ -38,9 +43,13 @@ export default function CapsulesPage() {
     if (!data) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCapsules(data.capsules || [])
-     
     setHasMore(!!data.pagination?.hasMore)
+    setHydrated(true)
   }, [data])
+
+  // Liste affichée : `capsules` (pages chargées au scroll + suppressions) une
+  // fois hydratée ; sinon la 1re page distante directement (pas de flash vide).
+  const displayCapsules = hydrated ? capsules : (data?.capsules || [])
 
   // Pages suivantes au scroll
   const loadMore = useCallback(async () => {
@@ -115,21 +124,21 @@ export default function CapsulesPage() {
               Réessayer
             </button>
           </div>
-        ) : isLoading ? (
+        ) : authLoading || isLoading || (!data && !!userId) ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-busy="true">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="aspect-[9/16] rounded-2xl" />
             ))}
             <span className="sr-only">Chargement des capsules...</span>
           </div>
-        ) : capsules.length === 0 ? (
+        ) : displayCapsules.length === 0 ? (
           <div className="rounded-3xl bg-white p-8 text-center shadow-sm border border-gray-100">
             <p className="text-[#65676B]">Aucune capsule pour l&apos;instant.</p>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {capsules.map((capsule, i) => (
+              {displayCapsules.map((capsule, i) => (
                 <CapsuleCard key={capsule.id} capsule={capsule} onOpen={() => setViewerIndex(i)} />
               ))}
             </div>
@@ -142,9 +151,9 @@ export default function CapsulesPage() {
         )}
       </div>
 
-      {viewerIndex !== null && capsules[viewerIndex] && (
+      {viewerIndex !== null && displayCapsules[viewerIndex] && (
         <CapsuleViewer
-          capsules={capsules}
+          capsules={displayCapsules}
           startIndex={viewerIndex}
           userId={userId}
           currentUserId={userId}

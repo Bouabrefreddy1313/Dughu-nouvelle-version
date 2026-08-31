@@ -18,9 +18,11 @@ interface HeaderProps {
   onMenuClick?: () => void
   chatOpen?: boolean
   onToggleChat?: () => void
+  /** Total de messages non lus (badge sur l'icône messagerie). */
+  messageUnreadCount?: number
 }
 
-export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen, onToggleChat }: HeaderProps) {
+export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen, onToggleChat, messageUnreadCount = 0 }: HeaderProps) {
   const [q, setQ] = useState("")
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
@@ -120,11 +122,16 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
             "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition",
             chatOpen
               ? "bg-[#DBEAFE] text-[#A35A2A]"
-              : "text-[#050505]"
+              : "text-[#050505] hover:bg-[#F0F2F5]"
           )}
+          aria-label={messageUnreadCount > 0 ? `Messagerie (${messageUnreadCount} message(s) non lu(s))` : "Messagerie"}
         >
           <img src="/images/msg.png" alt="Messagerie" className="w-8 h-8 object-contain" />
-          
+          {messageUnreadCount > 0 && (
+            <Badge className="absolute -top-1 -right-1 bg-[#A35A2A] text-white text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white">
+              {messageUnreadCount > 99 ? "99+" : messageUnreadCount}
+            </Badge>
+          )}
         </button>
 
         {/* Notifications */}

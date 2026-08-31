@@ -37,6 +37,9 @@ import ReceiptTicks from "@/components/messages/ReceiptTicks"
 const POLL_INTERVAL_MS = 5_000
 const MESSAGE_PREVIEW_LENGTH = 280
 const READ_CHATS_STORAGE_KEY = "dughu:read-conversations"
+// Événement personnalisé broadcasté dans le même onglet après une écriture des
+// lectures : la sidebar de messagerie (badge du header) se met à jour de suite.
+const READ_CHATS_EVENT = "dughu:read-conversations-changed"
 
 function MessageText({ text, isMine }: { text: string; isMine: boolean }) {
   const [expanded, setExpanded] = useState(false)
@@ -321,6 +324,11 @@ export default function MessagesPageClient() {
       setReadMessageKeys((current) => {
         const next = { ...current, [target]: selectedChat.lastMessageKey }
         window.localStorage.setItem(`${READ_CHATS_STORAGE_KEY}:${currentUserId}`, JSON.stringify(next))
+        // Broadcast dans le même onglet : la sidebar (badge du header) se
+        // synchronise immédiatement avec cette lecture.
+        window.dispatchEvent(
+          new CustomEvent(READ_CHATS_EVENT, { detail: { userId: currentUserId, keys: next } })
+        )
         return next
       })
     }

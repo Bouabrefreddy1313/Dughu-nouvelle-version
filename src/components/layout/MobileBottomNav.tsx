@@ -10,11 +10,9 @@ interface MobileBottomNavProps {
 
 const NAV_ITEMS = [
   { href: "/home", icon: Home, label: "Accueil" },
-  { href: "/flash", icon: Zap, label: "Flash" },
   { href: "/capsules", icon: Clapperboard, label: "Capsules" },
-  { href: "/akwaplay", icon: Play, label: "Play" },
+  { href: "/akwaplay", icon: Play, label: "Akwaplay" },
   { href: "/videos", icon: Video, label: "Vidéos" },
-  { href: "/profile", icon: UserCircle2, label: "Profil" },
 ]
 
 export default function MobileBottomNav({ user }: MobileBottomNavProps) {

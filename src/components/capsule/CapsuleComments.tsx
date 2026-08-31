@@ -55,27 +55,56 @@ function authorDisplayName(
 export default function CapsuleComments({ capsuleId, userId, onClose, onCommentAdded }: CapsuleCommentsProps) {
   const [comments, setComments] = useState<CapsuleComment[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [replyTo, setReplyTo] = useState<{ id: string; name: string; isReplyReply?: boolean } | null>(null)
   const [pendingLikes, setPendingLikes] = useState<Set<string>>(new Set())
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const list = await fetchCapsuleCommentsClient({ capsuleId, userId })
-      setComments(list)
-    } catch (error) {
-      console.error("Failed to load capsule comments:", error)
-      toast.error("Impossible de charger les commentaires.")
-    } finally {
-      setLoading(false)
-    }
-  }, [capsuleId, userId])
+  /**
+   * Charge une page de commentaires depuis l'API distante (POST /fetchComments Dughu,
+   * authentifié par le token de session). `append = true` ajoute la page à la liste
+   * (pagination), sinon elle remplace la liste (chargement initial / réessai).
+   */
+  const load = useCallback(
+    async (targetPage = 1, append = false) => {
+      if (append) setLoadingMore(true)
+      else {
+        setLoading(true)
+        setLoadError(false)
+        setErrorMessage("")
+      }
+      try {
+        const res = await fetchCapsuleCommentsClient({ capsuleId, userId, page: targetPage })
+        setComments((current) => {
+          if (!append) return res.comments
+          const seen = new Set(current.map((c) => c.id))
+          return [...current, ...res.comments.filter((c) => !seen.has(c.id))]
+        })
+        setPage(res.pagination.page)
+        setHasMore(res.pagination.hasMore)
+        setLoadError(false)
+      } catch (error) {
+        console.error("Failed to load capsule comments:", error)
+        setLoadError(true)
+        setErrorMessage(error instanceof Error ? error.message : "Impossible de charger les commentaires pour le moment.")
+        if (append) toast.error("Impossible de charger plus de commentaires.")
+      } finally {
+        setLoading(false)
+        setLoadingMore(false)
+      }
+    },
+    [capsuleId, userId]
+  )
 
   useEffect(() => {
-    void load()
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- chargement initial du panneau : le spinner démarre dans l'état, la première page est chargée ici.
+    void load(1, false)
   }, [load])
 
   const submit = async () => {
@@ -172,11 +201,26 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
             <span className="sr-only">Chargement des commentaires...</span>
           </div>
         ) : (
-          <>
+          <div>
+            {loadError && comments.length === 0 && (
+              <div className="mb-2 rounded-xl bg-[#FDEBEA] px-3 py-2 text-center" role="alert">
+                <p className="text-[12px] text-[#B3402A]">
+                  {errorMessage || "Impossible de charger les commentaires pour le moment."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void load(1, false)}
+                  className="mt-1 text-[12px] font-semibold text-[#A35A2A] hover:underline"
+                >
+                  Réessayer
+                </button>
+              </div>
+            )}
             {comments.length === 0 ? (
               <p className="py-10 text-center text-sm text-[#65676B]">Aucun commentaire. Soyez le premier !</p>
             ) : (
-              <ul className="space-y-4">
+              <>
+                <ul className="space-y-4">
             {comments.map((comment) => (
               <li key={comment.id}>
                 <CapsuleCommentItem
@@ -213,8 +257,22 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
               </li>
             ))}
               </ul>
+                {hasMore && (
+                  <div className="pt-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => void load(page + 1, true)}
+                      disabled={loadingMore}
+                      className="inline-flex items-center gap-1 rounded-full border border-[#E08543]/40 px-4 py-1.5 text-[12px] font-semibold text-[#A35A2A] transition hover:bg-[#A35A2A]/5 disabled:opacity-50"
+                    >
+                      {loadingMore ? <Loader2 size={14} className="animate-spin" /> : null}
+                      Charger plus de commentaires
+                    </button>
+                  </div>
+                )}
+              </>
             )}
-          </>
+          </div>
         )}
       </div>
 

@@ -92,17 +92,31 @@ function buildQuery(params?: Record<string, string | number | undefined>) {
 export const dughu = {
   enabled: !!API_TOKEN,
 
-  get: (path: string, params?: Record<string, string | number | undefined>) =>
-    dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }),
+  /**
+   * GET vers l'API Dughu. `authToken` (facultatif) = token de session utilisateur
+   * (cookie dughu_token) transmis en `Authorization: Bearer` : plusieurs endpoints
+   * Dughu (ex. fetchComments) exigent ce token, sans lui la requête échoue.
+   */
+  get: (path: string, params?: Record<string, string | number | undefined>, authToken?: string) =>
+    dughuFetch(`${path}${buildQuery(params)}`, {
+      method: "GET",
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+    }),
 
-  form: (path: string, params: Record<string, string | number | undefined>) => {
+  /**
+   * POST form-urlencoded vers l'API Dughu. `authToken` (facultatif) : voir `get`.
+   */
+  form: (path: string, params: Record<string, string | number | undefined>, authToken?: string) => {
     const body = new URLSearchParams()
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null && v !== "") body.set(k, String(v))
     }
     return dughuFetch(path, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
       body: body.toString(),
     })
   },

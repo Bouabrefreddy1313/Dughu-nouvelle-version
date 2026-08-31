@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react"
 import {
   ChevronDown,
   ChevronUp,
@@ -246,6 +246,10 @@ export default function CapsuleViewer({
   const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
 
+  // Point de départ du glissement tactile (mobile) pour la navigation verticale.
+  const touchStartY = useRef<number | null>(null)
+  const touchStartX = useRef<number | null>(null)
+
   const capsule = capsules[index]
 
   const goNext = useCallback(() => {
@@ -257,6 +261,47 @@ export default function CapsuleViewer({
   const goPrevious = useCallback(() => {
     setIndex((currentIndex) => Math.max(currentIndex - 1, 0))
   }, [])
+
+  // ── Navigation tactile (mobile) ─────────────────────────────────────────────
+  // Un glissement vertical (style Reels) change de capsule : vers le haut =
+  // capsule suivante, vers le bas = capsule précédente. Les gestes démarrant
+  // sur un élément interactif (bouton, lien, champ…) sont ignorés pour ne pas
+  // gêner le tap.
+  const onTouchStart = useCallback((event: ReactTouchEvent<HTMLElement>) => {
+    const target = event.target
+    if (
+      target instanceof Element &&
+      target.closest("button, a, input, textarea, select, [role='button'], [role='link']")
+    ) {
+      touchStartY.current = null
+      touchStartX.current = null
+      return
+    }
+    const touch = event.touches[0]
+    if (!touch) return
+    touchStartX.current = touch.clientX
+    touchStartY.current = touch.clientY
+  }, [])
+
+  const onTouchEnd = useCallback(
+    (event: ReactTouchEvent<HTMLElement>) => {
+      if (touchStartY.current === null) return
+      const startX = touchStartX.current ?? 0
+      const startY = touchStartY.current
+      touchStartX.current = null
+      touchStartY.current = null
+      const touch = event.changedTouches[0]
+      if (!touch) return
+      const deltaY = touch.clientY - startY
+      const deltaX = touch.clientX - startX
+      // Geste quasi vertical (|dy| > |dx|) au-delà de 60 px = navigation.
+      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) >= 60) {
+        if (deltaY < 0) goNext()
+        else goPrevious()
+      }
+    },
+    [goNext, goPrevious]
+  )
 
   useEffect(() => {
     if (!capsule || viewedIds.has(capsule.id)) return
@@ -321,7 +366,7 @@ export default function CapsuleViewer({
         capsuleId: capsule.id,
         userId,
       })
-    } catch {
+    } catch (error) {
       setLikedIds((currentIds) => {
         const nextIds = new Set(currentIds)
         nextIds.delete(capsule.id)
@@ -334,7 +379,11 @@ export default function CapsuleViewer({
         [capsule.id]: Math.max(0, (prev[capsule.id] ?? capsule.likesCount) - 1),
       }))
 
-      toast.error("Impossible d'enregistrer votre réaction.")
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Impossible d'enregistrer votre réaction."
+      )
     }
   }
 
@@ -462,13 +511,13 @@ export default function CapsuleViewer({
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex overflow-hidden bg-black"
+      className="fixed inset-0 z-[90] flex overflow-hidden overscroll-none bg-black"
       role="dialog"
       aria-modal="true"
       aria-label="Visionneuse de capsules"
     >
       <aside className="hidden w-[220px] shrink-0 flex-col px-3 pt-5 text-white lg:flex">
-        <h2 className="mb-5 px-2 text-[21px] font-bold">Reels</h2>
+        <h2 className="mb-5 px-2 text-[21px] font-bold">Capsules</h2>
 
         <button
           type="button"
@@ -491,11 +540,13 @@ export default function CapsuleViewer({
 
       <main
         ref={containerRef}
-        className="relative flex min-w-0 flex-1 items-center justify-center gap-4 px-3 sm:px-5 lg:gap-5"
+        className="relative flex min-w-0 flex-1 touch-none items-center justify-center gap-4 px-3 sm:px-5 lg:gap-5"
         onWheel={(event) => {
           if (event.deltaY > 30) goNext()
           if (event.deltaY < -30) goPrevious()
         }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
       >
         <button
           type="button"
@@ -506,7 +557,7 @@ export default function CapsuleViewer({
           <X size={21} />
         </button>
 
-        <div className="relative flex h-[calc(100dvh-28px)] max-h-[760px] w-[min(59vw,680px)] min-w-0 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black">
+        <div className="relative flex h-[calc(100dvh-28px)] max-h-[760px] w-[min(86vw,680px)] min-w-0 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black">
           {capsule.video ? (
             <video
               ref={videoRef}

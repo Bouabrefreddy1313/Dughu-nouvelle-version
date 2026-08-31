@@ -1,9 +1,9 @@
 "use client"
 
 import { useRef, type ReactNode } from "react"
-import { ChevronLeft, ChevronRight, Users, ThumbsUp } from "lucide-react"
+import { ChevronLeft, ChevronRight, Users } from "lucide-react"
 import Image from "next/image"
-import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface GroupItem {
   id: string
@@ -24,6 +24,8 @@ interface GroupCarouselProps {
   buttonColor?: string
   buttonHoverColor?: string
   buttonIcon?: ReactNode
+  /** Pendant le chargement distant : squelettes à la place des données statiques. */
+  loading?: boolean
 }
 
 const CARD_WIDTH = 160
@@ -40,6 +42,7 @@ export default function GroupCarousel({
   buttonColor = "#A35A2A",
   buttonHoverColor,
   buttonIcon,
+  loading = false,
 }: GroupCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -62,6 +65,27 @@ export default function GroupCarousel({
         </h4>
       </div>
 
+      {loading ? (
+        <div className="flex gap-[8px] overflow-hidden" aria-busy="true">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="shrink-0 w-[160px] rounded-[14px] overflow-hidden border border-[#E4E6EB] bg-white"
+            >
+              <Skeleton className="h-[70px] w-full rounded-none border-0" />
+              <div className="flex justify-center -mt-5 mb-1">
+                <Skeleton className="w-[52px] h-[52px] rounded-full" />
+              </div>
+              <div className="px-3 text-center space-y-1.5 pb-3">
+                <Skeleton className="h-3 w-3/4 mx-auto" />
+                <Skeleton className="h-2.5 w-1/2 mx-auto" />
+                <Skeleton className="h-7 w-full rounded-full mt-1.5" />
+              </div>
+            </div>
+          ))}
+          <span className="sr-only">Chargement des suggestions…</span>
+        </div>
+      ) : (
       <div className="relative">
         <div
           ref={scrollRef}
@@ -143,6 +167,7 @@ export default function GroupCarousel({
           <ChevronRight size={14} />
         </button>
       </div>
+      )}
     </div>
   )
 }

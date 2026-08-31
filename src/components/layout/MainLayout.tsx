@@ -44,6 +44,9 @@ export default function MainLayout({
   reserveLeftSidebar = false,
 }: MainLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false)
+  // Total de messages non lus, remonté par ConversationSidebar → badge rouge
+  // sur l'icône messagerie du header.
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
   const [openConversations, setOpenConversations] = useState<ChatSummary[]>([])
@@ -96,6 +99,7 @@ export default function MainLayout({
         onMenuClick={() => setMobileMenuOpen(true)}
         chatOpen={chatOpen}
         onToggleChat={() => setChatOpen(!chatOpen)}
+        messageUnreadCount={messageUnreadCount}
       />
 
       {/* Overlay mobile pour le menu */}
@@ -139,6 +143,7 @@ export default function MainLayout({
         open={chatOpen}
         onClose={() => setChatOpen(false)}
         onOpenConversation={openConversationPopup}
+        onUnreadCountChange={setMessageUnreadCount}
       />
 
       {/* Fenêtres de conversation (popups en bas, comme Facebook) */}
