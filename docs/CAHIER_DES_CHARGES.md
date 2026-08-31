@@ -42,14 +42,56 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 * La modale présente les accès « Paramètres », « Mon univers », « Mes activités »,
   « Code QR », « Gestion des relations » et « Autre », chacun accompagné d'une
   courte description.
-* « Gestion des relations » ouvre la page dédiée `/profile/relations`. Les autres
-  rubriques, y compris « Paramètres », affichent actuellement une information
-  claire indiquant leur disponibilité prochaine. L'accès « Paramètres » de ce
-  menu est distinct de la modification du profil et ne redirige donc pas vers
-  `/profile/settings`.
+* « Gestion des relations » ouvre la page dédiée `/profile/relations` et
+  « Paramètres » ouvre la page dédiée `/profile/preferences`. Les autres rubriques
+  affichent actuellement une information claire indiquant leur disponibilité
+  prochaine. Les paramètres généraux sont distincts de la modification du profil
+  et ne redirigent donc pas vers `/profile/settings`.
 * La modale peut être parcourue au clavier, fermée avec son bouton de fermeture ou
   avec les mécanismes standards de dialogue, et reste contenue dans la hauteur de
   l'écran sur mobile.
+
+#### Paramètres généraux
+
+* La page `/profile/preferences` présente les paramètres généraux sans les
+  confondre avec l'édition des informations du profil disponible sur
+  `/profile/settings`.
+* La navigation regroupe les rubriques « Compléter mon profil », « Compte »,
+  « Vérification vitesse internet », « Cache et données mobiles »,
+  « Notifications », « Bloquer », « Signaler un problème », « Aide », « À propos »,
+  « Déconnexion » et « Déconnexion de tous les comptes ».
+* Sur tablette et ordinateur, la liste reste visible à gauche et le détail de la
+  rubrique sélectionnée s'affiche à droite sans recharger la page. Sur mobile,
+  l'utilisateur ouvre le détail en pleine largeur puis revient à la liste avec une
+  action dédiée.
+* La vérification de vitesse présente un aperçu réservé aux futures informations
+  Fast.com. Aucun service externe n'est encore appelé.
+* Cette première version est uniquement visuelle : aucune préférence n'est
+  enregistrée, aucun utilisateur n'est bloqué et aucune action de déconnexion
+  n'est exécutée. Les actions sensibles sont visuellement différenciées et leur
+  caractère inactif est annoncé dans le panneau de détail.
+* Le détail « Compte » présente les entrées « Changer le mot de passe », « Liens
+  sociaux », « Paramètres de confidentialité », « Vérification », « Liste des
+  sessions » et « Supprimer le compte ». Seul le changement de mot de passe est
+  actuellement fonctionnel ; les autres entrées affichent une information de
+  disponibilité prochaine.
+* « Supprimer le compte » est visuellement séparé comme action destructive, mais
+  aucune suppression n'est possible tant que le parcours sécurisé et sa
+  confirmation ne sont pas implémentés.
+* « Changer le mot de passe » ouvre un formulaire demandant le mot de passe actuel,
+  le nouveau mot de passe et sa confirmation. Les champs peuvent être affichés ou
+  masqués, utilisent les attributs d'autocomplétion adaptés et présentent les
+  erreurs de validation à proximité de la saisie concernée.
+* Le nouveau mot de passe doit comporter au moins huit caractères, être différent
+  de l'ancien et correspondre à sa confirmation. Ces contrôles sont appliqués dans
+  l'interface puis répétés par la route serveur.
+* La route interne `POST /api/profile/password` résout l'identifiant Dughu depuis
+  le cookie de session et appelle `POST /updatePassword` en `multipart/form-data`
+  avec `user_id`, `actualPassword`, `password` et `password_confirmation`.
+  L'identifiant utilisateur n'est jamais accepté depuis le navigateur.
+* L'appel de changement de mot de passe n'est pas rejoué automatiquement en cas
+  d'erreur réseau. Les mots de passe ne sont ni journalisés ni mis en cache et les
+  champs sont vidés après une réussite.
 
 #### Paramètres du profil
 

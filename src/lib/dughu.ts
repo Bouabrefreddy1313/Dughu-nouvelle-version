@@ -418,6 +418,12 @@ export const dughuApi = {
 
   updateProfile: (formData: FormData) => dughu.multipart("updateProfile", formData),
 
+  // Une mutation de mot de passe ne doit pas être rejouée automatiquement :
+  // si la première requête réussit mais que sa réponse est perdue, un nouvel
+  // essai avec l'ancien mot de passe produirait un résultat trompeur.
+  updatePassword: (formData: FormData) =>
+    dughuFetch("updatePassword", { method: "POST", body: formData }, 0),
+
   saveProfileInfos: (data: {
     user_id: string | number
     ville_actuelle: string

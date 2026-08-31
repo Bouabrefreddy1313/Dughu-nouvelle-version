@@ -18,7 +18,7 @@ interface ProfileMenuItem {
 }
 
 const PROFILE_MENU_ITEMS: ProfileMenuItem[] = [
-  { title: "Paramètres", description: "Compte, confidentialité, notifications", icon: Settings },
+  { title: "Paramètres", description: "Compte, confidentialité, notifications", icon: Settings, href: "/profile/preferences" },
   { title: "Mon univers", description: "Ce qui vous représente", icon: Orbit },
   { title: "Mes activités", description: "Historique de vos actions", icon: Activity },
   { title: "Code QR", description: "Partager votre profil rapidement", icon: QrCode },
