@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
+import { fetchComposerColors, searchHashtags } from "@/services/posts/composer.service"
 import {
   X,
   Image as ImageIcon,
@@ -144,18 +145,15 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
   // Récupérer les couleurs dynamiques depuis l'API Dughu
   useEffect(() => {
     let cancelled = false
-    const fetchColors = async () => {
-      try {
-        const res = await fetch("/api/colors")
-        const data = await res.json()
+    fetchComposerColors()
+      .then((data) => {
         if (!cancelled && data.success && data.colors?.length) {
-          setApiColors(data.colors)
+          setApiColors(data.colors as BackgroundColor[])
         }
-      } catch {
+      })
+      .catch(() => {
         // fallback silencieux, on utilisera DEFAULT_COLORS
-      }
-    }
-    fetchColors()
+      })
     return () => { cancelled = true }
   }, [])
 
@@ -453,11 +451,10 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
       return
     }
     const reqId = ++tagRequestRef.current
-    fetch(`/api/hashtags?q=${encodeURIComponent(q)}`)
-      .then((r) => r.json())
+    searchHashtags(q)
       .then((data) => {
         if (reqId === tagRequestRef.current && data?.success) {
-          setTagSuggestions(data.tags || [])
+          setTagSuggestions((data.tags || []) as { tag: string; label: string }[])
           setTagIndex(-1)
         }
       })

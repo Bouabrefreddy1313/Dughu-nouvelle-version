@@ -19,6 +19,16 @@ import { toast } from "sonner"
 import MainLayout from "@/components/layout/MainLayout"
 import { resolveMediaUrl } from "@/lib/dughu"
 import { cn } from "@/lib/utils"
+import { me } from "@/services/auth/auth.service"
+import {
+  fetchCountries,
+  fetchProfile,
+  updateProfile,
+  updateProfileInfos,
+  uploadProfileImage,
+} from "@/services/profile/profile.service"
+import { userMessage } from "@/lib/api/api-error"
+import type { ProfileUser } from "@/types/profile/profile.types"
 
 type Section = "infos" | "reseaux" | "retrouvailles"
 
@@ -159,16 +169,14 @@ export function ProfileSettingsPage() {
     let cancelled = false
     const load = async () => {
       try {
-        const authRes = await fetch("/api/auth/me", { cache: "no-store" })
-        const authData = await authRes.json()
-        if (!authRes.ok || !authData?.user) {
+        const authData = await me()
+        if (!authData?.success || !authData.user) {
           router.replace("/login")
           return
         }
         const current = authData.user
-        const profileRes = await fetch(`/api/profile?userId=${encodeURIComponent(current.id)}`, { cache: "no-store" })
-        const profileData = await profileRes.json()
-        const profileUser = profileData?.user || current
+        const profileData = await fetchProfile({ userId: current.id }, { noStore: true })
+        const profileUser = (profileData?.user || current) as ProfileUser
         const info = profileData?.info || {}
         if (cancelled) return
         setUser({ ...current, ...profileUser })
@@ -216,10 +224,9 @@ export function ProfileSettingsPage() {
 
   useEffect(() => {
     let cancelled = false
-    fetch("/api/countries")
-      .then(async (res) => ({ ok: res.ok, data: await res.json() }))
-      .then(({ ok, data }) => {
-        if (!cancelled && ok && Array.isArray(data.countries)) setCountries(data.countries)
+    fetchCountries()
+      .then((data) => {
+        if (!cancelled && Array.isArray(data.countries)) setCountries(data.countries as Country[])
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setCountriesLoading(false) })
@@ -242,38 +249,25 @@ export function ProfileSettingsPage() {
 
     setSaving(true)
     try {
-      const [profileResponse, infosResponse] = await Promise.all([
-        fetch("/api/profile/update", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        }),
-        fetch("/api/profile/infos", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            villeActuelle: form.city,
-            villeOrigine: form.villeOrigine,
-            etablissementFrequente: form.etablissementFrequente,
-            domaineActivite: form.domaineActivite,
-            profession: form.profession,
-            entrepriseActuelle: form.entrepriseActuelle,
-            entreprisePassee: form.entreprisePassee,
-            centresInteret: form.centresInteret,
-            competences: form.competences,
-            lieuxFrequentes: form.lieuxFrequentes,
-          }),
+      const [profileData] = await Promise.all([
+        updateProfile(form),
+        updateProfileInfos({
+          villeActuelle: form.city,
+          villeOrigine: form.villeOrigine,
+          etablissementFrequente: form.etablissementFrequente,
+          domaineActivite: form.domaineActivite,
+          profession: form.profession,
+          entrepriseActuelle: form.entrepriseActuelle,
+          entreprisePassee: form.entreprisePassee,
+          centresInteret: form.centresInteret,
+          competences: form.competences,
+          lieuxFrequentes: form.lieuxFrequentes,
         }),
       ])
-      const [profileData, infosData] = await Promise.all([profileResponse.json(), infosResponse.json()])
-      if (!profileResponse.ok || !profileData.success || !infosResponse.ok || !infosData.success) {
-        toast.error(profileData.message || infosData.message || "Impossible de mettre à jour le profil.")
-        return
-      }
       setUser((current) => current ? ({ ...current, ...profileData.user, ...form }) : current)
       toast.success("Profil mis à jour avec succès.")
-    } catch {
-      toast.error("Impossible de contacter Dughu. Vérifiez votre connexion puis réessayez.")
+    } catch (error) {
+      toast.error(userMessage(error, "Impossible de contacter Dughu. Vérifiez votre connexion puis réessayez."))
     } finally {
       setSaving(false)
     }
@@ -290,16 +284,15 @@ export function ProfileSettingsPage() {
       const payload = new FormData()
       payload.append("userId", user.id)
       payload.append("avatar", file)
-      const res = await fetch("/api/profile/avatar", { method: "POST", body: payload })
-      const data = await res.json()
-      if (!res.ok || !data.success || !data.avatar) {
-        toast.error(data.message || "Impossible de modifier la photo de profil.")
+      const data = await uploadProfileImage("avatar", payload)
+      if (!data.avatar) {
+        toast.error(String(data.message || "Impossible de modifier la photo de profil."))
         return
       }
       setUser((current) => current ? ({ ...current, avatar: data.avatar, image: data.avatar }) : current)
       toast.success("Photo de profil mise à jour.")
-    } catch {
-      toast.error("Impossible de contacter Dughu. Vérifiez votre connexion puis réessayez.")
+    } catch (error) {
+      toast.error(userMessage(error, "Impossible de contacter Dughu. Vérifiez votre connexion puis réessayez."))
     } finally {
       setAvatarSaving(false)
       if (avatarInputRef.current) avatarInputRef.current.value = ""

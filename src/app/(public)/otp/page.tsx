@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { me, verifyOtp as verifyOtpRequest, resendOtp } from "@/services/auth/auth.service"
 
 function OtpForm() {
   const router = useRouter()
@@ -18,8 +19,7 @@ function OtpForm() {
 
   const resolveNextUrl = async () => {
     try {
-      const me = await fetch("/api/auth/me")
-      const data = await me.json()
+      const data = await me()
       if (data?.success && data?.user?.onboardingCompleted) return "/home"
     } catch {}
     return "/onboarding/profile"
@@ -79,15 +79,9 @@ function OtpForm() {
     if (code.length !== 4) return
     setLoading(true)
     try {
-      const res = await fetch("/api/otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp: code }),
-      })
+      const data = await verifyOtpRequest({ email, otp: code })
 
-      const data = await res.json()
-
-      if (!res.ok) {
+      if (!data.success) {
         toast.error(data.message || "Code invalide")
         setOtp(["", "", "", ""])
         inputsRef.current[0]?.focus()
@@ -106,15 +100,9 @@ function OtpForm() {
   const handleResend = async () => {
     setResendLoading(true)
     try {
-      const res = await fetch("/api/otp/resend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      })
+      const data = await resendOtp({ email })
 
-      const data = await res.json()
-
-      if (!res.ok) {
+      if (!data.success) {
         toast.error(data.message || "Erreur lors de l'envoi")
         return
       }

@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import MiniProfileCard from "@/components/profile/MiniProfileCard"
 import BoostedPostCard from "@/components/promotion/BoostedPostCard"
 import GroupCarousel from "@/components/sidebar/GroupCarousel"
+import { fetchSuggestions, fetchPointsToday } from "@/services/posts/feed.service"
 
 interface RightSidebarProps {
   user?: any
@@ -137,16 +138,15 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
       if (!userId) return
       try {
         // Charger les suggestions
-        const res = await fetch(`/api/suggestions?userId=${userId}`)
-        const data = await res.json()
+        const data = await fetchSuggestions(userId)
         if (cancelled) return
         if (data.success) {
           if (data.boostedPosts) {
-            setBoostedPosts(data.boostedPosts)
-            setShuffledBoosted(data.boostedPosts)
+            setBoostedPosts(data.boostedPosts as BoostedPost[])
+            setShuffledBoosted(data.boostedPosts as BoostedPost[])
           }
           if (data.activities) {
-            setActivities(data.activities)
+            setActivities(data.activities as ActivityItem[])
           }
           if (Array.isArray(data.groups) && data.groups.length > 0) {
             setSuggestedGroups(
@@ -178,8 +178,7 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
         }
         // Charger les points totaux de l'utilisateur
         if (userId) {
-          const pointsRes = await fetch(`/api/pointsToday/${userId}`)
-          const pointsData = await pointsRes.json()
+          const pointsData = await fetchPointsToday(userId)
           if (!cancelled) {
             setTotalPoints(pointsData.total ?? 0)
           }

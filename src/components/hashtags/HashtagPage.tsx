@@ -9,6 +9,18 @@ import { PostCard } from "@/components/feed/PostCard"
 import { ConfirmDialog } from "@/components/common/ConfirmDialog"
 import FlashViewer from "@/components/flash/FlashViewer"
 import { useAuth } from "@/hooks/queries/use-auth"
+import { logout } from "@/services/auth/auth.service"
+import {
+  fetchHashtagPosts,
+  addReaction,
+  createPost,
+  rePost,
+  deletePost,
+  storeSave,
+  hidePost,
+  blockUser,
+} from "@/services/posts/posts.service"
+import { addComment } from "@/services/posts/comments.service"
 import { useFlashFeed } from "@/hooks/queries/use-flash"
 import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import { REACTION_ID_TO_TYPE } from "@/lib/constants"
@@ -72,10 +84,7 @@ export function HashtagPage({ tag }: HashtagPageProps) {
       const reqId = ++feedReqRef.current
       setLoading(true)
       try {
-        const res = await fetch(
-          `/api/hashtags/posts?tag=${encodeURIComponent(cleanTag)}&page=${page}`
-        )
-        const data = await res.json()
+        const data = await fetchHashtagPosts(cleanTag, page)
         if (reqId !== feedReqRef.current) return
         if (data.success) {
           const reactionsCache = readMyReactions()
@@ -139,7 +148,7 @@ export function HashtagPage({ tag }: HashtagPageProps) {
   }, [hasMore, loading, pageNum, loadPosts])
 
   const handleLogout = () => {
-    fetch("/api/logout", { method: "POST" }).finally(() => {
+    void logout().finally(() => {
       router.push("/login")
     })
   }
@@ -175,12 +184,7 @@ export function HashtagPage({ tag }: HashtagPageProps) {
     writeMyReactions(newCache)
 
     try {
-      const res = await fetch("/api/reactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user.id, type: reactionType, dughuUserId: user?.dughu?.userId }),
-      })
-      const data = await res.json()
+      const data = await addReaction({ postId, userId: user.id, type: reactionType, dughuUserId: user?.dughu?.userId })
       if (data.success) {
         if (typeof data.count === "number") {
           applyToPost((p) => ({
@@ -218,8 +222,7 @@ export function HashtagPage({ tag }: HashtagPageProps) {
       formData.append("dughuUserId", user?.dughu?.userId || "")
       formData.append("content", text)
       if (files && files.length > 0) files.forEach((f) => formData.append("files", f))
-      const res = await fetch("/api/comments", { method: "POST", body: formData })
-      const data = await res.json()
+      const data = await addComment(formData)
       if (data.success) {
         setPosts((prev) =>
           prev.map((p) =>
@@ -282,8 +285,7 @@ export function HashtagPage({ tag }: HashtagPageProps) {
       formData.append("parentId", postId)
       formData.append("userId", user.id)
       formData.append("dughuUserId", user?.dughu?.userId || "")
-      const res = await fetch("/api/posts", { method: "POST", body: formData })
-      const data = await res.json()
+      const data = await createPost(formData)
       if (data.success) {
         addRepostToFeed(postId, data.post)
         toast.success("Repost effectué !")
@@ -303,8 +305,7 @@ export function HashtagPage({ tag }: HashtagPageProps) {
       formData.append("userId", user.id)
       formData.append("dughuUserId", user?.dughu?.userId || "")
       formData.append("postText", commentary)
-      const res = await fetch("/api/rePost", { method: "POST", body: formData })
-      const data = await res.json()
+      const data = await rePost(formData)
       if (data.success) {
         addRepostToFeed(postId, data.post, commentary)
         toast.success("Repost publié !")
@@ -316,8 +317,8 @@ export function HashtagPage({ tag }: HashtagPageProps) {
 
   const handleDelete = async (postId: string) => {
     try {
-      const res = await fetch(`/api/deletePost/${postId}`, { method: "DELETE" })
-      if (res.ok) {
+      const ok = await deletePost(postId)
+      if (ok) {
         setPosts((prev) => prev.filter((p) => p.id !== postId))
         toast.success("Post supprimé")
       }
@@ -327,12 +328,7 @@ export function HashtagPage({ tag }: HashtagPageProps) {
 
   const handleSave = async (postId: string) => {
     try {
-      const res = await fetch("/api/store-save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user?.id, dughuUserId: user?.dughu?.userId }),
-      })
-      const data = await res.json()
+      const data = await storeSave({ postId, userId: user?.id, dughuUserId: user?.dughu?.userId })
       if (data.success) {
         setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, isSaved: !p.isSaved } : p)))
         toast.success(data.saved ? "Post enregistré !" : "Enregistrement annulé")
@@ -342,12 +338,8 @@ export function HashtagPage({ tag }: HashtagPageProps) {
 
   const handleHide = async (postId: string) => {
     try {
-      const res = await fetch("/api/hidePost", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user?.id, dughuUserId: user?.dughu?.userId }),
-      })
-      if (res.ok) {
+      const ok = await hidePost({ postId, userId: user?.id, dughuUserId: user?.dughu?.userId })
+      if (ok) {
         setPosts((prev) => prev.filter((p) => p.id !== postId))
         toast.success("Post masqué")
       }
@@ -359,12 +351,7 @@ export function HashtagPage({ tag }: HashtagPageProps) {
     const targetId = String(authorId)
     const isBlocked = blockedAuthors.has(targetId)
     try {
-      const res = await fetch("/api/block_user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ authorId: targetId, userId: user?.id, dughuUserId: user?.dughu?.userId }),
-      })
-      const data = await res.json()
+      const data = await blockUser({ authorId: targetId, userId: user?.id, dughuUserId: user?.dughu?.userId })
       if (data.success) {
         setBlockedAuthors((prev) => {
           const next = new Set(prev)

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Settings, X } from "lucide-react"   
-import apiClient from "@/lib/apiClient"
+import { fetchChats } from "@/services/messages/messages.service"
 import type { ChatSummary } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import ReceiptTicks from "@/components/messages/ReceiptTicks"
@@ -58,7 +58,7 @@ export default function ConversationSidebar({ user, open, onClose, onOpenConvers
     if (!currentUserId) return
     if (showLoader) setLoading(true)
     try {
-      const { data } = await apiClient.get("/messages/chats", { params: { userId: currentUserId } })
+      const data = await fetchChats(currentUserId)
       if (!data?.success) throw new Error(data?.message || "Chargement impossible")
       setConversations(Array.isArray(data.chats) ? data.chats : [])
       setError("")

@@ -5,7 +5,8 @@ import Link from "next/link"
 import { useEffect, useId, useRef, useState } from "react"
 import { FileText, Hash, LoaderCircle, Search, UsersRound } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { GlobalSearchResult, GlobalSearchResultType } from "@/lib/global-search"
+import type { GlobalSearchResult, GlobalSearchResultType } from "@/types/search/search.types"
+import { searchAll } from "@/services/search/search.service"
 
 const TYPE_LABELS: Record<GlobalSearchResultType, string> = {
   user: "Personne",
@@ -62,17 +63,15 @@ export default function GlobalSearch({
       setLoading(true)
       setOpen(true)
       try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
-          signal: controller.signal,
-          cache: "no-store",
-        })
-        const data = await response.json().catch(() => null)
-        if (!response.ok || !data?.success) {
+        const data = await searchAll(query, controller.signal)
+        if (!data?.success) {
           throw new Error(typeof data?.message === "string" ? data.message : "La recherche est indisponible. Veuillez réessayer.")
         }
         setResults(Array.isArray(data.results) ? data.results : [])
       } catch (requestError) {
-        if (requestError instanceof Error && requestError.name === "AbortError") return
+        // Saisie remplacée ou composant démonté : on ignore l'annulation.
+        const code = (requestError as { code?: string })?.code
+        if (requestError instanceof Error && (requestError.name === "AbortError" || code === "ERR_CANCELED")) return
         setResults([])
         setError(requestError instanceof Error ? requestError.message : "La recherche est indisponible. Veuillez réessayer.")
       } finally {

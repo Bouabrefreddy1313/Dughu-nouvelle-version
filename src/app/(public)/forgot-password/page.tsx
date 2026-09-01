@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { Mail, ArrowLeft, CheckCircle, Lock, KeyRound } from "lucide-react"
+import { forgotPassword, resetPassword } from "@/services/auth/auth.service"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
@@ -38,13 +39,8 @@ export default function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      const res = await fetch("/api/password/forgot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
+      const data = await forgotPassword({ email })
+      if (!data.success) {
         toast.error(data.message || "Erreur lors de l'envoi")
         return
       }
@@ -80,18 +76,13 @@ export default function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      const res = await fetch("/api/password/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          otp,
-          password,
-          password_confirmation: passwordConfirmation,
-        }),
+      const data = await resetPassword({
+        email,
+        otp,
+        password,
+        password_confirmation: passwordConfirmation,
       })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         toast.error(data.message || "Erreur lors de la réinitialisation")
         return
       }

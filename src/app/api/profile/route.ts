@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dughu, dughuApi, normalizeUser, parseCounts, mapPhotos, mapVideos, mapFriends, pick } from "@/lib/dughu"
-import { normalizeProfileRelations } from "@/lib/profile-relations"
+import { normalizeProfileRelations } from "@/services/relations/relation.mapper"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
+import { getRelationForProfile } from "@/services/relations/relations.server"
 
 export async function GET(req: NextRequest) {
   try {
@@ -64,26 +65,7 @@ export async function GET(req: NextRequest) {
         return mapVideos(raw)
       }).catch((e) => { console.error("DUGHU VIDEOS ERROR:", e); return [] }) : Promise.resolve([]),
       viewerDughuId !== "0" && String(userObj.id) !== viewerDughuId
-        ? Promise.all([
-            dughuApi.getRelationRequests(viewerDughuId, userObj.id, "friend")
-              .then((response) => ({ type: "friend" as const, ok: response?.success !== false, response }))
-              .catch((error) => {
-                console.error(
-                  "PROFILE FRIEND REQUESTS ERROR:",
-                  error instanceof Error ? error.message : "Erreur inconnue"
-                )
-                return { type: "friend" as const, ok: false, response: null }
-              }),
-            dughuApi.getRelationRequests(viewerDughuId, userObj.id, "network")
-              .then((response) => ({ type: "network" as const, ok: response?.success !== false, response }))
-              .catch((error) => {
-                console.error(
-                  "PROFILE NETWORK REQUESTS ERROR:",
-                  error instanceof Error ? error.message : "Erreur inconnue"
-                )
-                return { type: "network" as const, ok: false, response: null }
-              }),
-          ])
+        ? getRelationForProfile(viewerDughuId, userObj.id)
         : Promise.resolve([]),
     ])
 

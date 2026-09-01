@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton"
 import { toast } from "sonner"
+import { register } from "@/services/auth/auth.service"
 
 const countryCodes = [
   { code: "+225", flag: "🇨🇮", name: "Côte d'Ivoire" },
@@ -67,24 +68,18 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      const res = await fetch("/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          first_name: form.first_name,
-          last_name: form.last_name,
-          email: form.email,
-          password: form.password,
-          gender: form.gender,
-          phone: form.phone,
-          country_code: form.country_code,
-          ref: form.ref || undefined,
-        }),
+      const data = await register({
+        first_name: form.first_name,
+        last_name: form.last_name,
+        email: form.email,
+        password: form.password,
+        gender: form.gender,
+        phone: form.phone,
+        country_code: form.country_code,
+        ref: form.ref || undefined,
       })
 
-      const data = await res.json()
-
-      if (!res.ok) {
+      if (!data.success) {
         toast.error(data.message || "Erreur lors de l'inscription")
         return
       }

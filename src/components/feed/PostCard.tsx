@@ -38,6 +38,15 @@ import FollowButton from "@/components/common/FollowButton"
 import { CommentBody } from "@/components/feed/CommentBody"
 import { toast } from "sonner"
 import { REACTIONS, REACTION_ID_TO_TYPE, REACTION_TYPE_TO_ID, POST_PRIVACY_OPTIONS, resolvePostColorCss } from "@/lib/constants"
+import { givePoints } from "@/services/posts/feed.service"
+import {
+  fetchComments,
+  addComment,
+  deleteComment,
+  likeComment,
+  reportComment,
+} from "@/services/posts/comments.service"
+import { userMessage } from "@/lib/api/api-error"
 import { RepostWithTextModal } from "@/components/feed/RepostWithTextModal"
 import { SharePostModal } from "@/components/feed/SharePostModal"
 import { GivePointsModal } from "@/components/feed/GivePointsModal"
@@ -1083,26 +1092,21 @@ export function PostCard({
 
     setSendingPoints(true)
     try {
-      const res = await fetch("/api/points/give", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          postId,
-          authorId: author.id,
-          points: 100,
-          userId: currentUser!.id,
-          dughuUserId: currentUser?.dughu?.userId || "",
-        }),
+      const data = await givePoints({
+        postId,
+        authorId: String(author.id),
+        points: 100,
+        userId: currentUser!.id,
+        dughuUserId: String(currentUser?.dughu?.userId || ""),
       })
-      const data = await res.json()
       if (data.success) {
         toast.success("100 points offerts à l'auteur.")
         setConfirmPointsOpen(false)
       } else {
         toast.error(data.message || "Impossible d'offrir des points.")
       }
-    } catch {
-      toast.error("Impossible d'offrir des points.")
+    } catch (error) {
+      toast.error(userMessage(error, "Impossible d'offrir des points."))
     } finally {
       setSendingPoints(false)
     }
@@ -1145,25 +1149,18 @@ export function PostCard({
     setLoadingComments(true)
 
     try {
-      const userIdQuery = currentUser?.id
-        ? `&userId=${currentUser.id}`
-        : ""
-      const dughuUserIdQuery = (currentUser as any)?.dughu?.userId
-        ? `&dughuUserId=${(currentUser as any).dughu.userId}`
-        : ""
-
-      const response = await fetch(
-        `/api/comments?postId=${postId}${userIdQuery}${dughuUserIdQuery}`
-      )
-
-      const data = await response.json()
+      const data = await fetchComments({
+        postId,
+        userId: currentUser?.id,
+        dughuUserId: (currentUser as { dughu?: { userId?: string } })?.dughu?.userId,
+      })
 
       if (!data.success) {
         setComments([])
         return
       }
 
-      const loadedComments: CommentItem[] = data.comments || []
+      const loadedComments: CommentItem[] = (data.comments || []) as CommentItem[]
       const reactionsMap: Record<string, number> = {}
 
       const collectReactions = (items: CommentItem[]) => {
@@ -1338,22 +1335,17 @@ export function PostCard({
         formData.append("files", file)
       })
 
-      const response = await fetch("/api/comments", {
-        method: "POST",
-        body: formData,
-      })
-
-      const data = await response.json()
+      const data = await addComment(formData)
 
       if (!data.success) return
 
-      const newReply: CommentItem = {
-        ...data.comment,
+      const newReply = {
+        ...(data.comment as Partial<CommentItem>),
         content: replyContent,
         liked: false,
         likesCount: 0,
         replies: [],
-      }
+      } as CommentItem
 
       const targetParentId = parentId
 
@@ -1395,21 +1387,10 @@ export function PostCard({
     if (!deleteCommentId || !currentUser?.id) return
 
     try {
-      const response = await fetch(
-        `/api/comments/${deleteCommentId}`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: currentUser.id,
-            isReply: deleteCommentIsReply,
-          }),
-        }
-      )
-
-      const data = await response.json()
+      const data = await deleteComment(deleteCommentId, {
+        userId: currentUser.id,
+        isReply: deleteCommentIsReply,
+      })
 
       if (!data.success) return
 
@@ -1494,22 +1475,11 @@ export function PostCard({
     }
 
     try {
-      const response = await fetch(
-        `/api/comments/${commentId}/like`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: currentUser.id,
-            type: REACTION_ID_TO_TYPE[reactionId] || "like",
-            isReply,
-          }),
-        }
-      )
-
-      const data = await response.json()
+      const data = await likeComment(commentId, {
+        userId: currentUser.id,
+        type: REACTION_ID_TO_TYPE[reactionId] || "like",
+        isReply,
+      })
 
       if (!data.success) {
         toast.error(data.message || "Impossible de réagir au commentaire")
@@ -1546,22 +1516,10 @@ export function PostCard({
       return
     }
     try {
-      const response = await fetch(
-        `/api/comments/${commentId}/report`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: currentUser.id,
-            reason: isReply
-              ? "Réponse signalée"
-              : "Commentaire signalé",
-          }),
-        }
-      )
-      const data = await response.json()
+      const data = await reportComment(commentId, {
+        userId: currentUser.id,
+        reason: isReply ? "Réponse signalée" : "Commentaire signalé",
+      })
       if (data.success) {
         toast.success("Commentaire signalé, merci !")
       } else {

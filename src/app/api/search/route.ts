@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { dughu, dughuApi } from "@/lib/dughu"
-import { normalizeGlobalSearch } from "@/lib/global-search"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
+import { isSearchEnabled, searchAll } from "@/services/search/search.server"
 
 export const dynamic = "force-dynamic"
 
+// Route Handler allégé (lot 6 — Recherche) : lecture requête → session →
+// service serveur → NextResponse. La normalisation vit dans search.mapper.ts.
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q")?.trim() || ""
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!dughu.enabled) {
+  if (!isSearchEnabled()) {
     return NextResponse.json(
       { success: false, message: "La recherche est temporairement indisponible." },
       { status: 503 }
@@ -35,8 +36,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const raw = await dughuApi.searchAll({ query, user_id: userId, page: 1 })
-    return NextResponse.json({ success: true, results: normalizeGlobalSearch(raw) })
+    const results = await searchAll(query, userId)
+    return NextResponse.json({ success: true, results })
   } catch (error) {
     console.error("GLOBAL SEARCH ERROR:", error)
     return NextResponse.json(

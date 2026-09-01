@@ -161,6 +161,10 @@ La normalisation technique de ces états est documentée dans
   dans la modale, « Refuser » utilise une bordure et un texte marron sans fond plein.
 * Une demande acceptée affiche « Fraternisé » ou « Réseauté ». Un nouveau clic
   demande confirmation avant la suppression de la relation.
+* La suppression d'une relation acceptée est transmise à l'endpoint Dughu
+  `relation/request`, qui fonctionne comme un toggle (tout comme pour
+  l'annulation d'une demande sortante). Cette transmission passe par le service
+  serveur des relations et conserve l'authentification multipart existante.
 * Les états acceptés proviennent des champs `is_friend` et `is_network` du profil
   Dughu. Le sens entrant ou sortant d'une demande en attente provient des listes
   `incoming` et `outgoing` de l'endpoint `relation/requests`, filtrées par
@@ -301,8 +305,9 @@ choisir le montant. La détection du post « sien » se base sur l'identifiant
   les publications de l'utilisateur bloqué sont retirées du fil. Le libellé du menu
   bascule entre « Bloquer » et « Débloquer » selon l'état local de la session.
 * Donner des points à l'auteur d'un post (endpoint `points/give`) : une modale permet
-  de saisir le nombre de points à offrir. `user_id` = l'auteur du post,
-  `user_offer_id` = l'utilisateur connecté, `points` = montant saisi, `post_id` = la publication.
+  de saisir le nombre de points à offrir. `user_id` = l'utilisateur connecté qui offre,
+  `user_offer_id` = l'auteur du post (le destinataire, propriétaire de la publication),
+  `points` = montant saisi, `post_id` = la publication.
 * Copier le lien du post (copie locale, presse-papiers) : utilise le lien de partage
   canonique fourni par l'API (`shareUrl`) ou construit `/home?post={id}` en secours.
 * Ces actions ne s'affichent pas sur ses propres publications (garde côté affichage,

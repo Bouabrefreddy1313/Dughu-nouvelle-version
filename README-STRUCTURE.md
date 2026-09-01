@@ -57,7 +57,7 @@ src/
 │   └── shared/         → composants transverses à plusieurs features (InfiniteScrollList, ConfirmDialog…)
 │
 ├── services/
-│   ├── api-client.ts            (instance Axios unique, ne pas en recréer ailleurs)
+│   ├── api-client.ts            (instances Axios : cliente `src/lib/api/client/axios-instance.ts`, serveur `src/lib/api/server/dughu-instance.ts`)
 │   ├── auth/auth.service.ts
 │   ├── posts/posts.service.ts
 │   ├── users/users.service.ts
@@ -152,6 +152,17 @@ Uniquement si un vrai besoin de state global client-side complexe existe (ex : b
 Point unique de vérification des rôles/permissions au niveau routing (redirection si non authentifié ou rôle insuffisant sur `(admin)` par ex.), en complément du RBAC applicatif dans `lib/rbac/`.
 
 ---
+
+---
+
+### Décision structurante — lot 1 (Relations)
+
+Depuis le lot 1 de migration architecturale, Dughu possède **deux instances Axios distinctes** :
+
+* `src/lib/api/client/axios-instance.ts` — instance cliente (baseURL interne `/api`, `withCredentials`, timeout, `AbortSignal`, erreurs → `ApiError`), utilisée uniquement par les services frontend ;
+* `src/lib/api/server/dughu-instance.ts` — instance serveur (config validée `src/lib/config/env.ts`, `X-AppApiToken`, retry limité sur lectures idempotentes uniquement), utilisée uniquement par les services serveur, jamais exposée au navigateur.
+
+Couches du domaine (ex. `relations`) : composant/page → hook TanStack Query → service frontend (`.service.ts`) → instance cliente → route interne `/api` → service serveur (`.server.ts`) → instance serveur → API Dughu. La normalisation DTO → modèle métier vit dans un mapper(`.mapper.ts`), les types par domaine dans `types/<domaine>/` et le type d'erreur commun est `ApiError` (`src/lib/api/api-error.ts`).
 
 ## 3. Conventions de nommage
 

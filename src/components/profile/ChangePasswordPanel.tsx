@@ -3,7 +3,8 @@
 import { FormEvent, useState } from "react"
 import { ArrowLeft, Eye, EyeOff, KeyRound, Loader2, ShieldCheck } from "lucide-react"
 import { toast } from "sonner"
-
+import { changePassword } from "@/services/profile/profile.service"
+import { userMessage } from "@/lib/api/api-error"
 interface ChangePasswordPanelProps {
   onBack: () => void
 }
@@ -12,21 +13,6 @@ interface PasswordErrors {
   actualPassword?: string
   password?: string
   confirmation?: string
-}
-
-interface PasswordResponse {
-  success?: boolean
-  message?: string
-}
-
-async function readResponse(response: Response): Promise<PasswordResponse> {
-  const text = await response.text()
-  if (!text) return {}
-  try {
-    return JSON.parse(text) as PasswordResponse
-  } catch {
-    return {}
-  }
 }
 
 function PasswordInput({
@@ -112,25 +98,19 @@ export function ChangePasswordPanel({ onBack }: ChangePasswordPanelProps) {
 
     setSaving(true)
     try {
-      const response = await fetch("/api/profile/password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actualPassword, password, password_confirmation: confirmation }),
+      const data = await changePassword({
+        actualPassword,
+        password,
+        password_confirmation: confirmation,
       })
-      const data = await readResponse(response)
-      if (!response.ok || !data.success) {
-        toast.error(data.message || "Impossible de modifier votre mot de passe.")
-        return
-      }
-
       setActualPassword("")
       setPassword("")
       setConfirmation("")
       setErrors({})
       setVisible({ actual: false, password: false, confirmation: false })
       toast.success(data.message || "Votre mot de passe a été modifié.")
-    } catch {
-      toast.error("Impossible de contacter Dughu. Vérifiez votre connexion puis réessayez.")
+    } catch (error) {
+      toast.error(userMessage(error, "Impossible de contacter Dughu. Vérifiez votre connexion puis réessayez."))
     } finally {
       setSaving(false)
     }

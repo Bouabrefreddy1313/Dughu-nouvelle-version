@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
-import type { AxiosError } from "axios"
 import {
   FileText,
   ImageIcon,
@@ -27,7 +26,16 @@ import Avatar from "@/components/common/Avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import apiClient from "@/lib/apiClient"
+import {
+  deleteConversation,
+  deleteMessage,
+  editMessage,
+  fetchChats,
+  fetchContact,
+  fetchConversation,
+  searchContacts,
+  sendMessage,
+} from "@/services/messages/messages.service"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/queries/use-auth"
 import type { ChatContact, ChatMessage, ChatSummary } from "@/lib/messages"
@@ -102,6 +110,11 @@ function fileLabel(file: File | null) {
  * Ne renvoie jamais d'erreur technique brute ("Request failed with status code…").
  */
 function getApiErrorMessage(error: unknown, fallback: string): string {
+  // Les services lèvent des ApiError dont le message est déjà un libellé
+  // français approuvé — on le privilégie.
+  if (error instanceof Error && error.name === "ApiError" && error.message.trim()) {
+    return error.message
+  }
   if (error && typeof error === "object") {
     const response = (error as { response?: { data?: { message?: string } } }).response
     const serverMessage = response?.data?.message
@@ -190,7 +203,7 @@ export default function MessagesPageClient() {
     if (!currentUserId) return
     setLoadingChats(true)
     try {
-      const { data } = await apiClient.get("/messages/chats", { params: { userId: currentUserId } })
+      const data = await fetchChats(currentUserId)
       if (!data?.success) throw new Error(data?.message || "Erreur de chargement")
       setChats(Array.isArray(data.chats) ? data.chats : [])
     } catch (error) {
@@ -227,9 +240,8 @@ export default function MessagesPageClient() {
     if (!composing || query.length < 2 || !currentUserId) return
     const timer = window.setTimeout(() => {
       setSearchingContacts(true)
-      apiClient
-        .get("/messages/contacts", { params: { userId: currentUserId, q: query } })
-        .then(({ data }) => setContactResults(Array.isArray(data?.contacts) ? data.contacts : []))
+      searchContacts({ userId: currentUserId, q: query })
+        .then((data) => setContactResults(Array.isArray(data?.contacts) ? data.contacts : []))
         .catch(() => setContactResults([]))
         .finally(() => setSearchingContacts(false))
     }, 350)
@@ -241,11 +253,8 @@ export default function MessagesPageClient() {
       return
     }
     let cancelled = false
-    apiClient
-      .get("/messages/contact", {
-        params: { targetUserId: activeTarget, currentUserId },
-      })
-      .then(({ data }) => {
+    fetchContact({ targetUserId: activeTarget, currentUserId })
+      .then((data) => {
         if (!cancelled && data?.contact) setStandaloneContact(data.contact)
       })
       .catch(() => {
@@ -260,9 +269,7 @@ export default function MessagesPageClient() {
     if (!currentUserId || !activeTarget) return
     if (showLoader) setLoadingMessages(true)
     try {
-      const { data } = await apiClient.get("/messages/conversation", {
-        params: { userId: currentUserId, targetUserId: activeTarget },
-      })
+      const data = await fetchConversation({ userId: currentUserId, targetUserId: activeTarget })
       if (!data?.success) throw new Error(data?.message || "Erreur de chargement")
       const serverMessages: ChatMessage[] = Array.isArray(data.messages) ? data.messages : []
       // Préserve les citations locales (reply) que le serveur ne renvoie pas,
@@ -368,7 +375,7 @@ export default function MessagesPageClient() {
 
     setSending(true)
     try {
-      const { data } = await apiClient.post("/messages/send", formData, { timeout: 60_000 })
+      const data = await sendMessage(formData)
       if (!data?.success) throw new Error(data?.message || "Envoi impossible")
       const replyInfo = replyTo
         ? {
@@ -418,8 +425,7 @@ export default function MessagesPageClient() {
         )
       }
     } catch (error: unknown) {
-      const axiosError = error as AxiosError<{ message?: string }>
-      toast.error(axiosError.response?.data?.message || axiosError.message || "Impossible d’envoyer le message")
+      toast.error(getApiErrorMessage(error, "Impossible d’envoyer le message"))
     } finally {
       setSending(false)
     }
@@ -449,10 +455,12 @@ export default function MessagesPageClient() {
     }
     setUpdatingMessage(true)
     try {
-      const { data } = await apiClient.post(
-        `/messages/update/${encodeURIComponent(editingMessageId)}`,
-        { userId: currentUserId, message: trimmed, targetUserId: activeTarget }
-      )
+      const data = await editMessage({
+        messageId: editingMessageId,
+        userId: currentUserId,
+        message: trimmed,
+        targetUserId: activeTarget,
+      })
       if (!data?.success) throw new Error(data?.message || "Modification impossible")
       setMessages((current) =>
         current.map((item) =>
@@ -475,10 +483,12 @@ export default function MessagesPageClient() {
     if (!deleteMessageTarget || !currentUserId || deletingMessage) return
     setDeletingMessage(true)
     try {
-      const { data } = await apiClient.post(
-        `/messages/delete/${encodeURIComponent(deleteMessageTarget.id)}`,
-        { userId: currentUserId, targetUserId: activeTarget, deleteType }
-      )
+      const data = await deleteMessage({
+        messageId: deleteMessageTarget.id,
+        userId: currentUserId,
+        targetUserId: activeTarget,
+        deleteType,
+      })
       if (!data?.success) throw new Error(data?.message || "Suppression impossible")
       setMessages((current) => current.filter((item) => item.id !== deleteMessageTarget.id))
       persistMessageReply(deleteMessageTarget.id, null)
@@ -502,10 +512,11 @@ export default function MessagesPageClient() {
     if (!conversationId) return
     setDeletingConversation(true)
     try {
-      const { data } = await apiClient.post(
-        `/messages/delete-conversation/${encodeURIComponent(conversationId)}`,
-        { userId: currentUserId, targetUserId: activeTarget }
-      )
+      const data = await deleteConversation({
+        conversationId,
+        userId: currentUserId,
+        targetUserId: activeTarget,
+      })
       if (!data?.success) throw new Error(data?.message || "Suppression impossible")
       setDeleteConversationOpen(false)
       setMessages([])

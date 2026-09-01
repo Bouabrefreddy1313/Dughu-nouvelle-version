@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { Gift, Loader2, X } from "lucide-react"
 import { toast } from "sonner"
+import { givePoints } from "@/services/posts/feed.service"
+import { userMessage } from "@/lib/api/api-error"
 import Avatar from "@/components/common/Avatar"
 
 interface GivePointsModalProps {
@@ -17,7 +19,7 @@ interface GivePointsModalProps {
     name: string | null
     avatar: string | null
   } | null
-  /** Utilisateur connecté — c'est lui qui offre les points (user_offer_id). */
+  /** Utilisateur connecté — c'est lui qui offre les points (user_id côté API Dughu). */
   currentUser?: {
     id: string
     dughu?: { userId?: string | number }
@@ -69,28 +71,23 @@ export function GivePointsModal({
     }
     setSending(true)
     try {
-      const res = await fetch("/api/points/give", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          postId,
-          authorId: author.id,
-          points: parsedPoints,
-          userId: currentUser.id,
-          dughuUserId: currentUser.dughu?.userId || "",
-        }),
+      const data = await givePoints({
+        postId,
+        authorId: String(author.id),
+        points: parsedPoints,
+        userId: currentUser.id,
+        dughuUserId: String(currentUser.dughu?.userId || ""),
       })
-      const data = await res.json()
       if (data.success) {
         toast.success(
           `${parsedPoints} point${parsedPoints > 1 ? "s" : ""} offert${parsedPoints > 1 ? "s" : ""} à ${author?.name || "l'auteur"}.`
         )
         setIsOpen(false)
       } else {
-        toast.error(data.message || "Impossible d'offrir des points.")
+        toast.error(String(data.message || "Impossible d'offrir des points."))
       }
-    } catch {
-      toast.error("Impossible d'offrir des points.")
+    } catch (error) {
+      toast.error(userMessage(error, "Impossible d'offrir des points."))
     } finally {
       setSending(false)
     }

@@ -3,6 +3,8 @@
 import { useRef, useState, useEffect } from "react"
 import { X, Upload, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { uploadProfileImage } from "@/services/profile/profile.service"
+import { userMessage } from "@/lib/api/api-error"
 
 interface ImageEditModalProps {
   open: boolean
@@ -41,18 +43,17 @@ export function ImageEditModal({ open, type, userId, currentUrl, onClose, onSave
       const formData = new FormData()
       formData.append("userId", userId)
       formData.append(type, file)
-      const res = await fetch(`/api/profile/${type}`, { method: "POST", body: formData })
-      const data = await res.json()
+      const data = await uploadProfileImage(type, formData)
       const resolvedUrl = String(data?.[type] || data?.avatar || data?.cover || preview || currentUrl || "")
       if (resolvedUrl) {
         onSaved(resolvedUrl)
         toast.success(isAvatar ? "Photo de profil mise à jour !" : "Photo de couverture mise à jour !")
         onClose()
       } else {
-        toast.error(data.message || "Erreur lors de l'enregistrement.")
+        toast.error(String(data.message || "Erreur lors de l'enregistrement."))
       }
-    } catch {
-      toast.error("Erreur réseau.")
+    } catch (error) {
+      toast.error(userMessage(error, "Erreur réseau."))
     } finally {
       setSaving(false)
     }

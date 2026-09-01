@@ -14,9 +14,12 @@ import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import { readPostColors, writePostColor } from "@/lib/postColorCache"
 import { REACTION_ID_TO_TYPE } from "@/lib/constants"
 import { timeAgo } from "@/lib/helpers"
-import { useAuth } from "@/hooks/queries/use-auth"
-import { useProfile } from "@/hooks/queries/use-profile"
-import { useRelation } from "@/hooks/useRelation"
+import { useAuth } from "@/hooks/auth/use-auth"
+import { useProfile } from "@/hooks/profile/use-profile"
+import { toggleFollow } from "@/services/profile/profile.service"
+import { fetchPosts, createPost, addReaction, deletePost, storeSave, hidePost, blockUser } from "@/services/posts/posts.service"
+import { addComment } from "@/services/posts/comments.service"
+import { useRelation } from "@/hooks/relations/useRelation"
 import { ProfileHeader } from "./ProfileHeader"
 import { ProfileAbout, type ProfileInfo } from "./ProfileAbout"
 import { ProfilePhotos } from "./ProfilePhotos"
@@ -24,9 +27,12 @@ import { ProfileVideos } from "./ProfileVideos"
 import { ProfileCapsules } from "./ProfileCapsules"
 import { ProfileFriends } from "./ProfileFriends"
 import { ProfileGroupsPages, type ProfileGroup, type ProfilePage as ProfilePageType } from "./ProfileGroupsPages"
+import type { ProfilePhoto } from "./ProfilePhotos"
+import type { ProfileVideo } from "./ProfileVideos"
+import type { ProfileFriend } from "./ProfileFriends"
 import { ImageEditModal } from "./ImageEditModal"
 import { PostComposer } from "@/components/composer/PostComposer"
-import { EMPTY_PROFILE_RELATIONS, type RelationAction, type RelationType } from "@/lib/profile-relations"
+import { EMPTY_PROFILE_RELATIONS, type RelationAction, type RelationType } from "@/types/relations/relation.types"
 import { ConfirmDialog } from "@/components/common/ConfirmDialog"
 import FlashViewer from "@/components/flash/FlashViewer"
 import { useFlashFeed } from "@/hooks/queries/use-flash"
@@ -174,10 +180,12 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       // avec l'ID Dughu — pour les comptes liés à un utilisateur local dont l'ID
       // diffère, l'API ne renvoie alors aucun post. On privilégie donc l'ID Dughu.
       const authorId = profileDughuId || profileId
-      const res = await fetch(
-        `/api/posts?authorId=${authorId}&userId=${currentUser?.id || ""}&dughuUserId=${dughuUserId}&page=${page}`
-      )
-      const data = await res.json()
+      const data = await fetchPosts({
+        page,
+        userId: currentUser?.id || "",
+        dughuUserId,
+        authorId,
+      })
       if (data.success) {
         const reactionsCache = readMyReactions()
         const colorCache = readPostColors()
@@ -261,8 +269,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       if (data.images) data.images.forEach((img) => formData.append("images", img))
       if (data.videos) data.videos.forEach((vid) => formData.append("videos", vid))
       if (data.audios) data.audios.forEach((aud) => formData.append("audios", aud))
-      const res = await fetch("/api/posts", { method: "POST", body: formData })
-      const resp = await res.json()
+      const resp = await createPost(formData)
       if (resp.success) {
         // L'API Dughu ne persiste pas la couleur → on la mémorise côté client.
         if (colorRaw && resp.post?.id) writePostColor(String(resp.post.id), colorRaw)
@@ -311,12 +318,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     writeMyReactions(newCache)
 
     try {
-      const res = await fetch("/api/reactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: currentUser.id, type, dughuUserId: currentUser?.dughu?.userId }),
-      })
-      const data = await res.json()
+      const data = await addReaction({ postId, userId: currentUser.id, type, dughuUserId: currentUser?.dughu?.userId })
       if (data.success) {
         if (typeof data.count === "number") {
           applyToPost((p) => ({
@@ -354,12 +356,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       return
     }
     try {
-      const res = await fetch("/api/comments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: currentUser.id, content: text, dughuUserId: currentUser?.dughu?.userId }),
-      })
-      const data = await res.json()
+      const data = await addComment({ postId, userId: currentUser.id, content: text, dughuUserId: currentUser?.dughu?.userId })
       if (data.success) {
         setPosts((prev) =>
           prev.map((p) =>
@@ -383,8 +380,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       formData.append("parentId", postId)
       formData.append("userId", currentUser.id)
       formData.append("dughuUserId", currentUser?.dughu?.userId || "")
-      const res = await fetch("/api/posts", { method: "POST", body: formData })
-      const data = await res.json()
+      const data = await createPost(formData)
       if (data.success) {
         toast.success("Repost effectué !")
         loadPosts(1, true)
@@ -413,8 +409,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       formData.append("userId", currentUser.id)
       formData.append("dughuUserId", currentUser?.dughu?.userId || "")
       formData.append("content", commentary)
-      const res = await fetch("/api/posts", { method: "POST", body: formData })
-      const data = await res.json()
+      const data = await createPost(formData)
       if (data.success) {
         toast.success("Repost publié !")
         loadPosts(1, true)
@@ -428,8 +423,8 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
   const handleDelete = async (postId: string) => {
     try {
-      const res = await fetch(`/api/deletePost/${postId}`, { method: "DELETE" })
-      if (res.ok) {
+      const ok = await deletePost(postId)
+      if (ok) {
         setPosts((prev) => prev.filter((p) => p.id !== postId))
         toast.success("Publication supprimée")
         queryClient.invalidateQueries({ queryKey: ["profile", profileId] })
@@ -442,12 +437,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
   const handleSave = async (postId: string) => {
     try {
-      const res = await fetch("/api/store-save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: currentUser?.id, dughuUserId: currentUser?.dughu?.userId }),
-      })
-      const data = await res.json()
+      const data = await storeSave({ postId, userId: currentUser?.id, dughuUserId: currentUser?.dughu?.userId })
       if (data.success) {
         setPosts((prev) =>
           prev.map((p) => (p.id === postId ? { ...p, isSaved: !p.isSaved } : p))
@@ -461,12 +451,8 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
   const handleHide = async (postId: string) => {
     try {
-      const res = await fetch("/api/hidePost", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: currentUser?.id, dughuUserId: currentUser?.dughu?.userId }),
-      })
-      if (res.ok) {
+      const ok = await hidePost({ postId, userId: currentUser?.id, dughuUserId: currentUser?.dughu?.userId })
+      if (ok) {
         setPosts((prev) => prev.filter((p) => p.id !== postId))
         toast.success("Post masqué")
       } else {
@@ -482,12 +468,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     const targetId = String(authorId)
     const isBlocked = blockedAuthors.has(targetId)
     try {
-      const res = await fetch("/api/block_user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ authorId: targetId, userId: currentUser?.id, dughuUserId: currentUser?.dughu?.userId }),
-      })
-      const data = await res.json()
+      const data = await blockUser({ authorId: targetId, userId: currentUser?.id, dughuUserId: currentUser?.dughu?.userId })
       if (data.success) {
         setBlockedAuthors((prev) => {
           const next = new Set(prev)
@@ -511,13 +492,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
   const followMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/profile/follow", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUser?.id, targetId: profile?.user?.id }),
-      })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.message || "Erreur")
+      const data = await toggleFollow({ userId: currentUser?.id, targetId: profile?.user?.id })
       return data
     },
     onMutate: async () => {
@@ -611,10 +586,10 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
   const user = profile.user
   const stats = profile.stats || { posts: 0, followers: 0, following: 0, friends: 0 }
-  const photos = profile.photos || []
-  const videos = profile.videos || []
-  const groups: ProfileGroup[] = profile.groups || []
-  const friends = profile.friends || []
+  const photos = (profile.photos || []) as ProfilePhoto[]
+  const videos = (profile.videos || []) as ProfileVideo[]
+  const groups = (profile.groups || []) as ProfileGroup[]
+  const friends = (profile.friends || []) as ProfileFriend[]
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode; count?: number }[] = [
     {
@@ -698,7 +673,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
             onSeeAll={() => setTab("capsules")}
           />
           <ProfileFriends friends={friends} total={stats.friends} userId={user.id} />
-          <ProfileGroupsPages groups={groups} pages={profile.pages} isOwn={isOwn} />
+          <ProfileGroupsPages groups={groups} pages={profile.pages as { owned: ProfilePageType[]; liked: ProfilePageType[] } | null | undefined} isOwn={isOwn} />
         </div>
 
         {/* ═════ CONTENU PRINCIPAL ═════ */}
@@ -890,7 +865,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                 onSeeAll={() => setTab("capsules")}
               />
               <ProfileFriends friends={friends} total={stats.friends} userId={user.id} />
-              <ProfileGroupsPages groups={groups} pages={profile.pages} isOwn={isOwn} />
+              <ProfileGroupsPages groups={groups} pages={profile.pages as { owned: ProfilePageType[]; liked: ProfilePageType[] } | null | undefined} isOwn={isOwn} />
             </div>
           )}
         </div>

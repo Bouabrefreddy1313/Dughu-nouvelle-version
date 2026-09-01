@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ChevronDown, ImageIcon, Maximize2, MoreVertical, Paperclip, Pencil, Reply, Send, SmilePlus, Trash2, Video, X } from "lucide-react"
 import { toast } from "sonner"
-import apiClient from "@/lib/apiClient"
+import {
+  deleteConversation,
+  deleteMessage,
+  editMessage,
+  fetchConversation,
+  sendMessage,
+} from "@/services/messages/messages.service"
 import type { ChatMessage, ChatSummary } from "@/lib/messages"
 import { isMeaningfulReply, mergeLocalReplies, persistMessageReply, resolveReplyPreview } from "@/lib/messages"
 import ReceiptTicks from "@/components/messages/ReceiptTicks"
@@ -80,6 +86,11 @@ function writeMessageReactions(reactions: Record<string, string>) {
  * Ne renvoie jamais d'erreur technique brute ("Request failed with status code…").
  */
 function getApiErrorMessage(error: unknown, fallback: string): string {
+  // Les services lèvent des ApiError dont le message est déjà un libellé
+  // français approuvé — on le privilégie.
+  if (error instanceof Error && error.name === "ApiError" && error.message.trim()) {
+    return error.message
+  }
   if (error && typeof error === "object") {
     const response = (error as { response?: { data?: { message?: string } } }).response
     const serverMessage = response?.data?.message
@@ -192,7 +203,10 @@ export default function ConversationPopup({
   // qu'on est bien côté client, après hydratation complète.
   const [portalReady, setPortalReady] = useState(false)
   useEffect(() => {
-    setPortalReady(true)
+    // Différé au frame suivant : évite un setState synchrone dans l'effet
+    // tout en garantissant que le portal est monté après le premier rendu.
+    const frame = requestAnimationFrame(() => setPortalReady(true))
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   const closePopovers = useCallback(() => {
@@ -229,9 +243,7 @@ export default function ConversationPopup({
       if (!currentUserId || !targetUserId) return
       if (showLoader) setLoading(true)
       try {
-        const { data } = await apiClient.get("/messages/conversation", {
-          params: { userId: currentUserId, targetUserId },
-        })
+        const data = await fetchConversation({ userId: currentUserId, targetUserId })
         if (!data?.success) throw new Error(data?.message || "Erreur de chargement")
         const serverMessages: ChatMessage[] = Array.isArray(data.messages) ? data.messages : []
         // Préserve les citations locales (reply) que le serveur ne renvoie pas
@@ -349,7 +361,7 @@ export default function ConversationPopup({
     }
     setSending(true)
     try {
-      const { data } = await apiClient.post("/messages/send", formData, { timeout: 60_000 })
+      const data = await sendMessage(formData)
       if (!data?.success) throw new Error(data?.message || "Envoi impossible")
       const replyInfo = activeReply
         ? {
@@ -434,10 +446,12 @@ export default function ConversationPopup({
     }
     setUpdatingMessage(true)
     try {
-      const { data } = await apiClient.post(
-        `/messages/update/${encodeURIComponent(editingMessageId)}`,
-        { userId: currentUserId, message: trimmed, targetUserId }
-      )
+      const data = await editMessage({
+        messageId: editingMessageId,
+        userId: currentUserId,
+        message: trimmed,
+        targetUserId,
+      })
       if (!data?.success) throw new Error(data?.message || "Modification impossible")
       setMessages((current) =>
         current.map((item) =>
@@ -460,10 +474,12 @@ export default function ConversationPopup({
     if (!deleteMessageTarget || !currentUserId || deletingMessage) return
     setDeletingMessage(true)
     try {
-      const { data } = await apiClient.post(
-        `/messages/delete/${encodeURIComponent(deleteMessageTarget.id)}`,
-        { userId: currentUserId, targetUserId, deleteType }
-      )
+      const data = await deleteMessage({
+        messageId: deleteMessageTarget.id,
+        userId: currentUserId,
+        targetUserId,
+        deleteType,
+      })
       if (!data?.success) throw new Error(data?.message || "Suppression impossible")
       setMessages((current) => current.filter((item) => item.id !== deleteMessageTarget.id))
       persistMessageReply(deleteMessageTarget.id, null)
@@ -486,10 +502,11 @@ export default function ConversationPopup({
     if (!conversationId) return
     setDeletingConversation(true)
     try {
-      const { data } = await apiClient.post(
-        `/messages/delete-conversation/${encodeURIComponent(conversationId)}`,
-        { userId: currentUserId, targetUserId }
-      )
+      const data = await deleteConversation({
+        conversationId,
+        userId: currentUserId,
+        targetUserId,
+      })
       if (!data?.success) throw new Error(data?.message || "Suppression impossible")
       setDeleteConversationOpen(false)
       toast.success("Conversation supprimée.")

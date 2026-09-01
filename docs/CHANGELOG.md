@@ -11,6 +11,94 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-09-01
+
+### Architecture — lot 10 : regroupement des routes App Router
+
+* Création des groupes de routes `(public)` (accueil, login, register, otp, forgot-password) et `(protected)` (home, profile, messages, capsules, onboarding, hashtags) — les URLs publiques restent strictement identiques (les groupes Next.js ne font pas partie des chemins).
+* Aucun groupe `(admin)` créé : aucune route d'administration distincte n'existe actuellement dans le projet.
+* `proxy.ts` conservé tel quel (convention de la version Next.js installée, validée par le build) ; layouts, métadonnées et imports relatifs vérifiés.
+* Validation : `tsc --noEmit` exit 0 et `next build` exit 0 avec toutes les routes résolues.
+
+### Architecture — lot 8 : messagerie
+
+* **Migration du domaine Messagerie** (flux vertical complet) :
+  * service frontend `services/messages/messages.service.ts` (8 endpoints : chats, contacts, recherche, conversation, envoi, édition, suppression message/conversation) sur l'instance Axios cliente ;
+  * types déplacés vers `types/messages/message.types.ts`, `lib/messages.ts` réduit à une façade de types + helpers purs ;
+  * `MessagesPageClient`, `ConversationPopup` et `ConversationSidebar` n'importent plus Axios ni l'ancien `apiClient` ;
+  * **suppression de `src/lib/apiClient.ts`** (0 importeur restant) — l'ancienne instance et son interceptor de redirection globale 401 disparaissent ;
+  * erreurs normalisées via `ApiError` + helper `getApiErrorMessage` étendu (message français approuvé prioritaire).
+* **Jalon** : fin de la migration frontend fetch → Axios (lots 1 à 8) — plus aucun `fetch` direct dans les composants/hooks/services frontend.
+
+### Architecture — lot 7 : stories, capsules et flash
+
+* **Migration du domaine Stories / Capsules / Flash** (flux vertical complet) :
+  * service frontend `src/services/stories/stories.service.ts` (rail, flash utilisateur, like, suppression, vues, viewers, création multipart) ;
+  * service frontend `src/services/capsules/capsules.service.ts` (feed, like, participation) ;
+  * hooks `use-stories` / `use-capsules` / `use-flash` déléguant aux services, plus aucun `fetch` direct (les hooks conservent l'orchestration TanStack Query : keys, invalidations, mises à jour optimistes) ;
+  * composants `CapsulesPage` et `FlashCreator` branchés sur les services ; `catch (err: any)` remplacé par `ApiError`/`userMessage` ;
+  * plus aucun `fetch` frontend hors modules serveur (`dughu.ts` API externe, `utils.ts` ipapi.co).
+
+### Architecture — lot 6 : recherche
+
+* **Migration du domaine Recherche** (flux vertical complet) :
+  * types dédiés `src/types/search/search.types.ts` (`GlobalSearchResult`, `SearchApiResponse`) — le DTO brut Dughu reste `unknown` et l'incertitude est confinée au mapper ;
+  * mapper `src/services/search/search.mapper.ts` : normalisation défensive déplacée depuis `lib/global-search.ts` (façade transitoire de réexport conservée) ;
+  * service serveur `src/services/search/search.server.ts` : `searchAll` + `isSearchEnabled`, Route Handler `/api/search` allégé (lecture → validation → session → service → NextResponse) ;
+  * service frontend `src/services/search/search.service.ts` avec `AbortSignal` (annulation d'une saisie remplacée via Axios, code `ERR_CANCELED` ignoré côté composant) ;
+  * `GlobalSearch.tsx` n'importe plus `fetch` : debounce 350 ms, annulation et messages utilisateurs conservés à l'identique.
+* Vérifications : `tsc --noEmit` exit 0 ; ESLint du lot exit 0 ; zéro `fetch` direct restant dans le domaine recherche/hashtags.
+
+### Architecture — lot 5 : commentaires et réactions
+
+* **Finalisation du domaine Commentaires/Réactions** (flux vertical complet) :
+  * service serveur `src/services/posts/comments.server.ts` créé : la logique lourde Dughu (pagination complète avec déduplication, résolution du commentaire racine pour les réponses, normalisation des médias) est extraite de la Route Handler `src/app/api/comments/route.ts`, désormais légère (lecture → validation → service → NextResponse) ;
+  * service frontend `comments.service.ts` : point d'entrée unique des commentaires (suppression du doublon `addComment` dans `posts.service.ts`) ;
+  * migration des derniers `fetch` directs : `ProfilePage.tsx` (commentaires, réactions, publications du profil) et `HashtagPage.tsx` (import centralisé) ;
+  * comportements conservés : réponses plates sous le commentaire racine (contrainte API Dughu), multipart pour les pièces jointes, messages d'erreur existants.
+* Vérifications : `tsc --noEmit` exit 0 ; ESLint du lot sans nouvelle erreur (les erreurs restantes de `ProfilePage`/`HashtagPage` sont préexistantes : typages faibles, setState-in-effect).
+
+### Architecture — lot 4 : publications et feed
+
+* **Migration architecturale du domaine Publications/Feed** vers les couches cibles :
+  * services frontend `src/services/posts/` (`posts.service.ts` : CRUD posts, réactions, pin, hide, block, save, boost, follow, hashtags ; `feed.service.ts` : points, suggestions ; `comments.service.ts` et `composer.service.ts` pour commentaires et composition) — seuls modules autorisés à utiliser l'instance Axios cliente ;
+  * types dédiés `src/types/posts/post.types.ts` ;
+  * migration des appels `fetch` restants : `home/page.tsx` (feed, création, réactions, commentaires, repost, rePost), `PostCard`, `GivePointsModal`, `PostComposer`, `BackgroundPicker`, `RightSidebar`, `use-feed.ts`, `use-suggestions.ts`, `ProfilePage` (posts du profil, création), `HashtagPage` (posts, réactions) ;
+  * comportements conservés : optimisme sur réactions, `isAbortError` pour garder « Chargement trop long, reessayez. », messages d'erreur existants, pas de retry sur mutations, `AbortSignal` sur les lectures ;
+  * erreur d'annulation normalisée via `ApiError`/`ERR_CANCELED` côté instance cliente.
+* Vérifications : `tsc --noEmit` exit 0 ; ESLint du lot sans nouvelle erreur.
+
+### Architecture — lot 1 : domaine des relations
+
+* **Migration architecturale du domaine des relations** vers les couches cibles (services, hooks TanStack Query, types dédiés, mapper, routes BFF allégées) :
+  * création de `src/lib/api/client/axios-instance.ts` (instance Axios cliente, baseURL interne `/api`, `withCredentials`, timeout, header `Accept`, `AbortSignal`, erreurs → `ApiError`) ;
+  * création de `src/lib/api/server/dughu-instance.ts` (instance Axios serveur, config validée `src/lib/config/env.ts`, `X-AppApiToken`, retry limité sur lectures idempotentes uniquement, jamais exposée au navigateur) ;
+  * déplacement de la normalisation relations dans `src/services/relations/relation.mapper.ts` (`normalizeProfileRelations`, `normalizeIncomingRelationRequests`, règles d'action/état) ;
+  * services `relations.service.ts` (frontend, uniquement les routes internes `/api`) et `relations.server.ts` (serveur, multipart/form-data vers Dughu, aucun retry sur mutation) ;
+  * hooks `useRelation` et `useRelationRequests` (TanStack Query, cache optimiste, invalidation de `["profile", …]`) ;
+  * allègement des Route Handlers `/api/profile/relation` et `/api/profile/relations/requests` (lire la requête → vérifier la session → valider → service serveur → `NextResponse`) ;
+  * type d'erreur commun `ApiError` (`src/lib/api/api-error.ts`, messages français, aucun détail technique/stack trace exposé) ;
+  * façades temporaires de compatibilité conservées (`src/hooks/useRelation.ts`, `src/lib/profile-relations.ts`, `src/lib/relation-requests.ts`) en attendant la fin des imports non migrés.
+
+
+
+**Correction fonctionnelle** : la suppression d'une relation acceptée (`remove`) est désormais transmise à l'endpoint Dughu `relation/request` (toggle) et autorisée par la route interne. Le domaine relations compile de nouveau (`tsc --noEmit` : 0 erreur contre 12 avant le lot).
+
+### Architecture — lot 2 : domaine de l'authentification
+
+* Création de `src/services/auth/auth.service.ts` (service frontend : `login`, `register`, `logout`, `me`, `forgotPassword`, `resetPassword`, `verifyOtp`, `resendOtp` via l'instance Axios cliente — plus aucun `fetch` dans les pages login/register/otp/forgot-password ni dans `GoogleSignInButton`) ;
+* Création de `src/hooks/auth/use-auth.ts` (hook TanStack Query `useAuth`, remplace `src/hooks/queries/use-auth.ts` conservé en façade transitoire) ;
+* Création de `src/types/auth/auth.types.ts` (types `AuthUser`, payloads et réponses du domaine) ;
+* Routes internes d'authentification inchangées (contrats `/api/login`, `/api/register`, `/api/logout`, `/api/auth/*`, `/api/otp/*`, `/api/password/*` préservés).
+
+### Architecture — lot 3 : domaine du profil
+
+* Création de `src/services/profile/profile.service.ts` (service frontend : `fetchProfile`, `updateProfile`, `updateProfileInfos`, `uploadProfileImage` — FormData laissé à Axios pour le Content-Type/boundary, `changePassword`, `fetchCountries`, `submitVerification`, `fetchVerificationRequests`, `toggleFollow`) ;
+* Création de `src/types/profile/profile.types.ts` (`ProfileUser`, `ProfileInfo`, `ProfileStats`, `ProfileApiResponse`, payloads et réponses typés) ;
+* Création de `src/hooks/profile/use-profile.ts` (hook TanStack Query, remplace `src/hooks/queries/use-profile.ts` conservé en façade transitoire) ;
+* Migration des composants du domaine : `ProfilePage` (follow), `ProfileSettingsPage` (profil, infos, pays, avatar), `EditProfileModal`, `ImageEditModal`, `ChangePasswordPanel`, `ProfileShell` et `ProfileHeader` (vérification), `onboarding/profile` (avatar/couverture) — plus aucun `fetch` direct dans le domaine profil ; messages d'erreur utilisateurs préservés via `userMessage`/`ApiError`.
+* Comportement et UI inchangés (`tsc --noEmit` : 0 erreur ; ESLint : seuls des problèmes préexistants hors lot subsistent).
+
 ## 2026-08-28
 
 ### Ajouts
@@ -122,6 +210,7 @@ Chaque entrée doit contenir :
 * Bouton « Gratifier » sur les publications : un clic ouvre une **modale de confirmation** (« Voulez-vous vraiment offrir 100 points à [auteur] ? ») avant d'envoyer 100 points à l'auteur du post via `POST /api/points/give`. La modale utilise le composant `Dialog` Dughu (même pattern que la confirmation de déconnexion), avec un spinner de chargement sur le bouton « Confirmer » pendant l'envoi. Le bouton est masqué sur ses propres publications et reste de couleur neutre (pas de style marron) pour s'intégrer naturellement aux autres actions du post.
 * Correction de l'erreur « Erreur lors du don de points » : la route `POST /api/points/give` capture désormais les `DughuApiError` et extrait le message d'erreur spécifique de l'API Dughu (champs `message`/`error`/`msg`), au lieu du message générique qui masquait la cause réelle.
 * Correction de l'erreur « Le destinataire doit être le propriétaire du post » : la fonction `normalizeUser` (`src/lib/dughu.ts`) priorise désormais le champ `user_id` sur `id` pour l'identifiant utilisateur. L'API Dughu renvoie parfois un objet `user` contenant à la fois un `id` générique et un `user_id` numérique (le vrai ID Dughu) — `normalizeUser` prenait le premier champ rencontré, ce qui causait l'envoi d'un mauvais `user_id` à l'endpoint `points/give`.
+* Correction définitive de l'erreur « Le destinataire doit être le propriétaire du post » sur le don de points : le mapping des champs de `POST /points/give` était inversé. Le backend Dughu lit le **destinataire** dans `user_offer_id` (et vérifie qu'il est bien le propriétaire du post), tandis que `user_id` porte l'utilisateur connecté qui offre les points. La route `POST /api/points/give` (`src/app/api/points/give/route.ts`) envoie désormais `user_offer_id = authorId` (l'auteur du post) et `user_id = dughuUserId` (l'utilisateur connecté).
 * Publications à fond coloré (alignement documentation API) : la liste des couleurs est désormais chargée via `GET /getPostColors` (repli sur l'ancien endpoint `GET /colored_posts` si indisponible). À la création, l'`id` de la couleur sélectionnée est transmis à `POST /post` dans le champ `post_color_input` (entier), en plus de `color_1`/`color_2`/`text_color`, conformément au nouveau contrat API — dans `src/app/api/colors/route.ts`, `src/app/api/posts/route.ts` et `src/lib/dughu.ts`.
 
 ## 2026-08-24

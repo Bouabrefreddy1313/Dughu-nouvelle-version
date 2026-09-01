@@ -412,6 +412,8 @@ export const dughuApi = {
   // ── Points ──
   // Offre des points à l'auteur d'une publication.
   // Contrat : POST /points/give { user_id, user_offer_id, points, post_id }
+  // NB : `user_id` = l'utilisateur connecté qui offre les points,
+  //      `user_offer_id` = le destinataire (l'auteur du post / propriétaire).
   givePoints: (params: {
     user_id: string | number
     user_offer_id: string | number

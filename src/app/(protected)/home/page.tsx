@@ -20,10 +20,26 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import { readPostColors, writePostColor } from "@/lib/postColorCache"
-import apiClient from "@/lib/apiClient"
+import {
+  fetchPosts,
+  createPost,
+  rePost,
+  addReaction,
+  deletePost,
+  togglePin,
+  hidePost,
+  blockUser,
+  storeSave,
+  boostPost,
+  followAuthor,
+  isAbortError,
+} from "@/services/posts/posts.service"
+import { addComment } from "@/services/posts/comments.service"
+import { userMessage } from "@/lib/api/api-error"
 import { REACTION_ID_TO_TYPE, POST_COLORS } from "@/lib/constants"
 import { timeAgo, formatNumber } from "@/lib/helpers"
 import { useAuth } from "@/hooks/queries/use-auth"
+import { me, logout } from "@/services/auth/auth.service"
 import { useFeed } from "@/hooks/queries/use-feed"
 import { useStories } from "@/hooks/queries/use-stories"
 import FlashFeed from "@/components/flash/FlashFeed"
@@ -208,8 +224,7 @@ export default function HomePage() {
     let cancelled = false
     const guardProfileCompletion = async () => {
       try {
-        const res = await fetch("/api/auth/me")
-        const data = await res.json()
+        const data = await me()
         if (!cancelled && data?.success && data?.user) {
           const avatar = data.user.avatar || data.user.image || ""
           const cover = data.user.cover || ""
@@ -283,17 +298,10 @@ export default function HomePage() {
     // Timeout cote client : evite que le spinner tourne indefiniment si l'API tarde
     const timer = setTimeout(() => controller.abort(), 15000)
     try {
-      const userId = user?.id || ""
-      const dughuUserId = user?.dughu?.userId || ""
-      const res = await fetch(`/api/posts?page=${page}&filter=${filter}&userId=${userId}&dughuUserId=${dughuUserId}`, {
-        signal: controller.signal,
-      })
-      let data: any
-      try {
-        data = await res.json()
-      } catch {
-        data = { success: false, message: `Reponse invalide du serveur (${res.status}).` }
-      }
+      const data = await fetchPosts(
+        { page, filter, userId: user?.id || "", dughuUserId: user?.dughu?.userId || "" },
+        { signal: controller.signal }
+      )
       if (reqId !== feedReqRef.current) return
       if (data.success) {
         const reactionsCache = readMyReactions()
@@ -319,7 +327,7 @@ export default function HomePage() {
     } catch (error) {
       if (page > 1) setHasMore(false)
       console.error("loadPosts error:", error)
-      toast.error(error instanceof DOMException && error.name === "AbortError"
+      toast.error(isAbortError(error)
         ? "Chargement trop long, reessayez."
         : "Erreur chargement posts. Reessayez.")
     } finally {
@@ -352,15 +360,11 @@ export default function HomePage() {
     )
 
     try {
-      const { data } = await apiClient.post("/profile/follow", {
+      const data = await followAuthor({
         userId: user.id,
         targetId: authorId,
         following: nextFollowing,
       })
-
-      if (!data?.success) {
-        throw new Error(data?.message || "Erreur lors de l'abonnement")
-      }
 
       const confirmedFollowing = Boolean(data.following)
       setPosts((previous) =>
@@ -436,19 +440,20 @@ export default function HomePage() {
     if (!user) { toast.error("Connectez-vous pour publier"); return }
     const colorRaw = (formData.get("color") as string) || null
     try {
-      const res = await fetch("/api/posts", { method: "POST", body: formData })
-      const data = await res.json()
+      const data = await createPost(formData)
       if (data.success) {
         // L'API Dughu ne persiste pas la couleur → on la mémorise côté client.
         const postColor = colorRaw || data.post?.color || null
         if (postColor && data.post?.id) writePostColor(String(data.post.id), postColor)
+        if (!data.post) return
+        const createdPost = data.post
         setPosts((prev) => [
           {
-            ...data.post,
-            timeLabel: timeAgo(data.post.createdAt),
+            ...createdPost,
+            timeLabel: timeAgo(String(createdPost.createdAt || "")),
             _count: { comments: 0, likes: 0, reposts: 0, views: 0 },
             color: postColor,
-          },
+          } as unknown as Post,
           ...prev,
         ])
         toast.success("Publication créée !")
@@ -497,12 +502,7 @@ export default function HomePage() {
     writeMyReactions(newCache)
 
     try {
-      const res = await fetch("/api/reactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user.id, type: reactionType, dughuUserId: user?.dughu?.userId }),
-      })
-      const data = await res.json()
+      const data = await addReaction({ postId, userId: user.id, type: reactionType, dughuUserId: user?.dughu?.userId })
       if (data.success) {
         if (typeof data.count === "number") {
           applyToPost((p) => ({
@@ -549,8 +549,7 @@ export default function HomePage() {
       formData.append("dughuUserId", user?.dughu?.userId || "")
       formData.append("content", text)
       if (files && files.length > 0) files.forEach((f) => formData.append("files", f))
-      const res = await fetch("/api/comments", { method: "POST", body: formData })
-      const data = await res.json()
+      const data = await addComment(formData)
       if (data.success) {
         setPosts((prev) => prev.map((p) =>
           p.id === postId
@@ -616,10 +615,9 @@ export default function HomePage() {
       formData.append("parentId", postId)
       formData.append("userId", user.id)
       formData.append("dughuUserId", user?.dughu?.userId || "")
-      const res = await fetch("/api/posts", { method: "POST", body: formData })
-      const data = await res.json()
-      if (data.success) {
-        addRepostToFeed(postId, data.post)
+      const data = await createPost(formData)
+      if (data.success && data.post) {
+        addRepostToFeed(postId, data.post as unknown as Post)
         toast.success("Repost effectué !")
       } else {
         toast.error(data.message || "Erreur repost")
@@ -638,10 +636,9 @@ export default function HomePage() {
       formData.append("userId", user.id)
       formData.append("dughuUserId", user?.dughu?.userId || "")
       formData.append("postText", commentary)
-      const res = await fetch("/api/rePost", { method: "POST", body: formData })
-      const data = await res.json()
-      if (data.success) {
-        addRepostToFeed(postId, data.post, commentary)
+      const data = await rePost(formData)
+      if (data.success && data.post) {
+        addRepostToFeed(postId, data.post as unknown as Post, commentary)
         toast.success("Repost publié !")
       } else {
         toast.error(data.message || "Erreur repost")
@@ -651,8 +648,8 @@ export default function HomePage() {
 
   const handleDelete = async (postId: string) => {
     try {
-      const res = await fetch(`/api/deletePost/${postId}`, { method: "DELETE" })
-      if (res.ok) {
+      const ok = await deletePost(postId)
+      if (ok) {
         setPosts((prev) => prev.filter((p) => p.id !== postId))
         toast.success("Post supprimé")
       }
@@ -662,12 +659,8 @@ export default function HomePage() {
 
   const handlePin = async (postId: string) => {
     try {
-      const res = await fetch(`/api/togglePinStatus/${postId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id, dughuUserId: user?.dughu?.userId }),
-      })
-      if (res.ok) {
+      const ok = await togglePin(postId, { userId: user?.id, dughuUserId: user?.dughu?.userId })
+      if (ok) {
         setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, isPinned: !p.isPinned } : p))
         toast.success("Statut épinglé mis à jour")
       }
@@ -676,12 +669,8 @@ export default function HomePage() {
 
   const handleHide = async (postId: string) => {
     try {
-      const res = await fetch("/api/hidePost", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user?.id, dughuUserId: user?.dughu?.userId }),
-      })
-      if (res.ok) {
+      const ok = await hidePost({ postId, userId: user?.id, dughuUserId: user?.dughu?.userId })
+      if (ok) {
         setPosts((prev) => prev.filter((p) => p.id !== postId))
         toast.success("Post masqué")
       }
@@ -693,12 +682,7 @@ export default function HomePage() {
     const targetId = String(authorId)
     const isBlocked = blockedAuthors.has(targetId)
     try {
-      const res = await fetch("/api/block_user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ authorId: targetId, userId: user?.id, dughuUserId: user?.dughu?.userId }),
-      })
-      const data = await res.json()
+      const data = await blockUser({ authorId: targetId, userId: user?.id, dughuUserId: user?.dughu?.userId })
       if (data.success) {
         setBlockedAuthors((prev) => {
           const next = new Set(prev)
@@ -716,19 +700,14 @@ export default function HomePage() {
       } else {
         toast.error(data.message || "Erreur lors du blocage")
       }
-    } catch {
-      toast.error("Erreur lors du blocage")
+    } catch (error) {
+      toast.error(userMessage(error, "Erreur lors du blocage"))
     }
   }
 
   const handleSave = async (postId: string) => {
     try {
-      const res = await fetch("/api/store-save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user?.id, dughuUserId: user?.dughu?.userId }),
-      })
-      const data = await res.json()
+      const data = await storeSave({ postId, userId: user?.id, dughuUserId: user?.dughu?.userId })
       if (data.success) {
         setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, isSaved: !p.isSaved } : p))
         toast.success(data.saved ? "Post enregistré !" : "Enregistrement annulé")
@@ -738,12 +717,9 @@ export default function HomePage() {
 
   const handleBoost = async (postId: string) => {
     try {
-      const res = await fetch("/api/boostPost", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId: user?.id, days: 1 }),
-      })
-      if (res.ok) { toast.success("Post boosté !"); loadPosts(1, true) }
+      await boostPost({ postId, userId: user?.id, days: 1 })
+      toast.success("Post boosté !")
+      loadPosts(1, true)
     } catch { toast.error("Erreur boost") }
   }
 
@@ -756,7 +732,7 @@ export default function HomePage() {
   }
 
   const handleLogout = () => {
-    fetch("/api/logout", { method: "POST" }).finally(() => {
+    void logout().finally(() => {
       router.push("/login")
     })
   }

@@ -22,10 +22,11 @@ import {
 import Image from "next/image"
 import { useState } from "react"
 import { toast } from "sonner"
-import { dughuApi, resolveMediaUrl } from "@/lib/dughu"
+import { fetchVerificationRequests, submitVerification } from "@/services/profile/profile.service"
+import { resolveMediaUrl } from "@/lib/dughu"
 import { cn } from "@/lib/utils"
 import { ProfileMenuDialog } from "./ProfileMenuDialog"
-import type { ProfileRelations, RelationAction, RelationType } from "@/lib/profile-relations"
+import type { ProfileRelations, RelationAction, RelationType } from "@/types/relations/relation.types"
 import {
   Dialog,
   DialogContent,
@@ -71,7 +72,7 @@ interface ProfileHeaderProps {
   relations?: ProfileRelations
   relationLoadingType?: RelationType | null
   onToggleFollow?: () => void
-  onRelationAction?: (type: RelationType) => void
+  onRelationAction?: (type: RelationType, action: RelationAction) => void
   onMessage?: () => void
   onEditCover?: () => void
   onEditAvatar?: () => void
@@ -228,11 +229,7 @@ export function ProfileHeader({
       formData.append("passport", step1Data.passportFile)
       formData.append("photo", step1Data.photoFile)
 
-      const res = await fetch("/api/submitVerification", {
-        method: "POST",
-        body: formData,
-      })
-      const data = await res.json()
+      const data = await submitVerification(formData)
       if (data.success) {
         toast.success("Votre demande a été envoyée, elle est en cours de traitement")
         setStep2Open(false)
@@ -242,7 +239,7 @@ export function ProfileHeader({
           const updatedUser = { ...user, ...data.user }
         }
       } else {
-        toast.error(data.message || "Échec de la soumission")
+        toast.error(String(data.message || "Échec de la soumission"))
       }
     } catch (error) {
       console.error("VERIFICATION SUBMIT ERROR:", error)
@@ -291,7 +288,7 @@ export function ProfileHeader({
               <div className="absolute -bottom-32 sm:-bottom-[80px] left-4 sm:left-6 flex items-center gap-2">
                 <button
                   className="flex items-center gap-1 bg-[#F0F2F5] hover:bg-[#E4E6EB] text-[#050505] px-3 py-1 rounded text-[11px] font-semibold transition"
-                  onClick={() => fetch(`/api/getVerificationRequests/${user.id}`)}
+                  onClick={() => { fetchVerificationRequests(user.id).catch(() => {}) }}
                 >
                   <ShieldCheck size={14} />
                   Voir demandes

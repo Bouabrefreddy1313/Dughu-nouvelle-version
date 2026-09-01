@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { loginWithGoogle } from "@/services/auth/auth.service"
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""
 const GSI_SRC = "https://accounts.google.com/gsi/client"
@@ -38,13 +39,9 @@ export default function GoogleSignInButton({ width = 356 }: { width?: number }) 
         return
       }
       try {
-        const r = await fetch("/api/auth/google", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: res.credential }),
-        })
-        const data = await r.json()
-        if (!r.ok || !data.success) {
+        const data = await loginWithGoogle(res.credential)
+
+        if (!data.success) {
           toast.error(data.message || "Échec de la connexion Google")
           return
         }

@@ -111,6 +111,55 @@ Ne pas modifier des fichiers sans rapport avec la tâche.
 Ne pas réécrire inutilement une architecture existante.
 
 Réutiliser les composants, hooks, types et utilitaires existants lorsqu'ils sont adaptés.
+Réutiliser les composants, hooks, types et utilitaires existants lorsqu'ils sont adaptés.
+
+## SYSTÈME HTTP — AXIOS (OBLIGATOIRE)
+
+Le projet a migré vers un système HTTP centralisé basé sur **deux instances Axios distinctes**. Ce système fait référence : **tout nouveau code réseau DOIT passer par lui**. Aucun `fetch` natif ne doit être utilisé côté frontend.
+
+### 1. Instance Axios cliente (navigateur)
+
+Fichier : `src/lib/api/client/axios-instance.ts`
+
+- baseURL interne `/api`, `withCredentials: true`, timeout explicite, header `Accept` ;
+- erreurs transformées en `ApiError` (`src/lib/api/api-error.ts`, messages français approuvés via `userMessage`) ;
+- prise en charge d'`AbortSignal` ;
+- **interdits** : secret, clé API, token en localStorage/sessionStorage, toast, redirection 401 globale, composant React.
+
+Utilisée **exclusivement** par les services frontend (`src/services/**\*.service.ts`).
+
+### 2. Instance Axios serveur
+
+Fichier : `src/lib/api/server/dughu-instance.ts`
+
+- marquée server-only ; token `X-AppApiToken` ajouté côté serveur uniquement ;
+- configuration validée par `src/lib/config/env.ts` ; erreurs normalisées ;
+- retry limité uniquement sur les lectures idempotentes ;
+- jamais importable dans un composant client.
+
+Utilisée **exclusivement** par les services serveur (`src/services/**\*.server.ts`), eux-mêmes appelés par les Route Handlers `/api`.
+
+### 3. Flux obligatoire pour toute fonctionnalité
+
+```
+Composant/page
+→ hook TanStack Query (src/hooks/<domaine>/)
+→ service frontend (src/services/<domaine>/<domaine>.service.ts)
+→ instance Axios cliente → Route Handler /api
+→ service serveur (src/services/<domaine>/<domaine>.server.ts)
+→ instance Axios serveur → API externe Dughu
+```
+
+### 4. Interdictions permanentes
+
+- **Jamais** de `fetch` natif dans un composant, un hook, une page ou un service frontend ;
+- **Jamais** d'import d'Axios, de l'instance cliente ou d'un service directement dans un composant ou un hook ;
+- **Jamais** d'import d'un module serveur (`.server.ts`, `dughu-instance`) dans du code client ;
+- **Jamais** d'exposition de secret, de `DUGHU_API_KEY` ou de réponse backend brute à l'utilisateur ;
+- **Jamais** de retry automatique sur une mutation non idempotente.
+
+Les types sont organisés par domaine dans `src/types/<domaine>/`. Les normalisations défensives vivent dans les mappers (`<domaine>.mapper.ts`) ou les services serveur — jamais dans les composants.
+
 
 ## AVANT DE TERMINER
 
@@ -123,7 +172,8 @@ Vérifier :
 * gestion des erreurs ;
 * sécurité si nécessaire ;
 * tests pertinents ;
-* absence de régression.
+* absence de régression ;
+* appels HTTP conformes au système Axios (aucun `fetch` natif côté frontend, instances cliente/serveur utilisées correctement).
 
 # DOCUMENTATION DU PROJET
 

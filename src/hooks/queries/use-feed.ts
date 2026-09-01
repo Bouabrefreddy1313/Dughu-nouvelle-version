@@ -1,4 +1,8 @@
+// MIGRÉ (lot 4 — feed) : les appels HTTP passent désormais par le service
+// frontend posts.service.ts (instance Axios cliente). Aucun fetch ici.
+
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { fetchPosts, isAbortError } from "@/services/posts/posts.service"
 
 const POSTS_PER_PAGE = 10
 
@@ -8,11 +12,14 @@ interface FeedParams {
 }
 
 async function fetchFeed({ userId, page }: FeedParams) {
-  const res = await fetch(`/api/posts?userId=${encodeURIComponent(userId)}&page=${page}`)
-  if (!res.ok) throw new Error("Erreur chargement feed")
-  const data = await res.json()
-  if (!data.success) throw new Error(data.message || "Erreur feed")
-  return data
+  try {
+    const data = await fetchPosts({ page, userId })
+    if (!data.success) throw new Error(data.message || "Erreur feed")
+    return data
+  } catch (error) {
+    if (isAbortError(error)) throw new Error("Chargement trop long, reessayez.")
+    throw error
+  }
 }
 
 export function useFeed(userId: string | undefined, page: number) {

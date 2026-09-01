@@ -1,60 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Réponses Dughu non documentées, normalisées défensivement. */
 import { resolveMediaUrl } from "@/lib/dughu"
+import type {
+  ChatAttachment,
+  ChatContact,
+  ChatMessage,
+  ChatSummary,
+  MessageReceipt,
+} from "@/types/messages/message.types"
 
-export interface ChatContact {
-  id: string
-  name: string
-  username?: string | null
-  avatar?: string | null
-  online?: boolean
-  lastSeen?: string | null
-}
+// FAÇADE DE TYPES — les définitions vivent désormais dans
+// src/types/messages/message.types.ts (lot 8). Réexport conservé pour ne pas
+// casser les imports existants ; aucun nouveau type ne doit être ajouté ici.
+export type { ChatAttachment, ChatContact, ChatMessage, ChatSummary, MessageReceipt } from "@/types/messages/message.types"
 
-export interface ChatSummary {
-  id: string
-  contact: ChatContact
-  lastMessage: string
-  updatedAt: string
-  unreadCount: number
-  lastMessageKey: string
-  /** Accusé de lecture du dernier message (s'il a été envoyé par moi). */
-  lastMessageReceipt?: MessageReceipt | null
-  /** Le dernier message du fil a été envoyé par l'utilisateur courant. */
-  lastMessageIsMine?: boolean
-}
-
-export interface ChatAttachment {
-  type: "image" | "video" | "document"
-  url: string
-  name?: string | null
-}
-
-/**
- * État d'accusé de lecture pour les messages envoyés :
- * - `"sent"` : envoyé, mais pas encore distribué (destinataire hors ligne).
- * - `"delivered"` : distribué (reçu par le destinataire), pas encore lu.
- * - `"read"` : lu par le destinataire.
- */
-export type MessageReceipt = "sent" | "delivered" | "read"
-
-export interface ChatMessage {
-  id: string
-  senderId: string
-  receiverId: string
-  text: string
-  createdAt: string
-    isMine: boolean
-  attachments: ChatAttachment[]
-  /** Timestamp de lecture (`seen`) Dughu, normalisé en ISO — null si le destinataire n'a pas ouvert. */
-  seenAt: string | null
-  /** Accusé de lecture (uniquement pour mes messages envoyés). */
-  receipt?: MessageReceipt | null
-  reply?: {
-    id?: string | null
-    sender?: string | null
-    text?: string | null
-  } | null
-}
 
 /**
  * Détermine si un `reply` reçu du serveur (ou construit localement)

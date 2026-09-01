@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { BackgroundPicker, type BackgroundColor } from "@/components/composer/BackgroundPicker"
 import { resolveMediaUrl } from "@/lib/dughu"
 import { toast } from "sonner"
+import { createStory } from "@/services/stories/stories.service"
 
 export interface FlashCreatorUser {
   id?: string
@@ -143,9 +144,8 @@ export default function FlashCreator({ user, open, onClose, onCreated }: FlashCr
         if (mediaFile.type.startsWith("video/")) payload.append("video", mediaFile)
         else payload.append("image", mediaFile)
       }
-      const res = await fetch("/api/stories", { method: "POST", body: payload })
-      const data = await res.json().catch(() => ({ success: false, message: `Erreur (${res.status})` }))
-      if (res.ok && data.success) {
+      const data = await createStory(payload)
+      if (data.success) {
         toast.success("Flash publié !")
         // L'API Dughu ne renvoie PAS l'image dans getUserStories : on passe donc la
         // story fraîchement créée avec le média local (blob) pour que la mini-carte
@@ -165,9 +165,9 @@ export default function FlashCreator({ user, open, onClose, onCreated }: FlashCr
       } else {
         throw new Error(data.message || "Erreur création du Flash")
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err)
-      toast.error(err?.message || "Erreur création du Flash")
+      toast.error(err instanceof Error && err.message ? err.message : "Erreur création du Flash")
     } finally {
       setIsSubmitting(false)
     }

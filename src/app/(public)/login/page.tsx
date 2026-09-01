@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton"
 import { toast } from "sonner"
+import { login as loginRequest } from "@/services/auth/auth.service"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -27,15 +28,9 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login, password, remember }),
-      })
+      const data = await loginRequest({ login, password, remember })
 
-      const data = await res.json()
-
-      if (!res.ok) {
+      if (!data.success) {
         if (data.redirect) {
           toast.error(data.message)
           router.push(data.redirect)

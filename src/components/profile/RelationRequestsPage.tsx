@@ -3,55 +3,22 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { AlertCircle, BriefcaseBusiness, Check, Grid2X2, Loader2, RefreshCw, UserRoundPlus, UsersRound, X } from "lucide-react"
-import { toast } from "sonner"
+import { useRelationRequests } from "@/hooks/relations/useRelationRequests"
 import MainLayout from "@/components/layout/MainLayout"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { resolveMediaUrl } from "@/lib/dughu"
 import { timeAgo } from "@/lib/helpers"
-import type { RelationType } from "@/lib/profile-relations"
-import type { IncomingRelationRequest } from "@/lib/relation-requests"
+import type { IncomingRelationRequest, RelationType } from "@/types/relations/relation.types"
 import { cn } from "@/lib/utils"
 
 type Filter = "all" | RelationType
-
-interface RelationRequestsResponse {
-  success: boolean
-  message?: string
-  requests: IncomingRelationRequest[]
-  unavailableTypes: RelationType[]
-}
-
-interface MutationVariables {
-  request: IncomingRelationRequest
-  action: "accept" | "decline"
-}
 
 const FILTERS = [
   { key: "all" as const, label: "Toutes", icon: Grid2X2 },
   { key: "friend" as const, label: "Fraterniser", icon: UserRoundPlus },
   { key: "network" as const, label: "Réseauter", icon: BriefcaseBusiness },
 ]
-
-async function readJson<T>(response: Response): Promise<T | null> {
-  const text = await response.text()
-  if (!text) return null
-  try {
-    return JSON.parse(text) as T
-  } catch {
-    return null
-  }
-}
-
-async function fetchRelationRequests(): Promise<RelationRequestsResponse> {
-  const response = await fetch("/api/profile/relations/requests", { cache: "no-store" })
-  const data = await readJson<RelationRequestsResponse>(response)
-  if (!response.ok || !data?.success) {
-    throw new Error(data?.message || "Impossible de charger vos demandes de relations.")
-  }
-  return data
-}
 
 function requestDate(value: string | null): string | null {
   if (!value || Number.isNaN(new Date(value).getTime())) return null
@@ -92,39 +59,8 @@ function RequestAvatar({ request }: { request: IncomingRelationRequest }) {
 
 export function RelationRequestsPage() {
   const [filter, setFilter] = useState<Filter>("all")
-  const queryClient = useQueryClient()
   const { data: currentUser, isLoading: authLoading, isError: authError } = useAuth()
-  const requestsQuery = useQuery({
-    queryKey: ["profile", "relation-requests"],
-    queryFn: fetchRelationRequests,
-    enabled: Boolean(currentUser),
-    retry: 1,
-    staleTime: 15_000,
-  })
-
-  const mutation = useMutation({
-    mutationFn: async ({ request, action }: MutationVariables) => {
-      const response = await fetch("/api/profile/relation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetId: request.userId, type: request.type, action }),
-      })
-      const data = await readJson<{ success: boolean; message?: string }>(response)
-      if (!response.ok || !data?.success) {
-        throw new Error(data?.message || "Impossible de traiter cette demande.")
-      }
-      return { ...data, request, action }
-    },
-    onSuccess: ({ message, request, action }) => {
-      queryClient.setQueryData<RelationRequestsResponse>(["profile", "relation-requests"], (current) =>
-        current ? { ...current, requests: current.requests.filter((item) => !(item.userId === request.userId && item.type === request.type)) } : current
-      )
-      toast.success(message || (action === "accept" ? "Demande acceptée." : "Demande refusée."))
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Impossible de traiter cette demande.")
-    },
-  })
+  const { requestsQuery, mutation } = useRelationRequests(Boolean(currentUser))
 
   const requests = requestsQuery.data?.requests ?? []
   const filteredRequests = filter === "all" ? requests : requests.filter((request) => request.type === filter)

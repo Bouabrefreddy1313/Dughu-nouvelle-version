@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import MainLayout from "@/components/layout/MainLayout"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { useCapsulesFeed } from "@/hooks/queries/use-capsules"
+import { fetchCapsulesFeed } from "@/services/capsules/capsules.service"
 import type { Capsule } from "@/lib/capsule-service"
 import CapsuleCard from "./CapsuleCard"
 import CapsuleViewer from "./CapsuleViewer"
@@ -57,11 +58,9 @@ export default function CapsulesPage() {
     const nextPage = page + 1
     setLoadingMore(true)
     try {
-      const qs = new URLSearchParams({ userId, page: String(nextPage), perPage: String(PAGE_SIZE) })
-      const res = await fetch(`/api/capsules?${qs}`)
-      const json = await res.json()
-      if (json.success) {
-        const more: Capsule[] = json.capsules || []
+      const json = await fetchCapsulesFeed({ userId, page: nextPage, perPage: PAGE_SIZE })
+      const more: Capsule[] = json.capsules || []
+      if (more.length > 0 || json.pagination?.hasMore) {
         setCapsules((current) => {
           const seen = new Set(current.map((c) => c.id))
           return [...current, ...more.filter((c) => !seen.has(c.id))]

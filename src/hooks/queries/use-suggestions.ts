@@ -1,18 +1,13 @@
-import { useQuery } from "@tanstack/react-query"
+// MIGRÉ (lot 4 — feed) : les appels HTTP passent désormais par le service
+// frontend feed.service.ts (instance Axios cliente). Aucun fetch ici.
 
-async function fetchSuggestions(userId?: string) {
-  const params = userId ? `?userId=${encodeURIComponent(userId)}` : ""
-  const res = await fetch(`/api/suggestions${params}`)
-  if (!res.ok) throw new Error("Erreur suggestions")
-  const data = await res.json()
-  if (!data.success) throw new Error(data.message || "Erreur suggestions")
-  return data
-}
+import { useQuery } from "@tanstack/react-query"
+import { fetchSuggestions } from "@/services/posts/feed.service"
 
 export function useSuggestions(userId?: string) {
   return useQuery({
     queryKey: ["suggestions", userId],
-    queryFn: () => fetchSuggestions(userId),
+    queryFn: () => fetchSuggestions(userId || ""),
     enabled: !!userId,
     staleTime: 5 * 60_000, // 5 minutes
   })
