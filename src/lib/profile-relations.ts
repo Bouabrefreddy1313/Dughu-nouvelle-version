@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Réponses Dughu externes non typées. */
 export type RelationState = "none" | "outgoing_pending" | "incoming_pending" | "accepted" | "unknown"
 export type RelationType = "friend" | "network"
-export type RelationAction = "request" | "accept" | "decline" | "remove"
 
 export interface ProfileRelations {
   friend: RelationState

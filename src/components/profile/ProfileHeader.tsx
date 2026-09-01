@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+// import type { ProfileRelations, RelationType } from "@/lib/profile-relations"
 
 export interface ProfileUser {
   id: string
@@ -70,7 +71,7 @@ interface ProfileHeaderProps {
   relations?: ProfileRelations
   relationLoadingType?: RelationType | null
   onToggleFollow?: () => void
-  onRelationAction?: (type: RelationType, action: RelationAction) => void
+  onRelationAction?: (type: RelationType) => void
   onMessage?: () => void
   onEditCover?: () => void
   onEditAvatar?: () => void
@@ -384,9 +385,9 @@ export function ProfileHeader({
                       : state === "unknown"
                         ? "Vérification…"
                       : state === "incoming_pending"
-                        ? "Accepter la demande"
+                        ? type === "friend" ? "Accepter fraterniser" : "Accepter réseauter"
                         : state === "outgoing_pending"
-                          ? type === "friend" ? "Fraterniser envoyé" : "Réseauter envoyé"
+                          ? "Demande envoyée"
                           : type === "friend" ? "Fraterniser" : "Réseauter"
                     const Icon = type === "friend" ? (state === "accepted" ? UserCheck : UserPlus) : Users
 

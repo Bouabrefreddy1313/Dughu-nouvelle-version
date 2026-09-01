@@ -26,11 +26,12 @@ import { ProfileFriends } from "./ProfileFriends"
 import { ProfileGroupsPages, type ProfileGroup, type ProfilePage as ProfilePageType } from "./ProfileGroupsPages"
 import { ImageEditModal } from "./ImageEditModal"
 import { PostComposer } from "@/components/composer/PostComposer"
+import { EMPTY_PROFILE_RELATIONS, type RelationAction, type RelationType } from "@/lib/profile-relations"
 import { ConfirmDialog } from "@/components/common/ConfirmDialog"
 import FlashViewer from "@/components/flash/FlashViewer"
 import { useFlashFeed } from "@/hooks/queries/use-flash"
 import { useUserCapsules } from "@/hooks/queries/use-capsules"
-import { EMPTY_PROFILE_RELATIONS, type RelationType } from "@/lib/profile-relations"
+// import { EMPTY_PROFILE_RELATIONS, type RelationType } from "@/lib/profile-relations"
 
 const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })), {
   loading: () => (
@@ -896,12 +897,12 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       </div>
 
       {/* Modaux */}
-      <EditProfileModal
+      {/* <EditProfileModal
         open={editOpen}
         user={user}
         onClose={() => setEditOpen(false)}
         onSaved={(u) => handleProfileUpdated(u)}
-      />
+      /> */}
       {/* Confirmation de suppression (vrai popup, pas de confirm() natif) */}
       <ConfirmDialog
         open={!!deleteTarget}

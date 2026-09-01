@@ -3,7 +3,6 @@ import { toast } from "sonner"
 import {
   EMPTY_PROFILE_RELATIONS,
   type ProfileRelations,
-  type RelationAction,
   type RelationState,
   type RelationType,
 } from "@/lib/profile-relations"
@@ -11,7 +10,6 @@ import {
 interface RelationMutationArgs {
   type: RelationType
   currentState: RelationState
-  action: RelationAction
   profileQueryKey: readonly unknown[]
   targetId: string
 }
@@ -46,7 +44,7 @@ async function readResponse(res: Response): Promise<RelationResponse> {
   try {
     return text ? JSON.parse(text) as RelationResponse : { success: false }
   } catch {
-    throw new Error("Une erreur est survenue. Veuillez réessayer.")
+    throw new Error("Réponse serveur invalide")
   }
 }
 
@@ -54,10 +52,9 @@ export function useRelation() {
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
-    mutationFn: async ({ type, currentState, action, targetId }: RelationMutationArgs) => {
-      if (!actionAllowed(currentState, action)) {
-        throw new Error("Cette action n'est plus disponible")
-      }
+    mutationFn: async ({ type, currentState, targetId }: RelationMutationArgs) => {
+      const action = actionFor(currentState)
+      if (!action) throw new Error("Aucune action disponible pour cette demande")
       const res = await fetch("/api/profile/relation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -65,7 +62,7 @@ export function useRelation() {
       })
       const data = await readResponse(res)
       if (!res.ok || !data.success) {
-        throw new Error(data.message ?? "Impossible de mettre à jour cette relation.")
+        throw new Error(data.message ?? "Erreur lors de la mise à jour")
       }
       return data
     },
@@ -90,16 +87,19 @@ export function useRelation() {
       if (context?.previousData !== undefined) {
         queryClient.setQueryData(profileQueryKey, context.previousData)
       }
-      toast.error(error instanceof Error ? error.message : "Impossible de mettre à jour cette relation.")
+      toast.error(error instanceof Error ? error.message : "Erreur relation")
     },
 
-    onSuccess: (data) => {
-      toast.success(data.message ?? "Action effectuée")
+    onSuccess: (data, { type, currentState }) => {
+      const message = currentState === "accepted"
+        ? type === "friend" ? "Fraternisation annulée" : "Relation de réseautage annulée"
+        : data.message ?? "Action effectuée"
+      toast.success(message)
     },
   })
 
   const triggerRelationAction = (args: RelationMutationArgs) => {
-    if (!actionAllowed(args.currentState, args.action)) return
+    if (!actionFor(args.currentState)) return
     mutation.mutate(args)
   }
 
