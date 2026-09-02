@@ -211,6 +211,9 @@ export interface CanalNotification {
   /** Statut de traitement : null = en attente, "Acceptée" | "Rejetée" = traitée. */
   status: string | null
   createdAt: string
+  senderName?: string
+  senderAvatar?: string
+  requestId?: string
 }
 
 export interface CanalNotificationsResponse {

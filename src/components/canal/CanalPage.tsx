@@ -37,6 +37,7 @@ import type { Canal } from "@/types/canal/canal.types"
 import CanalCard from "./CanalCard"
 import CreateCanalModal from "./CreateCanalModal"
 import CanalChatView from "./CanalChatView"
+import CanalSettingsModal from "./CanalSettingsModal"
 
 type TabType = "explorer" | "mine" | "joined" | "favorites"
 
@@ -48,9 +49,10 @@ export default function CanalPage() {
   const [search, setSearch] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
 
-  // Modale création & Chat plein écran
+  // Modale création, Chat plein écran & Gestion canal
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [selectedCanalForChat, setSelectedCanalForChat] = useState<Canal | null>(null)
+  const [managingCanal, setManagingCanal] = useState<Canal | null>(null)
 
   // Catégories
   const { data: rawCategories = [] } = usePossibleCategories()
@@ -285,6 +287,7 @@ export default function CanalPage() {
                   isMine={currentTab === "mine"}
                   isJoinedTab={currentTab === "joined"}
                   onClick={() => setSelectedCanalForChat(canal)}
+                  onManage={(c) => setManagingCanal(c)}
                 />
               ))}
             </div>
@@ -311,6 +314,19 @@ export default function CanalPage() {
           initialCanal={selectedCanalForChat}
           currentUserId={userId}
           onClose={() => setSelectedCanalForChat(null)}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* Modale de Gestion et Paramètres du canal (créateur) */}
+      {/* ========================================================================= */}
+      {managingCanal && (
+        <CanalSettingsModal
+          canal={managingCanal}
+          currentUserId={userId}
+          isOpen={!!managingCanal}
+          onClose={() => setManagingCanal(null)}
+          initialTab="requests"
         />
       )}
     </MainLayout>

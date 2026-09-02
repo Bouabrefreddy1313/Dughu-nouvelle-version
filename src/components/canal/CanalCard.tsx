@@ -12,7 +12,7 @@
  *    avec cadre agrandi en largeur et boutons d'action directs.
  */
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import {
   Star,
@@ -39,6 +39,7 @@ interface CanalCardProps {
   isMine?: boolean
   isJoinedTab?: boolean
   onClick?: () => void
+  onManage?: (canal: Canal) => void
 }
 
 export default function CanalCard({
@@ -47,6 +48,7 @@ export default function CanalCard({
   isMine = false,
   isJoinedTab = false,
   onClick,
+  onManage,
 }: CanalCardProps) {
   const isOwner =
     isMine ||
@@ -60,6 +62,17 @@ export default function CanalCard({
   const [joinStatus, setJoinStatus] = useState<"none" | "joined" | "requested">(
     canal.isJoined || isOwner || isJoinedTab ? "joined" : "none"
   )
+
+  const [coverSrc, setCoverSrc] = useState(canal.cover || "/images/cover.jpg")
+  const [logoSrc, setLogoSrc] = useState(canal.logo || "/images/avatar.png")
+
+  useEffect(() => {
+    setCoverSrc(canal.cover || "/images/cover.jpg")
+  }, [canal.cover])
+
+  useEffect(() => {
+    setLogoSrc(canal.logo || "/images/avatar.png")
+  }, [canal.logo])
 
   const toggleFavMutation = useToggleFavorite()
   const joinMutation = useJoinOrRequestCanal()
@@ -127,12 +140,13 @@ export default function CanalCard({
       {/* ========================================================================= */}
       <div className="relative h-28 w-full overflow-hidden rounded-t-3xl bg-gradient-to-r from-orange-100 via-amber-50 to-orange-200">
         <Image
-          src={canal.cover || "/images/cover.jpg"}
+          src={coverSrc}
           alt=""
           fill
           sizes="(max-width: 768px) 100vw, 600px"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
-          unoptimized={canal.cover?.startsWith("http")}
+          onError={() => setCoverSrc("/images/cover.jpg")}
+          unoptimized={coverSrc?.startsWith("http")}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
 
@@ -181,12 +195,13 @@ export default function CanalCard({
           {/* Avatar (photo de profil) : z-20 et border-4 pour être parfaitement visible au-dessus du blanc */}
           <div className="relative size-16 shrink-0 rounded-2xl border-4 border-white bg-white shadow-md overflow-hidden z-20">
             <Image
-              src={canal.logo || "/images/avatar.png"}
+              src={logoSrc}
               alt={canal.name}
               fill
               sizes="64px"
               className="object-cover"
-              unoptimized={canal.logo?.startsWith("http")}
+              onError={() => setLogoSrc("/images/avatar.png")}
+              unoptimized={logoSrc?.startsWith("http")}
             />
           </div>
 
@@ -211,9 +226,10 @@ export default function CanalCard({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      onClick?.()
+                      if (onManage) onManage(canal)
+                      else onClick?.()
                     }}
-                    title="Gérer le canal"
+                    title="Gérer le canal & demandes d'adhésion"
                     className="flex size-8 items-center justify-center rounded-xl bg-gray-100 text-gray-700 transition hover:bg-gray-200"
                   >
                     <Settings size={14} />

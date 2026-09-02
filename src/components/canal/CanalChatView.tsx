@@ -24,6 +24,10 @@ import {
   Lock,
   FileText,
   AlertTriangle,
+  Settings,
+  Bell,
+  Check,
+  UserX,
 } from "lucide-react"
 import type { Canal } from "@/types/canal/canal.types"
 import {
@@ -33,9 +37,12 @@ import {
   useJoinedCanals,
   useMyCanals,
   useSuggestCanals,
+  useHandleJoinRequest,
 } from "@/hooks/canal/use-canals"
+import { useReceivedNotifications } from "@/hooks/canal/use-canal-notifications"
 import { useCanalMessages, useSendCanalMessage } from "@/hooks/canal/use-canal-messages"
 import CanalMessageBubble from "./CanalMessageBubble"
+import CanalSettingsModal from "./CanalSettingsModal"
 
 interface CanalChatViewProps {
   initialCanal: Canal
@@ -53,7 +60,9 @@ export default function CanalChatView({
   const [messageText, setMessageText] = useState("")
   const [mediaFile, setMediaFile] = useState<File | null>(null)
   const [mediaPreview, setMediaPreview] = useState<string | null>(null)
-  const [rightTab, setRightTab] = useState<"media" | "docs">("media")
+  const [rightTab, setRightTab] = useState<"media" | "docs" | "requests">("media")
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"requests" | "members" | "settings">("requests")
 
   const mediaInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -108,6 +117,14 @@ export default function CanalChatView({
   const { data: rawDocs = [] } = useCanalDocuments(activeCanalId)
   const docList = Array.isArray(rawDocs) ? rawDocs : []
 
+  // Demandes d'adhésion & Notifications
+  const handleJoinMutation = useHandleJoinRequest()
+  const { data: notifsData } = useReceivedNotifications(currentUserId, activeCanalId)
+  const notifications = notifsData?.notifications ?? []
+  const pendingRequests = notifications.filter(
+    (n) => n.status === null || n.status === "" || n.status === "pending"
+  )
+
   // Envoi de message
   const sendMutation = useSendCanalMessage(activeCanalId)
 
@@ -117,15 +134,14 @@ export default function CanalChatView({
   }, [messages.length])
 
   // Permission de poster :
-  // Si canal privé et l'utilisateur n'est pas admin/créateur, restreint.
+  // RÈGLE : Dans un canal, seul l'administrateur ou le créateur est autorisé à poster !
   const isOwner = Boolean(
     currentUserId &&
       activeCanal?.userId &&
       String(activeCanal.userId) === String(currentUserId)
   )
-  const canPost = Boolean(
-    activeCanal?.type === "public" || activeCanal?.isAdmin || isOwner
-  )
+  const canPost = Boolean(isOwner || activeCanal?.isAdmin)
+  const pendingCount = (isOwner || activeCanal?.isAdmin) ? pendingRequests.length : 0
 
   const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -231,9 +247,13 @@ export default function CanalChatView({
                     <div className="flex items-center justify-between gap-1.5">
                       <p className="truncate text-sm font-bold text-gray-100">{c.name || "Canal"}</p>
                       {c.type === "public" ? (
-                        <Globe size={13} className="text-emerald-400 shrink-0" title="Canal public" />
+                        <span title="Canal public" className="shrink-0 flex items-center">
+                          <Globe size={13} className="text-emerald-400" />
+                        </span>
                       ) : (
-                        <Lock size={13} className="text-amber-400 shrink-0" title="Canal privé" />
+                        <span title="Canal privé" className="shrink-0 flex items-center">
+                          <Lock size={13} className="text-amber-400" />
+                        </span>
                       )}
                     </div>
 
@@ -328,10 +348,33 @@ export default function CanalChatView({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pr-12">
+          <div className="flex items-center gap-2.5 pr-12">
+            {(isOwner || activeCanal?.isAdmin) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsInitialTab("requests")
+                  setIsSettingsOpen(true)
+                }}
+                className="flex items-center gap-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 px-3 py-1.5 text-xs font-bold text-gray-200 border border-gray-700 transition shadow-sm"
+              >
+                <Settings size={14} className="text-[#EA580C]" />
+                <span className="hidden sm:inline">Gérer le canal</span>
+                {pendingCount > 0 && (
+                  <span className="flex size-5 items-center justify-center rounded-full bg-[#EA580C] text-[10px] font-extrabold text-white animate-pulse">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+            )}
+
             <button
               type="button"
-              className="p-2 text-gray-400 hover:text-white transition"
+              onClick={() => {
+                setSettingsInitialTab("settings")
+                setIsSettingsOpen(true)
+              }}
+              className="p-2 text-gray-400 hover:text-white transition rounded-xl hover:bg-gray-800"
               aria-label="Informations sur le canal"
             >
               <Info size={18} />
@@ -386,11 +429,9 @@ export default function CanalChatView({
         {/* Bandeau inférieur : Champ de saisie ou avertissement de permission */}
         <footer className="border-t border-gray-800 bg-[#0F172A] p-4">
           {!canPost ? (
-            <div className="flex items-center justify-center gap-2 rounded-2xl bg-red-950/40 p-3 text-xs font-semibold text-red-400 border border-red-900/50">
-              <AlertTriangle size={16} className="shrink-0" />
-              <span>
-                Vous ne pouvez pas poster de message sans l'autorisation de l'administrateur
-              </span>
+            <div className="flex items-center justify-center gap-2.5 rounded-2xl bg-gray-800/80 p-3.5 text-xs font-semibold text-gray-300 border border-gray-700/60 shadow-inner">
+              <Lock size={15} className="text-[#EA580C] shrink-0" />
+              <span>Seul l'administrateur de ce canal est autorisé à publier des messages.</span>
             </div>
           ) : (
             <form onSubmit={handleSendMessage} className="flex items-center gap-2">
@@ -484,10 +525,28 @@ export default function CanalChatView({
               {activeCanal.description}
             </p>
           )}
+          {(isOwner || activeCanal?.isAdmin) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsInitialTab("requests")
+                setIsSettingsOpen(true)
+              }}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#EA580C]/15 border border-[#EA580C]/40 p-2.5 text-xs font-bold text-[#EA580C] hover:bg-[#EA580C]/25 transition shadow-sm"
+            >
+              <Settings size={15} />
+              <span>Paramètres & Adhésions</span>
+              {pendingCount > 0 && (
+                <span className="flex size-5 items-center justify-center rounded-full bg-[#EA580C] text-[10px] font-extrabold text-white animate-pulse">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
-        {/* Onglets Médias / Documents */}
-        <div className="mt-6 border-t border-gray-800 px-4 pt-4">
+        {/* Onglets Médias / Documents / Demandes */}
+        <div className="mt-5 border-t border-gray-800 px-4 pt-4">
           <div className="flex rounded-xl bg-gray-800/80 p-1">
             <button
               type="button"
@@ -509,8 +568,26 @@ export default function CanalChatView({
                   : "text-gray-400 hover:text-white"
               }`}
             >
-              Documents
+              Docs
             </button>
+            {(isOwner || activeCanal?.isAdmin) && (
+              <button
+                type="button"
+                onClick={() => setRightTab("requests")}
+                className={`flex-1 relative rounded-lg py-1.5 text-xs font-bold transition ${
+                  rightTab === "requests"
+                    ? "bg-[#EA580C] text-white"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <span>Demandes</span>
+                {pendingCount > 0 && (
+                  <span className="ml-1 rounded-full bg-red-500 px-1.5 py-0.2 text-[9px] font-extrabold text-white">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
           <div className="mt-4">
@@ -530,27 +607,109 @@ export default function CanalChatView({
               ) : (
                 <p className="text-center text-xs text-gray-500 py-6">Aucun média.</p>
               )
-            ) : docList.length > 0 ? (
-              <div className="space-y-2">
-                {docList.map((d) => (
-                  <a
-                    key={d.id}
-                    href={d.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 rounded-xl bg-gray-800/60 p-2 text-xs text-gray-300 hover:bg-gray-800 transition"
-                  >
-                    <FileText size={16} className="text-[#EA580C] shrink-0" />
-                    <span className="truncate flex-1">{d.name}</span>
-                  </a>
-                ))}
-              </div>
+            ) : rightTab === "docs" ? (
+              docList.length > 0 ? (
+                <div className="space-y-2">
+                  {docList.map((d) => (
+                    <a
+                      key={d.id}
+                      href={d.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 rounded-xl bg-gray-800/60 p-2 text-xs text-gray-300 hover:bg-gray-800 transition"
+                    >
+                      <FileText size={16} className="text-[#EA580C] shrink-0" />
+                      <span className="truncate flex-1">{d.name}</span>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-xs text-gray-500 py-6">Aucun document.</p>
+              )
             ) : (
-              <p className="text-center text-xs text-gray-500 py-6">Aucun document.</p>
+              /* Onglet DEMANDES D'ADHÉSION */
+              <div className="space-y-2.5">
+                {pendingRequests.length === 0 ? (
+                  <p className="text-center text-xs text-gray-500 py-6">
+                    Aucune demande d'adhésion en attente.
+                  </p>
+                ) : (
+                  pendingRequests.map((n) => {
+                    const reqId = n.requestId || n.id
+                    return (
+                      <div
+                        key={n.id}
+                        className="rounded-2xl border border-gray-800 bg-gray-900/80 p-3 space-y-2"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative size-8 shrink-0 overflow-hidden rounded-full bg-gray-800 border border-gray-700">
+                            <Image
+                              src={n.senderAvatar || "/images/avatar.png"}
+                              alt=""
+                              fill
+                              sizes="32px"
+                              className="object-cover"
+                              unoptimized={n.senderAvatar?.startsWith("http")}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-bold text-gray-200">
+                              {n.senderName || n.content || "Utilisateur"}
+                            </p>
+                            <p className="text-[10px] text-gray-400">Demande d'adhésion</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleJoinMutation.mutate({
+                                requestId: reqId,
+                                userId: currentUserId,
+                                accept: true,
+                              })
+                            }
+                            disabled={handleJoinMutation.isPending}
+                            className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-emerald-600 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-500"
+                          >
+                            <Check size={13} />
+                            Accepter
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleJoinMutation.mutate({
+                                requestId: reqId,
+                                userId: currentUserId,
+                                accept: false,
+                              })
+                            }
+                            disabled={handleJoinMutation.isPending}
+                            className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-red-950/60 border border-red-800/80 py-1.5 text-xs font-bold text-red-300 transition hover:bg-red-900/80"
+                          >
+                            <UserX size={13} />
+                            Refuser
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
             )}
           </div>
         </div>
       </aside>
+
+      {/* Modale Paramètres et Gestion du canal (créateur / administrateur) */}
+      <CanalSettingsModal
+        canal={activeCanal}
+        currentUserId={currentUserId}
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        initialTab={settingsInitialTab}
+      />
     </div>
   )
 }

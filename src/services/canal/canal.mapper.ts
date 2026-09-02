@@ -60,17 +60,29 @@ function pick(source: any, keys: string[]): any {
   return undefined
 }
 
+function normalizeCanalMediaUrl(url?: string | null): string {
+  if (!url) return ""
+  let clean = String(url).trim()
+  if (clean.includes("apitest.dughu.com/storage/")) {
+    clean = clean.replace(/https?:\/\/apitest\.dughu\.com\/storage\//g, "https://dughuprod.s3.amazonaws.com/storage/")
+  }
+  return clean
+}
+
 /* ─────────────────────────────── Canal ─────────────────────────────────── */
 
 /** Normalise un objet canal brut de l'API Dughu. */
 export function mapCanal(raw: any): Canal {
   const item = raw?.result && typeof raw.result === "object" && !Array.isArray(raw.result) && raw.result.id ? raw.result : raw
+  const rawLogo = pick(item, ["logo_url", "logo", "avatar"])
+  const rawCover = pick(item, ["cover_url", "cover", "cover_image"])
+
   return {
     id: str(pick(item, ["id", "canal_id", "canalId"])),
     name: str(item?.name || item?.canal_name),
     description: str(item?.description),
-    logo: str(item?.logo_url || item?.logo || item?.avatar || "/images/avatar.png"),
-    cover: str(item?.cover_url || item?.cover || item?.cover_image || "/images/cover.jpg"),
+    logo: normalizeCanalMediaUrl(rawLogo ? str(rawLogo) : "") || "/images/avatar.png",
+    cover: normalizeCanalMediaUrl(rawCover ? str(rawCover) : "") || "/images/cover.jpg",
     type: item?.type === "public" ? "public" : "private",
     isActive: bool(item?.is_active ?? item?.isActive, true),
     categoryId: str(pick(item, ["category_id", "categoryId", "categorie"])),
@@ -161,7 +173,7 @@ export function mapCanalMember(raw: any): CanalMember {
     canalId: str(pick(raw, ["canal_id", "canalId"])),
     name: str(name),
     username: str(raw?.username),
-    avatar: str(raw?.avatar || "/images/avatar.png"),
+    avatar: normalizeCanalMediaUrl(str(raw?.avatar)) || "/images/avatar.png",
     isAdmin: bool(raw?.is_admin ?? raw?.isAdmin),
     joinedAt: toIso(raw?.subscribed_at ?? raw?.joined_at ?? raw?.createdAt ?? raw?.created_at),
   }
@@ -205,9 +217,9 @@ export function mapCanalMessage(raw: any, currentUserId?: string): CanalMessage 
     canalId: str(pick(raw, ["canal_id", "canalId"])),
     userId: authorId,
     authorName: str(raw?.user_name ?? raw?.author_name ?? raw?.name),
-    authorAvatar: str(raw?.user_avatar ?? raw?.author_avatar ?? raw?.avatar ?? "/images/avatar.png"),
+    authorAvatar: normalizeCanalMediaUrl(str(raw?.user_avatar ?? raw?.author_avatar ?? raw?.avatar)) || "/images/avatar.png",
     text: str(raw?.text ?? raw?.content ?? raw?.message),
-    mediaUrl: raw?.media ? str(raw.media) : undefined,
+    mediaUrl: raw?.media ? normalizeCanalMediaUrl(str(raw.media)) : undefined,
     mediaType: raw?.media_type ? str(raw.media_type) : undefined,
     reactions: reactions.map(mapCanalReaction),
     createdAt: toIso(raw?.created_at ?? raw?.createdAt),
@@ -339,6 +351,10 @@ export function mapCanalDocumentList(raw: any): CanalDocument[] {
 
 /** Normalise une notification de canal. */
 export function mapCanalNotification(raw: any): CanalNotification {
+  const senderName = str(raw?.sender_name ?? raw?.user_name ?? raw?.user?.name ?? raw?.name ?? "")
+  const senderAvatar = str(raw?.sender_avatar ?? raw?.user_avatar ?? raw?.user?.avatar ?? raw?.avatar ?? "")
+  const requestId = str(pick(raw, ["request_id", "requestId", "id"]))
+
   return {
     id: str(pick(raw, ["id", "notification_id"])),
     userId: str(pick(raw, ["user_id", "userId"])),
@@ -347,6 +363,9 @@ export function mapCanalNotification(raw: any): CanalNotification {
     content: str(raw?.content ?? raw?.message ?? raw?.body),
     status: raw?.status !== undefined && raw?.status !== null ? str(raw.status) : null,
     createdAt: toIso(raw?.created_at ?? raw?.createdAt),
+    senderName: senderName || undefined,
+    senderAvatar: senderAvatar || undefined,
+    requestId: requestId || undefined,
   }
 }
 

@@ -1106,14 +1106,19 @@ quand on s'y trouve, le clic ferme le drawer mobile).
 * **Écran 3 — Vue Chat plein écran (Thème sombre)** :
   - Overlay sombre plein écran avec bouton de fermeture (✕).
   - Colonne gauche : compteur de membres actifs, liste des canaux appartenant à l'utilisateur (agrégation des canaux créés via `useMyCanals` et rejoints via `useJoinedCanals`) avec surbrillance du canal sélectionné, barre de recherche et suggestions.
-  - Colonne centrale : en-tête du canal actif, zone de messages avec bulles, médias, réactions emoji et suppression ; zone inférieure adaptative : champ de saisie + pièces jointes si autorisé (créateur/admin ou canal public), ou avertissement rouge/orange si les droits de publication sont restreints par l'administrateur.
-  - Colonne droite : grande cover, avatar centré, détails du canal (catégorie, description, visibilité, nombre de membres) et onglets Médias / Documents.
+  - Colonne centrale : en-tête du canal actif avec bouton « Gérer le canal » (si créateur/admin, avec badge des demandes en attente), zone de messages avec bulles, médias, réactions emoji et suppression ; zone inférieure adaptative : champ de saisie + pièces jointes réservé exclusivement à l'administrateur ou créateur du canal, ou bandeau informatif indiquant que seuls les administrateurs peuvent publier.
+  - Colonne droite : grande cover, avatar centré, détails du canal (catégorie, description, visibilité, nombre de membres), bouton « Paramètres & Adhésions » pour l'administrateur, et onglets Médias / Documents / Demandes (liste directe des adhésions avec boutons Accepter/Refuser).
+* **Écran 4 — Modale de gestion et paramètres du canal (`CanalSettingsModal`)** :
+  - Accessible depuis l'en-tête du chat, la colonne latérale droite et le bouton « Gérer » sur les cartes de l'onglet « Mes canaux ».
+  - Onglet « Demandes d'adhésion » : liste des utilisateurs en attente avec avatar, nom, date et boutons en 1 clic « Accepter » (vert) et « Refuser » (rouge) branchés sur `handleJoinRequest`.
+  - Onglet « Membres » : liste complète des adhérents du canal avec rôle (Admin / Membre).
+  - Onglet « Modifier le canal » : formulaire d'édition complet (nom, description, catégorie, type public/privé, statut actif/inactif, changement interactif du logo et de la couverture avec prévisualisation) branché sur `useCreateOrUpdateCanal` via POST `/canal`.
 * **Architecture technique** :
   - Respect strict des deux instances Axios (`dughuServer` côté serveur pour les 32 endpoints Dughu, `apiClient` côté client pour les routes internes `/api/canal/**`).
   - Découverte globale des canaux branchée en `GET /api/canal?scope=all` (avec filtrage catégorie et recherche textuelle `research`).
-  - Normalisation défensive dans `canal.mapper.ts` prenant en charge l'enveloppe `result.data` de l'API Dughu, les URLs complètes (`logo_url`, `cover_url`), l'identifiant auteur `autor_id`, le flag `isRejoind` et le compteur `user_count`.
+  - Normalisation défensive dans `canal.mapper.ts` prenant en charge l'enveloppe `result.data` de l'API Dughu, la résolution directe des médias vers le stockage public S3 (`dughuprod.s3.amazonaws.com/storage/...`), l'identifiant auteur `autor_id`, le flag `isRejoind` et le compteur `user_count`. Fallback défensif `onError` sur les cartes.
   - Aucun `fetch` natif côté frontend.
-  - Hooks TanStack Query dédiés (`useCanals`, `useMyCanals`, `useJoinedCanals`, `useCanalDetail`, `useCanalMessages`, `useCanalFavorites`, `useCanalPolls`, etc.).
+  - Hooks TanStack Query dédiés (`useCanals`, `useMyCanals`, `useJoinedCanals`, `useCanalDetail`, `useCanalMessages`, `useCanalFavorites`, `useCanalPolls`, `useCanalMembers`, `useReceivedNotifications`, `useHandleJoinRequest`, `useCreateOrUpdateCanal`, etc.).
 
 ## 4. Fonctionnalités futures
 
