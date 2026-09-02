@@ -42,7 +42,7 @@ type TabType = "explorer" | "mine" | "joined" | "favorites"
 
 export default function CanalPage() {
   const { data: rawUser, isLoading: authLoading } = useAuth()
-  const userId = String(rawUser?.dughu?.userId || rawUser?.dughuUserId || rawUser?.id || "")
+  const userId = String(rawUser?.dughu?.userId || rawUser?.dughuUserId || rawUser?.user_id || rawUser?.id || "")
 
   const [currentTab, setCurrentTab] = useState<TabType>("explorer")
   const [search, setSearch] = useState("")
@@ -250,15 +250,15 @@ export default function CanalPage() {
         </div>
 
         {/* ========================================================================= */}
-        {/* Grille de cartes canaux (6 colonnes desktop) */}
+        {/* Grille de cartes canaux agrandie */}
         {/* ========================================================================= */}
         <div className="mt-6">
           {isLoading ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-              {[...Array(6)].map((_, i) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-64 rounded-2xl bg-gray-100 animate-pulse border border-gray-200"
+                  className="h-56 rounded-3xl bg-gray-100 animate-pulse border border-gray-200"
                 />
               ))}
             </div>
@@ -276,13 +276,14 @@ export default function CanalPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {canals.map((canal) => (
                 <CanalCard
                   key={canal.id}
                   canal={canal}
                   currentUserId={userId}
                   isMine={currentTab === "mine"}
+                  isJoinedTab={currentTab === "joined"}
                   onClick={() => setSelectedCanalForChat(canal)}
                 />
               ))}

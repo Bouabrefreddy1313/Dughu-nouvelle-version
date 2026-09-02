@@ -125,7 +125,7 @@ export async function accessPrivateCanal(
 /** GET /handlePublicCanal/:token — ouvrir un canal public via code/slug/token. */
 export async function accessPublicCanal(token: string): Promise<{ success: boolean; canal?: Canal; message?: string }> {
   const raw = await requestGet<any>(`/handlePublicCanal/${encodeURIComponent(token)}`)
-  const canalRaw = raw?.canal ?? raw?.data ?? raw
+  const canalRaw = raw?.result ?? raw?.canal ?? raw?.data ?? raw
   return {
     success: raw?.success ?? true,
     message: raw?.message,
@@ -141,10 +141,12 @@ export async function getAllCanals(
   options: { research?: string; categoryId?: string; page?: number } = {}
 ): Promise<CanalsListResponse> {
   const page = Math.max(1, options.page ?? 1)
-  const raw = await requestForm<any>("/getAllCanals", {
+  const path = page > 1 ? `/getAllCanals?page=${page}` : "/getAllCanals"
+  const raw = await requestForm<any>(path, {
     user_id: userId,
     research: options.research || "",
     category_id: options.categoryId || "",
+    page,
   })
   return mapCanalList(raw, page)
 }
@@ -216,7 +218,7 @@ export async function getJoinedCanals(
 /** GET /canal/:canal_id — détail complet d'un canal. */
 export async function getCanalDetail(canalId: string): Promise<{ success: boolean; canal?: Canal; message?: string }> {
   const raw = await requestGet<any>(`/canal/${encodeURIComponent(canalId)}`)
-  const canalRaw = raw?.canal ?? raw?.data ?? raw
+  const canalRaw = raw?.result ?? raw?.canal ?? raw?.data ?? raw
   return {
     success: raw?.success ?? true,
     message: raw?.message,

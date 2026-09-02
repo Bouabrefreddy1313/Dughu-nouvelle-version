@@ -1,6 +1,6 @@
 /**
- * DELETE /api/canal/notifications/[id]
- * Supprimer une notification de canal.
+ * DELETE /api/canal/notifications/[canalId]
+ * Supprimer une notification de canal (canalId = notificationId).
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -9,9 +9,9 @@ import { deleteNotification } from "@/services/canal/canal.server"
 
 export const dynamic = "force-dynamic"
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ canalId: string }> }) {
   try {
-    const { id } = await params
+    const { canalId: notificationId } = await params
     const { searchParams } = new URL(req.url)
     const userId = String(searchParams.get("userId") || "") || (await getDughuUserIdFromCookies())
     const canalId = String(searchParams.get("canalId") || "")
@@ -20,7 +20,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ success: false, message: "Session requise." }, { status: 401 })
     }
 
-    const result = await deleteNotification(id, { userId, canalId })
+    const result = await deleteNotification(notificationId, { userId, canalId })
     return NextResponse.json(result)
   } catch (error) {
     console.error("CANAL DELETE NOTIFICATION ERROR:", error)

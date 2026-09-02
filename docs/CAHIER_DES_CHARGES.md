@@ -1095,7 +1095,7 @@ quand on s'y trouve, le clic ferme le drawer mobile).
   - Barre d'onglets (style pill) : Explorer (orange actif par défaut), Mes canaux, Canaux rejoints, Favoris.
   - Barre de recherche en temps réel et bouton « + Créer un canal » (fond orange).
   - Sous-filtre catégories horizontalement scrollable avec style de tab actif bleu foncé.
-  - Grille responsive de cartes de canaux (jusqu'à 6 colonnes desktop) : cover, médaillon avatar, badge membres/visibilité, nom tronqué, catégorie, bouton favori (étoile avec mise à jour optimiste) et bouton « Intégrer » (adhésion directe si public, demande si privé).
+  - Grille responsive de cartes de canaux au format large (2 colonnes sur desktop) : bannière cover panoramique, avatar médaillon superposé 100% visible sans masquage par le fond blanc de la carte, badges membres/visibilité, catégorie, étoile favori et bouton d'action aligné. Sur l'onglet « Canaux rejoints », affichage des informations étendues (statut membre/créateur, type d'accès, date d'adhésion) et bouton « Ouvrir le chat ».
   - Clic sur une carte : ouvre l'Écran 3 sans recharger la page.
 * **Écran 2 — Modale de création** :
   - Titre orange centré, modale avec overlay sombre.
@@ -1105,13 +1105,15 @@ quand on s'y trouve, le clic ferme le drawer mobile).
   - Soumission multipart/form-data via POST /canal.
 * **Écran 3 — Vue Chat plein écran (Thème sombre)** :
   - Overlay sombre plein écran avec bouton de fermeture (✕).
-  - Colonne gauche : compteur de membres actifs, liste des canaux suivis avec surbrillance du canal sélectionné, barre de recherche et suggestions.
-  - Colonne centrale : en-tête du canal actif, zone de messages avec bulles, médias, réactions emoji et suppression ; zone inférieure adaptative : champ de saisie + pièces jointes si autorisé, ou avertissement rouge/orange si les droits de publication sont restreints par l'administrateur.
+  - Colonne gauche : compteur de membres actifs, liste des canaux appartenant à l'utilisateur (agrégation des canaux créés via `useMyCanals` et rejoints via `useJoinedCanals`) avec surbrillance du canal sélectionné, barre de recherche et suggestions.
+  - Colonne centrale : en-tête du canal actif, zone de messages avec bulles, médias, réactions emoji et suppression ; zone inférieure adaptative : champ de saisie + pièces jointes si autorisé (créateur/admin ou canal public), ou avertissement rouge/orange si les droits de publication sont restreints par l'administrateur.
   - Colonne droite : grande cover, avatar centré, détails du canal (catégorie, description, visibilité, nombre de membres) et onglets Médias / Documents.
 * **Architecture technique** :
   - Respect strict des deux instances Axios (`dughuServer` côté serveur pour les 32 endpoints Dughu, `apiClient` côté client pour les routes internes `/api/canal/**`).
+  - Découverte globale des canaux branchée en `GET /api/canal?scope=all` (avec filtrage catégorie et recherche textuelle `research`).
+  - Normalisation défensive dans `canal.mapper.ts` prenant en charge l'enveloppe `result.data` de l'API Dughu, les URLs complètes (`logo_url`, `cover_url`), l'identifiant auteur `autor_id`, le flag `isRejoind` et le compteur `user_count`.
   - Aucun `fetch` natif côté frontend.
-  - Hooks TanStack Query dédiés (`useCanals`, `useCanalDetail`, `useCanalMessages`, `useCanalFavorites`, `useCanalPolls`, etc.).
+  - Hooks TanStack Query dédiés (`useCanals`, `useMyCanals`, `useJoinedCanals`, `useCanalDetail`, `useCanalMessages`, `useCanalFavorites`, `useCanalPolls`, etc.).
 
 ## 4. Fonctionnalités futures
 
