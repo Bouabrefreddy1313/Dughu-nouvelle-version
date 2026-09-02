@@ -1,0 +1,1 @@
+const content = [line1];fs.writeFileSync(" src/components/pages/SpaceFormPage.tsx.new,content.join(String.fromCharCode(10)));

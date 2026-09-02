@@ -13,6 +13,101 @@ Chaque entrée doit contenir :
 
 ## 2026-09-02
 
+### Module « Canal » — intégration complète (32 endpoints)
+
+* **Intégration complète du module Canal** avec respect strict de l'architecture Axios à deux instances :
+  - **Types (`src/types/canal/canal.types.ts`)** : modélisation complète (`Canal`, `CanalMember`, `CanalMessage`, `CanalReaction`, `CanalPoll`, `CanalMedia`, `CanalDocument`, `CanalNotification`, génériques `ApiResponse<T>`, `PaginatedResponse<T>`, formulaires et payloads).
+  - **Helpers & Mapper (`src/services/canal/canal.helpers.ts`, `src/services/canal/canal.mapper.ts`)** : construction multipart (`FormData`) pour uploads de logo/cover et médias de messages, normalisation défensive et gestion de pagination.
+  - **Service serveur (`src/services/canal/canal.server.ts`)** : implémentation exhaustive des 32 endpoints Dughu via `dughuServerGet`, `dughuServerForm`, `dughuServerMultipart`.
+  - **Service frontend (`src/services/canal/canal.service.ts`)** : fonctions consommant l'instance Axios cliente `apiClient` sans aucun `fetch` natif, gestion d'erreurs normalisée en `ApiError` et prise en charge d'`AbortSignal`.
+  - **Route Handlers Next.js (`src/app/api/canal/**`)** : routes internes couvrant l'ensemble du cycle de vie des canaux, messages, membres, sondages, médias, notifications et signalements.
+  - **Hooks TanStack Query (`src/hooks/canal/**`)** : `useCanals`, `useCanalDetail`, `useMyCanals`, `useJoinedCanals`, `useSuggestCanals`, `useCanalMessages`, `useCanalFavorites` (avec mise à jour optimiste du toggle favori), `useCanalPolls`, `useCanalNotifications`.
+  - **Composants UI (`src/components/canal/**`)** :
+    - Écran 1 (thème clair) : liste de canaux avec onglets Explorer, Mes canaux, Canaux rejoints, Favoris, barre de recherche, filtres catégories scrollables et grille de cartes responsive jusqu'à 6 colonnes.
+    - Écran 2 (thème clair) : modale de création d'un canal avec upload de logo et cover, champs descriptifs et sélecteurs de type et statut.
+    - Écran 3 (thème sombre) : vue chat 3 colonnes plein écran avec liste des canaux suivis, zone de messagerie en temps réel, vérification des droits de publication et panneau latéral détaillant le canal et ses médias/documents.
+  - **Liaison Navigation** : bouton « Canal » de la sidebar gauche (`LeftSidebar.tsx`) désormais actif et relié à la page `/canal` (`src/app/(protected)/canal/page.tsx`).
+
+
+### Espaces — onglet « Actualité » avec boutons d'action sur chaque publication (ajout)
+
+* **Onglet « Actualité » en première position** de la page `/espaces`, avant
+  « Découverte » (`PagesPage.tsx`, icône `Newspaper`) : il affiche le fil global
+  des publications des espaces. La recherche d'espaces est masquée sur cet
+  onglet (elle ne concerne que les listes d'espaces).
+* **Nouveau composant `PagesFeedTab`** (`src/components/pages/PagesFeedTab.tsx`)
+  : réutilise la **carte `PostCard` du fil principal** — chaque publication des
+  espaces affiche désormais la barre d'actions complète : **J'aime + palette de
+  6 réactions** (optimiste + cache `reactionCache`, rollback sur échec),
+  **Commenter** (liste chargée par la carte, ajout texte/fichiers),
+  **Republier** (simple et avec texte d'accompagnement), **Partager** (modale
+  interne avec `shareLink` fourni par l'API) et le **menu « 3 points »**
+  (enregistrer, masquer, bloquer, supprimer avec `ConfirmDialog` si auteur).
+  Auteur = la Page (nom + avatar de l'espace) ; pas de bouton « Suivre » sur
+  les publications de Page (le like de l'espace reste sur sa page) ;
+  abonnement conservé pour les publications personnelles.
+* **Chaîne HTTP conforme au système Axios** : `PagesFeedTab` → service frontend
+  `fetchPagesPostsFeed` (`pages.service.ts`, instance cliente) → nouvelle route
+  `GET /api/pages/feed?page=N` → service serveur `fetchPagesPostsFeed`
+  (`pages.server.ts`, instance Axios serveur) → API Dughu
+  `getPostPageUser/{user_id}` → mapper `mapPosts` (même forme que le fil).
+  Aucun `fetch` natif côté frontend.
+* **Sémantique API vérifiée en direct sur apitest** : `getPostPageUser/{id}`
+  attend un **ID utilisateur** et renvoie le **feed global des publications des
+  espaces** (5/page, paginateur Laravel, auteur = page, `is_like`/`typeLike`/
+  `count_likes`/`comment_count`/`repost_count`/`shareLink`). L'endpoint répond
+  parfois `success: false` (« Utilisateur non trouvé ») de façon intermittente :
+  la route serveur retente **une fois** (lecture idempotente) puis l'état
+  d'erreur avec « Réessayer » est affiché.
+* **Détail d'espace** (`SpaceDetailPage.tsx`) : l'onglet interne « Actualité »
+  réutilise `PagesFeedTab` — les publications gagnent les mêmes boutons
+  d'action (l'ancienne liste simple sans actions est remplacée ; l'API ignorant
+  l'id de page, le feed affiché est le feed global des espaces).
+* **Pagination** : chargement automatique au scroll (IntersectionObserver,
+  comme le fil d'accueil), dédoublonnage des posts, bouton « Charger plus »
+  en cas d'échec de pagination (les publications déjà chargées sont conservées).
+* **Limitation documentée** : l'API Dughu ne propose pas de « Je n'aime pas »
+  pour les publications (seules les capsules ont `toggleDislikeShort`) ; la
+  palette de réactions (J'aime, J'adore, Haha, Wouah, Triste, Énervé) couvre
+  l'ensemble des réactions disponibles pour les posts.
+
+### Section « Espaces » / Space (ajout)
+
+* **Nouvelle section complète** connectée au bouton « Espaces » de la sidebar
+  gauche (`/espaces`, état actif `active="espaces"`) : liste à onglets
+  (Découverte / Mes espaces / Aimés / Suggestions / Administrés) avec recherche
+  debouncée, détail d'espace à onglets (Actualité, À propos, Galerie, Offres,
+  Admins, Stats, Inviter — onglets de gestion masqués aux non-admins),
+  formulaire de création (`/espaces/creer`) et d'édition (`/espaces/[id]/edit`).
+* **Sémantique API vérifiée sur apitest** : `GET /getPage/{id}` ignore l'id et
+  renvoie le feed global de découverte ; le détail passe par
+  `POST /show/pages` ; suppression unique via `POST /destroyPage/{id}` avec
+  **mot de passe obligatoire** (doublon « delete Page » ignoré) ; boost en deux
+  temps (`POST /boostPrice` → affichage prix points/FCFA → `POST /boostPage`) ;
+  like avec **mise à jour optimiste** ; upload avatar/cover en multipart
+  (`element` = avatar|cover) ; privilèges admins granulaires via
+  `/updatePageAdminPrivileges/{adminId}` (checkboxes general, info, social,
+  avatar, design, admins, analytics, delete_page) ; liens sociaux via
+  `/socialLinksUpdat` (typo backend `instgram` conservée et documentée) ;
+  destinataire des points via `/page/{id}/points-recipient`.
+* **Architecture** : types (`src/types/pages/`), mapper défensif
+  (`src/services/pages/pages.mapper.ts`), service serveur
+  (`pages.server.ts`), services frontend par domaine (`pages.service.ts`,
+  `page-admin.service.ts`, `page-offer.service.ts`, `page-stats.service.ts`),
+  22 routes API internes (`/api/pages*`, `/api/offers/[id]`), hooks TanStack
+  Query (`use-pages.ts`, mutations sans retry, like optimiste avec rollback).
+* **Composants réutilisables** : PageCard, TabNavigation (réutilisé), modale de
+  suppression avec mot de passe, modale de boost avec prix, uploader
+  avatar/cover, panneaux Admins/Offres/Inviter/Stats/À propos, états partagés
+  (squelettes/erreur/vide).
+* **Vérifié de bout en bout sur apitest** : listes (feed 12, mine 10, liked 10),
+  catégories (22), détail page 682 (likes, admins, is_admin/is_like), posts (5),
+  images, likes, offres, invitations (15 amis), prix de boost (7000 pts /
+  7000 FCFA), création de page (page 683 créée), suppression avec mauvais mot
+  de passe → « Mot de passe incorrect. » propagé, stats non-admin → 403 avec
+  message français ; `next build` passe (routes `○ /espaces`, `ƒ /espaces/[id]`,
+  `ƒ /espaces/[id]/edit`, `○ /espaces/creer`) ; `tsc --noEmit` sans erreur.
+
 ### Build — limite Suspense pour `useSearchParams()` (correction)
 
 * **Symptôme** : `next build` échouait avec « useSearchParams() should be

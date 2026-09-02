@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import {
   useCallback,
@@ -61,6 +61,8 @@ interface Author {
   username?: string | null
   verified?: boolean
   isFollowing?: boolean
+  /** Défini quand l'auteur est une page (espace) → lien vers /espaces/[pageId] */
+  pageId?: string | null
 }
 
 interface CommentUser {
@@ -397,7 +399,7 @@ function ParentPostCard({
         />
         <div className="min-w-0">
           <a
-            href={`/profile/${parentPost.author.username || parentPost.author.id}`}
+            href={parentPost.author.pageId ? `/espaces/${parentPost.author.pageId}` : `/profile/${parentPost.author.username || parentPost.author.id}`}
             className="block text-[13px] font-semibold text-[#050505] truncate hover:underline"
           >
             {parentPost.author.name}
@@ -781,7 +783,7 @@ function ModalPostPreview({
         <div className="flex-1 min-w-0 flex items-center justify-between">
           <div className="min-w-0">
             <a
-              href={`/profile/${author.username || author.id}`}
+              href={author.pageId ? `/espaces/${author.pageId}` : `/profile/${author.username || author.id}`}
               className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
             >
               {author.name}
@@ -2010,7 +2012,7 @@ export function PostCard({
 
         <div className="flex-1 min-w-0">
           <a
-            href={`/profile/${author.username || author.id}`}
+            href={author.pageId ? `/espaces/${author.pageId}` : `/profile/${author.username || author.id}`}
             className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
           >
             {author.name}

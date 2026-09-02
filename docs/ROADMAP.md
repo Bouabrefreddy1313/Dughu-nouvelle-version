@@ -48,6 +48,7 @@ Elle peut évoluer selon les besoins du projet.
 
 * 🟡 Notifications
 * 🟢 Messages — lot 8 migré : service frontend `messages.service.ts` (8 endpoints sur l'instance Axios cliente), types `types/messages/message.types.ts` (façade `lib/messages.ts` conservée), `MessagesPageClient` / `ConversationPopup` / `ConversationSidebar` débranchés de l'ancien `apiClient` (supprimé, ainsi que son interceptor de redirection globale 401)
+* 🟢 Canaux (Module Canal — 32 endpoints, écrans découverte/création/chat, hooks TanStack Query, architecture Axios deux instances)
 * ⚪ Conversations avancées
 * ⚪ Appels si prévus
 

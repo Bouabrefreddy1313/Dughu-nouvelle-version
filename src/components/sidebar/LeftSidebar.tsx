@@ -237,13 +237,23 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<Image src="/images/page.png" alt="Espaces" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Espaces"
+            active={active === "espaces"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/espaces")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
             icon={<Image src="/images/canal.png" alt="Canal" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Canal"
+            active={active === "canal"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/canal")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem

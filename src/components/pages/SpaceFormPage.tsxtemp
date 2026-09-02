@@ -1,0 +1,303 @@
+"use client"
+
+/**
+ * Formulaire de création / édition d'un espace (POST /page).
+ * - Création : wizard en 3 étapes (photos → infos → catégorie/contact).
+ *   Étape 1 : upload photo de couverture et photo de profil.
+ * - Édition : pré-remplissage via POST /show/pages, mise à jour avec `pageId`.
+ */
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { ArrowLeft, ArrowRight, Save, Upload } from "lucide-react"
+import MainLayout from "@/components/layout/MainLayout"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/hooks/auth/use-auth"
+import { useCreateOrUpdatePage, usePageCategories, usePageDetail } from "@/hooks/pages/use-pages"
+import type { PageFormValues } from "@/types/pages/pages.types"
+import { PageSkeleton } from "./PageStates"
+import { cn } from "@/lib/utils"
+
+interface SpaceFormPageProps {
+  editPageId?: string
+}
+
+const EMPTY: PageFormValues = {
+  pageName: "",
+  pageTitle: "",
+  pageDescription: "",
+  pageCategory: "",
+  website: "",
+  phone: "",
+  address: "",
+  usersPost: false,
+}
+
+const INPUT_CLASS =
+  "w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none transition focus:border-[#A35A2B] focus:ring-2 focus:ring-[#A35A2B]/20"
+
+const STEPS = ["Photos", "Informations", "Catégorie & contact"] as const
+type Step = (typeof STEPS)[number]
+
+function ImagePreview({ file, label }: { file: File; label: string }) {
+  const [src, setSrc] = useState("")
+  useEffect(() => {
+    const url = URL.createObjectURL(file)
+    setSrc(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+  return (
+    <div className="relative mx-auto aspect-video w-full max-w-xs overflow-hidden rounded-xl border border-gray-200">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={label} className="h-full w-full object-cover" />
+    </div>
+  )
+}
+
+export default function SpaceFormPage({ editPageId }: SpaceFormPageProps) {
+  const router = useRouter()
+  const { data: rawUser } = useAuth()
+  const dughuUserId = String(rawUser?.dughu?.userId || rawUser?.dughuUserId || "") || undefined
+
+  const categoriesQuery = usePageCategories()
+  const detailQuery = usePageDetail(editPageId, dughuUserId)
+  const mutation = useCreateOrUpdatePage()
+
+  const [values, setValues] = useState<PageFormValues>(EMPTY)
+  const [coverImage, setCoverImage] = useState<File | null>(null)
+  const [profileImage, setProfileImage] = useState<File | null>(null)
+  const [ready, setReady] = useState(!editPageId)
+  const [step, setStep] = useState<Step>(editPageId ? "Informations" : "Photos")
+
+  useEffect(() => {
+    const page = detailQuery.data?.page
+    if (!editPageId || !page || ready) return
+    setValues({
+      pageName: page.pageName,
+      pageTitle: page.pageTitle,
+      pageDescription: page.pageDescription,
+      pageCategory: page.pageCategory,
+      website: page.website,
+      phone: page.phone,
+      address: page.address,
+      usersPost: page.usersPost,
+    })
+    setReady(true)
+  }, [detailQuery.data, editPageId, ready])
+
+  const update = <K extends keyof PageFormValues>(key: K, value: PageFormValues[K]) =>
+    setValues((prev) => ({ ...prev, [key]: value }))
+
+  const canGoNext = (): boolean => {
+    if (step === "Informations") return !!values.pageName.trim() && !!values.pageTitle.trim()
+    return true
+  }
+
+  const nextStep = () => {
+    if (!canGoNext()) return
+    const idx = STEPS.indexOf(step)
+    if (idx < STEPS.length - 1) setStep(STEPS[idx + 1])
+  }
+
+  const prevStep = () => {
+    const idx = STEPS.indexOf(step)
+    if (idx > 0) setStep(STEPS[idx - 1])
+  }
+
+  const handleSubmit = async () => {
+    if (!values.pageName.trim() || !values.pageTitle.trim()) {
+      toast.error("Le nom et le titre de l'espace sont requis.")
+      return
+    }
+    try {
+      const result = await mutation.mutateAsync({
+        ...values,
+        pageId: editPageId,
+        coverImage: !editPageId ? coverImage ?? undefined : undefined,
+        profileImage: !editPageId ? profileImage ?? undefined : undefined,
+      })
+      if (result.success === false) {
+        toast.error(result.message || "Impossible d'enregistrer l'espace.")
+        return
+      }
+      const createdId = editPageId || (result.result as { page_id?: string | number } | undefined)?.page_id
+      toast.success(editPageId ? "Espace mis à jour !" : "Espace créé ! 🎉")
+      router.push(createdId ? `/espaces/${createdId}` : "/espaces")
+    } catch {
+      toast.error("Impossible d'enregistrer l'espace. Veuillez réessayer.")
+    }
+  }
+
+    const loading = !!editPageId && (!ready || detailQuery.isLoading)
+
+  return (
+    <MainLayout user={rawUser} noRightSidebar active="espaces" reserveLeftSidebar>
+      <div className="mx-auto w-full max-w-2xl px-3 py-4 sm:px-0 sm:py-6">
+        <header className="mb-5 flex items-center gap-3 px-1">
+          <button
+            type="button"
+            onClick={() => router.push(editPageId ? `/espaces/${editPageId}` : "/espaces")}
+            className="flex size-10 items-center justify-center rounded-full bg-[#F0F2F5] text-[#65676B] transition hover:bg-[#E4E6EB]"
+            aria-label="Retour"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#2D2D2D]">
+              {editPageId ? "Modifier l'espace" : "Créer un espace"}
+            </h1>
+          </div>
+        </header>
+
+        {!editPageId && (
+          <nav aria-label="Étapes de création" className="mb-4">
+            <ol className="flex items-center justify-center gap-2 text-sm font-medium text-[#65676B]">
+              {STEPS.map((s, i) => {
+                const isCurrent = step === s
+                const isComplete = STEPS.indexOf(step) > i
+                return (
+                  <li key={s} className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                        isCurrent ? "bg-[#A35A2B] text-white" : isComplete ? "bg-[#06B6D4] text-white" : "bg-[#F0F2F5] text-[#65676B]"
+                      )}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className={isCurrent ? "text-[#2D2D2D]" : ""} aria-current={isCurrent ? "step" : undefined}>
+                      {s}
+                    </span>
+                    {i < STEPS.length - 1 && <ArrowRight size={14} className="text-[#CBD5E1]" />}
+                  </li>
+                )
+              })}
+            </ol>
+          </nav>
+        )}
+
+        {loading ? (
+          <PageSkeleton rows={4} />
+                ) : (
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+            {/* Étape 1 : Photos (création uniquement) */}
+            {!editPageId && step === "Photos" && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold text-[#2D2D2D]">Photos de l'espace</h2>
+                <p className="text-sm text-[#65676B]">Ajoutez une photo de couverture et une photo de profil. (Optionnel)</p>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-[#2D2D2D]">Photo de couverture</label>
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 px-4 py-6 text-center text-sm text-[#65676B] transition hover:border-[#A35A2B] hover:bg-[#F5EFE8]">
+                    <Upload size={20} aria-hidden />
+                    <span>Choisir une photo de couverture</span>
+                    <input type="file" accept="image/*" onChange={(e) => setCoverImage(e.target.files?.[0] ?? null)} className="hidden" aria-hidden />
+                  </label>
+                  {coverImage && <ImagePreview file={coverImage} label="Photo de couverture" />}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-[#2D2D2D]">Photo de profil</label>
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 px-4 py-6 text-center text-sm text-[#65676B] transition hover:border-[#A35A2B] hover:bg-[#F5EFE8]">
+                    <Upload size={20} aria-hidden />
+                    <span>Choisir une photo de profil</span>
+                    <input type="file" accept="image/*" onChange={(e) => setProfileImage(e.target.files?.[0] ?? null)} className="hidden" aria-hidden />
+                  </label>
+                  {profileImage && <ImagePreview file={profileImage} label="Photo de profil" />}
+                </div>
+              </div>
+            )}
+            )}
+
+            {/* Étape 2 : Informations de base */}
+            {(step === "Informations" || !!editPageId) && (
+              <div className="space-y-4">
+                {!editPageId && <h2 className="text-lg font-semibold text-[#2D2D2D]">Informations de base</h2>}
+                <div>
+                  <label htmlFor="page-name" className="mb-1 block text-sm font-semibold text-[#2D2D2D]">Nom*</label>
+                  <input id="page-name" value={values.pageName} onChange={(e) => update("pageName", e.target.value)} placeholder="ex. Dughu Dev" className={INPUT_CLASS} />
+                </div>
+                <div>
+                  <label htmlFor="page-title" className="mb-1 block text-sm font-semibold text-[#2D2D2D]">Titre*</label>
+                  <input id="page-title" value={values.pageTitle} onChange={(e) => update("pageTitle", e.target.value)} placeholder="Titre public de l'espace" className={INPUT_CLASS} />
+                </div>
+                <div>
+                  <label htmlFor="page-description" className="mb-1 block text-sm font-semibold text-[#2D2D2D]">Description</label>
+                  <textarea id="page-description" value={values.pageDescription} onChange={(e) => update("pageDescription", e.target.value)} rows={3} placeholder="Décrivez votre espace…" className={`${INPUT_CLASS} resize-none`} />
+                </div>
+              </div>
+            )}
+
+            {/* Étape 3 : Catégorie & contact */}
+            {(step === "Catégorie & contact" || !!editPageId) && (
+              <div className="space-y-4">
+                {!editPageId && <h2 className="text-lg font-semibold text-[#2D2D2D]">Catégorie & contact</h2>}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="page-category" className="mb-1 block text-sm font-semibold text-[#2D2D2D]">Catégorie</label>
+                    <select id="page-category" value={values.pageCategory} onChange={(e) => update("pageCategory", e.target.value)} className={INPUT_CLASS}>
+                      <option value="">— Choisir —</option>
+                      {categoriesQuery.data?.map((category) => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="page-website" className="mb-1 block text-sm font-semibold text-[#2D2D2D]">Site web</label>
+                    <input id="page-website" value={values.website} onChange={(e) => update("website", e.target.value)} placeholder="https://…" className={INPUT_CLASS} />
+                  </div>
+                  <div>
+                    <label htmlFor="page-phone" className="mb-1 block text-sm font-semibold text-[#2D2D2D]">Téléphone</label>
+                    <input id="page-phone" value={values.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+225 00 00 00 00" className={INPUT_CLASS} />
+                  </div>
+                  <div>
+                    <label htmlFor="page-address" className="mb-1 block text-sm font-semibold text-[#2D2D2D]">Adresse</label>
+                    <input id="page-address" value={values.address} onChange={(e) => update("address", e.target.value)} placeholder="Ville, quartier…" className={INPUT_CLASS} />
+                  </div>
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-[#2D2D2D]">
+                  <input type="checkbox" checked={values.usersPost} onChange={(e) => update("usersPost", e.target.checked)} className="size-4 accent-[#A35A2B]" />
+                  Autoriser les membres à publier dans cet espace
+                </label>
+              </div>
+            )}
+
+            {/* Boutons d'action */}
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-4">
+              {!editPageId && step !== "Photos" && (
+                <Button variant="outline" onClick={prevStep} className="rounded-full">
+                  Retour
+                </Button>
+              )}
+              {!editPageId && step !== "Catégorie & contact" && (
+                <Button
+                  onClick={nextStep}
+                  disabled={!canGoNext()}
+                  className="rounded-full bg-[#A35A2B] text-white hover:bg-[#8B4A1F]"
+                >
+                  Suivant <ArrowRight size={16} aria-hidden className="ml-1.5" />
+                </Button>
+              )}
+              {editPageId && (
+                <Button variant="outline" onClick={() => router.push(`/espaces/${editPageId}`)} className="rounded-full">
+                  Annuler
+                </Button>
+              )}
+              {((!editPageId && step === "Catégorie & contact") || editPageId) && (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={mutation.isPending}
+                  className="rounded-full bg-[#A35A2B] text-white hover:bg-[#8B4A1F]"
+                >
+                  <Save size={16} aria-hidden className="mr-1.5" />
+                  {mutation.isPending ? "Enregistrement…" : editPageId ? "Enregistrer" : "Créer l'espace"}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </MainLayout>
+  )
+}

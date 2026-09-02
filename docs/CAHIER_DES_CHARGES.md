@@ -845,6 +845,95 @@ surligné quand on s'y trouve, le clic ferme le drawer mobile).
   tronquées proprement, boutons avec `aria-label` nominatif, images avec
   fallback `/images/avatar.png`.
 
+### Espaces (Space)
+
+La page `/espaces` est protégée (groupe `(protected)`) et accessible depuis
+l'item **« Espaces » de la sidebar gauche** (`active="espaces"` : surligné
+quand on s'y trouve, le clic ferme le drawer mobile).
+
+* **Sémantique de l'API Dughu** (vérifiée sur apitest) :
+  * `GET /getPage/{id}` **ignore l'id** (résidu Postman) → renvoie le feed
+    global des pages paginé (`?page=N`, `searchTerm`) : sert à la découverte ;
+  * `POST /userPages {auth_user_id, user_id}` → « Mes espaces » ;
+  * `POST /userLikedPages?page=` → espaces aimés ;
+  * `POST /suggestPages?page=` → suggestions ;
+  * `POST /pageAdminsUser` → espaces administrés ;
+  * `POST /show/pages {user_id, page_id}` → **détail** (page + `admins` +
+    `is_admin` + `is_like` + `count_like`) ;
+  * `GET /getPostPageUser/{id}?page=` → **attend un ID utilisateur** et renvoie
+    le feed global des publications des espaces paginé (5/page, auteur = page)
+    : alimente l'onglet « Actualité » (`/api/pages/feed`) ; `GET /imagePage/{id}?page=`
+    → galerie ; `GET /getPageLikes/{id}` → likes ;
+  * `GET /getPageOffers/{page_id}/{user_id}?page=` → offres ;
+    `GET /offers/show/{id}` → détail d'offre ; `POST /offers` → création ;
+  * `POST /page` → création **et** édition (avec `page_id`) ;
+  * `POST /likePage {page_id, user_id}` → like/unlike ;
+  * `POST /boostPrice {days}` → prix (`{points, fcfa}`) **avant**
+    `POST /boostPage {days, page_id, user_id}` ;
+  * `POST /destroyPage/{id} {password}` → suppression (**mot de passe
+    obligatoire** ; le doublon « delete Page » est ignoré) ;
+  * `POST /page/uploadImage` (multipart `page_id`, `image`, `element` =
+    avatar|cover) → avatar/couverture ;
+  * `POST /addAdminPage {page_id, user_id}`, `POST /addRemovePageAdmin
+    {page_id, member_id}` → ajout/retrait d'admin ;
+  * `POST /updatePageAdminPrivileges/{adminId}` → privilèges détaillés
+    (checkboxes general, info, social, avatar, design, admins, analytics,
+    delete_page) ;
+  * `POST /page/requestVerification/{id}` / `POST /page/removeVerification/{id}`
+    / `POST /toggleVerificationPage` → vérification ;
+  * `POST /page/inviteFriend {user_id, page_id, friend_id}` → invitation
+    (l'incohérence « listUserLikeAdmin » sur la même URL est ignorée ; la liste
+    des invités passe par `POST /invitePageList {per_page, user_id, page_id}`) ;
+  * `POST /page/{page_id}/points-recipient {points_recipient}` → destinataire
+    des points (subscriber | owner | none) ;
+  * `POST /socialLinksUpdat` (clé `instgram` = typo backend conservée) → liens
+    sociaux ; `GET /getPageCategories` → catégories du formulaire.
+* **Écrans** : liste à onglets (**Actualité** / Découverte / Mes espaces / Aimés
+  / Suggestions / Administrés) avec recherche debouncée (masquée sur
+  l'onglet Actualité) ; détail d'espace (`/espaces/[id]`) structuré avec une **sidebar
+  gauche d'informations** inspirée de la page profil (carte À propos avec description,
+  coordonnées complètes, icônes, liens sociaux et statistiques) et des onglets de
+  contenu principal (Galerie, Offres, À propos/gestion, Admins, Stats, Inviter — **aucun
+  onglet « Actualité » sur la page de détail**, l'actualité étant centralisée sur `/espaces`) ;
+  formulaire de création (`/espaces/creer`) en **assistant guidé par étapes (wizard)**
+  demandant dès l'Étape 1 la photo de couverture et la photo de profil avec prévisualisation,
+  suivi de l'Étape 2 (nom, titre, description) et de l'Étape 3 (catégorie, coordonnées, permissions) ;
+  formulaire d'édition (`/espaces/[id]/edit`) en vue directe pré-remplie.
+* **Onglet « Actualité »** (première position, `PagesFeedTab.tsx`) : fil global
+  des publications des espaces via `GET /api/pages/feed` (service serveur
+  `fetchPagesPostsFeed` → `getPostPageUser/{user_id}`, mapper du fil principal
+  `mapPosts`). Chaque publication est rendue avec la **carte `PostCard` du fil**
+  et sa barre d'actions complète : **J'aime + palette de 6 réactions**,
+  **Commenter** (liste + ajout + fichiers), **Republier** (simple ou avec
+  texte), **Partager** (modale interne, lien `shareLink`), menu « 3 points »
+  (enregistrer, masquer, bloquer, supprimer si auteur). Les cartes sont
+  disposées avec un **espacement généreux et aéré** (`gap-5 sm:gap-6` et marges nettes).
+  Mises à jour optimistes avec rollback (réactions via le cache `reactionCache`), abonnement
+  à l'auteur pour les publications personnelles (pas de bouton « Suivre » sur
+  les publications de Page), chargement automatique au scroll (5 publications
+  par page) avec bouton « Charger plus » en cas d'échec de pagination.
+  ⚠️ L'API Dughu ne fournit pas de « Je n'aime pas » pour les publications
+  (seules les capsules en ont un) ; la palette de réactions (J'aime, J'adore,
+  Haha, Wouah, Triste, Énervé) couvre l'ensemble des réactions disponibles.
+  L'endpoint répond parfois `success: false` de façon intermittente : la route
+  serveur effectue **un seul nouvel essai** (lecture idempotente) avant
+  d'afficher un état d'erreur avec « Réessayer ».
+* **Règles métier** : suppression **toujours** précédée d'une modale demandant
+  le mot de passe (l'API renvoie 401 « Mot de passe incorrect. » → message
+  propagé) ; boost avec **affichage du prix** (`boostPrice`) avant validation ;
+  like en **mise à jour optimiste** (rollback si échec) ; upload avatar/cover
+  réservé aux admins ; privilèges admin éditables par checkboxes.
+* **Architecture HTTP** : composants (`src/components/pages/`) → hooks TanStack
+  Query (`src/hooks/pages/use-pages.ts`, mutations **sans retry**) → services
+  frontend par domaine (`pages.service.ts`, `page-admin.service.ts`,
+  `page-offer.service.ts`, `page-stats.service.ts`) → routes internes
+  `/api/pages*` et `/api/offers/[id]` (session par cookie) → service serveur
+  (`pages.server.ts` + mapper défensif `pages.mapper.ts`) → API Dughu. Seuls
+  les champs affichables sortent du serveur (e-mails et tokens de la réponse
+  brute filtrés).
+* **États** : squelettes, erreur + « Réessayer », vide par onglet, toasts de
+  succès/échec ; responsive mobile-first ; accessibilité (labels, aria).
+
 ### Communication
 
 * Messages
@@ -982,6 +1071,32 @@ surligné quand on s'y trouve, le clic ferme le drawer mobile).
 * Les états de chargement (skeletons), d'erreur (avec relance), d'état vide
   (invitation à créer son premier album) et de succès sont gérés pour chaque
   appel API.
+
+### Canaux (Module Canal)
+
+* Accessible directement depuis le bouton « Canal » de la barre latérale gauche (état actif `active="canal"`, route protégée `/canal`).
+* **Écran 1 — Découverte & Exploration** :
+  - En-tête avec icône officielle et titre.
+  - Barre d'onglets (style pill) : Explorer (orange actif par défaut), Mes canaux, Canaux rejoints, Favoris.
+  - Barre de recherche en temps réel et bouton « + Créer un canal » (fond orange).
+  - Sous-filtre catégories horizontalement scrollable avec style de tab actif bleu foncé.
+  - Grille responsive de cartes de canaux (jusqu'à 6 colonnes desktop) : cover, médaillon avatar, badge membres/visibilité, nom tronqué, catégorie, bouton favori (étoile avec mise à jour optimiste) et bouton « Intégrer » (adhésion directe si public, demande si privé).
+  - Clic sur une carte : ouvre l'Écran 3 sans recharger la page.
+* **Écran 2 — Modale de création** :
+  - Titre orange centré, modale avec overlay sombre.
+  - Zones d'upload côte à côte : logo (requis) et cover (optionnelle) avec prévisualisation.
+  - Champs nom, description, catégorie (chargée dynamiquement).
+  - Toggles côte à côte avec état actif bleu foncé : Type de canal (Privé par défaut / Public) et Canal actif (Oui par défaut / Non).
+  - Soumission multipart/form-data via POST /canal.
+* **Écran 3 — Vue Chat plein écran (Thème sombre)** :
+  - Overlay sombre plein écran avec bouton de fermeture (✕).
+  - Colonne gauche : compteur de membres actifs, liste des canaux suivis avec surbrillance du canal sélectionné, barre de recherche et suggestions.
+  - Colonne centrale : en-tête du canal actif, zone de messages avec bulles, médias, réactions emoji et suppression ; zone inférieure adaptative : champ de saisie + pièces jointes si autorisé, ou avertissement rouge/orange si les droits de publication sont restreints par l'administrateur.
+  - Colonne droite : grande cover, avatar centré, détails du canal (catégorie, description, visibilité, nombre de membres) et onglets Médias / Documents.
+* **Architecture technique** :
+  - Respect strict des deux instances Axios (`dughuServer` côté serveur pour les 32 endpoints Dughu, `apiClient` côté client pour les routes internes `/api/canal/**`).
+  - Aucun `fetch` natif côté frontend.
+  - Hooks TanStack Query dédiés (`useCanals`, `useCanalDetail`, `useCanalMessages`, `useCanalFavorites`, `useCanalPolls`, etc.).
 
 ## 4. Fonctionnalités futures
 

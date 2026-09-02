@@ -626,8 +626,8 @@ export function resolveMediaUrl(v: string): string {
   if (v.startsWith("/uploads/") || v.startsWith("/images/") || v.startsWith("/media/")) return v
   const clean = v.replace(/^\/+/, "")
   // Chemins relatifs du stockage Dughu (bucket S3) renvoyés par certains endpoints
-  // (inclut `uploads/comments/...` utilisé pour les anciens commentaires média)
-  if (/^(comments|replies|videos|files|images|photos|uploads)\//i.test(clean)) {
+  // (inclut `uploads/comments/...` utilisé pour les anciens commentaires média, et `page/...` pour les avatars/covers d'espaces)
+  if (/^(comments|replies|videos|files|images|photos|uploads|page|button_images)\//i.test(clean)) {
     return `https://dughuprod.s3.amazonaws.com/${clean}`
   }
   // Repli : on résout contre l'origine du serveur Dughu
@@ -1192,6 +1192,9 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       username: author.username,
       avatar: author.avatar,
       isFollowing: !!author.isFollowing,
+      // Si le post appartient à une page, on transmet le pageId pour que
+      // PostCard puisse rediriger vers /espaces/[pageId] au lieu de /profile/[username].
+      ...(pageAuthor ? { pageId: pageAuthor.id } : {}),
     },
     page: pageAuthor
       ? { id: pageAuthor.id, name: pageAuthor.name, username: pageAuthor.username, avatar: pageAuthor.avatar }
