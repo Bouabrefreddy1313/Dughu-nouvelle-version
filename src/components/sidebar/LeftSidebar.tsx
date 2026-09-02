@@ -171,8 +171,13 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<Bookmark size={20} />}
             label="Mes sauvegardes"
+            active={active === "saves"}
             iconBg="bg-[#06B6D4]"
             iconColor="text-white"
+            onClick={() => {
+              router.push("/sauvegardes")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
@@ -192,8 +197,13 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<ShieldAlert size={20} />}
             label="Stop aux arnaques"
+            active={active === "scam"}
             iconBg="bg-[#FF4444]"
             iconColor="text-white"
+            onClick={() => {
+              router.push("/stop-arnaques")
+              onCloseMobile?.()
+            }}
           />
         </nav>
       </Card>
@@ -210,7 +220,12 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<Image src="/images/poke.png" alt="Pokes" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Pokes"
+            active={active === "pokes"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/pokes")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem

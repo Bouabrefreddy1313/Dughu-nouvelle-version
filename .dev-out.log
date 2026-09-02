@@ -1,0 +1,13 @@
+
+> dughu@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.12 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.10:3000
+- Environments: .env
+✓ Ready in 509ms
+
+ GET /api/pokes?box=received 200 in 1394ms (next.js: 258ms, application-code: 1136ms)
+ GET /api/pokes?box=received 200 in 882ms (next.js: 4ms, application-code: 878ms)
+[?25h

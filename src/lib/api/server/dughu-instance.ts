@@ -93,6 +93,24 @@ export function dughuServerGet<T = unknown>(
 }
 
 /**
+ * POST form-urlencoded vers l'API Dughu — par défaut MUTATION (aucun retry).
+ * Utilisé par les endpoints Dughu qui attendent des champs de formulaire
+ * (ex. pokes) plutôt que du multipart.
+ */
+export function dughuServerForm<T = unknown>(
+  path: string,
+  params: Record<string, string | number | undefined>,
+  options?: ExecuteOptions
+): Promise<T> {
+  const data = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") data.set(key, String(value))
+  }
+  return execute<T>({ method: "POST", url: path, data }, options)
+}
+
+
+/**
  * POST multipart vers l'API Dughu — par défaut MUTATION (aucun retry).
  * Avec FormData, on laisse Axios construire automatiquement le Content-Type
  * et sa boundary : on ne définit JAMAIS un header Content-Type manuel ici.

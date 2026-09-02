@@ -236,6 +236,15 @@ export const dughuApi = {
   savePost: (userId: string | number, postId: string | number) =>
     dughu.form("store-save", { user_id: String(userId), post_id: String(postId) }),
 
+  // Liste des posts sauvegardés d'un utilisateur (GET /get-post-save/{user_id}).
+  // L'API Dughu pagine la réponse (per_page=10, metadata dans data.pagination) :
+  // on transmet le numéro de page en query param (?page=N).
+  getSavedPosts: (userId: string | number, page?: number) =>
+    dughu.get(
+      `get-post-save/${encodeURIComponent(String(userId))}`,
+      page && page > 1 ? { page } : undefined
+    ),
+
   hidePost: (userId: string | number, postId: string | number) =>
     dughu.form("hidePost", { user_id: String(userId), post_id: String(postId) }),
 

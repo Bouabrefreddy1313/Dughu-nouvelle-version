@@ -11,6 +11,124 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-09-02
+
+### Build — limite Suspense pour `useSearchParams()` (correction)
+
+* **Symptôme** : `next build` échouait avec « useSearchParams() should be
+  wrapped in a suspense boundary at page "/profile/relations" ».
+* **Cause** : les pages client lisant l'URL via `useSearchParams()`
+  (`/profile/relations` : filtre `?type=`, `/retrouvailles` : onglet `?tab=`)
+  n'étaient pas enveloppées dans une limite `<Suspense>`, ce qui est
+  incompatible avec le pré-rendu statique.
+* **Correctif** : les pages parentes `src/app/(protected)/profile/relations/
+  page.tsx` et `src/app/(protected)/retrouvailles/page.tsx` enveloppent
+  désormais leur composant client dans `<Suspense>` (fallback : spinner
+  `Loader2` centré, même motif que la page messages). Audit complet du
+  projet : les 2 autres usages (`/messages`, `/otp`) étaient déjà protégés.
+* **Vérifié** : `next build` passe sans erreur ; les deux pages sont
+  pré-rendues en statique (○).
+
+### Page « Pokes » (ajout)
+
+* **Nouvelle page `/pokes`** (protégée, `MainLayout` sans sidebar droite,
+  `active="pokes"` dans la sidebar gauche) avec **3 onglets** réutilisant le
+  composant `TabNavigation` : **Pokes reçus / Suggestions / Pokes envoyés**.
+* **Sémantique API Dughu vérifiée sur apitest** : `GET /pokes?user_id=X`
+  renvoie les pokes **reçus** (`user` = expéditeur), `GET /pokes/sent?user_id=X`
+  les pokes **envoyés** (`user` = destinataire), `POST /pokes
+  { user_id, received_user_id }` envoie un poke, `POST
+  /pokes/{pokeId}/poke-back { user_id, received_user_id }` répond à un poke
+  (`received_user_id` = expéditeur original, champ exigé par l'API). Le détail
+  `GET /pokes/{pokeId}` ne renvoie qu'un poke unique : les listes passent donc
+  par les endpoints de liste.
+* **Pokes reçus** : bouton « Répondre » par ligne (poke-back) avec **mise à
+  jour optimiste** (retrait immédiat, rollback si échec, resynchronisation) ;
+  **Suggestions** : expéditeurs dédupliqués des pokes reçus + bouton « Poker »
+  (`POST /pokes`) — l'API n'expose pas d'endpoint « suggestions » dédié ;
+  **Pokes envoyés** : liste + bouton secondaire « Re-poker ».
+* **Architecture HTTP** : composants (`src/components/pokes/`) → hooks TanStack
+  Query (`src/hooks/pokes/use-pokes.ts`, mutations **sans retry**) → service
+  frontend (`src/services/pokes/pokes.service.ts`, Axios cliente) → routes
+  internes `GET/POST /api/pokes` et `POST /api/pokes/[pokeId]/poke-back`
+  (session par cookie, fallback paramètre) → service serveur
+  (`src/services/pokes/pokes.server.ts` + mapper défensif) → API Dughu.
+  Nouveau helper serveur `dughuServerForm` (POST form-urlencoded, mutation
+  sans retry) dans `src/lib/api/server/dughu-instance.ts`. Seuls les champs
+  affichables sortent du serveur (e-mails et tokens de la réponse brute
+  filtrés par le mapper).
+* **Vérifié de bout en bout sur apitest** : listes reçus (7) / envoyés (7),
+  envoi de poke (poke 266 créé), poke-back (poke 267 créé), rendu de la page
+  (3 onglets, accents corrects), `tsc --noEmit` sans erreur.
+
+### Page « Stop aux arnaques » (ajout)
+
+* **Nouvelle page `/stop-arnaques`** (protégée, `MainLayout` sans sidebar
+  droite, gabarit identique aux pages Points / Mes sauvegardes) : contenu
+  **100 % statique** — les **20 mesures anti-arnaque DUGHU** codées en dur
+  dans `src/components/scam/anti-scam-data.ts`, aucun appel API.
+* **En-tête** : pastille bouclier « Stop arnaque » + titre principal centré
+  en orange « 20 mesures anti-arnaque DUGHU ».
+* **Composant réutilisable `NumberedTipCard`** (`src/components/scam/`) :
+  numéro + titre gras bleu foncé + description grise, monté 20 fois dans une
+  liste ordonnée sémantique (`<ol role="list">`) pour l'accessibilité.
+* **Sidebar gauche** : le bouton « Stop aux arnaques » navigue désormais vers
+  `/stop-arnaques` (et ferme le drawer mobile) ; il passe en état actif/
+  surligné sur cette page (`active="scam"`).
+* **Responsive & accessibilité** : mobile-first, cartes pleine largeur,
+  hiérarchie typographique claire, icônes décoratives `aria-hidden`,
+  contrastes conformes. Page purement informative (aucun état
+  loading/erreur nécessaire).
+
+### Page « Mes sauvegardes » — correctif « aucun post affiché » (correction)
+
+* **Cause** : l'API Dughu `GET /get-post-save/{user_id}` enveloppe les posts
+  dans `data.posts` (avec `data.pagination = { total, per_page, current_page,
+  last_page }`), mais la route interne passait l'objet brut à `mapPosts` qui
+  ne reconnaît pas cette forme → tableau vide → page « Mes sauvegardes »
+  systématiquement vide.
+* **Correctif** : la route `GET /api/get-post-save/[userId]` extrait désormais
+  `data.posts` (formes aplaties tolérées), transmet la pagination `?page=N` à
+  l'API Dughu (10 posts/page) et expose `hasMore` déduit de `data.pagination`.
+* **Pagination** : le hook `useSavedPosts` récupère toutes les pages
+  successivement (plafond de sécurité : 50 pages) — le cache TanStack Query
+  reste un tableau plat, aucune modification de la page ni des mises à jour
+  optimistes.
+* **Vérifié** : convention d'appel confirmée auprès de l'API de test
+  (`user_id` en **segment de chemin** + `?page=` en query ; POST et
+  `?user_id=` renvoient 404) ; `tsc --noEmit` sans erreur.
+
+### Page « Mes sauvegardes » (ajout)
+
+* **Nouvelle page `/sauvegardes`** (protégée, `MainLayout` sans sidebar droite) :
+  liste de tous les posts sauvegardés par l'utilisateur via l'API Dughu
+  `GET /get-post-save/{user_id}` (ID Dughu résolu depuis la session `useAuth`).
+  L'item « Mes sauvegardes » de la sidebar gauche est désormais **cliquable** et
+  passe en état actif/surligné sur cette page (`active="saves"`).
+* **Cohérence visuelle** : chaque post est rendu avec le **même composant
+  `PostCard` que le fil principal** (chargé en `dynamic` comme sur le home) —
+  texte, médias, auteur, date, réactions, commentaires, reposts et abonnement
+  fonctionnent directement depuis cette page.
+* **Désauvegarde avec mise à jour optimiste** : le signet de chaque carte est
+  activé ; au clic, le post est retiré immédiatement de la liste puis
+  `POST /api/store-save` (toggle Dughu) est envoyé — rollback si l'appel échoue,
+  resynchronisation après coup, `retry: 0` (mutation non idempotente).
+* **Architecture** respectée : page/composant → hook TanStack Query
+  (`src/hooks/queries/use-saved-posts.ts`) → service frontend
+  (`posts.service.ts`, nouvelle fonction `fetchSavedPosts` sur l'instance Axios
+  cliente) → route interne `GET /api/get-post-save/[userId]` (posts mappés via
+  `mapPosts`, marqués `isSaved: true`, fallback cookie de session) →
+  `dughuApi.getSavedPosts` (`src/lib/dughu.ts`, instance Axios serveur) → API
+  Dughu. Aucun `fetch` natif côté frontend.
+* **États** : squelettes de cartes (chargement), état vide avec incitation à
+  explorer le fil, erreur (message français + « Réessayer »), succès. Mises à
+  jour optimistes (likes, commentaires, reposts, abonnement) écrites directement
+  dans le cache TanStack Query (pas d'état local dupliqué).
+* **Limitation connue** : l'API `get-post-save` ne documente ni pagination ni
+  endpoint de désauvegarde dédié — la liste est chargée en une fois et le
+  désauvegarde passe par le toggle `store-save` (à confirmer avec le backend).
+
+
 ## 2026-09-01
 
 ### Retrouvailles — UI du chargement contacts et bouton « Fraterniser » (ajustements)
