@@ -11,6 +11,28 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-09-02
+
+### Module « Groupes » — première vue responsive
+
+* Ajout de la route protégée `/groups`, accessible depuis le bouton « Groupes » de la sidebar gauche avec état actif et fermeture du tiroir mobile.
+* Ajout des cinq vues « Actualités », « Mes groupes », « Groupes administrés », « Groupes suggérés » et « Groupes aimés », avec onglets accessibles et recherche locale.
+* Ajout de cartes de groupe responsive (bannière, avatar, catégorie, membres), d'une variante horizontale pour les suggestions et d'un état vide dédié aux groupes administrés.
+* Ajout d'un fil statique de publications de groupes conforme à la maquette fonctionnelle, avec retour local pour le like et l'adhésion. Aucun appel API Groupes ni navigation de détail/création n'est simulé dans ce premier lot.
+
+### Groupes — connexion API du volet « Actualités »
+
+* Remplacement des publications statiques de l'onglet « Actualités » par les données de `POST /actualitePostsGroup`, via la route interne `GET /api/groups/feed` et l'architecture Axios client/serveur du projet.
+* L'identifiant utilisateur est lu dans le cookie de session côté serveur. Les réponses sont normalisées et limitées aux publications de groupes actifs et publics (`privacy = "1"`) ; les groupes privés (`privacy = "2"`) sont exclus.
+* Ajout de la recherche serveur, de la pagination « Afficher plus », de la déduplication, des squelettes, de l'état vide et du réessai sur erreur. Les médias et fonds colorés issus de l'API sont pris en charge.
+* Les publications réutilisent désormais `PostCard` avec un badge groupe optionnel, au lieu d'une carte dédiée. Les interactions existantes (réactions, commentaires, republication, partage, sauvegarde, masquage et blocage) sont conservées, et les images du contexte groupe sont cadrées en `4:3` sur mobile puis `16:9` sur les écrans plus larges.
+
+### Groupes — connexion API du volet « Mes groupes »
+
+* Remplacement des groupes statiques par les données de `POST /usergroupes`, via la route interne `GET /api/groups/mine`, le service serveur Axios, le service frontend et un hook TanStack Query paginé.
+* L'identifiant Dughu provient du cookie serveur. Le mapper conserve les groupes actifs dont l'utilisateur est membre, qu'ils soient publics (`privacy = "1"`) ou privés (`privacy = "2"`).
+* Ajout de la recherche serveur, de la pagination « Afficher plus », de la déduplication, des squelettes, de l'état vide, du réessai sur erreur et d'un indicateur accessible public/privé dans les cartes.
+
 ## 2026-09-01
 
 ### Retrouvailles — UI du chargement contacts et bouton « Fraterniser » (ajustements)

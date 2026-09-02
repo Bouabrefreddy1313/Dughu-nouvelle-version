@@ -206,7 +206,12 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<Image src="/images/groupe.png" alt="Groupes" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Groupes"
+            active={active === "groups"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/groups")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem

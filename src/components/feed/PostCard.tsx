@@ -30,6 +30,7 @@ import {
   EyeOff,
   Smile,
   MessageCircle,
+  Users,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -99,6 +100,12 @@ interface PostCardProps {
   onToggleFollow?: () => void;
   postId?: string
   author: Author
+  group?: {
+    id: string
+    name: string
+    slug?: string | null
+    avatar?: string | null
+  } | null
   currentUser?: {
     id: string
     name: string | null
@@ -864,6 +871,7 @@ const EMOJI_LIST = [
 export function PostCard({
   postId,
   author,
+  group,
   currentUser,
   timeAgo,
   content,
@@ -2162,6 +2170,15 @@ export function PostCard({
         </div>
       </div>
 
+      {group && (
+        <div className="px-4 pb-3">
+          <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#C47830]/12 px-3 py-1.5 text-xs font-semibold text-[#8A4D23]">
+            <Users size={14} aria-hidden="true" />
+            <span className="truncate">{group.name}</span>
+          </span>
+        </div>
+      )}
+
       {content && postColor?.background ? (
         <div
           className="w-full min-h-[280px] py-8 px-6 flex items-center justify-center relative overflow-hidden"
@@ -2249,15 +2266,25 @@ export function PostCard({
           ))}
         </div>
       ) : image && !video ? (
-        <div className="w-full overflow-hidden">
-          <Image
-            src={image}
-            alt=""
-            width={1200}
-            height={675}
-            className="w-full max-h-[80vh] object-cover"
-            sizes="100vw"
-          />
+        <div className={cn("w-full overflow-hidden", group && "relative aspect-[4/3] sm:aspect-video bg-black")}>
+          {group ? (
+            <Image
+              src={image}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="(max-width: 767px) 100vw, 820px"
+            />
+          ) : (
+            <Image
+              src={image}
+              alt=""
+              width={1200}
+              height={675}
+              className="w-full max-h-[80vh] object-cover"
+              sizes="100vw"
+            />
+          )}
         </div>
       ) : null}
 

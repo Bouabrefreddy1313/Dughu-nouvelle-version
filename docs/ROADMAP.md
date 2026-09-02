@@ -29,6 +29,7 @@ Elle peut évoluer selon les besoins du projet.
 * 🟢 Commentaires
 * 🟢 Republications
 * 🟡 Timeline
+* 🟡 Groupes — vue responsive, navigation, volets Actualités et Mes groupes connectés à l'API ; autres onglets, création et pages de détail à intégrer
 * Publications et feed — lot 4 migré : services frontend `posts.service.ts`/`feed.service.ts`/`comments.service.ts`/`composer.service.ts`, types `post.types.ts`, plus aucun `fetch` direct dans le domaine (home, PostCard, GivePointsModal, PostComposer, RightSidebar, use-feed, use-suggestions, posts de profil, hashtags)
 * Commentaires et réactions — lot 5 migré : service serveur `comments.server.ts` extrait de la route `/api/comments` (allégée), service frontend unique `comments.service.ts` (doublon retiré de `posts.service.ts`), derniers `fetch` de `ProfilePage`/`HashtagPage` migrés
 * 🟡 Profil — lot 3 migré : service frontend `profile.service.ts`, types dédiés, hook `use-profile` (façade transitoire conservée), plus aucun `fetch` direct dans le domaine

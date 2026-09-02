@@ -748,6 +748,21 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
 * Le panneau de résultats est disponible sur mobile, tablette et desktop, avec navigation au clavier et états de chargement, résultat vide et erreur compréhensible.
 * Les utilisateurs et hashtags ouvrent leur vue Dughu correspondante. Les publications disposant d'un auteur ouvrent son profil ; les types sans route dédiée restent informatifs.
 
+### Groupes
+
+* La rubrique « Groupes » de la sidebar gauche ouvre la route protégée `/groups` et conserve un état actif visible.
+* La vue propose cinq onglets accessibles et adaptés au tactile : « Actualités », « Mes groupes », « Groupes administrés », « Groupes suggérés » et « Groupes aimés ».
+* « Actualités » charge les publications des groupes publics depuis l'endpoint Dughu `POST /actualitePostsGroup` via le flux interne obligatoire (hook TanStack Query → service frontend Axios → `GET /api/groups/feed` → service serveur Axios). L'identifiant Dughu provient du cookie de session côté serveur et n'est pas accepté depuis le navigateur.
+* Le service filtre défensivement les publications sur `postType = "group"`, groupe actif et `groupe.privacy = "1"` (public ; `"2"` désigne un groupe privé), puis normalise auteur, groupe, contenu, médias, fond coloré, compteurs et état de réaction avant toute exposition au client.
+* Le fil gère la recherche distante (`searchTerm`), la pagination retournée par l'API, la déduplication par identifiant, les squelettes, l'état vide, l'erreur avec nouvelle tentative et le chargement de la page suivante.
+* Les publications de groupes réutilisent le composant partagé `PostCard`, enrichi d'un badge de contexte groupe. Les réactions, commentaires, republications, partage, sauvegarde, masquage, blocage et menu d'actions suivent ainsi les mêmes composants et services que le fil principal. Les images disposent d'un cadre responsive spécifique au contexte groupe (`4:3` sur mobile, `16:9` dès la tablette) afin de limiter leur hauteur.
+* « Mes groupes » charge les groupes dont l'utilisateur est membre depuis `POST /usergroupes` via le flux interne `useUserGroups` → service frontend Axios → `GET /api/groups/mine` → service serveur Axios. L'identifiant utilisateur est lu exclusivement depuis le cookie de session côté serveur.
+* Le volet conserve les groupes publics (`privacy = "1"`) et privés (`privacy = "2"`), écarte les groupes inactifs ou dont `is_member` n'est pas vrai, et gère la recherche distante, la pagination, la déduplication, les squelettes, l'état vide et le réessai sur erreur.
+* Les listes de groupes utilisent des cartes avec bannière, avatar, nom, catégorie, nombre de membres et indicateur accessible de confidentialité. Elles s'affichent sur une colonne en mobile, deux en tablette et jusqu'à trois sur grand écran.
+* Les suggestions utilisent une variante horizontale et un bouton « Adhérer ». Dans ce premier lot sans API Groupes, l'adhésion est uniquement conservée dans l'état local et signalée comme telle à l'utilisateur.
+* La recherche est envoyée au serveur dans « Actualités » et filtre localement les groupes des autres onglets. La vue « Groupes administrés » fournit l'état vide « Aucun groupe trouvé. ».
+* La création, les adhésions persistantes, les données distantes des trois autres onglets et les pages de détail d'un groupe restent à brancher lorsque les contrats API et routes correspondants seront disponibles.
+
 ### Navigation principale
 
 * Sur desktop, les accès « Accueil », « Vidéos », « Flash » et « Akwaplay » sont présentés sous forme d'icônes compactes, régulièrement espacées, avec une infobulle accessible au survol et au clavier, tout en conservant leur navigation respective et l'indicateur de page active.
