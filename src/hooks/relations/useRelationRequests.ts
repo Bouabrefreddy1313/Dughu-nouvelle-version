@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import type { IncomingRelationRequest, RelationRequestsResponse } from "@/types/relations/relation.types"
 
-import { fetchRelationRequests, sendRelationAction } from "@/services/relations/relations.service"
+import { fetchRelationRequests, fetchOutgoingRequestUserIds, sendRelationAction } from "@/services/relations/relations.service"
 import { userMessage } from "@/lib/api/api-error"
 
 export interface RelationActionResult {
@@ -47,4 +47,20 @@ export function useRelationRequests(enabled: boolean) {
     requestsQuery,
     mutation,
   }
+}
+
+/**
+ * IDs des destinataires des demandes de relations SORTANTES de l'utilisateur
+ * connecté (TanStack Query, clé partagée → un seul appel réseau, cache 15 s).
+ * Consommé par les onglets Retrouvailles pour pré-remplir l'état
+ * « Demande envoyée » du bouton Fraterniser après un rechargement.
+ */
+export function useOutgoingRequestUserIds(enabled: boolean) {
+  return useQuery({
+    queryKey: ["profile", "relation-outgoing"],
+    queryFn: ({ signal }) => fetchOutgoingRequestUserIds(signal ?? undefined),
+    enabled,
+    retry: 1,
+    staleTime: 15_000,
+  })
 }

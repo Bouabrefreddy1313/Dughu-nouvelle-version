@@ -1,0 +1,36 @@
+/**
+ * GET /api/canal/notifications/processed
+ * Notifications traitées d'un canal.
+ */
+
+import { NextRequest, NextResponse } from "next/server"
+import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
+import { getProcessedNotifications } from "@/services/canal/canal.server"
+import type { CanalNotificationsResponse } from "@/types/canal/canal.types"
+
+export const dynamic = "force-dynamic"
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const canalId = String(searchParams.get("canalId") || "")
+    const userId = String(searchParams.get("userId") || "") || (await getDughuUserIdFromCookies())
+
+    if (!userId) {
+      return NextResponse.json<CanalNotificationsResponse>(
+        { success: false, message: "Session requise.", notifications: [], hasMore: false, page: 1 },
+        { status: 401 }
+      )
+    }
+
+    const result = await getProcessedNotifications(userId, canalId)
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error("CANAL PROCESSED NOTIFICATIONS ERROR:", error)
+    const message = error instanceof Error && error.message ? error.message : "Impossible de charger les notifications."
+    return NextResponse.json<CanalNotificationsResponse>(
+      { success: false, message, notifications: [], hasMore: false, page: 1 },
+      { status: 500 }
+    )
+  }
+}

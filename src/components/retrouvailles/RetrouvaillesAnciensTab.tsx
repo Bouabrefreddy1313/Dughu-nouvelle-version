@@ -8,6 +8,7 @@ import { useState } from "react"
 import { Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRetrouvailles } from "@/hooks/retrouvailles/use-retrouvailles"
+import { useOutgoingRequestUserIds } from "@/hooks/relations/useRelationRequests"
 import RetrouvaillePersonCard from "./RetrouvaillePersonCard"
 import { RetrouvaillesSkeletons, RetrouvaillesEmpty, RetrouvaillesError } from "./RetrouvaillesStates"
 
@@ -33,7 +34,9 @@ export default function RetrouvaillesAnciensTab({ userId }: RetrouvaillesAnciens
     enabled: !!userId,
   })
 
-  const sentIds = new Set<string>()
+  // Demandes sortantes déjà envoyées (pré-remplissage « Demande envoyée »).
+  const outgoingQuery = useOutgoingRequestUserIds(!!userId)
+  const sentIds = new Set(outgoingQuery.data ?? [])
 
   const submit = () => {
     setSearched(true)

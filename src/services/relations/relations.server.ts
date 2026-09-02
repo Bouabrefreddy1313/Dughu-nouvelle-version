@@ -10,7 +10,7 @@
 
 import { dughuServerMultipart } from "@/lib/api/server/dughu-instance"
 import { ApiError } from "@/lib/api/api-error"
-import { normalizeIncomingRelationRequests } from "@/services/relations/relation.mapper"
+import { normalizeIncomingRelationRequests, normalizeOutgoingRequestUserIds } from "@/services/relations/relation.mapper"
 import type {
   IncomingRelationRequest,
   RelationAction,
@@ -89,6 +89,32 @@ export async function getRelationRequestsForUser(
  * Données de vérification des relations d'un profil donné du point de vue du
  * viewer (matrice consommée par normalizeProfileRelations dans le mapper).
  */
+/**
+ * IDs Dughu des destinataires des demandes SORTANTES (envoyées par le viewer,
+ * tous types confondus) — sert à pré-remplir l'état « Demande envoyée » du
+ * bouton Fraterniser après rechargement de la page.
+ */
+export async function getOutgoingRequestUserIds(authUserId: string): Promise<string[]> {
+  const results = await Promise.allSettled(
+    RELATION_TYPES.map((type) =>
+      dughuServerMultipart<{ success?: boolean }>(
+        "relation/requests",
+        relationRequestsForm(authUserId, authUserId, type),
+        { retry: true }
+      )
+    )
+  )
+
+  const ids = new Set<string>()
+  results.forEach((result, index) => {
+    if (result.status === "rejected" || result.value?.success === false) return
+    for (const id of normalizeOutgoingRequestUserIds(result.value, RELATION_TYPES[index])) {
+      ids.add(id)
+    }
+  })
+  return [...ids]
+}
+
 export async function getRelationForProfile(
   viewerUserId: string,
   targetUserId: string | number

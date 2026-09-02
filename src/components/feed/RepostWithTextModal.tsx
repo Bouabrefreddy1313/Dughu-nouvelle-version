@@ -21,6 +21,7 @@ interface RepostWithTextModalProps {
       avatar: string | null
       username?: string | null
       verified?: boolean
+      pageId?: string | null
     }
     content?: string | null
     image?: string | null
@@ -53,7 +54,7 @@ function ParentPostCardPreview({
         />
         <div className="min-w-0 flex-1">
           <a
-            href={`/profile/${parentPost.author.username || parentPost.author.id}`}
+            href={parentPost.author.pageId ? `/espaces/${parentPost.author.pageId}` : `/profile/${parentPost.author.username || parentPost.author.id}`}
             className="block truncate text-[13px] font-semibold text-[#050505] hover:underline"
           >
             {parentPost.author.name}

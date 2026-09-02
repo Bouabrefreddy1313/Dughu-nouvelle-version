@@ -236,6 +236,15 @@ export const dughuApi = {
   savePost: (userId: string | number, postId: string | number) =>
     dughu.form("store-save", { user_id: String(userId), post_id: String(postId) }),
 
+  // Liste des posts sauvegardés d'un utilisateur (GET /get-post-save/{user_id}).
+  // L'API Dughu pagine la réponse (per_page=10, metadata dans data.pagination) :
+  // on transmet le numéro de page en query param (?page=N).
+  getSavedPosts: (userId: string | number, page?: number) =>
+    dughu.get(
+      `get-post-save/${encodeURIComponent(String(userId))}`,
+      page && page > 1 ? { page } : undefined
+    ),
+
   hidePost: (userId: string | number, postId: string | number) =>
     dughu.form("hidePost", { user_id: String(userId), post_id: String(postId) }),
 
@@ -307,8 +316,20 @@ export const dughuApi = {
     dughu.get(`getPostAll/${encodeURIComponent(String(userId))}`, { page }),
 
   // Liste des albums d'un utilisateur (chaque album contient ses medias)
-  getAlbums: (userId: string | number) =>
-    dughu.get("album", { user_id: String(userId) }),
+  getAlbums: (userId: string | number, page = 1) =>
+    dughu.get("album", { user_id: String(userId), page }),
+
+  // Création d'un album — multipart/form-data :
+  // album_name, type (public|private), albumarray[] (fichiers), user_id
+  createAlbum: (formData: FormData) => dughu.multipart("album", formData),
+
+  // Suppression d'un album entier (et de son contenu)
+  deleteAlbum: (albumId: string | number) =>
+    dughuFetch(`album/${encodeURIComponent(String(albumId))}`, { method: "DELETE" }),
+
+  // Suppression d'une image d'un album
+  destroyOneImage: (imageId: string | number) =>
+    dughuFetch(`destroyOneImage/${encodeURIComponent(String(imageId))}`, { method: "DELETE" }),
 
   searchAll: (params: { query: string; user_id: string | number; page?: number }) =>
     dughu.form("searchAll", {
@@ -605,8 +626,8 @@ export function resolveMediaUrl(v: string): string {
   if (v.startsWith("/uploads/") || v.startsWith("/images/") || v.startsWith("/media/")) return v
   const clean = v.replace(/^\/+/, "")
   // Chemins relatifs du stockage Dughu (bucket S3) renvoyés par certains endpoints
-  // (inclut `uploads/comments/...` utilisé pour les anciens commentaires média)
-  if (/^(comments|replies|videos|files|images|photos|uploads)\//i.test(clean)) {
+  // (inclut `uploads/comments/...` utilisé pour les anciens commentaires média, et `page/...` pour les avatars/covers d'espaces)
+  if (/^(comments|replies|videos|files|images|photos|uploads|page|button_images)\//i.test(clean)) {
     return `https://dughuprod.s3.amazonaws.com/${clean}`
   }
   // Repli : on résout contre l'origine du serveur Dughu
@@ -1171,6 +1192,9 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       username: author.username,
       avatar: author.avatar,
       isFollowing: !!author.isFollowing,
+      // Si le post appartient à une page, on transmet le pageId pour que
+      // PostCard puisse rediriger vers /espaces/[pageId] au lieu de /profile/[username].
+      ...(pageAuthor ? { pageId: pageAuthor.id } : {}),
     },
     page: pageAuthor
       ? { id: pageAuthor.id, name: pageAuthor.name, username: pageAuthor.username, avatar: pageAuthor.avatar }
@@ -1229,6 +1253,7 @@ export function mapAlbums(raw: any): Record<string, any>[] {
           const url = resolveMediaUrl(toUrl(pick(m, "image", "url", "link", "file", "postFile", "photo")))
           if (!url) return null
           return {
+            id: String(pick(m, "id", "image_id", "imageId", "media_id", "mediaId", "album_image_id") || ""),
             url,
             type: String(pick(m, "media_type", "mediaType", "type") || "image"),
             postId: String(pick(m, "post_id", "postId") || ""),

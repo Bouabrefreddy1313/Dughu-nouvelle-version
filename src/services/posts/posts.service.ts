@@ -76,6 +76,29 @@ export async function fetchHashtagPosts(
   }
 }
 
+/**
+ * Charge les posts sauvegardés de l'utilisateur connecté via
+ * GET /api/get-post-save/:dughuUserId (encapsule GET /get-post-save/{user_id}
+ * de l'API Dughu, paginée à 10 posts/page). La route renvoie
+ * { success, posts, hasMore, page } — les posts sont déjà mappés côté serveur
+ * (même forme que le fil) et marqués isSaved.
+ */
+export async function fetchSavedPosts(
+  dughuUserId: string,
+  options: { signal?: AbortSignal; page?: number } = {}
+): Promise<PostsResponse> {
+  try {
+    const page = options.page && options.page > 1 ? options.page : undefined
+    const res = await apiClient.get<PostsResponse>(
+      `/get-post-save/${encodeURIComponent(dughuUserId)}`,
+      { signal: options.signal, params: page ? { page } : undefined }
+    )
+    return res.data
+  } catch (error) {
+    throw toServiceApiError(error, "Impossible de charger vos sauvegardes. Reessayez.")
+  }
+}
+
 /** Crée une publication via POST /api/posts (multipart). */
 export async function createPost(formData: FormData, signal?: AbortSignal): Promise<PostMutationResponse> {
   try {

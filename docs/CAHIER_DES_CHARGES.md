@@ -635,16 +635,305 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
 * **Bouton « Fraterniser »** (réutilisable dans les 3 onglets) : envoie
   `POST relation/request` (multipart) avec `auth_user_id` + `user_id` +
   `type` — il est **désactivé** pendant l'envoi (« Envoi… » avec spinner), passe
-  en état **« Demande envoyée »** au succès (persistant côté runtime, y compris si la
-  même personne apparaît dans plusieurs groupes), empêche les envois multiples
+  en état **« Demande envoyée »** au succès (y compris si la même personne
+  apparaît dans plusieurs groupes), empêche les envois multiples
   (anti double-clic global) et gère : succès, demande déjà envoyée, relation
   existante, erreur serveur (rollback + message utilisateur). Le bouton utilise
   la **couleur caramel Dughu** (`#A35A2A`, fond caramel/texte blanc, hover
   `#8a4d23` ; état « envoyé » en outline caramel).
+* **Persistance des demandes envoyées** : au chargement de la page, les
+  demandes de fraternisation **sortantes** de l'utilisateur sont rechargées via
+  `POST relation/requests` (clé `outgoing`, type `friend`) — exposées par la
+  route interne `GET /api/profile/relations/outgoing` — et pré-remplissent
+  l'état `alreadySent` des boutons. L'état « Demande envoyée » survit donc au
+  rechargement de la page ; le clic sur un bouton en état « envoyé » reste un
+  toggle (confirmation puis annulation de la demande sortante).
 * Architecture : composant → hook TanStack Query → service frontend (Axios
   cliente) → route interne `GET /api/retrouvailles` → service serveur (Axios
   serveur) → API Dughu. Normalisation défensive des formes réelles de l'API
   (suggestions = blocs objet, contacts = tableau, anciens = `data.users`).
+### Points et activités
+
+La page `/points` (« Points et activités ») est protégée (groupe `(protected)`)
+et organisée en 3 onglets accessibles (rôle `tablist`, navigation clavier) :
+« Mes gains », « Mes badges » et « Utilisations ». L'utilisateur connecté est
+résolu via `useAuth` (ID Dughu numérique) ; à défaut, les routes internes
+retombent sur le cookie de session.
+
+* Entrée de navigation : l'item « Points et badges » de la **sidebar gauche**
+  (`LeftSidebar`) redirige vers `/points` (état actif quand la page est courante,
+  fermeture du menu mobile après le clic).
+
+#### Onglet « Mes gains »
+
+* Bandeau statique « Barème de points sur Dughu ».
+* Trois cartes de statistiques : « Points disponibles » (API, format 2
+  décimales, label « Utilisables dès maintenant »), « Points convertis »
+  (statique, 0.00) et « Mes gains du jour » (statique, 0).
+* Section statique « Comment gagner des points » : 6 blocs (Publications,
+  Réactions & interactions, Flash, Adhérer & Fraterniser, Invitations &
+  connexions, Pénalités) avec icônes ; les pénalités sont en rouge.
+* Tableau « Historique des points » : filtres par période (Tous / Aujourd'hui /
+  Cette semaine / Ce mois-ci / Cette année), recherche, sélecteur d'entrées par
+  page (5/10/25/50), colonnes triables (Date, Type, Description, Points),
+  pagination numérotée avec Précédent / Suivant, bouton « Plus
+  d'informations ». Couleurs sémantiques : gain en vert, perte en rouge.
+* Le filtrage / la pagination sont réalisés côté client (l'API Dughu ne
+  garantit pas `page`, `limit`, `search`, `period`) ; les paramètres sont toutefois
+  transmis à l'API quand ils existent.
+
+#### Onglet « Mes badges »
+
+* Bloc « Mes badges » : badges obtenus via `GET /api/badge/[userId]` ; état vide
+  (icône trophée, « Aucun badge obtenu pour le moment ») si aucun badge.
+* Catalogue des badges via `GET /api/badge`, filtres par catégorie dérivés de la
+  réponse (Tous / Engagement / Reconnaissance / Fidélité / Création /
+  Leadership / Certification si présents), cartes avec icône, nom, tag de
+  catégorie coloré, description courte et statut (« Obtenu » avec date ou
+  « À débloquer » verrouillé, par croisement avec les badges de l'utilisateur).
+
+#### Onglet « Utilisations » (100 % statique)
+
+* Bandeau d'intro sur les usages des Points DUGHU.
+* Section « À quoi servent vos points ? » : 6 items (envoi de points, Dixip,
+  booster un post, booster un Espace, certifier un compte, certifier un Espace).
+* FAQ en accordéon accessible « Questions fréquentes » (5 items).
+* Encadré mentions légales (DUGHU DEALTOO SAS).
+
+#### Architecture HTTP
+
+* Composant → hook TanStack Query (`src/hooks/points`, `src/hooks/badges`) →
+  service frontend (Axios cliente) → routes internes `GET /api/pointsHistory`,
+  `GET /api/pointsToday/[userId]`, `GET /api/badge`, `GET /api/badge/[userId]` →
+  services serveur (Axios serveur, token `X-AppApiToken` côté serveur
+  uniquement) → API Dughu.
+* Sources de données : le solde « Points disponibles » (ainsi que « Points
+  convertis » et « Mes gains du jour ») provient de `GET /pointsToday/{userId}`
+  (champs `total`, `converted`, `gain_today`) — la même source que le
+  mini-profil ; le tableau « Historique des points » provient de
+  `GET /pointsHistory/{userId}` (endpoint paramétré par l'ID Dughu en chemin).
+* Normalisation défensive dans `points.mapper.ts` et `badges.mapper.ts`
+  (variantes d'enveloppes et de noms de champs, jamais dans les composants).
+* Types du domaine dans `src/types/points/points.types.ts` ; composants
+  réutilisables dans `src/components/points/` (`StatCard`,
+  `PointsHistoryTable`, `BadgeCard`, `FaqAccordion`, `TabNavigation`).
+* États de chargement (squelettes) et d'erreur (message + réessayer) gérés
+  pour les appels API ; aucun `fetch` natif côté frontend.
+
+### Mes sauvegardes
+
+La page `/sauvegardes` (« Mes sauvegardes ») est protégée (groupe `(protected)`)
+et accessible depuis l'item **« Mes sauvegardes » de la sidebar gauche**
+(`active="saves"` : l'élément est surligné quand on s'y trouve).
+
+* **Liste des posts sauvegardés** : `GET /get-post-save/{user_id}` (ID Dughu
+  de l'utilisateur connecté, résolu via `useAuth`). L'API Dughu **pagine** la
+  réponse à 10 posts/page (`data.pagination = { total, per_page, current_page,
+  last_page }`) et enveloppe les posts dans `data.posts` : la route interne
+  extrait ce tableau, transmet `?page=N` et expose `hasMore` (dédait de
+  `current_page < last_page`). Le hook `useSavedPosts` récupère toutes les
+  pages successivement (plafond de sécurité : 50) pour reconstruire la liste
+  complète dans un cache plat, tri par l'API Dughu (du plus récemment
+  sauvegardé au plus ancien si l'API le fournit ainsi).
+* **Rendu** : chaque post utilise le **même composant `PostCard` que le fil
+  principal** (texte, image/vidéo/audio, auteur, date, réactions, commentaires,
+  republications, abonnement) — cohérence visuelle garantie, aucune duplication.
+* **Retrait des sauvegardes** : sur chaque carte, le signet est activé
+  (`isSaved: true`) ; au clic, le post est retiré de la liste en **optimistic
+  update** via `POST /api/store-save` (endpoint **toggle** Dughu : le post étant
+  déjà sauvegardé, l'appel le désauvegarde), avec rollback en cas d'échec et
+  resynchronisation (`invalidateQueries`). **Aucun retry automatique** (mutation
+  non idempotente). ⚠️ Point à confirmer avec le backend : un endpoint de
+  désauvegarde dédié (DELETE) pourrait remplacer le toggle `store-save`.
+* **Interactions conservées** : like / réactions, commentaires (texte + fichiers),
+  republication (directe ou avec texte), abonnement à l'auteur — mêmes services
+  et logique optimiste que le fil principal.
+* **États** : squelettes de cartes pendant le chargement, état vide (« Vous
+  n'avez aucun post sauvegardé pour le moment » + bouton « Explorer le fil »),
+  erreur (message français + bouton « Réessayer »), succès.
+* **Responsive** : `MainLayout` sans sidebar droite, colonne max `max-w-3xl`,
+  paddings adaptés mobile/desktop (même gabarit que la page Points).
+
+#### Architecture HTTP
+
+* Composant `src/components/saved/SavedPage.tsx` → hooks TanStack Query
+  (`src/hooks/queries/use-saved-posts.ts` : `useSavedPosts`, `useUnsavePost`)
+  → service frontend (`src/services/posts/posts.service.ts`, Axios cliente) →
+  route interne `GET /api/get-post-save/[userId]` → lib serveur
+  (`src/lib/dughu.ts`, `dughuApi.getSavedPosts`, Axios serveur avec token
+  `X-AppApiToken`) → API Dughu (`GET /get-post-save/{user_id}`).
+* Les posts sont mappés côté serveur via `mapPosts` (même forme que le fil) et
+  marqués `isSaved: true` ; la route retombe sur le cookie de session si
+  `userId` est absent de l'URL. Aucun `fetch` natif côté frontend.
+
+### Stop aux arnaques
+
+La page `/stop-arnaques` (« Stop aux arnaques ») est protégée (groupe
+`(protected)`) et accessible depuis l'item **« Stop aux arnaques » de la
+sidebar gauche** (`active="scam"` : l'élément est surligné quand on s'y
+trouve, le clic navigue vers la page et ferme le drawer mobile).
+
+* **Contenu 100 % statique** : les **20 mesures anti-arnaque DUGHU** sont
+  codées en dur dans `src/components/scam/anti-scam-data.ts` (tableau JS
+  `{ title, description }`). **Aucun appel API**, aucune donnée dynamique.
+* **En-tête** : pastille icône bouclier + libellé « Stop arnaque », puis
+  titre principal **centré, en orange** (#A35A2A) « 20 mesures anti-arnaque
+  DUGHU », et un sous-titre d'introduction gris.
+* **Liste numérotée** : sémantique `<ol role="list">` ; chaque item est rendu
+  par le composant réutilisable `NumberedTipCard`
+  (`src/components/scam/NumberedTipCard.tsx`) — numéro dans une pastille
+  arrondie, **titre en gras bleu foncé** (#1E3A8A), **description en gris**
+  (#65676B) plus petite. La page est assemblée par
+  `src/components/scam/ScamPage.tsx` avec le même gabarit que les pages
+  Points / Mes sauvegardes (`MainLayout` sans sidebar droite, colonne
+  `max-w-3xl`).
+* **Page purement informative** : aucune interaction requise, aucun état
+  loading/erreur (contenu statique). Un bouton « Signaler une arnaque »
+  pourrait être ajouté plus tard en bas de page (non implémenté).
+* **Responsive** : mobile-first, cartes pleine largeur, tailles de texte
+  progressives (`text-[15px]` → `text-base`, `sm:`), aucun scroll horizontal.
+* **Accessibilité** : liste ordonnée sémantique, icône décorative masquée
+  (`aria-hidden`), contrastes conformes (bleu foncé/gris sur blanc).
+
+### Pokes
+
+La page `/pokes` est protégée (groupe `(protected)`) et accessible depuis
+l'item **« Pokes » de la sidebar gauche** (`active="pokes"` : l'élément est
+surligné quand on s'y trouve, le clic ferme le drawer mobile).
+
+* **3 onglets** réutilisant le composant `TabNavigation` accessible (rôle
+  tablist, navigation clavier) : **Pokes reçus / Suggestions / Pokes
+  envoyés**.
+* **Sémantique de l'API Dughu** (vérifiée sur apitest) :
+  * `GET /pokes?user_id=X` → pokes **reçus** par X (`user` = expéditeur) ;
+  * `GET /pokes/sent?user_id=X` → pokes **envoyés** par X (`user` =
+    destinataire) ;
+  * `POST /pokes { user_id, received_user_id }` → envoyer un poke ;
+  * `POST /pokes/{pokeId}/poke-back { user_id, received_user_id }` → répondre
+    à un poke (`received_user_id` = l'expéditeur ORIGINAL du poke, exigé par
+    l'API). ⚠️ `/pokes/{pokeId}?user_id=X` ne renvoie qu'un poke unique —
+    inutilisable pour alimenter une liste.
+* **Architecture HTTP** (aucun `fetch` natif côté frontend) : composants
+  `src/components/pokes/` → hooks TanStack Query (`src/hooks/pokes/
+  use-pokes.ts` : `usePokes`, `useSendPoke`, `usePokeBack`) → service
+  frontend (`src/services/pokes/pokes.service.ts`, Axios cliente) → routes
+  internes `GET/POST /api/pokes` et `POST /api/pokes/[pokeId]/poke-back`
+  (user_id résolu depuis le cookie de session, fallback paramètre) → service
+  serveur (`src/services/pokes/pokes.server.ts`, instance Axios serveur via
+  `dughuServerGet` / `dughuServerForm` — nouveau helper POST form-urlencoded
+  sans retry) → API Dughu. La normalisation défensive vit dans
+  `src/services/pokes/pokes.mapper.ts` : seuls les champs affichables
+  (id, nom, username, avatar, dates) sont renvoyés au navigateur — e-mails,
+  tokens et données sensibles de la réponse brute ne sortent jamais du
+  serveur.
+* **Pokes reçus** : liste (avatar, nom, @username, date relative `timeAgo`)
+  avec bouton **« Répondre »** par ligne → poke-back, **mise à jour
+  optimiste** (le poke répondu quitte la liste immédiatement, rollback en
+  cas d'échec, resynchronisation `invalidateQueries`). Aucun retry
+  automatique (mutation non idempotente).
+* **Suggestions** : dérivation des pokes reçus — les expéditeurs sont
+  dédupliqués par utilisateur (poke le plus récent) et triés du plus récent
+  au plus ancien ; bouton **« Poker »** → `POST /api/pokes`. L'API Dughu
+  n'expose pas d'endpoint « suggestions » dédié (404/500 sur les variantes
+  testées) : cet onglet exploite l'endpoint demandé `/pokes?user_id=X`.
+* **Pokes envoyés** : liste des pokes envoyés (`/pokes/sent`), bouton
+  secondaire **« Re-poker »**.
+* **États** : squelettes de chargement, erreur avec « Réessayer », état vide
+  par onglet ; toasts de succès/échec (sonner) ; boutons désactivés pendant
+  la mutation en cours.
+* **Responsive & accessibilité** : mobile-first, `max-w-3xl`, lignes
+  tronquées proprement, boutons avec `aria-label` nominatif, images avec
+  fallback `/images/avatar.png`.
+
+### Espaces (Space)
+
+La page `/espaces` est protégée (groupe `(protected)`) et accessible depuis
+l'item **« Espaces » de la sidebar gauche** (`active="espaces"` : surligné
+quand on s'y trouve, le clic ferme le drawer mobile).
+
+* **Sémantique de l'API Dughu** (vérifiée sur apitest) :
+  * `GET /getPage/{id}` **ignore l'id** (résidu Postman) → renvoie le feed
+    global des pages paginé (`?page=N`, `searchTerm`) : sert à la découverte ;
+  * `POST /userPages {auth_user_id, user_id}` → « Mes espaces » ;
+  * `POST /userLikedPages?page=` → espaces aimés ;
+  * `POST /suggestPages?page=` → suggestions ;
+  * `POST /pageAdminsUser` → espaces administrés ;
+  * `POST /show/pages {user_id, page_id}` → **détail** (page + `admins` +
+    `is_admin` + `is_like` + `count_like`) ;
+  * `GET /getPostPageUser/{id}?page=` → **attend un ID utilisateur** et renvoie
+    le feed global des publications des espaces paginé (5/page, auteur = page)
+    : alimente l'onglet « Actualité » (`/api/pages/feed`) ; `GET /imagePage/{id}?page=`
+    → galerie ; `GET /getPageLikes/{id}` → likes ;
+  * `GET /getPageOffers/{page_id}/{user_id}?page=` → offres ;
+    `GET /offers/show/{id}` → détail d'offre ; `POST /offers` → création ;
+  * `POST /page` → création **et** édition (avec `page_id`) ;
+  * `POST /likePage {page_id, user_id}` → like/unlike ;
+  * `POST /boostPrice {days}` → prix (`{points, fcfa}`) **avant**
+    `POST /boostPage {days, page_id, user_id}` ;
+  * `POST /destroyPage/{id} {password}` → suppression (**mot de passe
+    obligatoire** ; le doublon « delete Page » est ignoré) ;
+  * `POST /page/uploadImage` (multipart `page_id`, `image`, `element` =
+    avatar|cover) → avatar/couverture ;
+  * `POST /addAdminPage {page_id, user_id}`, `POST /addRemovePageAdmin
+    {page_id, member_id}` → ajout/retrait d'admin ;
+  * `POST /updatePageAdminPrivileges/{adminId}` → privilèges détaillés
+    (checkboxes general, info, social, avatar, design, admins, analytics,
+    delete_page) ;
+  * `POST /page/requestVerification/{id}` / `POST /page/removeVerification/{id}`
+    / `POST /toggleVerificationPage` → vérification ;
+  * `POST /page/inviteFriend {user_id, page_id, friend_id}` → invitation
+    (l'incohérence « listUserLikeAdmin » sur la même URL est ignorée ; la liste
+    des invités passe par `POST /invitePageList {per_page, user_id, page_id}`) ;
+  * `POST /page/{page_id}/points-recipient {points_recipient}` → destinataire
+    des points (subscriber | owner | none) ;
+  * `POST /socialLinksUpdat` (clé `instgram` = typo backend conservée) → liens
+    sociaux ; `GET /getPageCategories` → catégories du formulaire.
+* **Écrans** : liste à onglets (**Actualité** / Découverte / Mes espaces / Aimés
+  / Suggestions / Administrés) avec recherche debouncée (masquée sur
+  l'onglet Actualité) ; détail d'espace (`/espaces/[id]`) structuré avec une **sidebar
+  gauche d'informations** inspirée de la page profil (carte À propos avec description,
+  coordonnées complètes, icônes, liens sociaux et statistiques) et des onglets de
+  contenu principal (Galerie, Offres, À propos/gestion, Admins, Stats, Inviter — **aucun
+  onglet « Actualité » sur la page de détail**, l'actualité étant centralisée sur `/espaces`) ;
+  formulaire de création (`/espaces/creer`) en **assistant guidé par étapes (wizard)**
+  demandant dès l'Étape 1 la photo de couverture et la photo de profil avec prévisualisation,
+  suivi de l'Étape 2 (nom, titre, description) et de l'Étape 3 (catégorie, coordonnées, permissions) ;
+  formulaire d'édition (`/espaces/[id]/edit`) en vue directe pré-remplie.
+* **Onglet « Actualité »** (première position, `PagesFeedTab.tsx`) : fil global
+  des publications des espaces via `GET /api/pages/feed` (service serveur
+  `fetchPagesPostsFeed` → `getPostPageUser/{user_id}`, mapper du fil principal
+  `mapPosts`). Chaque publication est rendue avec la **carte `PostCard` du fil**
+  et sa barre d'actions complète : **J'aime + palette de 6 réactions**,
+  **Commenter** (liste + ajout + fichiers), **Republier** (simple ou avec
+  texte), **Partager** (modale interne, lien `shareLink`), menu « 3 points »
+  (enregistrer, masquer, bloquer, supprimer si auteur). Les cartes sont
+  disposées avec un **espacement généreux et aéré** (`gap-5 sm:gap-6` et marges nettes).
+  Mises à jour optimistes avec rollback (réactions via le cache `reactionCache`), abonnement
+  à l'auteur pour les publications personnelles (pas de bouton « Suivre » sur
+  les publications de Page), chargement automatique au scroll (5 publications
+  par page) avec bouton « Charger plus » en cas d'échec de pagination.
+  ⚠️ L'API Dughu ne fournit pas de « Je n'aime pas » pour les publications
+  (seules les capsules en ont un) ; la palette de réactions (J'aime, J'adore,
+  Haha, Wouah, Triste, Énervé) couvre l'ensemble des réactions disponibles.
+  L'endpoint répond parfois `success: false` de façon intermittente : la route
+  serveur effectue **un seul nouvel essai** (lecture idempotente) avant
+  d'afficher un état d'erreur avec « Réessayer ».
+* **Règles métier** : suppression **toujours** précédée d'une modale demandant
+  le mot de passe (l'API renvoie 401 « Mot de passe incorrect. » → message
+  propagé) ; boost avec **affichage du prix** (`boostPrice`) avant validation ;
+  like en **mise à jour optimiste** (rollback si échec) ; upload avatar/cover
+  réservé aux admins ; privilèges admin éditables par checkboxes.
+* **Architecture HTTP** : composants (`src/components/pages/`) → hooks TanStack
+  Query (`src/hooks/pages/use-pages.ts`, mutations **sans retry**) → services
+  frontend par domaine (`pages.service.ts`, `page-admin.service.ts`,
+  `page-offer.service.ts`, `page-stats.service.ts`) → routes internes
+  `/api/pages*` et `/api/offers/[id]` (session par cookie) → service serveur
+  (`pages.server.ts` + mapper défensif `pages.mapper.ts`) → API Dughu. Seuls
+  les champs affichables sortent du serveur (e-mails et tokens de la réponse
+  brute filtrés).
+* **États** : squelettes, erreur + « Réessayer », vide par onglet, toasts de
+  succès/échec ; responsive mobile-first ; accessibilité (labels, aria).
+
 ### Communication
 
 * Messages
@@ -767,6 +1056,62 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
 
 * Sur desktop, les accès « Accueil », « Vidéos », « Flash » et « Akwaplay » sont présentés sous forme d'icônes compactes, régulièrement espacées, avec une infobulle accessible au survol et au clavier, tout en conservant leur navigation respective et l'indicateur de page active.
 * L'en-tête présente également deux accès statiques distincts « Fraternisés » (icône de groupe) et « Réseautés » (icône de mallette). Ils remplacent l'ancien accès « Abonnés », suivent la même présentation avec infobulle accessible, et n'effectuent aucune navigation tant que leurs vues dédiées ne sont pas disponibles.
+
+### Album
+
+* La page « Album » (`/album`, protégée) est accessible depuis le bouton « L'album »
+  de la sidebar gauche, qui est mis en surbrillance lorsque la page est active.
+* La liste des albums de l'utilisateur connecté est chargée via l'endpoint Dughu
+  `GET /album?user_id={user_id}&page={page}`, à travers la route interne
+  `/api/album` (instance Axios serveur côté backend, cliente côté frontend).
+* Chaque album est présenté sous forme de carte (grille responsive) avec cover
+  (première image ou placeholder), nom, badge de visibilité (Public / Privé) et
+  nombre de médias ; un menu contextuel (⋮) permet de supprimer l'album.
+* La création d'un album se fait via une modale : nom obligatoire, visibilité
+  (Public / Privé) et upload multiple de fichiers (images/vidéos, 20 Mo max par
+  fichier, prévisualisation avant envoi). Soumission en multipart/form-data
+  (`album_name`, `type`, `albumArray[]`, `user_id`) via `POST /api/album`, avec
+  indicateur de progression et rafraîchissement de la liste après succès.
+  Contrat API Dughu (vérifié en réel) : le champ fichiers est `albumArray[]`
+  (camelCase + crochet) et la visibilité vaut `public` ou `prive` sans accent —
+  la route normalise `private`/`privé` → `prive` avant l'envoi, et le badge
+  d'affichage traite `prive` (et `private` pour compatibilité) comme privé.
+* La suppression d'un album (`DELETE /api/album/{album_id}`) et la suppression
+  d'une image dans la vue détail (`DELETE /api/album/image/{image_id}`, endpoint
+  Dughu `destroyOneImage/{image_id}`) passent toutes deux par une modale de
+  confirmation, appliquent une mise à jour optimiste de la liste et annulent
+  celle-ci (rollback + message d'erreur) en cas d'échec.
+* La vue détail d'un album affiche tous ses médias en grille, avec bouton retour,
+  et met à jour le compteur de fichiers et la cover après suppression d'une image.
+* Les états de chargement (skeletons), d'erreur (avec relance), d'état vide
+  (invitation à créer son premier album) et de succès sont gérés pour chaque
+  appel API.
+
+### Canaux (Module Canal)
+
+* Accessible directement depuis le bouton « Canal » de la barre latérale gauche (état actif `active="canal"`, route protégée `/canal`).
+* **Écran 1 — Découverte & Exploration** :
+  - En-tête avec icône officielle et titre.
+  - Barre d'onglets (style pill) : Explorer (orange actif par défaut), Mes canaux, Canaux rejoints, Favoris.
+  - Barre de recherche en temps réel et bouton « + Créer un canal » (fond orange).
+  - Sous-filtre catégories horizontalement scrollable avec style de tab actif bleu foncé.
+  - Grille responsive de cartes de canaux (jusqu'à 6 colonnes desktop) : cover, médaillon avatar, badge membres/visibilité, nom tronqué, catégorie, bouton favori (étoile avec mise à jour optimiste) et bouton « Intégrer » (adhésion directe si public, demande si privé).
+  - Clic sur une carte : ouvre l'Écran 3 sans recharger la page.
+* **Écran 2 — Modale de création** :
+  - Titre orange centré, modale avec overlay sombre.
+  - Zones d'upload côte à côte : logo (requis) et cover (optionnelle) avec prévisualisation.
+  - Champs nom, description, catégorie (chargée dynamiquement).
+  - Toggles côte à côte avec état actif bleu foncé : Type de canal (Privé par défaut / Public) et Canal actif (Oui par défaut / Non).
+  - Soumission multipart/form-data via POST /canal.
+* **Écran 3 — Vue Chat plein écran (Thème sombre)** :
+  - Overlay sombre plein écran avec bouton de fermeture (✕).
+  - Colonne gauche : compteur de membres actifs, liste des canaux suivis avec surbrillance du canal sélectionné, barre de recherche et suggestions.
+  - Colonne centrale : en-tête du canal actif, zone de messages avec bulles, médias, réactions emoji et suppression ; zone inférieure adaptative : champ de saisie + pièces jointes si autorisé, ou avertissement rouge/orange si les droits de publication sont restreints par l'administrateur.
+  - Colonne droite : grande cover, avatar centré, détails du canal (catégorie, description, visibilité, nombre de membres) et onglets Médias / Documents.
+* **Architecture technique** :
+  - Respect strict des deux instances Axios (`dughuServer` côté serveur pour les 32 endpoints Dughu, `apiClient` côté client pour les routes internes `/api/canal/**`).
+  - Aucun `fetch` natif côté frontend.
+  - Hooks TanStack Query dédiés (`useCanals`, `useCanalDetail`, `useCanalMessages`, `useCanalFavorites`, `useCanalPolls`, etc.).
 
 ## 4. Fonctionnalités futures
 
