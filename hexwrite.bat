@@ -1,0 +1,1 @@
+powershell -Command "$hex = Get-Content 'content.hex' -Raw; $bytes = [byte[]]::new($hex.Length / 2); for ($i = 0; $i -lt $hex.Length; $i += 2) { $bytes[$i / 2] = [Convert]::ToInt32($hex.Substring($i, 2), 16) }; [IO.File]::WriteAllBytes('src/components/pages/SpaceFormPage.tsx', $bytes)"

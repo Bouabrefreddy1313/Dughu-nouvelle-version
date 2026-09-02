@@ -92,23 +92,46 @@ function buildQuery(params?: Record<string, string | number | undefined>) {
 export const dughu = {
   enabled: !!API_TOKEN,
 
-  get: (path: string, params?: Record<string, string | number | undefined>) =>
-    dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }),
+  /**
+   * GET vers l'API Dughu. `authToken` (facultatif) = token de session utilisateur
+   * (cookie dughu_token) transmis en `Authorization: Bearer` : plusieurs endpoints
+   * Dughu (ex. fetchComments) exigent ce token, sans lui la requête échoue.
+   */
+  get: (path: string, params?: Record<string, string | number | undefined>, authToken?: string) =>
+    dughuFetch(`${path}${buildQuery(params)}`, {
+      method: "GET",
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+    }),
 
-  form: (path: string, params: Record<string, string | number | undefined>) => {
+  /**
+   * POST form-urlencoded vers l'API Dughu. `authToken` (facultatif) : voir `get`.
+   */
+  form: (path: string, params: Record<string, string | number | undefined>, authToken?: string) => {
     const body = new URLSearchParams()
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null && v !== "") body.set(k, String(v))
     }
     return dughuFetch(path, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
       body: body.toString(),
     })
   },
 
   multipart: (path: string, formData: FormData) =>
     dughuFetch(path, { method: "POST", body: formData }),
+
+  json: (path: string, body: Record<string, unknown>) =>
+    dughuFetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  // DELETE sur la base Dughu (ex. /capsule/{id}, /deletePost/{id})
+  del: (path: string) => dughuFetch(path, { method: "DELETE" }),
 
   rootGet: (path: string, params?: Record<string, string | number | undefined>) =>
     dughuFetch(`${path}${buildQuery(params)}`, { method: "GET" }, RETRY_TIMES, DUGHU_ORIGIN),
@@ -128,6 +151,23 @@ export const dughu = {
       body: formData,
       headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
     }, RETRY_TIMES, CHAT_BASE_URL),
+
+  // Form-urlencoded sur la base de messagerie (pour les opérations sans fichiers :
+  // update/delete — multipart peut perturber le contrôleur Dughu).
+  chatForm: (path: string, params: Record<string, string | number | undefined>, authToken?: string) => {
+    const body = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== "") body.set(k, String(v))
+    }
+    return dughuFetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: body.toString(),
+    }, RETRY_TIMES, CHAT_BASE_URL)
+  },
 }
 
 // ── Endpoints connus de l'API Dughu ──────────────────────────────────────────
@@ -171,8 +211,12 @@ export const dughuApi = {
 
   createPost: (formData: FormData) => dughu.multipart("post", formData),
 
-  // Endpoint dédié aux publications de texte coloré (contrat : GET)
-  // GET /colored_posts?post_id=&user_id=&boost_days=   → header X-AppApiToken
+  // Liste des couleurs pour les posts à fond coloré (contrat : GET)
+  // GET /getPostColors → tableau de couleurs { id, color_1, color_2, text_color }
+  // L'`id` d'une couleur est à transmettre dans `post_color_input` de POST /post.
+  getPostColors: () => dughu.get("getPostColors", {}),
+
+  // Endpoint legacy (conservé en repli) : GET /colored_posts
   getColoredPosts: (params: {
     post_id?: string | number
     user_id?: string | number
@@ -191,6 +235,15 @@ export const dughuApi = {
 
   savePost: (userId: string | number, postId: string | number) =>
     dughu.form("store-save", { user_id: String(userId), post_id: String(postId) }),
+
+  // Liste des posts sauvegardés d'un utilisateur (GET /get-post-save/{user_id}).
+  // L'API Dughu pagine la réponse (per_page=10, metadata dans data.pagination) :
+  // on transmet le numéro de page en query param (?page=N).
+  getSavedPosts: (userId: string | number, page?: number) =>
+    dughu.get(
+      `get-post-save/${encodeURIComponent(String(userId))}`,
+      page && page > 1 ? { page } : undefined
+    ),
 
   hidePost: (userId: string | number, postId: string | number) =>
     dughu.form("hidePost", { user_id: String(userId), post_id: String(postId) }),
@@ -235,6 +288,8 @@ export const dughuApi = {
   getUser: (identifier: string | number, viewer: string | number) =>
     dughu.get(`getSpecificUser/${encodeURIComponent(String(identifier))}/${encodeURIComponent(String(viewer))}`),
 
+  getCountries: () => dughu.get("getCountries"),
+
   getAllUsers: (page = 1) => dughu.get("getAllUsers", { page }),
 
   searchUsers: (params: { search?: string; username?: string; user_id?: string; page?: number }) =>
@@ -261,13 +316,25 @@ export const dughuApi = {
     dughu.get(`getPostAll/${encodeURIComponent(String(userId))}`, { page }),
 
   // Liste des albums d'un utilisateur (chaque album contient ses medias)
-  getAlbums: (userId: string | number) =>
-    dughu.get("album", { user_id: String(userId) }),
+  getAlbums: (userId: string | number, page = 1) =>
+    dughu.get("album", { user_id: String(userId), page }),
 
-  searchAll: (params: { search?: string; q?: string; type?: string; page?: number }) =>
+  // Création d'un album — multipart/form-data :
+  // album_name, type (public|private), albumarray[] (fichiers), user_id
+  createAlbum: (formData: FormData) => dughu.multipart("album", formData),
+
+  // Suppression d'un album entier (et de son contenu)
+  deleteAlbum: (albumId: string | number) =>
+    dughuFetch(`album/${encodeURIComponent(String(albumId))}`, { method: "DELETE" }),
+
+  // Suppression d'une image d'un album
+  destroyOneImage: (imageId: string | number) =>
+    dughuFetch(`destroyOneImage/${encodeURIComponent(String(imageId))}`, { method: "DELETE" }),
+
+  searchAll: (params: { query: string; user_id: string | number; page?: number }) =>
     dughu.form("searchAll", {
-      search: params.search || params.q || "",
-      type: params.type || "",
+      query: params.query,
+      user_id: String(params.user_id),
       page: String(params.page || 1),
     }),
 
@@ -366,6 +433,8 @@ export const dughuApi = {
   // ── Points ──
   // Offre des points à l'auteur d'une publication.
   // Contrat : POST /points/give { user_id, user_offer_id, points, post_id }
+  // NB : `user_id` = l'utilisateur connecté qui offre les points,
+  //      `user_offer_id` = le destinataire (l'auteur du post / propriétaire).
   givePoints: (params: {
     user_id: string | number
     user_offer_id: string | number
@@ -407,7 +476,39 @@ export const dughuApi = {
   sendMessage: (formData: FormData, authToken?: string) =>
     dughu.chatMultipart("sendMessage", formData, authToken),
 
+  reactMessage: (messageId: string | number, formData: FormData, authToken?: string) =>
+    dughu.chatMultipart(`reactMessage/${encodeURIComponent(String(messageId))}`, formData, authToken),
+
+  updateMessage: (messageId: string | number, params: Record<string, string | number | undefined>, authToken?: string) =>
+    dughu.chatForm(`updateMessage/${encodeURIComponent(String(messageId))}`, params, authToken),
+
+  deleteMessage: (messageId: string | number, params: Record<string, string | number | undefined>, authToken?: string) =>
+    dughu.chatForm(`deleteMessage/${encodeURIComponent(String(messageId))}`, params, authToken),
+
+  deleteConversation: (conversationId: string | number, params: Record<string, string | number | undefined>, authToken?: string) =>
+    dughu.chatForm(`deleteConversation/${encodeURIComponent(String(conversationId))}`, params, authToken),
+
   updateProfile: (formData: FormData) => dughu.multipart("updateProfile", formData),
+
+  // Une mutation de mot de passe ne doit pas être rejouée automatiquement :
+  // si la première requête réussit mais que sa réponse est perdue, un nouvel
+  // essai avec l'ancien mot de passe produirait un résultat trompeur.
+  updatePassword: (formData: FormData) =>
+    dughuFetch("updatePassword", { method: "POST", body: formData }, 0),
+
+  saveProfileInfos: (data: {
+    user_id: string | number
+    ville_actuelle: string
+    ville_origine: string
+    etablissement_frequente: string
+    domaine_activite: string
+    profession: string
+    entreprise_actuelle: string
+    entreprise_passee: string[]
+    centres_interet: string[]
+    competences: string[]
+    lieux_frequentes: string[]
+  }) => dughu.json("saveInfos", data),
 
   updatePrivacySettings: (formData: FormData) => dughu.multipart("updatePrivacySettings", formData),
 
@@ -525,8 +626,8 @@ export function resolveMediaUrl(v: string): string {
   if (v.startsWith("/uploads/") || v.startsWith("/images/") || v.startsWith("/media/")) return v
   const clean = v.replace(/^\/+/, "")
   // Chemins relatifs du stockage Dughu (bucket S3) renvoyés par certains endpoints
-  // (inclut `uploads/comments/...` utilisé pour les anciens commentaires média)
-  if (/^(comments|replies|videos|files|images|photos|uploads)\//i.test(clean)) {
+  // (inclut `uploads/comments/...` utilisé pour les anciens commentaires média, et `page/...` pour les avatars/covers d'espaces)
+  if (/^(comments|replies|videos|files|images|photos|uploads|page|button_images)\//i.test(clean)) {
     return `https://dughuprod.s3.amazonaws.com/${clean}`
   }
   // Repli : on résout contre l'origine du serveur Dughu
@@ -578,7 +679,7 @@ export function isDefaultDughuMedia(v: string): boolean {
 
 export function normalizeUser(u: any): Record<string, any> | null {
   if (!u || typeof u !== "object") return null
-  const id = pick(u, "id", "ID", "user_id", "userId", "userID") || ""
+  const id = pick(u, "user_id", "userId", "id", "ID", "userID") || ""
   if (!id) return null
   const firstName = pick(u, ["first_name", "firstName", "firstname"], "") || ""
   const lastName = pick(u, ["last_name", "lastName", "lastname"], "") || ""
@@ -587,6 +688,18 @@ export function normalizeUser(u: any): Record<string, any> | null {
     [firstName, lastName].filter(Boolean).join(" ").trim() ||
     "Utilisateur"
   const onlineValue = pick(u, ["is_online", "isOnline", "online"], false)
+  const stringList = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean)
+    if (typeof value === "string" && value.trim()) {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) return parsed.map((item) => String(item).trim()).filter(Boolean)
+      } catch {
+        return value.split(",").map((item) => item.trim()).filter(Boolean)
+      }
+    }
+    return []
+  }
   return {
     id: String(id),
     firstName: String(firstName),
@@ -599,10 +712,32 @@ export function normalizeUser(u: any): Record<string, any> | null {
     cover: resolveMediaUrl(toUrl(
       pick(u, ["cover", "cover_image", "coverImage", "background", "banner", "coverImageUrl"], "")
     )) || "/images/group/default-cover.jpg",
-    bio: pick(u, ["bio", "about", "description", "about_me"], ""),
+    bio: pick(u, ["bio", "description", "about_me"], ""),
+    signature: pick(u, ["signature"], ""),
     gender: pick(u, ["gender", "sexe", "sex"], ""),
     phone: pick(u, ["phone", "phone_number", "phoneNumber", "telephone"], ""),
     birthdate: normalizeBirthday(pick(u, ["birthdate", "birthday", "dateNaissance", "dob"], "")) || null,
+    countryId: pick(u, ["country_id", "countryId"], "") || "",
+    city: pick(u, ["city"], "") || "",
+    postcode: pick(u, ["postode zip"], "") || "",
+    villeOrigine: pick(u, ["ville_origine"], "") || "",
+    etablissementFrequente: pick(u, ["etablissement_frequente", "school"], "") || "",
+    domaineActivite: pick(u, ["domaine_activite"], "") || "",
+    profession: pick(u, ["profession", "working"], "") || "",
+    entrepriseActuelle: pick(u, ["entreprise_actuelle"], "") || "",
+    entreprisePassee: stringList(pick(u, ["entreprise_passee"], [])),
+    facebook: pick(u, ["facebook"], "") || "",
+    instagram: pick(u, ["instagram"], "") || "",
+    twitter: pick(u, ["twitter"], "") || "",
+    linkedin: pick(u, ["linkedin"], "") || "",
+    youtube: pick(u, ["youtube"], "") || "",
+    google: pick(u, ["google"], "") || "",
+    website: pick(u, ["website"], "") || "",
+    discord: pick(u, ["discord"], "") || "",
+    wechat: pick(u, ["wechat"], "") || "",
+    centresInteret: stringList(pick(u, ["centres_interet"], [])),
+    competences: stringList(pick(u, ["competences"], [])),
+    lieuxFrequentes: stringList(pick(u, ["lieux_frequentes"], [])),
     online: onlineValue === true || onlineValue === 1 || onlineValue === "1" || onlineValue === "true",
     lastSeen: pick(u, ["last_seen", "lastSeen", "last_activity", "lastActivity"], "") || null,
     isFollowing: (() => {
@@ -1057,6 +1192,9 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       username: author.username,
       avatar: author.avatar,
       isFollowing: !!author.isFollowing,
+      // Si le post appartient à une page, on transmet le pageId pour que
+      // PostCard puisse rediriger vers /espaces/[pageId] au lieu de /profile/[username].
+      ...(pageAuthor ? { pageId: pageAuthor.id } : {}),
     },
     page: pageAuthor
       ? { id: pageAuthor.id, name: pageAuthor.name, username: pageAuthor.username, avatar: pageAuthor.avatar }
@@ -1115,6 +1253,7 @@ export function mapAlbums(raw: any): Record<string, any>[] {
           const url = resolveMediaUrl(toUrl(pick(m, "image", "url", "link", "file", "postFile", "photo")))
           if (!url) return null
           return {
+            id: String(pick(m, "id", "image_id", "imageId", "media_id", "mediaId", "album_image_id") || ""),
             url,
             type: String(pick(m, "media_type", "mediaType", "type") || "image"),
             postId: String(pick(m, "post_id", "postId") || ""),

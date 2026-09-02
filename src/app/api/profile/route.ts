@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dughu, dughuApi, normalizeUser, parseCounts, mapPhotos, mapVideos, mapFriends, pick } from "@/lib/dughu"
-import { normalizeProfileRelations } from "@/lib/profile-relations"
+import { normalizeProfileRelations } from "@/services/relations/relation.mapper"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
+import { getRelationForProfile } from "@/services/relations/relations.server"
 
 export async function GET(req: NextRequest) {
   try {
@@ -64,12 +65,7 @@ export async function GET(req: NextRequest) {
         return mapVideos(raw)
       }).catch((e) => { console.error("DUGHU VIDEOS ERROR:", e); return [] }) : Promise.resolve([]),
       viewerDughuId !== "0" && String(userObj.id) !== viewerDughuId
-        ? Promise.all([
-            dughuApi.getRelationRequests(viewerDughuId, userObj.id, "friend")
-              .then((response) => ({ type: "friend" as const, response })).catch(() => null),
-            dughuApi.getRelationRequests(viewerDughuId, userObj.id, "network")
-              .then((response) => ({ type: "network" as const, response })).catch(() => null),
-          ]).then((responses) => responses.filter(Boolean))
+        ? getRelationForProfile(viewerDughuId, userObj.id)
         : Promise.resolve([]),
     ])
 
@@ -108,6 +104,10 @@ export async function GET(req: NextRequest) {
         country: null,
         gender: userObj.gender,
         birthdate: userObj.birthdate,
+        countryId: userObj.countryId,
+        city: userObj.city,
+        postcode: userObj.postcode,
+        signature: userObj.signature,
         joined: pick(raw, "createdAt", "created_at", "dateCreation", "joined") || "",
         registered: pick(raw, "createdAt", "created_at", "dateCreation", "registered") || "",
       },
@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
       groups: [],
       pages: { owned: [], liked: [] },
       isFollowing,
-      relations: normalizeProfileRelations(raw, relationRequests, String(userObj.id)),
+      relations: normalizeProfileRelations(raw, relationRequests, String(userObj.id), viewerDughuId),
     })
   } catch (error) {
     console.error("PROFILE GET ERROR:", error)

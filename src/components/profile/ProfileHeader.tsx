@@ -20,11 +20,23 @@ import {
   Lock,
 } from "lucide-react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
-import { dughuApi, resolveMediaUrl } from "@/lib/dughu"
+import { fetchVerificationRequests, submitVerification } from "@/services/profile/profile.service"
+import { resolveMediaUrl } from "@/lib/dughu"
 import { cn } from "@/lib/utils"
-import type { ProfileRelations, RelationType } from "@/lib/profile-relations"
+import { ProfileMenuDialog } from "./ProfileMenuDialog"
+import type { ProfileRelations, RelationAction, RelationType } from "@/types/relations/relation.types"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+// import type { ProfileRelations, RelationType } from "@/lib/profile-relations"
 
 export interface ProfileUser {
   id: string
@@ -61,12 +73,11 @@ interface ProfileHeaderProps {
   relations?: ProfileRelations
   relationLoadingType?: RelationType | null
   onToggleFollow?: () => void
-  onRelationAction?: (type: RelationType) => void
+  onRelationAction?: (type: RelationType, action: RelationAction) => void
   onMessage?: () => void
   onEditCover?: () => void
   onEditAvatar?: () => void
   onEditProfile?: () => void
-  onMore?: () => void
   onSubmitVerification?: (data: {
     userId: string
     name: string
@@ -160,13 +171,17 @@ export function ProfileHeader({
   onEditCover,
   onEditAvatar,
   onEditProfile,
-  onMore,
   onSubmitVerification,
   isVerifying,
 }: ProfileHeaderProps) {
+  const router = useRouter()
   const [step1Open, setStep1Open] = useState(false)
   const [step2Open, setStep2Open] = useState(false)
-  const [relationToRemove, setRelationToRemove] = useState<RelationType | null>(null)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [relationDialog, setRelationDialog] = useState<{
+    type: RelationType
+    state: "outgoing_pending" | "incoming_pending" | "accepted"
+  } | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [step1Data, setStep1Data] = useState<{
     name: string
@@ -216,11 +231,7 @@ export function ProfileHeader({
       formData.append("passport", step1Data.passportFile)
       formData.append("photo", step1Data.photoFile)
 
-      const res = await fetch("/api/submitVerification", {
-        method: "POST",
-        body: formData,
-      })
-      const data = await res.json()
+      const data = await submitVerification(formData)
       if (data.success) {
         toast.success("Votre demande a été envoyée, elle est en cours de traitement")
         setStep2Open(false)
@@ -230,7 +241,7 @@ export function ProfileHeader({
           const updatedUser = { ...user, ...data.user }
         }
       } else {
-        toast.error(data.message || "Échec de la soumission")
+        toast.error(String(data.message || "Échec de la soumission"))
       }
     } catch (error) {
       console.error("VERIFICATION SUBMIT ERROR:", error)
@@ -241,10 +252,26 @@ export function ProfileHeader({
   }
 
   return (
-    <div className="bg-white rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+    // Sur mobile/tablette la carte est pleine largeur (coins droits) pour que la
+    // couverture prenne tout le haut de l'écran ; sur desktop elle redevient une
+    // carte arrondie.
+    <div className="bg-white rounded-none lg:rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
       {/* ═══════ COUVERTURE ═══════ */}
-      <div className="relative h-48 sm:h-64 lg:h-80 w-full bg-gradient-to-br from-[#A35A2A] to-[#B87333]">
-        <Image src={coverSrc} alt="Photo de couverture" fill className="object-cover" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 70vw" priority />
+      <div className="relative h-64 sm:h-80 lg:h-80 w-full bg-gradient-to-br from-[#A35A2A] to-[#B87333]">
+        {/* Bouton retour — mobile & tablette uniquement, façon Facebook */}
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) router.back()
+            else router.push("/home")
+          }}
+          aria-label="Retour"
+          className="absolute top-3 left-3 z-20 lg:hidden w-10 h-10 rounded-full bg-white/90 backdrop-blur flex items-center justify-center text-[#050505] shadow-md hover:bg-white transition"
+        >
+          <ChevronLeft size={22} />
+        </button>
+
+        <Image src={coverSrc} alt="Photo de couverture" fill className="object-cover" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 70vw" priority />
 
         {isOwn && (
           <button
@@ -279,7 +306,7 @@ export function ProfileHeader({
               <div className="absolute -bottom-32 sm:-bottom-[80px] left-4 sm:left-6 flex items-center gap-2">
                 <button
                   className="flex items-center gap-1 bg-[#F0F2F5] hover:bg-[#E4E6EB] text-[#050505] px-3 py-1 rounded text-[11px] font-semibold transition"
-                  onClick={() => fetch(`/api/getVerificationRequests/${user.id}`)}
+                  onClick={() => { fetchVerificationRequests(user.id).catch(() => {}) }}
                 >
                   <ShieldCheck size={14} />
                   Voir demandes
@@ -353,9 +380,12 @@ export function ProfileHeader({
                     Modifier le profil
                   </button>
                   <button
-                    onClick={onMore}
+                    type="button"
+                    onClick={() => setProfileMenuOpen(true)}
                     aria-label="Plus d'options"
-                    className="flex items-center justify-center bg-[#F0F2F5] hover:bg-[#E4E6EB] text-[#050505] w-[38px] h-[38px] rounded-lg transition"
+                    aria-haspopup="dialog"
+                    aria-expanded={profileMenuOpen}
+                    className="flex items-center justify-center bg-[#F0F2F5] hover:bg-[#E4E6EB] text-[#050505] w-[38px] h-[38px] rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2"
                   >
                     <MoreHorizontal size={18} />
                   </button>
@@ -367,6 +397,8 @@ export function ProfileHeader({
                     const loading = relationLoadingType === type
                     const label = state === "accepted"
                       ? type === "friend" ? "Fraternisé" : "Réseauté"
+                      : state === "unknown"
+                        ? "Vérification…"
                       : state === "incoming_pending"
                         ? type === "friend" ? "Accepter fraterniser" : "Accepter réseauter"
                         : state === "outgoing_pending"
@@ -378,18 +410,18 @@ export function ProfileHeader({
                       <button
                         key={type}
                         type="button"
-                        disabled={state === "outgoing_pending" || loading || (!!relationLoadingType && !loading)}
-                        title={state === "outgoing_pending" ? "En attente d'acceptation" : undefined}
+                        disabled={state === "unknown" || loading || (!!relationLoadingType && !loading)}
+                        title={state === "unknown" ? "Impossible de vérifier cette relation pour le moment" : undefined}
                         onClick={() => {
-                          if (state === "accepted") setRelationToRemove(type)
-                          else onRelationAction?.(type)
+                          if (state === "none") onRelationAction?.(type, "request")
+                          else if (state !== "unknown") setRelationDialog({ type, state })
                         }}
                         className={cn(
                           "flex items-center gap-2 px-4 sm:px-5 py-2 rounded-lg text-[14px] font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed",
                           state === "none"
                             ? "bg-[#A35A2A] hover:bg-[#8B4A1F] text-white"
                             : state === "incoming_pending"
-                              ? "bg-[#1877F2] hover:bg-[#166FE5] text-white"
+                              ? "bg-[#A35A2A] hover:bg-[#8B4A1F] text-white"
                               : "bg-[#F0F2F5] hover:bg-[#E4E6EB] text-[#050505]"
                         )}
                       >
@@ -423,61 +455,81 @@ export function ProfileHeader({
         </div>
       </div>
 
-      {relationToRemove && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setRelationToRemove(null)
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="remove-relation-title"
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 id="remove-relation-title" className="text-lg font-bold text-[#050505]">
-                  {relationToRemove === "friend" ? "Annuler la fraternisation ?" : "Annuler le réseautage ?"}
-                </h2>
-                <p className="mt-2 text-sm text-[#65676B]">
-                  {relationToRemove === "friend"
-                    ? "Voulez-vous vraiment annuler cette fraternisation ?"
-                    : "Voulez-vous vraiment quitter cette relation de réseautage ?"}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Fermer"
-                onClick={() => setRelationToRemove(null)}
-                className="rounded-full p-2 text-[#65676B] hover:bg-[#F0F2F5]"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRelationToRemove(null)}
-                className="rounded-lg bg-[#F0F2F5] px-4 py-2 text-sm font-semibold text-[#050505] hover:bg-[#E4E6EB]"
-              >
-                Conserver
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onRelationAction?.(relationToRemove)
-                  setRelationToRemove(null)
-                }}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-              >
-                Confirmer la suppression
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ProfileMenuDialog open={profileMenuOpen} onOpenChange={setProfileMenuOpen} />
+
+      <Dialog open={relationDialog !== null} onOpenChange={(open) => { if (!open) setRelationDialog(null) }}>
+        <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] max-w-md overflow-y-auto p-6" showCloseButton>
+          {relationDialog && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-lg font-bold text-[#050505]">
+                  {relationDialog.state === "incoming_pending"
+                    ? relationDialog.type === "friend" ? "Demande de fraternisation" : "Demande de réseautage"
+                    : relationDialog.state === "outgoing_pending"
+                      ? "Annuler la demande envoyée ?"
+                      : relationDialog.type === "friend" ? "Supprimer la fraternisation ?" : "Supprimer le réseautage ?"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#65676B]">
+                  {relationDialog.state === "incoming_pending"
+                    ? "Souhaitez-vous accepter ou refuser cette demande ?"
+                    : relationDialog.state === "outgoing_pending"
+                      ? "Cette action annulera la demande que vous avez envoyée."
+                      : "Cette relation sera supprimée après votre confirmation."}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="mt-2 bg-white px-0 pb-0">
+                {relationDialog.state === "incoming_pending" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRelationAction?.(relationDialog.type, "decline")
+                        setRelationDialog(null)
+                      }}
+                      className="min-h-11 rounded-lg border border-[#A35A2A] bg-transparent px-4 py-2 text-sm font-semibold text-[#A35A2A] hover:bg-[#F5EFE8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2"
+                    >
+                      Refuser
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRelationAction?.(relationDialog.type, "accept")
+                        setRelationDialog(null)
+                      }}
+                      className="min-h-11 rounded-lg bg-[#A35A2A] px-4 py-2 text-sm font-semibold text-white hover:bg-[#8B4A1F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2"
+                    >
+                      Accepter
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setRelationDialog(null)}
+                      className="min-h-11 rounded-lg bg-[#F0F2F5] px-4 py-2 text-sm font-semibold text-[#050505] hover:bg-[#E4E6EB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2"
+                    >
+                      Conserver
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRelationAction?.(
+                          relationDialog.type,
+                          relationDialog.state === "outgoing_pending" ? "request" : "remove"
+                        )
+                        setRelationDialog(null)
+                      }}
+                      className="min-h-11 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+                    >
+                      {relationDialog.state === "outgoing_pending" ? "Annuler la demande" : "Supprimer"}
+                    </button>
+                  </>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ═══════════════════════════════════════════════ */}
       {/* Modal Étape 1 : Passez au statut Certifié — REDESIGN */}

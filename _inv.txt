@@ -1,0 +1,186 @@
+INVENTAIRE SERVEUR · 21 AOÛT 2026
+server1.dughu.com
+Machine virtuelle KVM sous Ubuntu 22.04 hébergeant l'ensemble de l'infrastructure web Dughu — 13
+sites, 4 versions de PHP, MySQL, Elasticsearch et Redis sur une seule instance.
+IP 203.161.53.131 Noyau 5.15.0-186 Actif depuis 8 jours
+Relevé par SSH, lecture seule
+Capacité
+Le processeur est très largement sous-utilisé, le disque à mi-course. La mémoire, elle, est saturée.
+PROCESSEUR
+5 %
+8 vCPU · charge 0,37
+MÉMOIRE
+9 1 %
+10 822 / 11 956 Mo
+DISQUE
+53 %
+117 / 237 Go utilisés
+MATÉRIEL ET SYSTÈME
+ÉLÉMENT VALEUR
+Système Ubuntu 22.04.5 LTS · noyau 5.15.0-186
+Virtualisation KVM · QEMU Virtual CPU 2.5+
+Processeur 8 vCPU (8 sockets × 1 cœur, sans hyperthreading)
+Mémoire vive 11 956 Mo — dont 641 Mo réellement disponibles
+Swap Aucun
+Disque /dev/vda2  ext4, 237 Go, 108 Go libres
+Réseau eth0  · 203.161.53.131/24
+Charge moyenne 0,37 / 0,32 / 0,30 sur 8 cœurs
+Occupation du disque
+PRINCIPAUX RÉPERTOIRES
+CHEMIN TAILLE CONTENU
+/var/www 77 Go Les 13 sites
+/var/lib/mysql 23 Go Bases de données
+/var/log 5,3 Go Journaux système et applicatifs
+/var/lib/elasticsearch 7,9 Mo Index de recherche
+Ce qui est installé
+Une pile LAMP classique, enrichie de Redis et d'un couple Elasticsearch / Kibana. Trente et un services tournent en
+permanence.
+LOGICIELS ET VERSIONS
+LOGICIEL VERSION RÔLE
+Apache 2.4.52 Serveur web, 13 vhosts nommés
+MySQL 8.0.46 Base de données, 23 Go
+PHP 8.4.10 Ligne de commande
+PHP-FPM 8.1 · 8.2 · 8.3 · 8.4 Quatre versions actives en parallèle
+Elasticsearch OpenJDK 17.0.19 Moteur de recherche
+Kibana via Node 12 Interface Elasticsearch
+Redis 6.0.16 Cache clé-valeur
+Node.js 12.22.9 npm 8.5.1 — utilisé par Kibana uniquement
+Python 3.10.12 Système et certbot
+Git 2.34.1 —
+Certbot installé Certificats Let's Encrypt
+fail2ban actif Une seule prison : sshd
+Supervisor actif Gestion de processus
+vsftpd actif Serveur FTP
+phpMyAdmin installé Exposé sur adminphp.dughu.com
+LOGICIEL VERSION RÔLE
+nginx — ABSENT
+Docker — ABSENT
+Node.js est en version 12
+Cette version n'est plus maintenue depuis avril 2022. Elle n'a apparemment été installée que
+pour faire tourner Kibana. Tout projet JavaScript moderne — Next.js 16 exige Node ≥ 20.9 —
+nécessitera une installation séparée, par exemple via nvm  ou un conteneur, pour ne pas
+perturber Kibana.
+Où passe la mémoire
+Le total ci-dessous dépasse la mémoire physique : la mesure additionne les pages partagées entre processus d'un même
+service, ce qui gonfle particulièrement Apache et PHP-FPM. Les ordres de grandeur restent parlants.
+EMPREINTE CUMULÉE PAR SERVICE
+SERVICE MO PART
+java — Elasticsearch 6 890
+apache2 4 385
+php 1 578
+mysqld 1 005
+node — Kibana 572
+php-fpm 8.1 →  8.4 535
+redis-server 27
+$ free -m
+              total    used    free  shared  buff/cache  available
+Mem:          11956   10822     164     195         969        641
+Swap:             0       0       0
+Ports et exposition
+Le pare-feu ufw  est actif et bien réglé : seuls SSH et le web sont joignables, et le web uniquement depuis Cloudflare.
+Plusieurs services écoutent cependant sur toutes les interfaces et ne doivent leur protection qu'à cette règle.
+PORTS EN ÉCOUTE
+PORT SERVICE INTERFACE JOIGNABLE DE L'EXTÉRIEUR
+21 vsftpd toutes NON — BLOQUÉ PAR UFW
+22 sshd toutes OUI — DEPUIS PARTOUT
+80 · 443 apache2 toutes CLOUDFLARE UNIQUEMENT
+3306 mysqld 127.0.0.1 NON
+5601 kibana 127.0.0.1 NON
+6379 redis 127.0.0.1 NON
+9200 elasticsearch toutes NON — BLOQUÉ PAR UFW
+9300 elasticsearch 127.0.0.1 NON
+33060 mysqlx 127.0.0.1 NON
+Les règles ufw  comptent 23 entrées : le port 22 ouvert à tous, et les ports 80 et 443 restreints aux 15 plages d'adresses
+de Cloudflare. C'est ce qui rend l'origine réellement inatteignable en direct — un point souvent négligé, correctement
+traité ici.
+Les 13 sites hébergés
+Tous servis par le même Apache, avec des racines documentaires distinctes sous /var/www . La présence de public/
+dans plusieurs chemins signale des applications Laravel.
+VHOSTS ACTIVÉS
+DOMAINE RACINE DOCUMENTAIRE
+dughu.com /var/www/dughu.com/public_html/public
+api.dughu.com /var/www/api.dughu.com/public_html
+apitest.dughu.com /var/www/apitest.dughu.com/public_html
+akwaplay.com /var/www/akwaplay.com/public_html
+DOMAINE RACINE DOCUMENTAIRE
+adminphp.dughu.com /usr/share/phpmyadmin
+partenaire.dughu.com /var/www/partenaire.dughu.com/public_html
+projet.dughu.com /var/www/projet.dughu.com/public_html/public
+cvad.dughu.com /var/www/cvad.dughu.com/public_html
+www.dughupaie.dughu.com /var/www/www.dughupaie.dughu.com/public_html/public
+help.dughu.com /var/www/help.dughu.com/public_html
+testhelp.dughu.com /var/www/testhelp.dughu.com/public_html
+testxx.dughu.com /var/www/testxx.dughu.com/public_html/public
+testxx3.dughu.com /var/www/testxx3.dughu.com/public_html/public
+kibana.dughu.com proxy vers 127.0.0.1:5601
+Certificats TLS
+Dix certificats gérés par certbot. Trois sont expirés, dont deux depuis plus d'un an.
+ÉTAT AU 21 AOÛT 2026
+DOMAINE EXPIRATION JOURS ÉTAT
+akwaplay.com 22/09/2024 −698 EXPIRÉ
+partenaire.dughu.com 29/06/2025 −418 EXPIRÉ
+api.dughu.com 07/07/2025 −410 EXPIRÉ
+kibana.dughu.com 22/09/2026 31 À SURVEILLER
+backoffice.dughu.com 29/09/2026 38 VALIDE
+dughu.com 03/10/2026 42 VALIDE
+cvad.dughu.com 05/10/2026 44 VALIDE
+adminphp.dughu.com 10/10/2026 49 VALIDE
+apitest.dughu.com 27/10/2026 67 VALIDE
+help.dughu.com 17/11/2026 87 VALIDE
+Pourquoi ces trois-là ne se renouvellent plus
+Un certificat expiré signifie que le renouvellement automatique de certbot échoue depuis
+longtemps sans que personne ne le voie. La cause la plus fréquente sur cette configuration : le
+domaine ne pointe plus vers ce serveur, ou le proxy Cloudflare intercepte la validation. Les
+sites concernés restent accessibles derrière Cloudflare — c'est précisément ce qui masque le
+problème.
+Bases de données
+Douze bases pour 23 Go. Deux d'entre elles concentrent près de 70 % du volume.
+MYSQL 8.0.46 — BASES DE PLUS DE 1 MO
+BASE TAILLE TABLES PART
+superadmin_dughu 11 056 Mo 234
+dughu2_0 4 985 Mo 216
+dughu3_o 604 Mo 235
+admin_dughu 544 Mo 140
+dughu_partenaire 465 Mo 180
+dughe 393 Mo 210
+amin_pt 7 Mo 64
+S'y ajoutent paiebd , help  et les bases système, toutes sous le mégaoctet. Les noms dughu2_0 , dughu3_o  et dughe
+suggèrent des générations successives conservées en place.
+Points d'attention
+Classés par gravité. Aucun n'a été modifié : le relevé s'est limité à des commandes de lecture.
+CRITIQUE Mémoire saturée, aucun swap
+641 Mo disponibles sur 11 956, et pas de fichier d'échange. Toute demande de
+mémoire un peu large — un import, une compilation, un pic de trafic — déclenchera
+le tueur de processus du noyau, dont les cibles les plus probables sont Elasticsearch
+et MySQL.
+CRITIQUE Trois certiﬁcats expirés
+akwaplay.com , api.dughu.com  et partenaire.dughu.com . Le renouvellement
+automatique échoue silencieusement depuis des mois.
+ÉLEVÉ Elasticsearch consomme 6,9 Go pour 7,9 Mo d'index
+C'est le premier poste de consommation mémoire du serveur, pour une quantité de
+données négligeable. La taille du tas Java n'est pas configurée dans jvm.options.d  :
+elle est donc laissée au calcul automatique, qui réserve une fraction de la mémoire
+totale. La fixer libérerait plusieurs gigaoctets immédiatement.
+ÉLEVÉ 156 mises à jour de paquets en attente
+unattended-upgrades  est pourtant actif. Aucun redémarrage n'est requis pour
+l'instant.
+MOYEN 4 Go de journaux systemd
+/var/log/journal  occupe 4 Go, Kibana 836 Mo de plus. Une limite SystemMaxUse
+dans journald.conf  plafonnerait la croissance.
+MOYEN Quatre versions de PHP-FPM en parallèle
+8.1, 8.2, 8.3 et 8.4 tournent simultanément. Chacune maintient son propre pool de
+processus. Si certaines ne servent plus aucun site, les arrêter récupérerait de la
+mémoire.
+MOYEN FTP et Elasticsearch écoutent sur toutes les interfaces
+vsftpd  sur le port 21 et Elasticsearch sur le 9200 ne sont protégés que par ufw .
+Une erreur de règle les exposerait — le FTP transmettant les identifiants en clair. Les
+restreindre à 127.0.0.1 , ou arrêter vsftpd s'il ne sert plus, ajouterait une seconde
+barrière.
+À NOTER fail2ban ne protège que SSH
+Une seule prison est active. Apache, phpMyAdmin et FTP ne bénéficient d'aucune
+protection contre les tentatives répétées.
+BON POINT Le pare-feu est correctement conﬁguré
+Restreindre 80 et 443 aux seules plages Cloudflare est une bonne pratique rarement
+appliquée. Elle rend l'origine réellement inatteignable en direct.
+Relevé du 21 août 2026 · server1.dughu.com · 203.161.53.131 · commandes de lecture seule, aucune
+modification apportée

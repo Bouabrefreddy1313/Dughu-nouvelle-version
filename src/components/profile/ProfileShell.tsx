@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import MainLayout from "@/components/layout/MainLayout"
 import { ProfilePage } from "./ProfilePage"
+import { me, logout } from "@/services/auth/auth.service"
+import { submitVerification } from "@/services/profile/profile.service"
 
 interface ProfileShellProps {
   self?: boolean
@@ -19,8 +21,7 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
   useEffect(() => {
     if (typeof window === "undefined") return
     // Source de vérité : /api/auth/me (cookies Dughu), plus de cache localStorage.
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
+    void me()
       .then((data) => {
         if (data?.success && data.user) {
           setUser(data.user)
@@ -30,7 +31,7 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
   }, [])
 
   const handleLogout = () => {
-    fetch("/api/logout", { method: "POST" }).finally(() => {
+    void logout().finally(() => {
       router.push("/login")
     })
   }
@@ -41,11 +42,7 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
       const formData = new FormData()
       formData.append("dughuUserId", user?.id || "")
       formData.append("email", user?.email || "")
-      const res = await fetch("/api/submitVerification", {
-        method: "POST",
-        body: formData,
-      })
-      const data = await res.json()
+      const data = await submitVerification(formData)
       if (data.success) {
         setUser(data.user || user)
       }
@@ -70,7 +67,7 @@ export function ProfileShell({ self, slug, userId }: ProfileShellProps) {
       : { userId: userId || "" }
 
   return (
-    <MainLayout user={user} onLogout={handleLogout} onSearch={handleSearch} wide noRightSidebar reserveLeftSidebar>
+    <MainLayout user={user} onLogout={handleLogout} onSearch={handleSearch} wide noRightSidebar reserveLeftSidebar hideHeaderOnMobile>
       <ProfilePage target={target} onSubmitVerification={handleSubmitVerification} isVerifying={isVerifying} />
     </MainLayout>
   )

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { fetchComposerColors } from "@/services/posts/composer.service"
 
 export interface BackgroundColor {
   id?: number
@@ -43,22 +44,20 @@ export function BackgroundPicker({ onClose, onSelect, currentColor }: Background
 
   useEffect(() => {
     let cancelled = false
-    const fetchColors = async () => {
-      try {
-        const res = await fetch("/api/colors")
-        const data = await res.json()
+    fetchComposerColors()
+      .then((data) => {
         if (!cancelled && data.success && data.colors?.length) {
-          setColors(data.colors)
+          setColors(data.colors as BackgroundColor[])
         } else if (!cancelled) {
           setColors(DEFAULT_COLORS)
         }
-      } catch {
+      })
+      .catch(() => {
         if (!cancelled) setColors(DEFAULT_COLORS)
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false)
-      }
-    }
-    fetchColors()
+      })
     return () => { cancelled = true }
   }, [])
 

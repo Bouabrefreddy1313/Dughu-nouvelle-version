@@ -11,6 +11,8 @@ import {
 import { cn } from "@/lib/utils"
 import Card from "@/components/common/Card"
 import Badge from "@/components/common/Badge"
+import RetrouvaillesModal, { RETROUVAILLES_SEEN_KEY } from "@/components/retrouvailles/RetrouvaillesModal"
+import { useState } from "react"
 
 interface LeftSidebarProps {
   user?: any
@@ -66,6 +68,25 @@ export default function LeftSidebar({
   onCloseMobile,
 }: LeftSidebarProps) {
   const router = useRouter()
+  const [retrouvaillesOpen, setRetrouvaillesOpen] = useState(false)
+
+  const openRetrouvailles = () => {
+    onCloseMobile?.()
+    // Si l'utilisateur a déjà vu le modal de présentation, on l'envoie
+    // directement sur la page /retrouvailles (le modal n'apparaît qu'une fois).
+    let seen = false
+    try {
+      seen = window.localStorage.getItem(RETROUVAILLES_SEEN_KEY) === "1"
+    } catch {
+      seen = false
+    }
+    if (seen) {
+      router.push("/retrouvailles")
+    } else {
+      setRetrouvaillesOpen(true)
+    }
+  }
+
   return (
     <aside className={cn(
       "flex flex-col overflow-y-auto scrollbar-hide z-30",
@@ -116,30 +137,47 @@ export default function LeftSidebar({
             icon={<Users size={20} />}
             label="Retrouvailles"
             badge="NEW"
+            active={active === "retrouvailles"}
             iconBg="bg-[#F5A33B]"
             iconColor="text-white"
+            onClick={openRetrouvailles}
           />
 
           <SidebarItem
             icon={<Gift size={20} />}
             label="Points et badges"
             badge="NEW"
+            active={active === "points"}
             iconBg="bg-[#E4405F]"
             iconColor="text-white"
+            onClick={() => {
+              router.push("/points")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
             icon={<ImageIcon size={20} />}
-            label="Albums"
+            label="Album"
+            active={active === "album"}
             iconBg="bg-[#8B5CF6]"
             iconColor="text-white"
+            onClick={() => {
+              router.push("/album")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
             icon={<Bookmark size={20} />}
             label="Mes sauvegardes"
+            active={active === "saves"}
             iconBg="bg-[#06B6D4]"
             iconColor="text-white"
+            onClick={() => {
+              router.push("/sauvegardes")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
@@ -159,8 +197,13 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<ShieldAlert size={20} />}
             label="Stop aux arnaques"
+            active={active === "scam"}
             iconBg="bg-[#FF4444]"
             iconColor="text-white"
+            onClick={() => {
+              router.push("/stop-arnaques")
+              onCloseMobile?.()
+            }}
           />
         </nav>
       </Card>
@@ -177,25 +220,45 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<Image src="/images/poke.png" alt="Pokes" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Pokes"
+            active={active === "pokes"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/pokes")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
             icon={<Image src="/images/groupe.png" alt="Groupes" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Groupes"
+            active={active === "groups"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/groups")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
             icon={<Image src="/images/page.png" alt="Espaces" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Espaces"
+            active={active === "espaces"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/espaces")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
             icon={<Image src="/images/canal.png" alt="Canal" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Canal"
+            active={active === "canal"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/canal")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
@@ -213,7 +276,12 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<Image src="/images/capsule.png" alt="Capsule" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Capsule"
+            active={active === "capsules"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/capsules")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
@@ -229,6 +297,9 @@ export default function LeftSidebar({
           />
         </nav>
       </Card>
+
+      {/* Modal de présentation du module Retrouvailles */}
+      <RetrouvaillesModal open={retrouvaillesOpen} onOpenChange={setRetrouvaillesOpen} />
     </aside>
   )
 }

@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { X, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { updateProfile } from "@/services/profile/profile.service"
+import { userMessage } from "@/lib/api/api-error"
 
 export interface EditableProfile {
   id: string
@@ -37,30 +39,21 @@ export function EditProfileModal({ open, user, onClose, onSaved }: EditProfileMo
   const handleSave = async () => {
     setSaving(true)
     try {
-      const res = await fetch("/api/profile/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.id,
-          firstName,
-          lastName,
-          username,
-          bio,
-          gender,
-          birthdate: birthdate || "",
-          phone,
-        }),
+      const data = await updateProfile({
+        userId: user.id,
+        firstName,
+        lastName,
+        username,
+        bio,
+        gender,
+        birthdate: birthdate || "",
+        phone,
       })
-      const data = await res.json()
-      if (data.success) {
-        onSaved(data.user)
-        toast.success("Profil mis à jour !")
-        onClose()
-      } else {
-        toast.error(data.message || "Erreur lors de la mise à jour.")
-      }
-    } catch {
-      toast.error("Erreur réseau.")
+      if (data.user) onSaved(data.user)
+      toast.success("Profil mis à jour !")
+      onClose()
+    } catch (error) {
+      toast.error(userMessage(error, "Erreur réseau."))
     } finally {
       setSaving(false)
     }
