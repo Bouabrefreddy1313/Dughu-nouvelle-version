@@ -307,8 +307,20 @@ export const dughuApi = {
     dughu.get(`getPostAll/${encodeURIComponent(String(userId))}`, { page }),
 
   // Liste des albums d'un utilisateur (chaque album contient ses medias)
-  getAlbums: (userId: string | number) =>
-    dughu.get("album", { user_id: String(userId) }),
+  getAlbums: (userId: string | number, page = 1) =>
+    dughu.get("album", { user_id: String(userId), page }),
+
+  // Création d'un album — multipart/form-data :
+  // album_name, type (public|private), albumarray[] (fichiers), user_id
+  createAlbum: (formData: FormData) => dughu.multipart("album", formData),
+
+  // Suppression d'un album entier (et de son contenu)
+  deleteAlbum: (albumId: string | number) =>
+    dughuFetch(`album/${encodeURIComponent(String(albumId))}`, { method: "DELETE" }),
+
+  // Suppression d'une image d'un album
+  destroyOneImage: (imageId: string | number) =>
+    dughuFetch(`destroyOneImage/${encodeURIComponent(String(imageId))}`, { method: "DELETE" }),
 
   searchAll: (params: { query: string; user_id: string | number; page?: number }) =>
     dughu.form("searchAll", {
@@ -1229,6 +1241,7 @@ export function mapAlbums(raw: any): Record<string, any>[] {
           const url = resolveMediaUrl(toUrl(pick(m, "image", "url", "link", "file", "postFile", "photo")))
           if (!url) return null
           return {
+            id: String(pick(m, "id", "image_id", "imageId", "media_id", "mediaId", "album_image_id") || ""),
             url,
             type: String(pick(m, "media_type", "mediaType", "type") || "image"),
             postId: String(pick(m, "post_id", "postId") || ""),

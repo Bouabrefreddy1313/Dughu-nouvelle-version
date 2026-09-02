@@ -6,6 +6,7 @@ import { HandHeart } from "lucide-react"
 import MainLayout from "@/components/layout/MainLayout"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { useRetrouvailles } from "@/hooks/retrouvailles/use-retrouvailles"
+import { useOutgoingRequestUserIds } from "@/hooks/relations/useRelationRequests"
 import RetrouvaillePersonCard from "./RetrouvaillePersonCard"
 import RetrouvaillesContactsTab from "./RetrouvaillesContactsTab"
 import RetrouvaillesAnciensTab from "./RetrouvaillesAnciensTab"
@@ -34,7 +35,10 @@ export default function RetrouvaillesPage() {
 
   const suggestionsQuery = useRetrouvailles("suggestions", { userId, enabled: tab === "suggestions" && !!userId })
 
-  const sentIds = useMemo(() => new Set<string>(), [])
+  // Demandes sortantes (envoyées par l'utilisateur) : pré-remplit l'état
+  // « Demande envoyée » du bouton Fraterniser après un rechargement de page.
+  const outgoingQuery = useOutgoingRequestUserIds(!!userId)
+  const sentIds = useMemo(() => new Set(outgoingQuery.data ?? []), [outgoingQuery.data])
 
   const selectTab = (next: RetrouvaillesTab) => {
     router.replace(next === "suggestions" ? "/retrouvailles" : `/retrouvailles?tab=${next}`)

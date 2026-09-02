@@ -635,16 +635,92 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
 * **Bouton « Fraterniser »** (réutilisable dans les 3 onglets) : envoie
   `POST relation/request` (multipart) avec `auth_user_id` + `user_id` +
   `type` — il est **désactivé** pendant l'envoi (« Envoi… » avec spinner), passe
-  en état **« Demande envoyée »** au succès (persistant côté runtime, y compris si la
-  même personne apparaît dans plusieurs groupes), empêche les envois multiples
+  en état **« Demande envoyée »** au succès (y compris si la même personne
+  apparaît dans plusieurs groupes), empêche les envois multiples
   (anti double-clic global) et gère : succès, demande déjà envoyée, relation
   existante, erreur serveur (rollback + message utilisateur). Le bouton utilise
   la **couleur caramel Dughu** (`#A35A2A`, fond caramel/texte blanc, hover
   `#8a4d23` ; état « envoyé » en outline caramel).
+* **Persistance des demandes envoyées** : au chargement de la page, les
+  demandes de fraternisation **sortantes** de l'utilisateur sont rechargées via
+  `POST relation/requests` (clé `outgoing`, type `friend`) — exposées par la
+  route interne `GET /api/profile/relations/outgoing` — et pré-remplissent
+  l'état `alreadySent` des boutons. L'état « Demande envoyée » survit donc au
+  rechargement de la page ; le clic sur un bouton en état « envoyé » reste un
+  toggle (confirmation puis annulation de la demande sortante).
 * Architecture : composant → hook TanStack Query → service frontend (Axios
   cliente) → route interne `GET /api/retrouvailles` → service serveur (Axios
   serveur) → API Dughu. Normalisation défensive des formes réelles de l'API
   (suggestions = blocs objet, contacts = tableau, anciens = `data.users`).
+### Points et activités
+
+La page `/points` (« Points et activités ») est protégée (groupe `(protected)`)
+et organisée en 3 onglets accessibles (rôle `tablist`, navigation clavier) :
+« Mes gains », « Mes badges » et « Utilisations ». L'utilisateur connecté est
+résolu via `useAuth` (ID Dughu numérique) ; à défaut, les routes internes
+retombent sur le cookie de session.
+
+* Entrée de navigation : l'item « Points et badges » de la **sidebar gauche**
+  (`LeftSidebar`) redirige vers `/points` (état actif quand la page est courante,
+  fermeture du menu mobile après le clic).
+
+#### Onglet « Mes gains »
+
+* Bandeau statique « Barème de points sur Dughu ».
+* Trois cartes de statistiques : « Points disponibles » (API, format 2
+  décimales, label « Utilisables dès maintenant »), « Points convertis »
+  (statique, 0.00) et « Mes gains du jour » (statique, 0).
+* Section statique « Comment gagner des points » : 6 blocs (Publications,
+  Réactions & interactions, Flash, Adhérer & Fraterniser, Invitations &
+  connexions, Pénalités) avec icônes ; les pénalités sont en rouge.
+* Tableau « Historique des points » : filtres par période (Tous / Aujourd'hui /
+  Cette semaine / Ce mois-ci / Cette année), recherche, sélecteur d'entrées par
+  page (5/10/25/50), colonnes triables (Date, Type, Description, Points),
+  pagination numérotée avec Précédent / Suivant, bouton « Plus
+  d'informations ». Couleurs sémantiques : gain en vert, perte en rouge.
+* Le filtrage / la pagination sont réalisés côté client (l'API Dughu ne
+  garantit pas `page`, `limit`, `search`, `period`) ; les paramètres sont toutefois
+  transmis à l'API quand ils existent.
+
+#### Onglet « Mes badges »
+
+* Bloc « Mes badges » : badges obtenus via `GET /api/badge/[userId]` ; état vide
+  (icône trophée, « Aucun badge obtenu pour le moment ») si aucun badge.
+* Catalogue des badges via `GET /api/badge`, filtres par catégorie dérivés de la
+  réponse (Tous / Engagement / Reconnaissance / Fidélité / Création /
+  Leadership / Certification si présents), cartes avec icône, nom, tag de
+  catégorie coloré, description courte et statut (« Obtenu » avec date ou
+  « À débloquer » verrouillé, par croisement avec les badges de l'utilisateur).
+
+#### Onglet « Utilisations » (100 % statique)
+
+* Bandeau d'intro sur les usages des Points DUGHU.
+* Section « À quoi servent vos points ? » : 6 items (envoi de points, Dixip,
+  booster un post, booster un Espace, certifier un compte, certifier un Espace).
+* FAQ en accordéon accessible « Questions fréquentes » (5 items).
+* Encadré mentions légales (DUGHU DEALTOO SAS).
+
+#### Architecture HTTP
+
+* Composant → hook TanStack Query (`src/hooks/points`, `src/hooks/badges`) →
+  service frontend (Axios cliente) → routes internes `GET /api/pointsHistory`,
+  `GET /api/pointsToday/[userId]`, `GET /api/badge`, `GET /api/badge/[userId]` →
+  services serveur (Axios serveur, token `X-AppApiToken` côté serveur
+  uniquement) → API Dughu.
+* Sources de données : le solde « Points disponibles » (ainsi que « Points
+  convertis » et « Mes gains du jour ») provient de `GET /pointsToday/{userId}`
+  (champs `total`, `converted`, `gain_today`) — la même source que le
+  mini-profil ; le tableau « Historique des points » provient de
+  `GET /pointsHistory/{userId}` (endpoint paramétré par l'ID Dughu en chemin).
+* Normalisation défensive dans `points.mapper.ts` et `badges.mapper.ts`
+  (variantes d'enveloppes et de noms de champs, jamais dans les composants).
+* Types du domaine dans `src/types/points/points.types.ts` ; composants
+  réutilisables dans `src/components/points/` (`StatCard`,
+  `PointsHistoryTable`, `BadgeCard`, `FaqAccordion`, `TabNavigation`).
+* États de chargement (squelettes) et d'erreur (message + réessayer) gérés
+  pour les appels API ; aucun `fetch` natif côté frontend.
+
+### Communication
 ### Communication
 
 * Messages
@@ -752,6 +828,36 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
 
 * Sur desktop, les accès « Accueil », « Vidéos », « Flash » et « Akwaplay » sont présentés sous forme d'icônes compactes, régulièrement espacées, avec une infobulle accessible au survol et au clavier, tout en conservant leur navigation respective et l'indicateur de page active.
 * L'en-tête présente également deux accès statiques distincts « Fraternisés » (icône de groupe) et « Réseautés » (icône de mallette). Ils remplacent l'ancien accès « Abonnés », suivent la même présentation avec infobulle accessible, et n'effectuent aucune navigation tant que leurs vues dédiées ne sont pas disponibles.
+
+### Album
+
+* La page « Album » (`/album`, protégée) est accessible depuis le bouton « L'album »
+  de la sidebar gauche, qui est mis en surbrillance lorsque la page est active.
+* La liste des albums de l'utilisateur connecté est chargée via l'endpoint Dughu
+  `GET /album?user_id={user_id}&page={page}`, à travers la route interne
+  `/api/album` (instance Axios serveur côté backend, cliente côté frontend).
+* Chaque album est présenté sous forme de carte (grille responsive) avec cover
+  (première image ou placeholder), nom, badge de visibilité (Public / Privé) et
+  nombre de médias ; un menu contextuel (⋮) permet de supprimer l'album.
+* La création d'un album se fait via une modale : nom obligatoire, visibilité
+  (Public / Privé) et upload multiple de fichiers (images/vidéos, 20 Mo max par
+  fichier, prévisualisation avant envoi). Soumission en multipart/form-data
+  (`album_name`, `type`, `albumArray[]`, `user_id`) via `POST /api/album`, avec
+  indicateur de progression et rafraîchissement de la liste après succès.
+  Contrat API Dughu (vérifié en réel) : le champ fichiers est `albumArray[]`
+  (camelCase + crochet) et la visibilité vaut `public` ou `prive` sans accent —
+  la route normalise `private`/`privé` → `prive` avant l'envoi, et le badge
+  d'affichage traite `prive` (et `private` pour compatibilité) comme privé.
+* La suppression d'un album (`DELETE /api/album/{album_id}`) et la suppression
+  d'une image dans la vue détail (`DELETE /api/album/image/{image_id}`, endpoint
+  Dughu `destroyOneImage/{image_id}`) passent toutes deux par une modale de
+  confirmation, appliquent une mise à jour optimiste de la liste et annulent
+  celle-ci (rollback + message d'erreur) en cas d'échec.
+* La vue détail d'un album affiche tous ses médias en grille, avec bouton retour,
+  et met à jour le compteur de fichiers et la cover après suppression d'une image.
+* Les états de chargement (skeletons), d'erreur (avec relance), d'état vide
+  (invitation à créer son premier album) et de succès sont gérés pour chaque
+  appel API.
 
 ## 4. Fonctionnalités futures
 

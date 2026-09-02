@@ -42,6 +42,14 @@ export default function FraterniserButton({
   const [state, setState] = useState<"idle" | "sending" | "sent">(initialSent ? "sent" : "idle")
   const mountedRef = useRef(true)
 
+  // Synchronisation pendant le rendu : si les demandes sortantes chargées
+  // depuis l'API confirment l'envoi, met à jour l'état ET le cache runtime
+  // (pattern React « adjust state during render », sans effet).
+  if (alreadySent && state === "idle") {
+    sentRef.add(targetUserId)
+    setState("sent")
+  }
+
   const disabled = !authUserId || state === "sending" || state === "sent" || pendingRef.has(targetUserId)
 
   if (state === "sent") {

@@ -147,15 +147,25 @@ export default function LeftSidebar({
             icon={<Gift size={20} />}
             label="Points et badges"
             badge="NEW"
+            active={active === "points"}
             iconBg="bg-[#E4405F]"
             iconColor="text-white"
+            onClick={() => {
+              router.push("/points")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
             icon={<ImageIcon size={20} />}
-            label="Albums"
+            label="Album"
+            active={active === "album"}
             iconBg="bg-[#8B5CF6]"
             iconColor="text-white"
+            onClick={() => {
+              router.push("/album")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem

@@ -54,3 +54,23 @@ export async function fetchRelationRequests(
     throw toServiceApiError(error, "Impossible de charger vos demandes de relations.")
   }
 }
+
+/**
+ * Charge les IDs des destinataires des demandes SORTANTES (envoyées par
+ * l'utilisateur) depuis /api/profile/relations/outgoing — pré-remplissage de
+ * l'état « Demande envoyée » du bouton Fraterniser après rechargement.
+ */
+export async function fetchOutgoingRequestUserIds(signal?: AbortSignal): Promise<string[]> {
+  try {
+    const res = await apiClient.get<{ success?: boolean; message?: string; userIds?: string[] }>(
+      "/profile/relations/outgoing",
+      { signal }
+    )
+    if (!res.data?.success) {
+      throw new ApiError(res.data?.message || "Impossible de charger vos demandes envoyées.", { status: res.status })
+    }
+    return Array.isArray(res.data.userIds) ? res.data.userIds.map(String) : []
+  } catch (error) {
+    throw toServiceApiError(error, "Impossible de charger vos demandes envoyées.")
+  }
+}

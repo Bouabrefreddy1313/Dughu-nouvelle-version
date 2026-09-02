@@ -247,3 +247,28 @@ export function normalizeIncomingRelationRequests(
 
   return [...unique.values()]
 }
+
+/**
+ * IDs Dughu des destinataires des demandes SORTANTES (envoyées par le viewer)
+ * d'un type donné — sert à pré-remplir l'état « Demande envoyée » du bouton
+ * Fraterniser après rechargement de la page.
+ */
+export function normalizeOutgoingRequestUserIds(
+  payload: unknown,
+  fallbackType: RelationType
+): string[] {
+  const outgoing = responseSource(payload).outgoing
+  if (!Array.isArray(outgoing)) return []
+
+  const ids = new Set<string>()
+  for (const item of outgoing) {
+    const source = record(item)
+    const relation = record(source.relation ?? item)
+    const rawType = text(relation.type, source.type)
+    const type: RelationType = rawType === "friend" || rawType === "network" ? rawType : fallbackType
+    if (type !== fallbackType) continue
+    const userId = requestUserId(item, "outgoing")
+    if (userId) ids.add(userId)
+  }
+  return [...ids]
+}

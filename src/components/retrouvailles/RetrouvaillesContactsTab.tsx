@@ -8,6 +8,7 @@ import { useRef, useState } from "react"
 import { MessageCircleHeart, RefreshCw, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRetrouvailles } from "@/hooks/retrouvailles/use-retrouvailles"
+import { useOutgoingRequestUserIds } from "@/hooks/relations/useRelationRequests"
 import RetrouvaillePersonCard from "./RetrouvaillePersonCard"
 import { RetrouvaillesEmpty, RetrouvaillesError, RetrouvaillesCircleLoader } from "./RetrouvaillesStates"
 
@@ -96,7 +97,9 @@ export default function RetrouvaillesContactsTab({ userId }: RetrouvaillesContac
 
   const isSyncing = query.isLoading || query.isFetching
   const errorMessage = query.error instanceof Error ? query.error.message : "Impossible de charger vos contacts."
-  const sentIds = new Set<string>()
+  // Demandes sortantes déjà envoyées (pré-remplissage « Demande envoyée »).
+  const outgoingQuery = useOutgoingRequestUserIds(!!userId)
+  const sentIds = new Set(outgoingQuery.data ?? [])
 
   return (
     <div className="space-y-5">
