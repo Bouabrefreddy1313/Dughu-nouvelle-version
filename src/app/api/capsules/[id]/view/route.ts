@@ -4,6 +4,16 @@ import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 export const dynamic = "force-dynamic"
 
+/** IP du client déduite des en-têtes de proxy (champ `ip` requis par /trackView). */
+function clientIpFrom(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for")
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim()
+    if (first) return first
+  }
+  return req.headers.get("x-real-ip")?.trim() || ""
+}
+
 /**
  * POST /api/capsules/[id]/view — enregistre une vue (POST /trackView Dughu).
  * Body : { userId? }.
@@ -23,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!userId) {
       return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
     }
-    const result = await trackCapsuleView(id, userId)
+    const result = await trackCapsuleView(id, userId, clientIpFrom(req))
     return NextResponse.json({ success: true, ...result })
   } catch (error) {
     console.error("CAPSULE VIEW ERROR:", error)

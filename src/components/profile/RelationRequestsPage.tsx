@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { AlertCircle, BriefcaseBusiness, Check, Grid2X2, Loader2, RefreshCw, UserRoundPlus, UsersRound, X } from "lucide-react"
 import { useRelationRequests } from "@/hooks/relations/useRelationRequests"
+import { useSearchParams } from "next/navigation"
 import MainLayout from "@/components/layout/MainLayout"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { resolveMediaUrl } from "@/lib/dughu"
@@ -17,7 +18,7 @@ type Filter = "all" | RelationType
 const FILTERS = [
   { key: "all" as const, label: "Toutes", icon: Grid2X2 },
   { key: "friend" as const, label: "Fraterniser", icon: UserRoundPlus },
-  { key: "network" as const, label: "Réseauter", icon: BriefcaseBusiness },
+  { key: "network" as const, label: "R├®seauter", icon: BriefcaseBusiness },
 ]
 
 function requestDate(value: string | null): string | null {
@@ -58,7 +59,11 @@ function RequestAvatar({ request }: { request: IncomingRelationRequest }) {
 }
 
 export function RelationRequestsPage() {
-  const [filter, setFilter] = useState<Filter>("all")
+  const searchParams = useSearchParams()
+  const initialParam = searchParams.get("type")
+  const isFriend = initialParam === "friend"
+  const isNetwork = initialParam === "network"
+  const [filter, setFilter] = useState<Filter>(isFriend ? "friend" : isNetwork ? "network" : "all")
   const { data: currentUser, isLoading: authLoading, isError: authError } = useAuth()
   const { requestsQuery, mutation } = useRelationRequests(Boolean(currentUser))
 
@@ -76,7 +81,7 @@ export function RelationRequestsPage() {
       <div className="mx-auto w-full max-w-5xl py-3 sm:py-6">
         <header className="mb-5 px-1 sm:mb-6">
           <h1 className="text-2xl font-bold tracking-tight text-[#2D2D2D] sm:text-3xl">Demandes de relations</h1>
-          <p className="mt-1 text-sm text-[#65676B] sm:text-base">Gérez vos demandes de fraternisation et de réseau.</p>
+          <p className="mt-1 text-sm text-[#65676B] sm:text-base">G├®rez vos demandes de fraternisation et de r├®seau.</p>
         </header>
 
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
@@ -105,7 +110,7 @@ export function RelationRequestsPage() {
             {unavailableTypes.length > 0 && (
               <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
                 <AlertCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-                <p>Certaines demandes n’ont pas pu être chargées. Vous pouvez réessayer dans quelques instants.</p>
+                <p>Certaines demandes nÔÇÖont pas pu ├¬tre charg├®es. Vous pouvez r├®essayer dans quelques instants.</p>
               </div>
             )}
 
@@ -124,9 +129,9 @@ export function RelationRequestsPage() {
               <div className="flex min-h-80 flex-col items-center justify-center px-4 text-center">
                 <AlertCircle size={38} className="text-red-500" aria-hidden="true" />
                 <h2 className="mt-4 text-lg font-bold text-[#2D2D2D]">Chargement impossible</h2>
-                <p className="mt-1 max-w-md text-sm text-[#65676B]">Impossible de charger vos demandes de relations. Veuillez réessayer.</p>
+                <p className="mt-1 max-w-md text-sm text-[#65676B]">Impossible de charger vos demandes de relations. Veuillez r├®essayer.</p>
                 <button type="button" onClick={() => requestsQuery.refetch()} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#A35A2A] px-5 text-sm font-semibold text-white transition hover:bg-[#8B4A1F]">
-                  <RefreshCw size={16} aria-hidden="true" /> Réessayer
+                  <RefreshCw size={16} aria-hidden="true" /> R├®essayer
                 </button>
               </div>
             ) : filteredRequests.length === 0 ? (
@@ -136,13 +141,13 @@ export function RelationRequestsPage() {
                 </span>
                 <h2 className="mt-5 text-lg font-bold text-[#2D2D2D]">Aucune demande en attente</h2>
                 <p className="mt-1 max-w-md text-sm leading-6 text-[#65676B]">
-                  {filter === "all" ? "Vous n’avez aucune demande de fraternisation ou de réseau pour le moment." : filter === "friend" ? "Vous n’avez aucune demande de fraternisation pour le moment." : "Vous n’avez aucune demande de réseau pour le moment."}
+                  {filter === "all" ? "Vous nÔÇÖavez aucune demande de fraternisation ou de r├®seau pour le moment." : filter === "friend" ? "Vous nÔÇÖavez aucune demande de fraternisation pour le moment." : "Vous nÔÇÖavez aucune demande de r├®seau pour le moment."}
                 </p>
               </div>
             ) : (
               <div>
                 <div className="mb-4 flex items-center gap-2 px-1">
-                  <h2 className="font-bold text-[#2D2D2D]">{filter === "all" ? "Toutes les demandes" : filter === "friend" ? "Demandes de fraternisation" : "Demandes de réseau"}</h2>
+                  <h2 className="font-bold text-[#2D2D2D]">{filter === "all" ? "Toutes les demandes" : filter === "friend" ? "Demandes de fraternisation" : "Demandes de r├®seau"}</h2>
                   <span className="rounded-full bg-[#A35A2A] px-2 py-0.5 text-xs font-semibold text-white">{filteredRequests.length}</span>
                 </div>
                 <ul className="space-y-3">
@@ -162,7 +167,7 @@ export function RelationRequestsPage() {
                               <Link href={profileHref} className="block truncate font-bold text-[#2D2D2D] hover:text-[#A35A2A] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A]">{request.name}</Link>
                               <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#65676B]">
                                 {request.type === "friend" ? <UserRoundPlus size={14} className="text-[#A35A2A]" aria-hidden="true" /> : <BriefcaseBusiness size={14} className="text-[#A35A2A]" aria-hidden="true" />}
-                                {request.type === "friend" ? "Fraterniser" : "Réseauter"}
+                                {request.type === "friend" ? "Fraterniser" : "R├®seauter"}
                               </p>
                               {date && <p className="mt-1 text-xs text-[#8A8D91]">{date}</p>}
                             </div>

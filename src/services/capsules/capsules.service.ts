@@ -153,25 +153,45 @@ export function replyCapsuleComment({
   )
 }
 
-/** Like / unlike un commentaire de capsule. */
+/** Like / unlike un commentaire de capsule (`replyId` = like d'une réponse). */
 export function likeCapsuleComment({
   capsuleId,
   commentId,
   userId,
+  replyId,
 }: {
   capsuleId: string
   commentId: string
   userId?: string
+  /** Id de la réponse ciblée (champ `CommentReply_id` Dughu) — absent pour un commentaire racine. */
+  replyId?: string
 }) {
   return postJson<{ success: boolean; liked?: boolean; likesCount?: number }>(
     `/capsules/${encodeURIComponent(capsuleId)}/comments/${encodeURIComponent(commentId)}`,
-    { action: "like", userId }
+    { action: "like", userId, replyId }
   )
 }
 
-/** Signale une capsule. */
-export function reportCapsule({ capsuleId, userId, reason }: { capsuleId: string; userId?: string; reason?: string }) {
-  return postJson(`/capsules/${encodeURIComponent(capsuleId)}/report`, { reason, userId })
+/** Signale une capsule (reason_id = motif catégorisé, text = détail libre). */
+export function reportCapsule({
+  capsuleId,
+  userId,
+  reason,
+  reasonId,
+  text,
+}: {
+  capsuleId: string
+  userId?: string
+  reason?: string
+  reasonId?: string | number
+  text?: string
+}) {
+  return postJson(`/capsules/${encodeURIComponent(capsuleId)}/report`, {
+    reason,
+    reasonId,
+    text,
+    userId,
+  })
 }
 
 /** Supprime une capsule (auteur uniquement). */

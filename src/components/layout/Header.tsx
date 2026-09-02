@@ -19,11 +19,17 @@ interface HeaderProps {
   onMenuClick?: () => void
   chatOpen?: boolean
   onToggleChat?: () => void
+  /** Ouvre/ferme la sidebar droite (mobile/tablette). */
+  onToggleRightSidebar?: () => void
+  /** État d'ouverture de la sidebar droite (mobile/tablette) — style actif du bouton grille. */
+  rightSidebarOpen?: boolean
+  /** Masque le header sur mobile/tablette (ex : profil en couverture plein écran). */
+  hideOnMobile?: boolean
   /** Total de messages non lus (badge sur l'icône messagerie). */
   messageUnreadCount?: number
 }
 
-export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen, onToggleChat, messageUnreadCount = 0 }: HeaderProps) {
+export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen, onToggleChat, onToggleRightSidebar, rightSidebarOpen = false, hideOnMobile = false, messageUnreadCount = 0 }: HeaderProps) {
   const [q, setQ] = useState("")
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
@@ -44,7 +50,10 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
   ]
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-[56px] bg-white shadow-sm z-50 flex items-center justify-between gap-1 px-2 sm:gap-2 sm:px-4">
+    <header className={cn(
+      "fixed top-0 left-0 right-0 h-[56px] bg-white shadow-sm z-50 flex items-center justify-between gap-1 px-2 sm:gap-2 sm:px-4",
+      hideOnMobile && "hidden lg:flex"
+    )}>
       {/* ═════ GAUCHE : Hamburger + Logo + Recherche ═════ */}
       <div className="flex min-w-0 items-center gap-1 sm:gap-2">
         <button
@@ -127,8 +136,18 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
           {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
         </button>
 
-        {/* Menu / Grid (desktop/tablette uniquement) */}
-        <button className="hidden sm:flex w-10 h-10 rounded-full items-center justify-center text-[#050505] transition">
+        {/* Sidebar droite (mobile / tablette) : bouton 4 carrés → tiroir droit */}
+        <button
+          onClick={onToggleRightSidebar}
+          aria-label={rightSidebarOpen ? "Fermer la sidebar droite" : "Ouvrir la sidebar droite"}
+          aria-expanded={rightSidebarOpen}
+          className={cn(
+            "lg:hidden w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition",
+            rightSidebarOpen
+              ? "bg-[#DBEAFE] text-[#A35A2A]"
+              : "text-[#050505] hover:bg-[#F0F2F5]"
+          )}
+        >
           <LayoutGrid size={20} />
         </button>
 

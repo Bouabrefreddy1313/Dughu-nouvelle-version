@@ -103,8 +103,75 @@ function readNumber(value: any): number {
   return Number.isFinite(n) && n > 0 ? n : 0
 }
 
+/**
+ * Lit un compteur réel d'une capsule : privilégie les champs numériques
+ * explicites (like_count, comment_count, view_count…) puis retombe sur la
+ * longueur de la collection imbriquée. Nécessaire car l'API Dughu renvoie
+ * à la fois `likes` (objet), `comments`/`views` (tableaux) ET les compteurs
+ * numériques `like_count` / `comment_count` / `view_count` : lire la
+ * collection en premier produit Number(objet) = NaN → 0.
+ */
+function readCount(raw: any, numericKeys: string[], collectionKeys: string[]): number {
+  if (!raw || typeof raw !== "object") return 0
+  for (const key of numericKeys) {
+    const v = raw[key]
+    if (typeof v === "number" && Number.isFinite(v)) return Math.max(0, v)
+    if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) {
+      return Math.max(0, Number(v))
+    }
+  }
+  for (const key of collectionKeys) {
+    const v = raw[key]
+    if (Array.isArray(v)) return v.length
+    if (v && typeof v === "object") return Object.keys(v).length
+  }
+  return 0
+}
+
 function readFlag(value: any): boolean {
   return value === true || value === 1 || value === "1" || value === "true"
+}
+
+/**
+ * Compteur de dislikes d'une capsule : l'API Dughu n'expose AUCUN champ
+ * numérique (`dislike_count` / `dislikes_count` / `total_dislikes` absents du
+ * feed `fetchShorts`). La seule source est `dislikeBy` — renvoyé soit comme
+ * tableau d'ids, soit comme CHAÎNE JSON « "[23443,123]" » (voire
+ * « 23443,123 »). Sans ce traitement, le compteur de dislikes vaut toujours 0
+ * côté client : le +1 optimiste était écrasé à chaque refetch du feed
+ * (« le dislike ne fait rien »).
+ */
+function readDislikeCount(raw: any): number {
+  if (!raw || typeof raw !== "object") return 0
+  for (const key of ["dislike_count", "dislikes_count", "total_dislikes"]) {
+    const v = raw[key]
+    if (typeof v === "number" && Number.isFinite(v)) return Math.max(0, v)
+    if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) {
+      return Math.max(0, Number(v))
+    }
+  }
+  const value = firstValue(raw.dislikeBy, raw.dislike_by, raw.dislikes, raw.dislikedBy)
+  if (Array.isArray(value)) return value.filter((entry) => entry !== null && entry !== undefined).length
+  if (value && typeof value === "object") return Object.keys(value).length
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    if (!trimmed || trimmed === "0" || trimmed === "[]") return 0
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (Array.isArray(parsed)) return parsed.length
+      } catch {
+        /* pas du JSON valide → traitement comma-separated ci-dessous */
+      }
+    }
+    return trimmed
+      .replace(/^\[/, "")
+      .replace(/\]$/, "")
+      .split(",")
+      .map((part) => part.trim().replace(/^"|"$/g, ""))
+      .filter((part) => part !== "" && part !== "0").length
+  }
+  return 0
 }
 
 /**
@@ -210,10 +277,10 @@ export function normalizeCapsule(raw: any): Capsule | null {
     thumbnail: thumbRaw ? resolveMediaUrl(thumbRaw) : null,
     caption: String(pick(raw, "caption", "description", "title", "text", "content") || ""),
     author: normalizeAuthor(raw?.user ?? raw?.author ?? raw),
-    likesCount: readNumber(pick(raw, "likes", "like_count", "likes_count", "total_likes")),
-    dislikesCount: readNumber(pick(raw, "dislikes", "dislike_count", "dislikes_count", "total_dislikes")),
-    commentsCount: readNumber(pick(raw, "comments", "comment_count", "comments_count", "total_comments")),
-    viewsCount: readNumber(pick(raw, "views", "view_count", "views_count", "total_views")),
+    likesCount: readCount(raw, ["like_count", "likes_count", "total_likes"], ["likes"]),
+    dislikesCount: readDislikeCount(raw),
+    commentsCount: readCount(raw, ["comment_count", "comments_count", "total_comments"], ["comments"]),
+    viewsCount: readCount(raw, ["view_count", "views_count", "total_views"], ["views"]),
     isLiked: readFlag(pick(raw, "is_like", "isLike", "liked", "is_liked")),
     isDisliked: readFlag(pick(raw, "isDislikedByUser", "is_dislike", "isDislike", "disliked", "is_disliked")),
     createdAt: createdAtRaw ? String(createdAtRaw) : "",
@@ -339,23 +406,31 @@ function dughuSessionMessage(message: string, fallback: string): string {
   return m || fallback
 }
 
-/** Enregistre une vue sur une capsule (POST /trackView). */
-export async function trackCapsuleView(capsuleId: string, userId: string) {
+/** Enregistre une vue sur une capsule (POST /trackView : user_id + capsule_id + ip). */
+export async function trackCapsuleView(capsuleId: string, userId: string, ip = "") {
   const raw = await dughu.form("trackView", {
-    short_id: String(capsuleId),
     capsule_id: String(capsuleId),
     user_id: String(userId),
+    ip: String(ip || ""),
   })
   return { ok: !(raw && typeof raw === "object" && raw.success === false) }
 }
 
 /* ── Commentaires ──────────────────────────────────────────────────────────── */
 //
-// Contrats Dughu vérifiés en direct (diagnostic + Postman 2026-08-31) :
-//   storeComment/capsule  : capsule_id + text + user_id        → 201 {comment}
-//   replyCapsuleComment   : capsule_id + comment_id + text + user_id → 201 {comment}
-//   replyCapsuleReply     : capsule_id + reply_id + text + user_id   → 201 {comment}
-//   toggleLike/capsule/comment : capsule_id + comment_id + user_id   → 200 {is_liked, likes_count}
+// Contrats Dughu (confirmés par l'équipe Dughu, 2026-09-01) :
+//   storeComment/capsule  : capsule_id + text + user_id                → 201 {comment}
+//   replyCapsuleComment   : comment_id + text + user_id                → 201 {comment}
+//   replyCapsuleReply     : capsule_id + reply_id + text + user_id     → 201 {comment}
+//   toggleLike/capsule/comment : comment_id + user_id + CommentReply_id
+//                          (CommentReply_id = id de la réponse lorsqu'on like
+//                          une réponse ; vide pour un commentaire racine)
+//                          → 200 {is_liked, likes_count}
+//   trackView             : user_id + capsule_id + ip                  → vue enregistrée
+//   capsule/report        : capsule_id + reason + reason_id + user_id + text
+//   toggleLikeShort/{capsule_id}/{user_id}   → like / unlike capsule
+//   toggleDislikeShort/{capsule_id}/{user_id} → dislike / undislike capsule
+//   DELETE /capsule/{id}                     → suppression (auteur uniquement)
 //   fetchComments         : POST /fetchComments?page=N (page en query string), body
 //                           capsule_id + user_id, et `Authorization: Bearer
 //                           <dughu_token>` (token de session utilisateur) — sans
@@ -436,7 +511,7 @@ export async function addCapsuleComment(capsuleId: string, userId: string, conte
   return { comment }
 }
 
-/** Répond à un commentaire (POST /replyCapsuleComment). */
+/** Répond à un commentaire (POST /replyCapsuleComment : comment_id + text + user_id). */
 export async function replyToCapsuleComment(
   capsuleId: string,
   commentId: string,
@@ -446,7 +521,6 @@ export async function replyToCapsuleComment(
   let raw: any
   try {
     raw = await dughu.form("replyCapsuleComment", {
-      capsule_id: String(capsuleId),
       comment_id: String(commentId),
       text: content,
       user_id: String(userId),
@@ -484,14 +558,24 @@ export async function replyToCapsuleReply(
   return { reply: normalizeCapsuleComment(firstValue(raw?.comment, raw?.reply, raw?.data, raw?.result)) }
 }
 
-/** Like / unlike un commentaire de capsule (POST /toggleLike/capsule/comment). */
-export async function likeCapsuleComment(capsuleId: string, commentId: string, userId: string) {
+/**
+ * Like / unlike un commentaire de capsule
+ * (POST /toggleLike/capsule/comment : comment_id + user_id + CommentReply_id).
+ * Pour liker une **réponse**, passer `replyId` (= id de la réponse) — le
+ * `commentId` reste l'id du commentaire racine parent.
+ */
+export async function likeCapsuleComment(
+  capsuleId: string,
+  commentId: string,
+  userId: string,
+  replyId?: string
+) {
   let raw: any
   try {
     raw = await dughu.form("toggleLike/capsule/comment", {
-      capsule_id: String(capsuleId),
       comment_id: String(commentId),
       user_id: String(userId),
+      CommentReply_id: replyId ? String(replyId) : "",
     })
   } catch (error) {
     throw new Error(dughuErrorMessage(error, "Erreur de réaction"))
@@ -507,13 +591,24 @@ export async function likeCapsuleComment(capsuleId: string, commentId: string, u
 
 /* ── Signalement, suppression, création ────────────────────────────────────── */
 
-/** Signale une capsule (POST /capsule/report). */
-export async function reportCapsule(capsuleId: string, userId: string, reason: string) {
+/**
+ * Signale une capsule (POST /capsule/report : capsule_id + reason + reason_id
+ * + user_id + text). `reasonId` = identifiant du motif (vide si non catégorisé),
+ * `text` = détail libre du signalement (défaut : la raison).
+ */
+export async function reportCapsule(
+  capsuleId: string,
+  userId: string,
+  reason: string,
+  reasonId: string | number = "",
+  text?: string
+) {
   const raw = await dughu.form("capsule/report", {
-    short_id: String(capsuleId),
     capsule_id: String(capsuleId),
-    user_id: String(userId),
     reason,
+    reason_id: String(reasonId ?? ""),
+    user_id: String(userId),
+    text: String(text ?? reason),
   })
   if (raw && typeof raw === "object" && raw.success === false) {
     throw new Error(String(raw.message || "Erreur lors du signalement"))

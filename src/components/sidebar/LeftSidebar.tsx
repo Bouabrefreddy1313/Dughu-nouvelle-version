@@ -11,6 +11,8 @@ import {
 import { cn } from "@/lib/utils"
 import Card from "@/components/common/Card"
 import Badge from "@/components/common/Badge"
+import RetrouvaillesModal, { RETROUVAILLES_SEEN_KEY } from "@/components/retrouvailles/RetrouvaillesModal"
+import { useState } from "react"
 
 interface LeftSidebarProps {
   user?: any
@@ -66,6 +68,25 @@ export default function LeftSidebar({
   onCloseMobile,
 }: LeftSidebarProps) {
   const router = useRouter()
+  const [retrouvaillesOpen, setRetrouvaillesOpen] = useState(false)
+
+  const openRetrouvailles = () => {
+    onCloseMobile?.()
+    // Si l'utilisateur a déjà vu le modal de présentation, on l'envoie
+    // directement sur la page /retrouvailles (le modal n'apparaît qu'une fois).
+    let seen = false
+    try {
+      seen = window.localStorage.getItem(RETROUVAILLES_SEEN_KEY) === "1"
+    } catch {
+      seen = false
+    }
+    if (seen) {
+      router.push("/retrouvailles")
+    } else {
+      setRetrouvaillesOpen(true)
+    }
+  }
+
   return (
     <aside className={cn(
       "flex flex-col overflow-y-auto scrollbar-hide z-30",
@@ -116,8 +137,10 @@ export default function LeftSidebar({
             icon={<Users size={20} />}
             label="Retrouvailles"
             badge="NEW"
+            active={active === "retrouvailles"}
             iconBg="bg-[#F5A33B]"
             iconColor="text-white"
+            onClick={openRetrouvailles}
           />
 
           <SidebarItem
@@ -234,6 +257,9 @@ export default function LeftSidebar({
           />
         </nav>
       </Card>
+
+      {/* Modal de présentation du module Retrouvailles */}
+      <RetrouvaillesModal open={retrouvaillesOpen} onOpenChange={setRetrouvaillesOpen} />
     </aside>
   )
 }

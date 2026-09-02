@@ -10,6 +10,7 @@ import ConversationSidebar from "@/components/sidebar/ConversationSidebar"
 import ConversationPopup from "@/components/sidebar/ConversationPopup"
 import MobileBottomNav from "@/components/layout/MobileBottomNav"
 import type { ChatSummary } from "@/lib/messages"
+import { logout } from "@/services/auth/auth.service"
 
 /** Nombre maximal de fenêtres de conversation ouvertes simultanément. */
 const MAX_CONVERSATION_POPUPS = 3
@@ -28,6 +29,8 @@ interface MainLayoutProps {
   workspace?: boolean
   /** Réserve la largeur de la sidebar gauche au contenu sur desktop. */
   reserveLeftSidebar?: boolean
+  /** Masque le header principal sur mobile/tablette (ex : profil en couverture plein écran). */
+  hideHeaderOnMobile?: boolean
 }
 
 export default function MainLayout({
@@ -42,14 +45,27 @@ export default function MainLayout({
   active = "feed",
   workspace = false,
   reserveLeftSidebar = false,
+  hideHeaderOnMobile = false,
 }: MainLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false)
+  // Sidebar droite en tiroir (mobile/tablette) : ouverte par le bouton grille du header.
+  const [mobileRightSidebarOpen, setMobileRightSidebarOpen] = useState(false)
   // Total de messages non lus, remonté par ConversationSidebar → badge rouge
   // sur l'icône messagerie du header.
   const [messageUnreadCount, setMessageUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
   const [openConversations, setOpenConversations] = useState<ChatSummary[]>([])
+
+  // ── Déconnexion ─────────────────────────────────────────────────────────────
+  // Le menu profil et sa modale de confirmation sont partagés par TOUTES les
+  // pages via le Header. Toute page qui ne transmet pas onLogout bénéficie
+  // quand même d'une déconnexion fonctionnelle (service auth + redirection
+  // /login) — sinon le bouton « Se déconnecter » de la modale restait
+  // silencieusement inerte (`onLogout?.()` sur undefined).
+  const handleLogout = onLogout ?? (() => {
+    void logout().finally(() => router.push("/login"))
+  })
 
   const openConversationPopup = useCallback((conversation: ChatSummary) => {
     // Ouvrir la conversation = la lire : on retire le compteur de non-lus de la
@@ -94,12 +110,25 @@ export default function MainLayout({
     <div className="min-h-screen bg-[#f7f8fa]">
       <Header
         user={user}
-        onLogout={onLogout}
+        onLogout={handleLogout}
         onSearch={onSearch}
-        onMenuClick={() => setMobileMenuOpen(true)}
+        onMenuClick={() => {
+          // Ouverture de la sidebar gauche (mobile) : ferme automatiquement la
+          // sidebar droite pour qu'elles ne soient jamais ouvertes ensemble.
+          setMobileRightSidebarOpen(false)
+          setMobileMenuOpen(true)
+        }}
         chatOpen={chatOpen}
         onToggleChat={() => setChatOpen(!chatOpen)}
+        onToggleRightSidebar={() => {
+          // Ouverture de la sidebar droite (mobile) : ferme automatiquement la
+          // sidebar gauche pour qu'elles ne soient jamais ouvertes ensemble.
+          setMobileMenuOpen(false)
+          setMobileRightSidebarOpen((v) => !v)
+        }}
+        rightSidebarOpen={mobileRightSidebarOpen}
         messageUnreadCount={messageUnreadCount}
+        hideOnMobile={hideHeaderOnMobile}
       />
 
       {/* Overlay mobile pour le menu */}
@@ -129,13 +158,6 @@ export default function MainLayout({
           onCloseMobile={() => setMobileMenuOpen(false)}
         />
       </div>
-
-      {/* Colonnes fixes à droite (RightSidebar + ConversationSidebar) */}
-      {!noRightSidebar && (
-        <div className="hidden xl:block">
-          <RightSidebar user={user} chatOpen={chatOpen} />
-        </div>
-      )}
 
       {/* ConversationSidebar : toujours accessible via le bouton messagerie du header, même sans RightSidebar */}
       <ConversationSidebar
@@ -182,8 +204,28 @@ export default function MainLayout({
         </>
       )}
 
-      {/* Zone de contenu sous le header (réservations d'espace pour les sidebars fixes) */}
-      <div className="flex w-full pt-[80px] sm:pt-[88px]">
+      {/* Sidebar droite : mobile/tablette = tiroir coulissant (bouton grille du
+          header), desktop xl+ = colonne fixe à right-[220px] (toujours visible).
+          L'overlay ci-dessous existe seulement quand le tiroir est ouvert. */}
+      {mobileRightSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          onClick={() => setMobileRightSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      {!noRightSidebar && (
+        <RightSidebar
+          user={user}
+          open={mobileRightSidebarOpen}
+          onClose={() => setMobileRightSidebarOpen(false)}
+        />
+      )}
+
+      {/* Zone de contenu sous le header (réservations d'espace pour les sidebars fixes).
+          Quand le header est masqué sur mobile (profil), la couverture part du haut
+          de l'écran : padding supérieur nul sous lg, conservé sur desktop. */}
+      <div className={cn("flex w-full", hideHeaderOnMobile ? "pt-0 lg:pt-[88px]" : "pt-[80px] sm:pt-[88px]")}>
         {/* Réservation espace de la sidebar gauche (fixe en lg+) */}
         <div className="hidden lg:block lg:w-[270px] lg:shrink-0" aria-hidden="true" />
 
@@ -192,7 +234,7 @@ export default function MainLayout({
           <div
             className={cn(
               "mx-auto w-full",
-              wide ? "max-w-[1100px]" : "max-w-[800px]",
+              wide ? "max-w-[1100px]" : "max-w-[750px]",
               "space-y-3 sm:space-y-4"
             )}
           >
@@ -200,15 +242,14 @@ export default function MainLayout({
           </div>
         </main>
 
-        {/* Réservation espace de la sidebar droite (fixe en xl+) */}
+        {/* Réservation espace de la sidebar droite (fixe en xl+) — CONSTANT :
+            220px (marge droite) + 240px (largeur sidebar) + 24px de respiration
+            = 484px. La sidebar droite est IMMOBILE (xl:right-[220px], voir
+            RightSidebar.tsx) et le panneau de conversation s'ouvre en overlay
+            par-dessus (fixed, z-40) : le card du feed n'est ni couvert, ni
+            poussé, ni redimensionné sur aucun écran. */}
         {!noRightSidebar && (
-          <div
-            className={cn(
-              "hidden xl:block xl:shrink-0",
-              chatOpen ? "xl:w-[540px]" : "xl:w-[240px]"
-            )}
-            aria-hidden="true"
-          />
+          <div className="hidden xl:block xl:w-[484px] xl:shrink-0" aria-hidden="true" />
         )}
       </div>
 

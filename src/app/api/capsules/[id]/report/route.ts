@@ -24,7 +24,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
     }
     const reason = String(body?.reason || "Contenu inapproprié")
-    const result = await reportCapsule(id, userId, reason)
+    const reasonId = body?.reasonId ?? body?.reason_id ?? ""
+    const text = body?.text ? String(body.text) : undefined
+    const result = await reportCapsule(id, userId, reason, reasonId, text)
     return NextResponse.json({ success: true, ...result })
   } catch (error) {
     console.error("CAPSULE REPORT ERROR:", error)

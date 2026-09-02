@@ -606,33 +606,39 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
 
   return (
     <div className="space-y-4">
-      <ProfileHeader
-        user={user}
-        stats={stats}
-        isOwn={isOwn}
-        isFollowing={isFollowing}
-        relations={profile.relations ?? EMPTY_PROFILE_RELATIONS}
-        relationLoadingType={pendingType}
-        onToggleFollow={handleToggleFollow}
-        onRelationAction={handleRelationAction}
-        onMessage={() => {
-          if (!currentUser) {
-            toast.error("Connectez-vous pour envoyer un message")
-            return
-          }
-          const targetDughuId = profile.user?.dughu?.userId || profile.user?.dughuUserId
-          if (!targetDughuId) {
-            toast.error("Identifiant Dughu du contact introuvable")
-            return
-          }
-          router.push(`/messages?target=${encodeURIComponent(String(targetDughuId))}`)
-        }}
-        onEditCover={() => setImageEdit("cover")}
-        onEditAvatar={() => setImageEdit("avatar")}
-        onEditProfile={() => router.push("/profile/settings")}
-        onSubmitVerification={onSubmitVerification}
-        isVerifying={isVerifying}
-      />
+      {/* Couverture plein écran mobile/tablette : les marges négatives font
+          sortir la carte du padding du conteneur (px-2 / sm:px-4), elle touche
+          donc les bords de l'écran ; sur desktop (lg+) elle redevient une carte
+          classique. */}
+      <div className="-mx-2 sm:-mx-4 lg:mx-0">
+        <ProfileHeader
+          user={user}
+          stats={stats}
+          isOwn={isOwn}
+          isFollowing={isFollowing}
+          relations={profile.relations ?? EMPTY_PROFILE_RELATIONS}
+          relationLoadingType={pendingType}
+          onToggleFollow={handleToggleFollow}
+          onRelationAction={handleRelationAction}
+          onMessage={() => {
+            if (!currentUser) {
+              toast.error("Connectez-vous pour envoyer un message")
+              return
+            }
+            const targetDughuId = profile.user?.dughu?.userId || profile.user?.dughuUserId
+            if (!targetDughuId) {
+              toast.error("Identifiant Dughu du contact introuvable")
+              return
+            }
+            router.push(`/messages?target=${encodeURIComponent(String(targetDughuId))}`)
+          }}
+          onEditCover={() => setImageEdit("cover")}
+          onEditAvatar={() => setImageEdit("avatar")}
+          onEditProfile={() => router.push("/profile/settings")}
+          onSubmitVerification={onSubmitVerification}
+          isVerifying={isVerifying}
+        />
+      </div>
 
       {/* Onglets façon Facebook */}
       <div className="bg-white rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] px-2 sm:px-4 flex items-center gap-1 overflow-x-auto scrollbar-hide">

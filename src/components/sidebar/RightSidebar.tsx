@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { BarChart3, Users, Globe, TrendingUp, Activity as ActivityIcon, Heart, MessageCircle, Repeat2, Share2, PenSquare, UserPlus, ThumbsUp } from "lucide-react"
+import { BarChart3, Users, Globe, TrendingUp, Activity as ActivityIcon, Heart, MessageCircle, Repeat2, Share2, PenSquare, UserPlus, ThumbsUp, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Card from "@/components/common/Card"
 import Avatar from "@/components/common/Avatar"
@@ -10,10 +10,14 @@ import MiniProfileCard from "@/components/profile/MiniProfileCard"
 import BoostedPostCard from "@/components/promotion/BoostedPostCard"
 import GroupCarousel from "@/components/sidebar/GroupCarousel"
 import { fetchSuggestions, fetchPointsToday } from "@/services/posts/feed.service"
+import { useProfile } from "@/hooks/profile/use-profile"
 
 interface RightSidebarProps {
   user?: any
-  chatOpen?: boolean
+  /** Mobile / tablette : ouvre le tiroir coulissant depuis la droite. */
+  open?: boolean
+  /** Mobile / tablette : demande de fermeture du tiroir. */
+  onClose?: () => void
 }
 
 interface BoostedPost {
@@ -49,6 +53,18 @@ interface ActivityItem {
 
 const PROMOTIONS_PER_PAGE = 2
 const TOTAL_DOTS = 5
+
+// --- Constantes de layout responsive (xl+) ---
+// GAP_RIGHT_PX  : espace fixe entre la sidebar droite et le bord droit de l'écran.
+// SIDEBAR_WIDTH_PX : largeur de la sidebar droite elle-même.
+// L'espace réservé dans MainLayout (xl:w-[484px]) doit toujours valoir
+// GAP_RIGHT_PX + SIDEBAR_WIDTH_PX + 24px de respiration = 484px, pour que le
+// card du feed ne soit JAMAIS couvert par la sidebar droite, sur tout écran.
+// Le panneau de conversation (ConversationSidebar) s'ouvre en overlay par-dessus
+// (fixed, z-40 > z-30) : la sidebar droite ne se déplace jamais quand le chat
+// s'ouvre (position immobile xl:right-[220px]).
+const GAP_RIGHT_PX = 220
+const SIDEBAR_WIDTH_PX = 240
 
 const GROUPS = [
   { id: "1", name: "Startups Afrique", description: "Rejoignez la communauté", members: "2.1k membres" },
@@ -111,7 +127,7 @@ function getActivityMeta(type: string): { icon: React.ReactNode; action: string;
   }
 }
 
-export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
+export default function RightSidebar({ user, open = false, onClose }: RightSidebarProps) {
   const [activeDot, setActiveDot] = useState(0)
   const [boostedPosts, setBoostedPosts] = useState<BoostedPost[]>([])
   const [shuffledBoosted, setShuffledBoosted] = useState<BoostedPost[]>([])
@@ -125,6 +141,21 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
   // SPACES, tendances…) pour ne pas « flasher » de fausses infos au chargement.
   const [loading, setLoading] = useState(true)
 
+  // Vrais compteurs du profil connecté (GET /api/profile → stats : followersNbr,
+  // followingsNbr, NbrPostsTotal côté API Dughu). Source de vérité pour la
+  // carte mini-profil, à la place des compteurs locaux user._count. Le hook
+  // passe par le service frontend (instance Axios cliente), jamais de fetch natif.
+  const dughuId = String(user?.dughu?.userId ?? user?.dughhuUserId ?? "").trim()
+  const profileParams = useMemo(
+    () => ({
+      ...(dughuId ? { dughuUserId: dughuId } : {}),
+      ...(user?.id ? { userId: String(user.id) } : {}),
+      ...(user?.username ? { slug: String(user.username) } : {}),
+    }),
+    [dughuId, user?.id, user?.username]
+  )
+  const { data: profileData, isLoading: profileLoading } = useProfile(profileParams)
+
   // Charger les posts boostés, les activités et les points du jour
   useEffect(() => {
     let cancelled = false
@@ -132,13 +163,17 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
       // On repasse en chargement à chaque (re)lancé (changement de user)
       // pour ne jamais afficher de repli statique pendant une attente réseau.
       setLoading(true)
-      const userId = user?.id || ""
+      const userId = String(user?.id ?? "").trim()
+      const dughhuUserId = String(user?.dughhu?.userId ?? user?.dughhuUserId ?? "").trim()
       // Session pas encore résolue (auth en cours) : on garde les squelettes,
       // l'effet se relancera quand `user` arrivera.
-      if (!userId) return
+      if (!userId && !dughhuUserId) {
+        if (!cancelled) setLoading(false)
+        return
+      }
       try {
         // Charger les suggestions
-        const data = await fetchSuggestions(userId)
+        const data = await fetchSuggestions(userId, { dughhuUserId })
         if (cancelled) return
         if (data.success) {
           if (data.boostedPosts) {
@@ -213,14 +248,44 @@ export default function RightSidebar({ user, chatOpen }: RightSidebarProps) {
   ])
 
   return (
-    <aside className={cn(
-      "hidden xl:flex flex-col fixed top-[72px] lg:top-[88px] bottom-0 w-[240px] overflow-y-auto scrollbar-hide space-y-5 pb-10 pl-2 pr-3 z-30 transition-[right] duration-300 ease-in-out",
-      chatOpen ? "right-[300px]" : "right-0"
-    )}>
-      {/* Mini profil */}
-      <MiniProfileCard user={user} points={totalPoints} loading={loading} />
+    // Rendu adaptatif d'une seule instance (un seul fetch de /api/suggestions) :
+    // - < xl (mobile/tablette) : tiroir coulissant fixe depuis la droite,
+    //   ouvert par le bouton grille du header (prop `open`) — caché hors écran
+    //   sinon (translate-x-full + invisible) ;
+    // - xl+ (desktop) : colonne fixe et IMMOBILE, décalée de GAP_RIGHT_PX
+    //   (220px) du bord droit, toujours visible. La conversation s'ouvre en
+    //   overlay (z-40) par-dessus sans jamais pousser le card du feed.
+    // Note : valeurs Tailwind arbitraires entre crochets (ex: right-[220px]).
+    <aside
+      aria-label="Sidebar droite"
+      className={cn(
+        "flex flex-col fixed top-0 right-0 bottom-0 w-[300px] max-w-[85vw] z-50",
+        "overflow-y-auto scrollbar-hide space-y-5 pb-10 pl-2 pr-3 bg-[#f7f8fa]",
+        "transition-[transform,visibility] duration-300 ease-in-out",
+        open ? "translate-x-0 visible" : "translate-x-full invisible",
+        "xl:translate-x-0 xl:visible xl:top-[88px] xl:bottom-0 xl:w-[240px] xl:max-w-none xl:right-[220px] xl:z-30"
+      )}
+    >
+      {/* Barre de fermeture — mobile & tablette uniquement */}
+      <div className="xl:hidden flex items-center justify-between px-1 pt-2">
+        <span className="text-[15px] font-bold text-[#2D2D2D]">Découvertes</span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Fermer la sidebar droite"
+          className="w-9 h-9 rounded-full bg-[#F0F2F5] flex items-center justify-center text-[#050505] hover:bg-[#E4E6EB] transition"
+        >
+          <X size={18} />
+        </button>
+      </div>
 
-    
+      {/* Mini profil */}
+      <MiniProfileCard
+        user={user}
+        points={totalPoints}
+        stats={profileData?.stats}
+        loading={loading || profileLoading}
+      />
 
       {/* Posts boostés */}
       <div className="bg-white rounded-[20px] p-4 shadow-sm">

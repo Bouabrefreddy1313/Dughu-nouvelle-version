@@ -32,7 +32,8 @@ export async function POST(
     }
     const action = String(body?.action || "reply")
     if (action === "like") {
-      const result = await likeCapsuleComment(id, commentId, userId)
+      const replyId = body?.replyId ? String(body.replyId) : undefined
+      const result = await likeCapsuleComment(id, commentId, userId, replyId)
       return NextResponse.json({ success: true, ...result })
     }
     const content = String(body?.content || body?.reply || "").trim()

@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent as ReactTouchEvent } from "react"
+import { useQueryClient, type QueryClient } from "@tanstack/react-query"
 import {
   ChevronDown,
   ChevronUp,
@@ -38,6 +39,41 @@ interface CapsuleViewerProps {
   onClose: () => void
   onCapsuleDeleted?: (capsuleId: string) => void
 }
+
+/* ── Synchronisation avec le serveur (source unique : cache React Query) ─────
+ * Les compteurs affichés (likes, commentaires, vues) viennent EXCLUSIVEMENT
+ * des données serveur portées par le cache React Query des queries
+ * « capsules » (feed accueil, page /capsules, capsules du profil).
+ * 1. À chaque action (like, dislike, commentaire) le cache est patché
+ *    immédiatement (retour visuel instantané, cohérent dans toute l'app) ;
+ * 2. puis les queries « capsules » sont INVALIDÉES : React Query refetch
+ *    l'API Dughu qui renvoie les compteurs réels (like_count, comment_count…),
+ *    y compris les likes/commentaires faits par d'autres.
+ * Aucun compteur n'est stocké dans un état local : à la fermeture/réouverture
+ * de la visionneuse, les valeurs affichées sont donc toujours les valeurs
+ * serveur à jour. */
+
+type CapsulePatch = Partial<
+  Pick<Capsule, "likesCount" | "dislikesCount" | "commentsCount" | "viewsCount" | "isLiked" | "isDisliked">
+>
+
+function applyCapsulePatch(list: Capsule[], capsuleId: string, patch: CapsulePatch): Capsule[] {
+  return list.map((c) => (String(c.id) === String(capsuleId) ? { ...c, ...patch } : c))
+}
+
+/** Patche une capsule dans TOUTES les queries dont la clé commence par « capsules ». */
+function patchCapsulesCache(queryClient: QueryClient, capsuleId: string, patch: CapsulePatch) {
+  queryClient.setQueriesData({ queryKey: ["capsules"] }, (previous: unknown) => {
+    if (!previous || typeof previous !== "object") return previous
+    if (Array.isArray(previous)) return applyCapsulePatch(previous as Capsule[], capsuleId, patch)
+    const prev = previous as { capsules?: Capsule[] }
+    if (Array.isArray(prev.capsules)) {
+      return { ...prev, capsules: applyCapsulePatch(prev.capsules, capsuleId, patch) }
+    }
+    return previous
+  })
+}
+
 
 interface ActionButtonsProps {
   capsule: Capsule
@@ -225,20 +261,35 @@ export default function CapsuleViewer({
   onClose,
   onCapsuleDeleted,
 }: CapsuleViewerProps) {
-  const [index, setIndex] = useState(
-    Math.min(
-      Math.max(startIndex, 0),
-      Math.max(capsules.length - 1, 0)
-    )
+  const queryClient = useQueryClient()
+
+  // ── Capsule affichée suivie PAR ID (et non par index) ────────────────────────
+  // L'API Dughu peut réordonner le feed à chaque refetch (ordre non stable) et
+  // de nouvelles capsules s'insèrent en tête : si la visionneuse affichait
+  // `capsules[index]`, après un like / un commentaire (qui invalide le cache)
+  // la capsule située à cet index pouvait être une AUTRE capsule — celle
+  // visionnée « disparaissait » et une autre prenait sa place. On mémorise
+  // donc l'id de la capsule affichée et on retrouve sa position dans la liste
+  // à jour.
+  const clampedStart = Math.min(
+    Math.max(startIndex, 0),
+    Math.max(capsules.length - 1, 0)
   )
-  const [likedIds, setLikedIds] = useState<Set<string>>(new Set())
-  const [dislikedIds, setDislikedIds] = useState<Set<string>>(new Set())
+  const [viewingId, setViewingId] = useState<string | null>(() =>
+    capsules[clampedStart] ? String(capsules[clampedStart].id) : null
+  )
+  // Dernière position valide connue (repli si la capsule suivie disparaît).
+  const [lastValidIndex, setLastValidIndex] = useState(clampedStart)
+  // Aimants initiaux depuis les flags du cache (isLiked / isDisliked renvoyés
+  // par l'API), pour retrouver l'état réellement aimé à chaque réouverture.
+  const [likedIds, setLikedIds] = useState<Set<string>>(
+    () => new Set(capsules.filter((c) => c.isLiked).map((c) => c.id))
+  )
+  const [dislikedIds, setDislikedIds] = useState<Set<string>>(
+    () => new Set(capsules.filter((c) => c.isDisliked).map((c) => c.id))
+  )
   const [viewedIds, setViewedIds] = useState<Set<string>>(new Set())
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set())
-  // Surcharge locale du nombre de « j'aime » par capsule (incrémenté au clic).
-  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({})
-  // Surcharge locale du nombre de commentaires par capsule (incrémenté à l'ajout).
-  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Capsule | null>(null)
@@ -250,17 +301,78 @@ export default function CapsuleViewer({
   const touchStartY = useRef<number | null>(null)
   const touchStartX = useRef<number | null>(null)
 
-  const capsule = capsules[index]
+  // Position de la capsule suivie dans la liste à jour (-1 si absente).
+  const resolvedIndex = useMemo(
+    () => (viewingId ? capsules.findIndex((c) => String(c.id) === viewingId) : -1),
+    [capsules, viewingId]
+  )
+
+  // Ajustement d'état pendant le rendu (pattern React « adjusting state when
+  // props change ») : on retient la dernière position valide ; si la capsule
+  // suivie n'est plus dans la liste (suppression, filtrage du refetch), on
+  // reprend sur la capsule désormais située à cette position.
+  if (resolvedIndex >= 0) {
+    if (resolvedIndex !== lastValidIndex) setLastValidIndex(resolvedIndex)
+  } else if (capsules.length > 0) {
+    const fallbackIndex = Math.min(lastValidIndex, capsules.length - 1)
+    const fallbackCapsule = capsules[fallbackIndex]
+    if (fallbackCapsule && String(fallbackCapsule.id) !== viewingId) {
+      setViewingId(String(fallbackCapsule.id))
+      setLastValidIndex(fallbackIndex)
+    }
+  }
+
+  const index =
+    resolvedIndex >= 0
+      ? resolvedIndex
+      : Math.min(lastValidIndex, Math.max(capsules.length - 1, 0))
+  const currentCapsule = capsules[index]
+  const currentId = currentCapsule ? String(currentCapsule.id) : null
+
+  // ── Stabilité du média de la capsule affichée ───────────────────────────────
+  // Chaque like / dislike / commentaire réussi invalide le cache React Query :
+  // le feed est refetché et renvoie de NOUVEAUX objets capsules (URL média S3
+  // parfois régénérée d'une réponse à l'autre). Si l'objet courant change
+  // d'identité, React met à jour `src`/`poster` de la <video> et le navigateur
+  // RECHARGE la vidéo en pleine lecture (« la capsule se recharge » à chaque
+  // action). Tant que l'id de la capsule affichée ne change pas, on réutilise
+  // donc l'URL média mémorisée (les compteurs, eux, restent à jour) ; et si la
+  // liste est momentanément trop courte (refetch en cours), on conserve la
+  // capsule précédente au lieu de faire disparaître la visionneuse.
+  const [mediaState, setMediaState] = useState<{ id: string | null; capsule: Capsule | undefined }>(
+    () => ({ id: currentId, capsule: currentCapsule })
+  )
+
+  // Ajustement d'état pendant le rendu (pattern React « adjusting state when
+  // props change ») : la capsule affichée a changé d'id → on mémorise la
+  // nouvelle comme référence média (React rejoue immédiatement le rendu).
+  if (currentCapsule && mediaState.id !== currentId) {
+    setMediaState({ id: currentId, capsule: currentCapsule })
+  }
+
+  const capsule: Capsule | undefined = useMemo(() => {
+    if (!currentCapsule) return mediaState.capsule
+    if (mediaState.id === currentId && mediaState.capsule) {
+      // Même capsule : compteurs à jour (objet frais du refetch) + média figé
+      // (URL mémorisée) pour ne pas recharger la vidéo en pleine lecture.
+      return {
+        ...currentCapsule,
+        video: mediaState.capsule.video,
+        thumbnail: mediaState.capsule.thumbnail,
+      }
+    }
+    return currentCapsule
+  }, [currentCapsule, mediaState, currentId])
 
   const goNext = useCallback(() => {
-    setIndex((currentIndex) =>
-      Math.min(currentIndex + 1, capsules.length - 1)
-    )
-  }, [capsules.length])
+    const next = capsules[index + 1]
+    if (next) setViewingId(String(next.id))
+  }, [capsules, index])
 
   const goPrevious = useCallback(() => {
-    setIndex((currentIndex) => Math.max(currentIndex - 1, 0))
-  }, [])
+    const previous = capsules[index - 1]
+    if (previous) setViewingId(String(previous.id))
+  }, [capsules, index])
 
   // ── Navigation tactile (mobile) ─────────────────────────────────────────────
   // Un glissement vertical (style Reels) change de capsule : vers le haut =
@@ -340,60 +452,93 @@ export default function CapsuleViewer({
     }
   }, [goNext, goPrevious, onClose])
 
+  // À chaque changement de CAPSULE affichée (et non de simple position dans la
+  // liste, qui peut bouger après un refetch) : fermeture menu/commentaires et
+  // reprise de la lecture.
   useEffect(() => {
     setMenuOpen(false)
     setCommentsOpen(false)
     videoRef.current?.play().catch(() => undefined)
-  }, [index])
+  }, [currentId])
+
+  // Réactions en cours (anti double-clic) — refs manipulés uniquement dans les
+  // handlers, jamais pendant le rendu.
+  const reactingRef = useRef<Set<string>>(new Set())
 
   const toggleLike = async () => {
-    if (!capsule || !userId || likedIds.has(capsule.id)) return
+    if (!capsule || !userId || reactingRef.current.has(capsule.id)) return
+    // Vrai toggle : cliquer une capsule déjà aimée retire le like (l'endpoint
+    // Dughu /toggleLikeShort est un toggle). Sans cela, le clic sur une capsule
+    // déjà aimée ne fait strictement rien.
+    const alreadyLiked = likedIds.has(capsule.id) || capsule.isLiked
+    const previousLikes = capsule.likesCount
+    reactingRef.current.add(capsule.id)
 
     setLikedIds((currentIds) => {
       const nextIds = new Set(currentIds)
-      nextIds.add(capsule.id)
+      if (alreadyLiked) nextIds.delete(capsule.id)
+      else nextIds.add(capsule.id)
       return nextIds
     })
 
-    // Incrément optimiste du compteur (valeur de base + 1)
-    setLikeCounts((prev) => ({
-      ...prev,
-      [capsule.id]: (prev[capsule.id] ?? capsule.likesCount) + 1,
-    }))
+    // Retour visuel instantané : patch du cache React Query (source d'affichage).
+    patchCapsulesCache(queryClient, capsule.id, {
+      likesCount: Math.max(0, previousLikes + (alreadyLiked ? -1 : 1)),
+      isLiked: !alreadyLiked,
+    })
 
     try {
       await toggleCapsuleLikeClient({
         capsuleId: capsule.id,
         userId,
       })
+
+      // Récupère les compteurs RÉELS depuis l'API Dughu (like_count).
+      await queryClient.invalidateQueries({ queryKey: ["capsules"] })
     } catch (error) {
+      // Rollback : restaure l'état d'origine (aimé si la capsule l'était).
       setLikedIds((currentIds) => {
         const nextIds = new Set(currentIds)
-        nextIds.delete(capsule.id)
+        if (alreadyLiked) nextIds.add(capsule.id)
+        else nextIds.delete(capsule.id)
         return nextIds
       })
 
-      // Rollback du compteur
-      setLikeCounts((prev) => ({
-        ...prev,
-        [capsule.id]: Math.max(0, (prev[capsule.id] ?? capsule.likesCount) - 1),
-      }))
+      patchCapsulesCache(queryClient, capsule.id, {
+        likesCount: previousLikes,
+        isLiked: alreadyLiked,
+      })
 
       toast.error(
         error instanceof Error
           ? error.message
           : "Impossible d'enregistrer votre réaction."
       )
+    } finally {
+      reactingRef.current.delete(capsule.id)
     }
   }
 
   const toggleDislike = async () => {
-    if (!capsule || !userId || dislikedIds.has(capsule.id)) return
+    if (!capsule || !userId || reactingRef.current.has(capsule.id)) return
+    // Vrai toggle : cliquer une capsule déjà « je n'aime pas » retire le
+    // dislike (l'endpoint Dughu /toggleDislikeShort est un toggle). L'ancien
+    // garde silencieux (`dislikedIds.has → return`) rendait le bouton
+    // totalement inerte sur les capsules déjà dislikées.
+    const alreadyDisliked = dislikedIds.has(capsule.id) || capsule.isDisliked
+    const previousDislikes = capsule.dislikesCount
+    reactingRef.current.add(capsule.id)
 
     setDislikedIds((currentIds) => {
       const nextIds = new Set(currentIds)
-      nextIds.add(capsule.id)
+      if (alreadyDisliked) nextIds.delete(capsule.id)
+      else nextIds.add(capsule.id)
       return nextIds
+    })
+
+    patchCapsulesCache(queryClient, capsule.id, {
+      dislikesCount: Math.max(0, previousDislikes + (alreadyDisliked ? -1 : 1)),
+      isDisliked: !alreadyDisliked,
     })
 
     try {
@@ -401,14 +546,26 @@ export default function CapsuleViewer({
         capsuleId: capsule.id,
         userId,
       })
+
+      // Récupère les compteurs RÉELS depuis l'API Dughu.
+      await queryClient.invalidateQueries({ queryKey: ["capsules"] })
     } catch {
+      // Rollback : restaure l'état d'origine (disliké si la capsule l'était).
       setDislikedIds((currentIds) => {
         const nextIds = new Set(currentIds)
-        nextIds.delete(capsule.id)
+        if (alreadyDisliked) nextIds.add(capsule.id)
+        else nextIds.delete(capsule.id)
         return nextIds
       })
 
+      patchCapsulesCache(queryClient, capsule.id, {
+        dislikesCount: previousDislikes,
+        isDisliked: alreadyDisliked,
+      })
+
       toast.error("Impossible d'enregistrer votre réaction.")
+    } finally {
+      reactingRef.current.delete(capsule.id)
     }
   }
 
@@ -462,9 +619,10 @@ export default function CapsuleViewer({
         return
       }
 
-      setIndex((currentIndex) =>
-        Math.min(currentIndex, capsules.length - 2)
-      )
+      // Navigation vers la capsule voisine (suivante, sinon précédente) — la
+      // capsule supprimée disparaîtra de la liste propagée par le parent.
+      const neighbor = capsules[index + 1] ?? capsules[index - 1]
+      if (neighbor) setViewingId(String(neighbor.id))
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -473,6 +631,17 @@ export default function CapsuleViewer({
       )
     }
   }
+
+  // Ajout de commentaire : retour visuel instantané (+1 dans le cache React
+  // Query, source d'affichage), puis invalidation pour récupérer le
+  // comment_count réel. Défini AVANT le retour conditionnel (règle des hooks).
+  const handleCommentAdded = useCallback(() => {
+    if (!capsule) return
+    patchCapsulesCache(queryClient, capsule.id, {
+      commentsCount: capsule.commentsCount + 1,
+    })
+    void queryClient.invalidateQueries({ queryKey: ["capsules"] })
+  }, [capsule, queryClient])
 
   if (!capsule) return null
 
@@ -483,8 +652,10 @@ export default function CapsuleViewer({
   const actionButtonsProps: ActionButtonsProps = {
     capsule,
     userId,
-    likesCount: likeCounts[capsule.id] ?? capsule.likesCount,
-    commentsCount: commentCounts[capsule.id] ?? capsule.commentsCount,
+    // Source unique : données serveur (cache React Query, rafraîchi par
+    // invalidation après chaque action — plus aucun état local).
+    likesCount: capsule.likesCount,
+    commentsCount: capsule.commentsCount,
     likedIds,
     dislikedIds,
     reportedIds,
@@ -500,14 +671,6 @@ export default function CapsuleViewer({
       setDeleteTarget(capsule)
     },
   }
-
-  const handleCommentAdded = useCallback(() => {
-    if (!capsule) return
-    setCommentCounts((prev) => ({
-      ...prev,
-      [capsule.id]: (prev[capsule.id] ?? capsule.commentsCount) + 1,
-    }))
-  }, [capsule])
 
   return (
     <div

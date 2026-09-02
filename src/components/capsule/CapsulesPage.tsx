@@ -39,11 +39,25 @@ export default function CapsulesPage() {
 
   const { data, isLoading, isError, error, refetch } = useCapsulesFeed({ userId, page: 1, perPage: PAGE_SIZE })
 
-  // Première page
+  // Première page + refetch après action (like / commentaire / création).
+  // IMPORTANT : on FUSIONNE les données refetchées dans la liste locale au lieu
+  // de la remplacer par la page 1. Remplacer la liste faisait disparaître les
+  // pages chargées au scroll : la grille se rétractait et la visionneuse ouverte
+  // sur une capsule des pages ≥ 2 était démontée (« la page se recharge »).
   useEffect(() => {
     if (!data) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCapsules(data.capsules || [])
+    const fresh = data.capsules || []
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fusion des données distantes dans l'état local (voir commentaire ci-dessus).
+    setCapsules((current) => {
+      if (current.length === 0) return fresh
+      const freshById = new Map(fresh.map((c) => [String(c.id), c]))
+      const currentIds = new Set(current.map((c) => String(c.id)))
+      // Nouvelles capsules du serveur (ex. création) insérées en tête ;
+      // les existantes sont rafraîchies (compteurs, isLiked) sans changer
+      // leur position, et les pages suivantes sont conservées telles quelles.
+      const added = fresh.filter((c) => !currentIds.has(String(c.id)))
+      return [...added, ...current.map((c) => freshById.get(String(c.id)) ?? c)]
+    })
     setHasMore(!!data.pagination?.hasMore)
     setHydrated(true)
   }, [data])

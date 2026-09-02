@@ -85,23 +85,38 @@ export function replyCapsuleCommentClient({
     Promise<{ success: boolean; reply?: CapsuleComment | null }>
 }
 
-/** Like / unlike un commentaire de capsule. */
+/** Like / unlike un commentaire de capsule (`replyId` = like d'une réponse). */
 export function likeCapsuleCommentClient({
   capsuleId,
   commentId,
   userId,
+  replyId,
 }: {
   capsuleId: string
   commentId: string
   userId?: string
+  /** Id de la réponse ciblée (champ `CommentReply_id` Dughu) — absent pour un commentaire racine. */
+  replyId?: string
 }) {
-  return likeCapsuleComment({ capsuleId, commentId, userId }) as
+  return likeCapsuleComment({ capsuleId, commentId, userId, replyId }) as
     Promise<{ success: boolean; liked?: boolean; likesCount?: number }>
 }
 
 /** Signale une capsule. */
-export function reportCapsuleClient({ capsuleId, userId, reason }: { capsuleId: string; userId?: string; reason?: string }) {
-  return reportCapsule({ capsuleId, userId, reason })
+export function reportCapsuleClient({
+  capsuleId,
+  userId,
+  reason,
+  reasonId,
+  text,
+}: {
+  capsuleId: string
+  userId?: string
+  reason?: string
+  reasonId?: string | number
+  text?: string
+}) {
+  return reportCapsule({ capsuleId, userId, reason, reasonId, text })
 }
 
 /** Supprime une capsule (auteur uniquement). */

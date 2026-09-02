@@ -31,10 +31,15 @@ export async function givePoints(payload: GivePointsPayload, signal?: AbortSigna
 /** Charge les suggestions / activités / tendances via GET /api/suggestions. */
 export async function fetchSuggestions(
   userId: string,
-  options: { signal?: AbortSignal } = {}
+  options: { signal?: AbortSignal; dughhuUserId?: string | number | null } = {}
 ): Promise<SuggestionsResponse> {
   try {
-    const res = await apiClient.get<SuggestionsResponse>(`/suggestions?userId=${userId}`, {
+    const params = new URLSearchParams
+    if (userId.trim()) params.set("userId", userId.trim())
+    const dughhuUserId = String(options.dughhuUserId ?? "").trim()
+    if (dughhuUserId) params.set("dughhuUserId", dughhuUserId)
+    const qs = params.toString()
+    const res = await apiClient.get<SuggestionsResponse>(`/suggestions${qs ? `?${qs}` : ""}`, {
       signal: options.signal,
     })
     return res.data
@@ -46,7 +51,7 @@ export async function fetchSuggestions(
 /** Charge les points cumulés du jour via GET /api/pointsToday/:userId. */
 export async function fetchPointsToday(
   userId: string,
-  options: { signal?: AbortSignal } = {}
+  options: { signal?: AbortSignal; dughhuUserId?: string | number | null } = {}
 ): Promise<PointsTodayResponse> {
   try {
     const res = await apiClient.get<PointsTodayResponse>(`/pointsToday/${userId}`, {

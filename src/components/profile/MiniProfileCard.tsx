@@ -5,15 +5,24 @@ import Image from "next/image"
 import { resolveMediaUrl } from "@/lib/dughu"
 import { Skeleton } from "@/components/ui/skeleton"
 
+/** Vrais compteurs du profil (GET /api/profile → stats). Prioritaires sur user._count. */
+interface MiniProfileStats {
+  posts?: number
+  followers?: number
+  following?: number
+}
+
 interface MiniProfileCardProps {
   user?: any
   /** Solde total de points (endpoint /pointsToday/{id} → `total`). Prioritaire sur user.points. */
   points?: number
-  /** Pendant la résolution des données (auth + points) : squelettes, pas de repli. */
+  /** Vrais compteurs (abonnés, suivis, interactions) chargés via /api/profile. */
+  stats?: MiniProfileStats
+  /** Pendant la résolution des données (auth + points + profil) : squelettes, pas de repli. */
   loading?: boolean
 }
 
-export default function MiniProfileCard({ user, points, loading = false }: MiniProfileCardProps) {
+export default function MiniProfileCard({ user, points, stats, loading = false }: MiniProfileCardProps) {
   const router = useRouter()
   const totalPoints = points ?? user?.points ?? 0
 
@@ -92,18 +101,20 @@ export default function MiniProfileCard({ user, points, loading = false }: MiniP
         </p>
       </div>
 
-      {/* Stats */}
+      {/* Stats — vrais compteurs (via /api/profile), repli sur user._count.
+          « Posts » est affiché sous le libellé « Interactions » (même convention
+          que la page profil) : c'est le NbrPostsTotal de l'API Dughu. */}
       <div className="flex justify-around mt-2 pb-2">
         <div className="flex-1 text-center border-r border-[#E4E6EB]">
-          <p className="font-bold text-[13px] text-[#2D2D2D]">{user?._count?.posts ?? 0}</p>
-          <p className="text-[10px] text-[#65676B]">Posts</p>
+          <p className="font-bold text-[13px] text-[#2D2D2D]">{stats?.posts ?? user?._count?.posts ?? 0}</p>
+          <p className="text-[10px] text-[#65676B]">Interactions</p>
         </div>
         <div className="flex-1 text-center border-r border-[#E4E6EB]">
-          <p className="font-bold text-[13px] text-[#2D2D2D]">{user?._count?.following ?? 0}</p>
+          <p className="font-bold text-[13px] text-[#2D2D2D]">{stats?.following ?? user?._count?.following ?? 0}</p>
           <p className="text-[10px] text-[#65676B]">Suivis</p>
         </div>
         <div className="flex-1 text-center">
-          <p className="font-bold text-[13px] text-[#2D2D2D]">{user?._count?.followers ?? 0}</p>
+          <p className="font-bold text-[13px] text-[#2D2D2D]">{stats?.followers ?? user?._count?.followers ?? 0}</p>
           <p className="text-[10px] text-[#65676B]">Abonnés</p>
         </div>
       </div>

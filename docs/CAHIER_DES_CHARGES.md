@@ -30,9 +30,12 @@ Dughu doit posséder une identité visuelle propre et ne doit pas être une copi
 
 * La déconnexion demande une confirmation : une modale « Voulez-vous vraiment
   vous déconnecter de Dughu ? » s'affiche avant de fermer la session. L'utilisateur
-  peut « Annuler » ou confirmer « Se déconnecter ».
+  peut « Annuler » ou confirmer « Se déconnecter ». La déconnexion fonctionne
+  depuis **toutes les pages** : toute page ne transmettant pas de handler
+  dédié bénéficie du comportement par défaut de `MainLayout` (fermeture de la
+  session via `/api/logout` puis redirection vers l'écran de connexion).
 
-### Profil
+i### Profil
 
 * Profil utilisateur
 * Photo de profil
@@ -206,6 +209,32 @@ La normalisation technique de ces états est documentée dans
   soit tout le contenu de la colonne de gauche habituellement visible sur desktop.
 * Sur desktop (`lg` et plus), la colonne de gauche est visible et le layout
   à deux colonnes est conservé.
+* **Mobile / tablette (< `lg`)** : le header principal est **masqué** et la
+  partie supérieure du profil est **plein écran** — la photo de couverture
+  occupe tout le haut de l'écran (marges négatives sur le conteneur), plus
+  haute, sans coins arrondis, avec un **bouton retour** circulaire (flèche,
+  fond blanc translucide) superposé en haut à gauche, façon Facebook
+  (`router.back()`, repli vers `/home` si aucun historique). Le padding
+  supérieur du layout est supprimé (`pt-0`, conservé sur desktop
+  `lg:pt-[88px]`).
+
+### Header — responsive mobile / tablette
+
+* Sur mobile et tablette (< `lg`), le header affiche un **bouton « 4 carrés »**
+  (icône `LayoutGrid`) : un appui **ouvre la sidebar droite en tiroir
+  coulissant** depuis la droite (panneau fixe plein hauteur ~300px, animation de
+  translation, overlay sombre derrière, bouton de fermeture dans le tiroir).
+  Un second appui (ou un appui sur l'overlay, ou le bouton de fermeture) le
+  referme. Le bouton est inactif sur desktop où la sidebar droite est déjà
+  visible.
+* **Exclusion mutuelle des sidebars mobiles** : ouvrir la **sidebar gauche**
+  (hamburger) **ferme automatiquement la sidebar droite**, et ouvrir la
+  **sidebar droite** (« 4 carrés ») **ferme automatiquement la sidebar gauche**
+  — les deux panneaux ne sont jamais ouverts simultanément (géré dans
+  `MainLayout`). Sans impact desktop, où les deux sidebars sont fixes et
+  toujours visibles.
+* Ce comportement ne concerne pas la page profil sur mobile/tablette : le header
+  y est masqué (voir « Responsive de la page profil »).
 
 ### Navigation mobile
 
@@ -215,6 +244,9 @@ La normalisation technique de ces états est documentée dans
   **Akwaplay** et **Vidéos**.
 * Les onglets **Flash** et **Profil** ne sont pas présents dans la barre de
   navigation mobile.
+* La barre affiche aussi **Fraterniser** (`UsersRound`) et **Réseauter**
+  (`BriefcaseBusiness`) : un appui renvoie à `/profile/relations?type=friend`
+  ou `?type=network`, avec le filtre de la page des demandes pré-sélectionné.
 
 ### Bouton S'abonner (PostCard)
 
@@ -287,16 +319,40 @@ choisir le montant. La détection du post « sien » se base sur l'identifiant
 * La carte « mini-profil » de la sidebar droite affiche le solde **total** de points de
   l'utilisateur connecté, chargé via `GET /pointsToday/{userId}` (API Dughu) à travers
   la route interne `/api/pointsToday/[userId]` (champ `total` de la réponse).
+* **Vrais compteurs du mini-profil** : la carte affiche les **chiffres réels** de
+  l'utilisateur — **Abonnés** (`followersNbr`), **Suivis** (`followingsNbr`) et
+  **Interactions** (`NbrPostsTotal`, libellé « Interactions » au lieu de « Posts »,
+  même convention que la page profil) — chargés via `GET /api/profile` (hook
+  `useProfile` → service frontend `profile.service.ts`, en passant `dughuUserId`
+  prioritairement puis `userId`/`slug`). Les compteurs locaux `user._count` ne
+  servent que de repli si la requête profil échoue ou n'est pas résolue.
 * La **`MiniProfileCard`** a une prop `loading` : pendant la résolution (auth +
-  points) elle affiche des **squelettes** (badge points, couverture, avatar,
-  identité, stats) au lieu des placeholders (« 0 Points », cover/avatar par
-  défaut, « Utilisateur », stats à 0).
+  points + profil) elle affiche des **squelettes** (badge points, couverture,
+  avatar, identité, stats) au lieu des placeholders (« 0 Points », cover/avatar
+  par défaut, « Utilisateur », stats à 0).
 * La sidebar droite (mini-profil, posts boostés, groupes, espaces, dernière
   activité, tendances) charge ses données via `/api/suggestions` (+
   `/api/pointsToday/[userId]`) : pendant la résolution, chaque bloc affiche des
   **squelettes** (état `loading` de `RightSidebar`/`GroupCarousel`) et **jamais**
   de repli statique — les jeux de données codés en dur (`GROUPS`, `SPACES`,
   tendances) ne servent de repli que si l'API renvoie réellement une liste vide.
+* **Positionnement de la sidebar droite** (une seule instance `RightSidebar`,
+  rendu adaptatif — un seul appel à `/api/suggestions`) :
+  * **Desktop / grand écran (xl+)** : colonne fixe (`xl:fixed`) de `240px`,
+    décalée de **`right-55` (220px du bord droit)**. `MainLayout` réserve un
+    espace **constant** à droite (`xl:w-[484px]` = 220px d'offset + 240px de
+    sidebar + 24px de respiration) afin que la sidebar reste **collée au card du
+    feed sans jamais le chevaucher** au repos.
+  * **Ouverture du chat (tous écrans)** : la sidebar droite **ne se déplace
+    jamais** (position `right-[220px]` constante) — le panneau de conversation
+    (`ConversationSidebar`, fixed, z-40) s'ouvre **en overlay par-dessus** les
+    éléments : le card du feed n'est **ni couvert, ni poussé, ni redimensionné**
+    sur aucun écran (espace réservé constant `xl:w-[484px]`).
+  * **Mobile / petit écran (< xl)** : la sidebar droite s'ouvre en **tiroir
+    coulissant** fixe depuis la droite (bouton « 4 carrés » du header, voir
+    « Header — responsive mobile / tablette ») : cachée hors écran par défaut
+    (`translate-x-full`), elle glisse au-dessus du contenu sans jamais le
+    pousser ni réduire la taille des cards du feed, sur tous les écrans.
 
 #### Menu d'action « 3 points » d'une publication
 
@@ -459,6 +515,13 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
   enregistrée une seule fois par capsule (`POST /trackView` via la route
   interne), **signalement**, et **suppression** par l'auteur (confirmation via
   le popup `ConfirmDialog`, pas de `confirm()` natif).
+* Like et dislike sont de **vrais toggles** : cliquer une capsule déjà aimée
+  (resp. dislikée) retire la réaction (compteur −1 optimiste, rollback sur
+  échec), en cohérence avec les endpoints Dughu `toggleLikeShort` /
+  `toggleDislikeShort` qui gèrent nativement l'ajout ET le retrait.
+* Compteur de dislikes : le feed `fetchShorts` n'expose pas de champ numérique
+  (`dislike_count` absent) — la source est `dislikeBy` (tableau d'ids ou
+  chaîne JSON `"[23443,123]"`), dont la longueur est comptée côté client.
 * Chaque bouton d'action (J'aime, Je n'aime pas, Commentaires, Vues) affiche
   son compteur **en dessous**, en permanence (y compris `0`) ; le compteur de
   « J'aime » s'incrémente en temps réel au clic (optimiste, rollback sur
@@ -478,10 +541,110 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
   envoient `capsule_id` + `text` + `user_id` (vérifiés 201/200). Le **like / dislike**
   de capsule utilise `GET /toggleLikeShort/{capsule_id}/{user_id}` (= `toggleDislikeShort`).
   Les erreurs de validation de l'API sont traduites en messages utilisateur.
+* Compteurs capsules **pilotés par le serveur** : les nombres de likes, dislikes,
+  commentaires et vues affichés dans la visionneuse (et les vignettes) proviennent
+  **exclusivement** des données de l'API Dughu portées par le cache React Query
+  des queries « capsules » — **aucun compteur n'est stocké dans un état local**
+  (les surcharges locales sont supprimées). Après chaque action (like, dislike,
+  ajout de commentaire), le cache est patché immédiatement (retour visuel
+  instantané) puis **invalidé** : React Query refetch l'API qui renvoie les
+  compteurs réels (`like_count`, `comment_count`, `view_count`). Les valeurs
+  affichées sont donc correctes et stables à la fermeture/réouverture de la
+  visionneuse, y compris lorsque d'autres utilisateurs ont liké/commenté entre-temps.
+   Ce refetch ne doit **jamais** se traduire visuellement par un « rechargement » :
+   la capsule visionnée est suivie **par son id** (et non par sa position dans la
+   liste, l'ordre du feed n'étant pas stable côté API), la lecture de la vidéo en
+   cours n'est pas interrompue (le média de la capsule affichée est figé tant que
+   son id ne change pas), la visionneuse reste ouverte et, sur `/capsules`, les
+   pages déjà chargées au scroll sont conservées (les données refetchées sont
+   **fusionnées** dans la liste locale, jamais substituées à la page 1).
+
 * Confidentialité : l'auteur d'un commentaire s'affiche sous **« Utilisateur »**
   lorsqu'il s'agit de l'utilisateur connecté ; les autres commentateurs
   conservent leur nom affiché.
+* Contrats Dughu des actions capsules (alignés sur les endpoints officiels) :
+  **like / dislike** via `GET /toggleLikeShort/{capsule_id}/{user_id}` et
+  `GET /toggleDislikeShort/{capsule_id}/{user_id}` ; **vue** via
+  `POST /trackView` avec `user_id` + `capsule_id` + `ip` (l'IP est déduite
+  côté serveur des en-têtes proxy) ; **commentaire** via
+  `POST /storeComment/capsule` avec `capsule_id` + `text` + `user_id` ;
+  **réponse** via `POST /replyCapsuleComment` avec `comment_id` + `text` +
+  `user_id` ; **like de commentaire / réponse** via
+  `POST /toggleLike/capsule/comment` avec `comment_id` (commentaire racine
+  parent) + `user_id` + `CommentReply_id` (id de la réponse, vide pour un
+  commentaire racine) ; **signalement** via `POST /capsule/report` avec
+  `capsule_id` + `reason` + `reason_id` + `user_id` + `text` ;
+  **suppression** via `DELETE /capsule/{id}` (auteur uniquement).
+* Compteurs de capsule : les nombres de **j'aime**, **commentaires**, **vues**
+  et **dislikes** affichés (rail, visionneuse, profil) sont les compteurs
+  **réels** de l'API Dughu. Le mapper lit en priorité les champs numériques
+  `like_count` / `comment_count` / `view_count` / `dislike_count`, et ne
+  retombe sur la longueur des collections `likes` / `comments` / `views`
+  qu'en l'absence de champ numérique. Les compteurs se mettent à jour en
+  temps réel côté UI : incrément optimiste au **like** (rollback si l'appel
+  échoue) et à l'**ajout de commentaire**, via les endpoints
+  `GET /toggleLikeShort/{capsule_id}/{user_id}` et
+  `POST /storeComment/capsule`.
+* **Persistance des compteurs entre les ouvertures de la visionneuse** :
+  chaque like, dislike ou commentaire est aussi répercuté dans le **cache
+  React Query** des queries dont la clé commence par `capsules` (feed de
+  l'accueil, page `/capsules`, capsules du profil) via un patch
+  (`setQueriesData`) du compteur et des flags `isLiked` / `isDisliked` de la
+  capsule concernée. Les compteurs optimistes de la visionneuse ne sont donc
+  plus perdus à sa fermeture : en rouvrant une capsule, les compteurs et
+  l'état aimé / disliké reflètent les actions déjà effectuées (jusqu'au
+  prochain rafraîchissement des données distantes, qui fait foi).
 
+### Module « Retrouvailles »
+
+* Cliquer sur **« Retrouvailles »** dans la sidebar gauche ouvre un **modal de
+  présentation** : icône dédiée, titre « Retrouvailles », sous-titre
+  « Retrouvez ceux qui ont marqué votre vie. », rangée de 5 avatars (de **vrais
+  profils Dughu**, les 5 premières suggestions de l'API), texte
+  « +12 568 personnes retrouvées sur Dughu », 4 avantages et un bouton
+  **« Commencer »** qui redirige vers la page `/retrouvailles`.
+  Le modal n'apparaît **qu'une seule fois** : une fois vu, la clé
+  `dughu:retrouvailles-seen` est posée dans le localStorage et les clics
+  suivants sur « Retrouvailles » mènent **directement** à `/retrouvailles`.
+* La page `/retrouvailles` conserve la **sidebar gauche**, masque la **sidebar
+  droite**, et affiche 3 onglets alignés à gauche : **Suggestions**,
+  **Contacts**, **Anciens**. L'onglet actif est **synchronisé avec l'URL**
+  (`/retrouvailles?tab=suggestions|contacts|anciens`) et l'élément
+  « Retrouvailles » de la sidebar est actif sur cette page.
+* **Suggestions** : `GET /retrouvailles?tab=suggestions&user_id=...` — la
+  réponse est un objet de **groupes d'affinité** (amis en commun, amis Dughu,
+  même école, même entreprise, même ville, etc.). Chaque personne a un bouton
+  « Fraterniser ». États : chargement, liste vide, erreur, succès.
+* **Contacts** : import d'un fichier **vCard (.vcf)** de contacts (la forme
+  privilégiée — un numéro par champ `TEL`), ou **CSV** en secours (un numéro
+  par ligne ou une colonne), puis bouton **« Synchroniser »**. Dès le clic, un
+  **chargement progressif circulaire** bien visible (loader en anneau
+  `#A35A2A`) indique la synchronisation ; les contacts retrouvés n'apparaissent
+  qu'une fois la synchronisation terminée.
+  Les numéros sont transmis à la route interne en **POST body JSON** (jamais
+  dans l'URL, pour ne pas être rejetés en 431 par le reverse proxy sur les gros
+  imports) puis à l'API Dughu sous forme de **tableau JSON**
+  (`phone_numbers=["0787…","0123…"]`), traités par **lots de 100** et fusionnés
+  côté serveur. La liste des contacts retrouvés s'affiche avec un bouton
+  « Fraterniser ». États : chargement, vide, erreur, succès.
+* **Anciens** : formulaire **École / Université**, **Promotion : début**,
+  **Promotion : fin**, **Ville** →
+  `GET /retrouvailles?tab=anciens&user_id=...&ville=...&school=...`
+  (la réponse est `data.users`). Résultats avec bouton « Fraterniser ». États :
+  chargement, vide, erreur, succès.
+* **Bouton « Fraterniser »** (réutilisable dans les 3 onglets) : envoie
+  `POST relation/request` (multipart) avec `auth_user_id` + `user_id` +
+  `type` — il est **désactivé** pendant l'envoi (« Envoi… » avec spinner), passe
+  en état **« Demande envoyée »** au succès (persistant côté runtime, y compris si la
+  même personne apparaît dans plusieurs groupes), empêche les envois multiples
+  (anti double-clic global) et gère : succès, demande déjà envoyée, relation
+  existante, erreur serveur (rollback + message utilisateur). Le bouton utilise
+  la **couleur caramel Dughu** (`#A35A2A`, fond caramel/texte blanc, hover
+  `#8a4d23` ; état « envoyé » en outline caramel).
+* Architecture : composant → hook TanStack Query → service frontend (Axios
+  cliente) → route interne `GET /api/retrouvailles` → service serveur (Axios
+  serveur) → API Dughu. Normalisation défensive des formes réelles de l'API
+  (suggestions = blocs objet, contacts = tableau, anciens = `data.users`).
 ### Communication
 
 * Messages

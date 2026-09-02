@@ -148,7 +148,7 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
     }
   }
 
-  const likeComment = async (comment: CapsuleComment) => {
+  const likeComment = async (comment: CapsuleComment, parentCommentId?: string) => {
     if (!userId || pendingLikes.has(comment.id)) return
     setPendingLikes((s) => new Set(s).add(comment.id))
     // Mise à jour optimiste
@@ -160,7 +160,14 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
       }))
     )
     try {
-      await likeCapsuleCommentClient({ capsuleId, commentId: comment.id, userId })
+      // Contrat Dughu /toggleLike/capsule/comment : comment_id = commentaire
+      // racine parent, CommentReply_id = id de la réponse (si like d'une réponse).
+      await likeCapsuleCommentClient({
+        capsuleId,
+        commentId: parentCommentId ?? comment.id,
+        userId,
+        replyId: parentCommentId ? comment.id : undefined,
+      })
     } catch {
       // Rollback optimiste
       setComments((current) =>
@@ -240,7 +247,7 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
                           <span>{timeAgo(reply.createdAt)}</span>
                           <button
                             type="button"
-                            onClick={() => likeComment(reply)}
+                            onClick={() => likeComment(reply, comment.id)}
                             disabled={!userId}
                             className={cn("font-medium disabled:opacity-50", reply.isLiked ? "text-[#A35A2A]" : "hover:underline")}
                           >

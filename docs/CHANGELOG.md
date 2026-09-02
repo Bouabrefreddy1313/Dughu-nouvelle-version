@@ -13,6 +13,138 @@ Chaque entrée doit contenir :
 
 ## 2026-09-01
 
+### Retrouvailles — UI du chargement contacts et bouton « Fraterniser » (ajustements)
+
+* **Chargement circulaire bien visible** : pendant la synchronisation des contacts, le petit spinner est remplacé par un **loader en anneau** (`RetrouvaillesCircleLoader`, cercle tournant `#A35A2A` sur piste `#F0E2D4`) avec libellé « Synchronisation de vos contacts… » ; les résultats n'apparaissent qu'une fois terminé.
+* **Bouton « Fraterniser » marron caramel** : le bouton utilisait `variant="default"` du thème (qui rend **noir**, `--primary`), il utilise désormais la couleur Dughu `#A35A2A` (fond caramel, texte blanc, hover `#8a4d23`). L'état « Demande envoyée » passe en outline caramel (bordure `#A35A2A/30`, fond `#F5EFE8`).
+
+### Retrouvailles — erreur « 431 Request Header Fields Too Large » à la synchronisation des contacts (correction)
+
+* **Constat** : après import d'un fichier de contacts puis « Synchroniser », une erreur « Une erreur est survenue. Veuillez réessayer. 431 » s'affichait.
+* **Cause** : les numéros étaient envoyés dans la **query string** (`GET /api/retrouvailles?...&phone_numbers=["07…","01…",…]`). Avec un fichier VCF volumineux, l'URL devient très longue et le **reverse proxy (nginx) rejette la requête avec 431** (« Request Header Fields Too Large ») — confirmé : l'API Dughu accepte jusqu'à 500 numéros en direct, c'est bien le proxy de notre app qui bloquait.
+* **Correctifs** :
+  * les contacts passent désormais par **`POST /api/retrouvailles` avec les numéros en body JSON** (`{ tab, userId, phoneNumbers }`) — plus rien dans l'URL du navigateur → plus de 431 ;
+  * le service serveur traite les numéros par **lots de 100** (`MAX_CONTACTS_PER_REQUEST`) vers l'API Dughu, fusionne les résultats et **déduplique par id** ;
+  * `RetrouvaillesContactsTab` simplifié : plus d'état `syncing` parasite ni de `refetch()` redondant — le `queryKey` inclut les numéros, React Query relance automatiquement le POST (`isFetching` pilote bouton + loader).
+
+### Module « Retrouvailles » — précisions (VCF, modal unique, vrais profils)
+
+* **Import de contacts en vCard (.vcf)** : l'onglet Contacts accepte désormais un fichier **VCF** de contacts (un numéro par champ `TEL`, formes `TEL;TYPE=CELL:+225…`, `item1.TEL:…`, dédupliqués) via `parseVcf` ; le CSV reste accepté en secours (`parseCsv`). `accept=".vcf,.vcard,…"` sur le sélecteur, libellés adaptés.
+* **Modal affiché une seule fois** : dès que le modal de présentation est ouvert, la clé `dughu:retrouvailles-seen` est posée en `localStorage`. Aux clics suivants sur « Retrouvailles » dans la sidebar, l'utilisateur est **redirigé directement vers `/retrouvailles`** (vérification dans `openRetrouvailles` de `LeftSidebar`).
+* **Vrais profils Dughu dans le modal** : la rangée d'avatars affiche les **5 premières suggestions réelles** de l'API Dughu (`/api/retrouvailles?tab=suggestions`) chargées via le hook TanStack Query — fin des avatars fictifs pravatar.
+
+### Module « Retrouvailles » (ajout)
+
+* **Modal de présentation** : cliquer sur « Retrouvailles » dans la sidebar gauche ouvre un modal (icône `HandHeart`, titre « Retrouvailles », sous-titre « Retrouvez ceux qui ont marqué votre vie. », rangée de 5 avatars, texte « +12 568 personnes retrouvées sur Dughu », 4 avantages et bouton « Commencer » qui mène à la page `/retrouvailles`). Composant `src/components/retrouvailles/RetrouvaillesModal.tsx`, monté depuis `LeftSidebar`.
+* **Page `/retrouvailles`** : `MainLayout` avec sidebar gauche conservée et **sidebar droite masquée** (`noRightSidebar`), 3 onglets alignés à gauche — **Suggestions / Contacts / Anciens** — synchronisés avec l'URL (`/retrouvailles?tab=...`), état actif conservé (`active="retrouvailles"` dans la sidebar).
+* **Onglet Suggestions** : liste de groupes d'affinité (amis en commun, même école, même ville…) via `GET /retrouvailles?tab=suggestions&user_id=...` (endpoint Dughu réel, normalisé) ; états chargement / vide / erreur / succès.
+* **Onglet Contacts** : import d'un fichier CSV (numéros par ligne ou colonne) puis bouton **« Synchroniser »** avec état de progression ; les numéros sont envoyés sous forme de tableau JSON `phone_numbers=[...]` ; liste des contacts retrouvés avec bouton Fraterniser ; états loading / empty / error.
+* **Onglet Anciens** : formulaire **École / Université**, **Promotion début / fin**, **Ville** → `GET /retrouvailles?tab=anciens&user_id=...&ville=...&school=...` ; résultats avec bouton Fraterniser ; états loading / empty / error / succès.
+* **Bouton « Fraterniser » réutilisable** (`src/components/retrouvailles/FraterniserButton.tsx`) : envoie `POST relation/request` via le service existant des relations (`auth_user_id` + `user_id` + `type: friend`), désactive le bouton pendant l'envoi, affiche « Demande envoyée » au succès, gère demande déjà envoyée (état persistant côté runtime), relation existante et erreur serveur (rollback + message). Déduplication anti double-clic globale.
+* **Architecture** respectée : page/composant → hook TanStack Query (`src/hooks/retrouvailles/use-retrouvailles.ts`) → service frontend (`src/services/retrouvailles/retrouvailles.service.ts`, instance Axios cliente) → route interne `GET /api/retrouvailles` → service serveur (`src/services/retrouvailles/retrouvailles.server.ts`, instance Axios serveur) → API Dughu. Normalisation défensive dans `src/services/retrouvailles/retrouvailles.mapper.ts` (formats réels vérifiés en direct : suggestions = blocs objet, contacts = tableau, anciens = `data.users`).
+
+### Déconnexion — le bouton « Se déconnecter » de la modale reste inerte sur certaines pages (correction)
+
+* **Constat** : la modale de confirmation s'affiche, mais appuyer sur « Se déconnecter » ne fait rien (pas de fermeture de session, pas de redirection).
+* **Cause** : la modale de déconnexion vit dans `ProfileMenu` (Header), qui reçoit `onLogout` **de la page courante** via `MainLayout`. Plusieurs pages ne transmettent pas `onLogout` (ex. `/capsules`, messagerie, réglages…) → le bouton appelait `onLogout?.()` sur `undefined` : silence total, sans erreur.
+* **Correctif** (`src/components/layout/MainLayout.tsx`) : `MainLayout` fournit désormais une **déconnexion par défaut** quand la page ne passe pas `onLogout` — appel du service auth `logout()` (route interne `/api/logout`, cookies httpOnly) puis redirection vers `/login` (même contrat que le `handleLogout` existant du profil). Les pages qui passent leur propre `onLogout` le conservent ; toutes les autres sont réparées d'un coup.
+
+### Capsules — bouton « Je n'aime pas » totalement inerte (correction)
+
+* **Constat** : appuyer sur dislike ne changeait ni le bouton ni le compteur.
+* **Causes (diagnostiquées en direct sur l'API de test)** :
+  * **le feed `fetchShorts` n'expose AUCUN compteur de dislikes numérique** (pas de `dislike_count` ; `dislikeBy` est renvoyé sous forme de **chaîne JSON** `"[23443]"`, que le normalisateur `readCount` ne savait pas compter) → `dislikesCount` valait toujours 0 : le +1 optimiste du clic était écrasé par le 0 du refetch, donnant l'impression qu'aucune action ne se produisait ;
+  * **garde silencieux dans `toggleDislike`** (`dislikedIds.has(id) → return`) : cliquer une capsule déjà dislikée (état remonté par le serveur via `isDislikedByUser`) ne faisait strictement rien — pas de un-dislike possible.
+* **Correctifs** :
+  * `src/lib/capsule-service.ts` : nouveau helper `readDislikeCount` — compte les dislikes depuis `dislikeBy` (tableau natif, chaîne JSON `"[23443,123]"`, ids séparés par virgules) en privilégiant les champs numériques s'ils apparaissent un jour ; validé par 11 cas de test (y compris les 2 formes réelles observées : `"[23443]"` et `""`) ;
+  * `src/components/capsule/CapsuleViewer.tsx` : **like et dislike sont de vrais toggles** — cliquer une capsule déjà aimée/dislikée retire la réaction (optimiste −1 puis `toggleLikeShort`/`toggleDislikeShort` qui gèrent nativement le retrait), avec rollback complet en cas d'échec ; protection anti double-clic par `reactingRef` (jamais lu pendant le rendu).
+
+### Capsules — like / commentaire ne « rechargent » plus la capsule (correction)
+
+* **Constat** : à chaque like/dislike ou ajout de commentaire, la capsule en cours de lecture « disparaissait » et était remplacée par une autre (vidéo repartant de zéro, commentaires différents) ; sur `/capsules`, la page semblait se réinitialiser.
+* **Causes** :
+  * **l'API Dughu ne renvoie pas le feed dans un ordre stable** (ordre différent à chaque appel) : chaque action réussie invalide le cache React Query `["capsules"]` → refetch → la liste est réordonnée → la capsule située à l'**index** suivi par la visionneuse était une **autre capsule** ;
+  * le refetch renvoie de **nouveaux objets** capsules (URL média S3 parfois régénérée) : l'attribut `src` de la `<video>` changeait et le navigateur **rechargeait la vidéo** ;
+  * `CapsulesPage` **remplaçait** sa liste locale par la page 1 refetchée (`setCapsules(data.capsules)`) : les pages chargées au scroll disparaissaient et la visionneuse ouverte sur une capsule des pages ≥ 2 était **démontée**.
+* **Correctif** :
+  * `src/components/capsule/CapsuleViewer.tsx` : la capsule affichée est désormais **suivie par son id** (état `viewingId`) et non plus par un index — sa position est recalculée dans la liste à jour (`resolvedIndex`), donc un réordonnancement du feed ne change plus la capsule visionnée ; navigation (swipe, molette, flèches, chevrons) et suppression pilotent `viewingId` ; repli sur la dernière position valide si la capsule suivie disparaît de la liste ;
+  * `src/components/capsule/CapsuleViewer.tsx` : le **média de la capsule affichée est figé tant que son id ne change pas** (état `mediaState`, pattern React « adjusting state when props change ») — les compteurs restent à jour via l'objet frais du refetch, mais `src`/`poster` ne changent plus ; l'effet de changement de capsule (fermeture menu/commentaires) dépend désormais de l'id de la capsule et non de sa position ;
+  * `src/components/capsule/CapsulesPage.tsx` : les données refetchées sont désormais **fusionnées** dans la liste locale (pages suivantes conservées, existantes rafraîchies sans changer de position, nouvelles capsules insérées en tête) au lieu de remplacer la liste par la page 1.
+
+### Capsules — compteurs 100 % pilotés par le serveur (correction finale)
+
+* **Constat** : même avec le patch du cache React Query, les compteurs affichés restaient des **surcharges locales** (`likeCounts` / `commentCounts` dans l'état de `CapsuleViewer`) : le serveur n'était jamais re-interrogé après une action, donc un compteur pouvait rester faux (ex. 2 commentaires en base, « 1 » affiché) et revenir à l'ancienne valeur à la réouverture.
+* **Correctif** (`src/components/capsule/CapsuleViewer.tsx`) :
+  * **suppression des états locaux** `likeCounts` / `commentCounts` — l'affichage lit **uniquement** `capsule.likesCount` / `capsule.commentsCount`… issus du cache React Query, lui-même alimenté par l'API Dughu (`like_count`, `comment_count`, `view_count` vérifiés en direct) ;
+  * après chaque **like**, **dislike** ou **commentaire** réussi : patch instantané du cache (retour visuel immédiat) puis **`invalidateQueries({ queryKey: ["capsules"] })`** → React Query refetch le feed et remplace les compteurs par les **valeurs réelles du serveur** ;
+  * rollback propre en cas d'échec (compteur + état `isLiked`/`isDisliked` restaurés depuis la valeur précédente capturée avant le patch).
+* Résultat : like ou commentaire → le compteur s'actualise aussitôt **puis** se verrouille sur le chiffre serveur ; fermeture/réouverture de la capsule, changement d'onglet ou rechargement → toujours le vrai chiffre.
+
+### Capsules — compteurs réinitialisés à la réouverture de la visionneuse (correction)
+
+* **Cause** : les compteurs optimistes (likes, commentaires) vivaient uniquement dans l'état local de `CapsuleViewer`, **démonté à la fermeture** — les incréments n'étaient jamais répercutés dans le cache React Query (`["capsules", …]`) qui alimente l'accueil, la page `/capsules` et le profil. En rouvrant une capsule, les compteurs revenaient aux valeurs du feed (souvent `0`).
+* **Correctif** (`src/components/capsule/CapsuleViewer.tsx`) :
+  * nouveau helper `patchCapsulesCache` qui patche la capsule concernée dans **toutes** les queries dont la clé commence par `capsules` (`setQueriesData`) — gère les formes `{ capsules: [...] }` (feed) et tableau brut (capsules d'un utilisateur) ;
+  * chaque **like** réussi patche `likesCount + 1` + `isLiked: true` (rollback sur échec), chaque **dislike** patche `dislikesCount` + `isDisliked`, chaque **commentaire / réponse** ajouté patche `commentsCount + 1` ;
+  * les aimants initiaux (`likedIds` / `dislikedIds`) sont désormais **initialisés depuis les flags `isLiked` / `isDisliked` du cache**, donc le cœur reste rempli à la réouverture d'une capsule déjà aimée.
+* Les données distantes restent la source de vérité au prochain rafraîchissement du feed.
+
+### Capsules — alignement des contrats API Dughu (endpoints officiels)
+
+* Alignement de toutes les actions capsules sur les contrats Dughu confirmés :
+  * **Vue** (`POST /trackView`) : envoi de `user_id` + `capsule_id` + **`ip`** — l'IP du client est déduite côté serveur des en-têtes `x-forwarded-for` / `x-real-ip` (route `/api/capsules/[id]/view`) ; le champ obsolète `short_id` est retiré.
+  * **Réponse à un commentaire** (`POST /replyCapsuleComment`) : envoi de `comment_id` + `text` + `user_id` (le champ `capsule_id` superflu est retiré).
+  * **Like de commentaire / réponse** (`POST /toggleLike/capsule/comment`) : envoi de `comment_id` (commentaire racine parent) + `user_id` + **`CommentReply_id`** (id de la réponse lorsqu'on like une réponse, vide pour un commentaire racine). Le composant `CapsuleComments` transmet désormais le parent pour les likes de réponses.
+  * **Signalement** (`POST /capsule/report`) : envoi des 5 champs `capsule_id` + `reason` + `reason_id` + `user_id` + `text` (retire `short_id`).
+  * **Like / dislike de capsule** (`GET /toggleLikeShort/{id}/{user_id}`, `GET /toggleDislikeShort/{id}/{user_id}`) et **suppression** (`DELETE /capsule/{id}`) : déjà conformes.
+* Chaîne complète respectée : composant → hook → service frontend (Axios cliente) → route `/api/capsules/*` → `capsule-service` (serveur) → API Dughu.
+
+### Capsules — compteurs de likes / commentaires à 0 (correction)
+
+* **Cause** : l'API Dughu (`POST /fetchShorts`) renvoie pour chaque capsule à la fois les **collections** `likes` (objet), `comments` / `views` (tableaux) **et** les **compteurs numériques** `like_count` / `comment_count` / `view_count`. Le mapper de `src/lib/capsule-service.ts` lisait la collection en premier → `Number(objet ou tableau)` = `NaN` → **0**, d'où des compteurs figés à 0 même après un like (`GET /toggleLikeShort/{id}/{user_id}`) ou un commentaire (`POST /storeComment/capsule`), alors que l'API enregistrait bien l'action.
+* **Correctif** : nouveau helper `readCount` qui privilégie les champs numériques (`like_count`, `comment_count`, `view_count`, `dislike_count`…) puis retombe sur la longueur de la collection seulement si nécessaire. Vérifié sur le feed réel : capsule 132 → `like_count: 1`, `comment_count: 3`, `view_count: 3` désormais affichés.
+* Les mises à jour **temps réel** existantes restent actives : incrément optimiste du compteur de likes au clic (avec rollback si l'appel échoue) et incrément à l'ajout d'un commentaire dans la visionneuse.
+
+### Sidebars mobiles — exclusion mutuelle (gauche ⇄ droite)
+
+* Sur **mobile/tablette (< `lg`)**, l'ouverture de la **sidebar gauche** (hamburger) **ferme automatiquement la sidebar droite** (tiroir « 4 carrés »), et inversement : ouvrir la **sidebar droite** ferme automatiquement la sidebar gauche. Les deux panneaux ne peuvent plus jamais être ouverts en même temps. Implémenté dans `MainLayout` (chaque handler d'ouverture ferme l'autre état). Aucun impact desktop : les deux sidebars y sont fixes et toujours visibles.
+
+### Mini-profil (sidebar droite) — vrais compteurs (abonnés, suivis, interactions)
+
+* La carte mini-profil de la sidebar droite affichait les compteurs locaux `user._count` (souvent vides ou obsolètes). Elle charge désormais les **vrais chiffres** via `GET /api/profile` (`stats` : `followersNbr`, `followingsNbr`, `NbrPostsTotal` de l'API Dughu) à travers le hook `useProfile` (flux obligatoire : `RightSidebar` → `useProfile` → `profile.service.ts` → Axios cliente → route `/api/profile`). `MiniProfileCard` reçoit une nouvelle prop `stats` (prioritaire sur `user._count`, qui reste le repli en cas d'échec) ; le compteur « Posts » devient **« Interactions »** (même convention que la page profil). Le squelette de la carte couvre désormais aussi le chargement du profil (`loading || profileLoading`).
+
+### UI/Responsive — header : bouton « 4 carrés » + profil en couverture plein écran
+
+* **Header mobile/tablette (< `lg`)** : le bouton **« 4 carrés »** (`LayoutGrid`, déjà présent mais sans action et invisible sur téléphone) est désormais affiché et câblé : un appui **ouvre la sidebar droite en tiroir coulissant** depuis la droite (état actif `bg-[#DBEAFE]`, `aria-expanded`).
+* **`RightSidebar` en tiroir** : sur mobile/tablette elle devient un **panneau fixe plein hauteur** (~300px, `max-w-[85vw]`, z-50, fond `#f7f8fa`) glissant par `translate-x` (caché hors écran + `invisible` sinon, avec barre de fermeture « Découvertes » + X) ; sur desktop **xl+** elle reste une **colonne fixe immobile à `right-[220px]`** (`xl:translate-x-0`, z-30) — comportement desktop inchangé (cards du feed jamais poussées/redimensionnées, conversation en overlay z-40).
+* **`MainLayout`** : état `mobileRightSidebarOpen` + overlay mobile (z-40, `lg:hidden`) derrière le tiroir ; nouvelle prop `hideHeaderOnMobile` (padding du layout `pt-0` sous `lg`, `lg:pt-[88px]` sinon).
+* **Profil mobile/tablette (profilure)** : sur `< lg`, le header principal est **masqué** (`hideHeaderOnMobile` dans `ProfileShell`), la **couverture prend tout le haut de l'écran** (marges négatives `-mx-2 sm:-mx-4 lg:mx-0`, carte sans coins arrondis sous `lg`, hauteur portée à `h-64 sm:h-80`) avec un **bouton retour** circulaire façon Facebook (flèche `ChevronLeft`, fond blanc translucide, `router.back()` → `/home` en repli).
+
+
+### Sidebar droite — posts boostés (correction) + navigation mobile
+
+* **Posts boostés** : le chargement des suggestions pouvait rester **bloqué en squelettes** (« Chargement des posts boostés… » affiché à l'infini) quand aucun identifiant n'était disponible (`user?.id` vide → l'effet se terminait sans jamais retirer `loading`). Désormais l'effet utilise aussi `user.dughu.userId`/`dughhuUserId`, se termine proprement (`loading=false`) si aucun identifiant, et `fetchSuggestions` transmet explicitement `dughhuUserId` à `/api/suggestions` — la route l'attend pour générer les posts populaires sans dépendre du seul cookie.
+* **Tab bar mobile** : ajout des icônes **Fraterniser** (`UsersRound`) et **Réseauter** (`BriefcaseBusiness`) → `/profile/relations?type=friend|network` ; la page des demandes pré-sélectionne le filtre selon `?type=`.
+
+### UI/Responsive — sidebar droite en `right-55`, visible sur tous les écrans
+
+* **Desktop (xl+)** : la `RightSidebar` est fixée à **`right-55`** (220px du bord droit, Tailwind v4) au lieu de `right-6`.
+* **Taille des cards du feed constante** : l'espace réservé dans `MainLayout` est **fixe** (`xl:w-[484px]` = 220px d'offset + 240px de sidebar + 24px de respiration), quel que soit l'état du chat — les cards du feed ne rétrécissent jamais, sur aucun écran.
+* **Conversation en overlay, sidebar droite immobile** : l'ouverture du chat ne déplace plus la sidebar droite (position `xl:right-[220px]` constante, prop `chatOpen` retirée du composant) — elle ne couvre jamais le card du feed (l'ancien glissement `right-[520px]` est supprimé) ; la `ConversationSidebar` (fixed, z-40) s'ouvre par-dessus les éléments, sans pousser ni redimensionner les cards du feed sur aucun écran.
+* **Mobile / petit écran (< xl)** : la sidebar droite s'ouvre en **tiroir coulissant** depuis la droite via le **bouton « 4 carrés » du header** (panneau fixe plein hauteur, `translate-x`, overlay sombre, bouton de fermeture) — elle glisse par-dessus le contenu sans jamais le pousser ni réduire la taille des cards du feed.
+* **Instance unique** : la sidebar n'est rendue qu'une fois (plus de doublon fixe/flux), donc un seul appel à `/api/suggestions` et `/api/pointsToday/[userId]`.
+* Validation : `tsc --noEmit` ; vérification responsive 320/375/768/1024/1280/1440/1920 (aucun scroll horizontal, aucune variation de taille des cards du feed à l'ouverture du chat).
+
+### UI/Responsive — ajustement du layout du feed (desktop)
+
+* Rétrécissement de la colonne centrale du feed : `max-w-[800px]` → `max-w-[680px]` (cartes de posts et composer plus compacts, conforme à `docs/RESPONSIVE_GUIDELINES.md` — remise en page par colonnes indépendantes, sans écrasement du contenu à deux colonnes).
+* Rapprochement de la sidebar droite du feed : conteneur MainLayout élargi (`xl:w-[240px]` → `xl:w-[264px]`, `xl:w-[540px]` → `xl:w-[564px]` quand le chat est ouvert) et RightSidebar décollée du bord droit (`right-0` → `right-6`) pour créer un espace visible entre la sidebar et le bord de la page.
+* Comportements conservés : visibilité `xl:` uniquement (desktop large), repositionnement animé quand le chat est ouvert, aucun changement mobile/tablette.
+* Validation : `tsc --noEmit` exit 0 ; ESLint sans nouvelle erreur (les 10 problèmes remontés sont préexistants, lignes non touchées).
+
+### Architecture — lot 10 : regroupement des routes App Router
+## 2026-09-01
+
 ### Architecture — lot 10 : regroupement des routes App Router
 
 * Création des groupes de routes `(public)` (accueil, login, register, otp, forgot-password) et `(protected)` (home, profile, messages, capsules, onboarding, hashtags) — les URLs publiques restent strictement identiques (les groupes Next.js ne font pas partie des chemins).

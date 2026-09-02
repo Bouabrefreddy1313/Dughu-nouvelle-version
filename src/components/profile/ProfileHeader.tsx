@@ -20,6 +20,7 @@ import {
   Lock,
 } from "lucide-react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 import { fetchVerificationRequests, submitVerification } from "@/services/profile/profile.service"
@@ -173,6 +174,7 @@ export function ProfileHeader({
   onSubmitVerification,
   isVerifying,
 }: ProfileHeaderProps) {
+  const router = useRouter()
   const [step1Open, setStep1Open] = useState(false)
   const [step2Open, setStep2Open] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
@@ -250,10 +252,26 @@ export function ProfileHeader({
   }
 
   return (
-    <div className="bg-white rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+    // Sur mobile/tablette la carte est pleine largeur (coins droits) pour que la
+    // couverture prenne tout le haut de l'écran ; sur desktop elle redevient une
+    // carte arrondie.
+    <div className="bg-white rounded-none lg:rounded-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
       {/* ═══════ COUVERTURE ═══════ */}
-      <div className="relative h-48 sm:h-64 lg:h-80 w-full bg-gradient-to-br from-[#A35A2A] to-[#B87333]">
-        <Image src={coverSrc} alt="Photo de couverture" fill className="object-cover" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 70vw" priority />
+      <div className="relative h-64 sm:h-80 lg:h-80 w-full bg-gradient-to-br from-[#A35A2A] to-[#B87333]">
+        {/* Bouton retour — mobile & tablette uniquement, façon Facebook */}
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) router.back()
+            else router.push("/home")
+          }}
+          aria-label="Retour"
+          className="absolute top-3 left-3 z-20 lg:hidden w-10 h-10 rounded-full bg-white/90 backdrop-blur flex items-center justify-center text-[#050505] shadow-md hover:bg-white transition"
+        >
+          <ChevronLeft size={22} />
+        </button>
+
+        <Image src={coverSrc} alt="Photo de couverture" fill className="object-cover" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 70vw" priority />
 
         {isOwn && (
           <button
