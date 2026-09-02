@@ -32,17 +32,22 @@ import { buildCanalFormData, buildMessageFormData } from "./canal.helpers"
 
 /* ─────────────────────────────── Découverte / Listes ───────────────────── */
 
-/** POST /api/canal — liste globale des canaux (découverte). */
+/** GET /api/canal?scope=all — liste globale des canaux (découverte). */
 export async function fetchAllCanals(
   userId: string,
   options: { research?: string; categoryId?: string; page?: number; signal?: AbortSignal } = {}
 ): Promise<CanalsListResponse> {
   try {
-    const res = await apiClient.post<CanalsListResponse>(
-      "/canal",
-      { scope: "all", research: options.research ?? "", categoryId: options.categoryId },
-      { params: { page: (options.page ?? 1) > 1 ? options.page : undefined }, signal: options.signal }
-    )
+    const res = await apiClient.get<CanalsListResponse>("/canal", {
+      params: {
+        scope: "all",
+        userId: userId || undefined,
+        research: options.research || undefined,
+        categoryId: options.categoryId || undefined,
+        page: (options.page ?? 1) > 1 ? options.page : undefined,
+      },
+      signal: options.signal,
+    })
     return res.data
   } catch (error) {
     throw toServiceApiError(error, "Impossible de charger les canaux.")
@@ -408,13 +413,14 @@ export async function sendCanalMessage(
   }
 }
 
-/** POST /api/canal/messages/:messageId/update — modifier un message (multipart). */
+/** POST /api/canal/messages/:messageId — modifier un message (multipart). */
 export async function updateCanalMessage(
   messageId: string,
   payload: CanalMessagePayload,
   signal?: AbortSignal
 ): Promise<CanalMutationResponse> {
   const formData = buildMessageFormData(payload)
+  formData.append("_action", "update")
   try {
     const res = await apiClient.post<CanalMutationResponse>(
       `/canal/messages/${encodeURIComponent(messageId)}`,

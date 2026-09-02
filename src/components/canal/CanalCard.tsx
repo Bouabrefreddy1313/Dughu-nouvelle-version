@@ -3,35 +3,67 @@
 /**
  * Carte d'un canal dans la grille (Écran 1).
  *
- * Affiche :
- *  - Cover + avatar médaillon superposé (bas-gauche)
- *  - Étoile favori en haut à droite avec mise à jour optimiste
- *  - Nombre de membres avec icône personnes
- *  - Nom du canal (tronqué) + catégorie
- *  - Bouton d'action "Intégrer" (selon public/privé) ou gestion (si mes canaux)
+ * Spécifications demandées :
+ *  - Format large (en largeur et compact en hauteur/longueur).
+ *  - La photo de profil (avatar) est 100% visible au premier plan (z-20)
+ *    et n'est JAMAIS cachée ou tronquée par l'élément blanc de la carte.
+ *  - Dans la partie "canaux rejoints" : affichage complet des informations
+ *    du canal (membres, visibilité, statut membre/propriétaire, catégorie, date)
+ *    avec cadre agrandi en largeur et boutons d'action directs.
  */
 
 import { useState } from "react"
 import Image from "next/image"
-import { Star, Users, Check, Lock, Globe } from "lucide-react"
+import {
+  Star,
+  Users,
+  Check,
+  Lock,
+  Globe,
+  MessageSquare,
+  LogOut,
+  Settings,
+  ShieldCheck,
+  Calendar,
+} from "lucide-react"
 import type { Canal } from "@/types/canal/canal.types"
-import { useJoinOrRequestCanal, useToggleFavorite } from "@/hooks/canal/use-canals"
+import {
+  useJoinOrRequestCanal,
+  useLeaveCanal,
+  useToggleFavorite,
+} from "@/hooks/canal/use-canals"
 
 interface CanalCardProps {
   canal: Canal
   currentUserId?: string
   isMine?: boolean
+  isJoinedTab?: boolean
   onClick?: () => void
 }
 
-export default function CanalCard({ canal, currentUserId, isMine = false, onClick }: CanalCardProps) {
+export default function CanalCard({
+  canal,
+  currentUserId,
+  isMine = false,
+  isJoinedTab = false,
+  onClick,
+}: CanalCardProps) {
+  const isOwner =
+    isMine ||
+    Boolean(
+      currentUserId &&
+        canal.userId &&
+        String(canal.userId) === String(currentUserId)
+    )
+
   const [isFav, setIsFav] = useState(canal.isFavorite)
   const [joinStatus, setJoinStatus] = useState<"none" | "joined" | "requested">(
-    canal.isJoined ? "joined" : "none"
+    canal.isJoined || isOwner || isJoinedTab ? "joined" : "none"
   )
 
   const toggleFavMutation = useToggleFavorite()
   const joinMutation = useJoinOrRequestCanal()
+  const leaveMutation = useLeaveCanal()
 
   const handleToggleFav = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -66,109 +98,225 @@ export default function CanalCard({ canal, currentUserId, isMine = false, onClic
     }
   }
 
+  const handleLeave = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!currentUserId || isOwner || leaveMutation.isPending) return
+    if (!window.confirm(`Voulez-vous vraiment quitter le canal "${canal.name}" ?`)) return
+    setJoinStatus("none")
+    leaveMutation.mutate({
+      userId: currentUserId,
+      canalId: canal.id,
+    })
+  }
+
+  const formattedDate = canal.createdAt
+    ? new Date(canal.createdAt).toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : null
+
   return (
     <div
       onClick={onClick}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm transition hover:-translate-y-1 hover:border-[#F97316]/50 hover:shadow-md cursor-pointer"
+      className="group relative flex w-full flex-col rounded-3xl border border-gray-200/90 bg-white shadow-sm transition-all duration-300 hover:border-[#EA580C]/60 hover:shadow-lg cursor-pointer"
     >
-      {/* Cover + Avatar + Étoile */}
-      <div className="relative h-28 w-full bg-gradient-to-r from-orange-100 to-amber-100">
+      {/* ========================================================================= */}
+      {/* 1. Bannière Cover (Hauteur compacte h-28, large) */}
+      {/* ========================================================================= */}
+      <div className="relative h-28 w-full overflow-hidden rounded-t-3xl bg-gradient-to-r from-orange-100 via-amber-50 to-orange-200">
         <Image
           src={canal.cover || "/images/cover.jpg"}
           alt=""
           fill
-          sizes="(max-width: 768px) 100vw, 220px"
-          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 600px"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
           unoptimized={canal.cover?.startsWith("http")}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
 
-        {/* Bouton Favori en haut à droite */}
+        {/* Badges sur la bannière : Type + Membres */}
+        <div className="absolute left-3 top-3 flex items-center gap-2 z-10">
+          <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-md shadow-sm">
+            {canal.type === "public" ? (
+              <>
+                <Globe size={13} className="text-emerald-400" />
+                <span>Public</span>
+              </>
+            ) : (
+              <>
+                <Lock size={13} className="text-amber-400" />
+                <span>Privé</span>
+              </>
+            )}
+          </span>
+
+          <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-md shadow-sm">
+            <Users size={13} className="text-orange-400" />
+            <span>{canal.memberCount || 0}</span>
+          </span>
+        </div>
+
+        {/* Bouton Favori */}
         <button
           type="button"
           onClick={handleToggleFav}
           aria-label={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
-          className="absolute right-2.5 top-2.5 flex size-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm transition hover:scale-110 active:scale-95"
+          className="absolute right-3 top-3 z-10 flex size-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition hover:scale-110 active:scale-95 shadow-sm"
         >
           <Star
             size={16}
             className={isFav ? "fill-amber-400 text-amber-400" : "text-white/90"}
           />
         </button>
-
-        {/* Badge Visibilité + Nombre de membres */}
-        <div className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] font-medium text-white/95 backdrop-blur-sm">
-          {canal.type === "public" ? <Globe size={11} /> : <Lock size={11} />}
-          <span className="flex items-center gap-0.5 ml-1">
-            <Users size={11} />
-            {canal.memberCount || 0}
-          </span>
-        </div>
-
-        {/* Avatar médaillon superposé en bas à gauche */}
-        <div className="absolute -bottom-4 left-3 size-12 overflow-hidden rounded-full border-2 border-white bg-white shadow-md">
-          <Image
-            src={canal.logo || "/images/avatar.png"}
-            alt={canal.name}
-            fill
-            sizes="48px"
-            className="object-cover"
-            unoptimized={canal.logo?.startsWith("http")}
-          />
-        </div>
       </div>
 
-      {/* Contenu textuel */}
-      <div className="flex flex-1 flex-col justify-between p-3.5 pt-5">
-        <div>
-          <h3 className="truncate text-[14px] font-bold text-gray-900 group-hover:text-[#EA580C]">
-            {canal.name}
-          </h3>
-          <p className="mt-0.5 truncate text-[12px] font-medium text-[#EA580C]">
-            {canal.categoryName || "Général"}
-          </p>
+      {/* ========================================================================= */}
+      {/* 2. Corps de la carte en blanc */}
+      {/* ========================================================================= */}
+      <div className="relative p-4 pt-0">
+        {/* Ligne Seam : Avatar dégagé à 100% au premier plan + Boutons d'action à droite */}
+        <div className="flex items-end justify-between -mt-8 mb-2.5">
+          {/* Avatar (photo de profil) : z-20 et border-4 pour être parfaitement visible au-dessus du blanc */}
+          <div className="relative size-16 shrink-0 rounded-2xl border-4 border-white bg-white shadow-md overflow-hidden z-20">
+            <Image
+              src={canal.logo || "/images/avatar.png"}
+              alt={canal.name}
+              fill
+              sizes="64px"
+              className="object-cover"
+              unoptimized={canal.logo?.startsWith("http")}
+            />
+          </div>
+
+          {/* Actions alignées sur la même ligne (gain de hauteur) */}
+          <div className="flex items-center gap-2 z-10">
+            {joinStatus === "joined" || isOwner || isJoinedTab ? (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onClick?.()
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl bg-[#EA580C] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#C2410C] active:scale-[0.98]"
+                >
+                  <MessageSquare size={14} />
+                  Ouvrir le chat
+                </button>
+
+                {isOwner ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onClick?.()
+                    }}
+                    title="Gérer le canal"
+                    className="flex size-8 items-center justify-center rounded-xl bg-gray-100 text-gray-700 transition hover:bg-gray-200"
+                  >
+                    <Settings size={14} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleLeave}
+                    disabled={leaveMutation.isPending}
+                    title="Quitter le canal"
+                    className="flex size-8 items-center justify-center rounded-xl bg-red-50 text-red-600 transition hover:bg-red-100"
+                  >
+                    <LogOut size={14} />
+                  </button>
+                )}
+              </>
+            ) : joinStatus === "requested" ? (
+              <span className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 border border-amber-200">
+                Demande envoyée
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleJoin}
+                disabled={joinMutation.isPending}
+                className="flex items-center gap-1.5 rounded-xl bg-[#EA580C] px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#C2410C] active:scale-[0.98]"
+              >
+                {canal.type === "public" ? "Intégrer" : "Demander"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* Informations du canal */}
+        {/* ========================================================================= */}
+        <div className="space-y-1.5">
+          {/* Nom du canal + Badges horizontaux */}
+          <div className="flex flex-wrap items-center gap-2">
+            <h3
+              title={canal.name}
+              className="text-base font-black text-gray-900 group-hover:text-[#EA580C] transition-colors truncate max-w-[280px]"
+            >
+              {canal.name}
+            </h3>
+
+            <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-bold text-[#EA580C] border border-orange-200/60">
+              {canal.categoryName || "Général"}
+            </span>
+
+            {isOwner && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-700 border border-indigo-200/60">
+                <ShieldCheck size={11} />
+                Créateur
+              </span>
+            )}
+
+            {(isJoinedTab || (joinStatus === "joined" && !isOwner)) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200/60">
+                <Check size={11} />
+                Membre
+              </span>
+            )}
+          </div>
+
+          {/* Description courte (1 ligne) */}
           {canal.description && (
-            <p className="mt-1 line-clamp-2 text-[11px] text-gray-500">
+            <p className="text-xs font-medium text-gray-600 line-clamp-1 leading-snug">
               {canal.description}
             </p>
           )}
-        </div>
 
-        {/* Bouton d'action en bas */}
-        <div className="mt-3">
-          {isMine ? (
-            <button
-              type="button"
-              className="w-full rounded-xl bg-gray-100 py-1.5 text-center text-xs font-semibold text-gray-700 transition hover:bg-gray-200"
-            >
-              Gérer
-            </button>
-          ) : joinStatus === "joined" ? (
-            <button
-              type="button"
-              disabled
-              className="flex w-full items-center justify-center gap-1 rounded-xl bg-emerald-50 py-1.5 text-xs font-semibold text-emerald-700 border border-emerald-200"
-            >
-              <Check size={13} />
-              Rejoint
-            </button>
-          ) : joinStatus === "requested" ? (
-            <button
-              type="button"
-              disabled
-              className="w-full rounded-xl bg-amber-50 py-1.5 text-center text-xs font-semibold text-amber-700 border border-amber-200"
-            >
-              Demande envoyée
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleJoin}
-              disabled={joinMutation.isPending}
-              className="w-full rounded-xl bg-[#EA580C] py-1.5 text-center text-xs font-bold text-white shadow-sm transition hover:bg-[#C2410C] active:scale-[0.98]"
-            >
-              Intégrer
-            </button>
+          {/* Section d'informations spécifiques pour les canaux rejoints */}
+          {(isJoinedTab || joinStatus === "joined") && (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 px-3 py-1.5 text-[11px] text-gray-600 border border-gray-100">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1 font-semibold text-gray-800">
+                  <Users size={12} className="text-[#EA580C]" />
+                  {canal.memberCount || 0} membres inscrits
+                </span>
+
+                <span className="flex items-center gap-1 text-gray-500">
+                  {canal.type === "public" ? (
+                    <>
+                      <Globe size={11} className="text-emerald-500" />
+                      Canal public
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={11} className="text-amber-500" />
+                      Canal privé
+                    </>
+                  )}
+                </span>
+              </div>
+
+              {formattedDate && (
+                <span className="flex items-center gap-1 text-gray-400">
+                  <Calendar size={11} />
+                  Depuis le {formattedDate}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>

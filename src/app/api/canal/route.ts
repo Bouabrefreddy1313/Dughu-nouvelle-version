@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1)
     const userId = String(searchParams.get("userId") || "") || (await getDughuUserIdFromCookies())
     const categoryId = String(searchParams.get("categoryId") || "")
-    const q = String(searchParams.get("q") || "")
+    const q = String(searchParams.get("research") || searchParams.get("q") || "")
     const sortBy = String(searchParams.get("sortBy") || "")
 
     if (!userId) {
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
         result = await getCanalsByCategory(categoryId, userId, page)
         break
       default:
-        result = await getAllCanals(userId, { page, categoryId: categoryId || undefined })
+        result = await getAllCanals(userId, { page, categoryId: categoryId || undefined, research: q || undefined })
     }
 
     return NextResponse.json(result)

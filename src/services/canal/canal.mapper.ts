@@ -64,38 +64,49 @@ function pick(source: any, keys: string[]): any {
 
 /** Normalise un objet canal brut de l'API Dughu. */
 export function mapCanal(raw: any): Canal {
+  const item = raw?.result && typeof raw.result === "object" && !Array.isArray(raw.result) && raw.result.id ? raw.result : raw
   return {
-    id: str(pick(raw, ["id", "canal_id", "canalId"])),
-    name: str(raw?.name || raw?.canal_name),
-    description: str(raw?.description),
-    logo: str(raw?.logo || raw?.avatar || "/images/avatar.png"),
-    cover: str(raw?.cover || raw?.cover_image || "/images/cover.jpg"),
-    type: raw?.type === "public" ? "public" : "private",
-    isActive: bool(raw?.is_active ?? raw?.isActive, true),
-    categoryId: str(pick(raw, ["category_id", "categoryId"])),
-    categoryName: str(raw?.category_name || raw?.categoryName),
-    memberCount: num(raw?.member_count ?? raw?.memberCount ?? raw?.members_count),
-    isAdmin: bool(raw?.is_admin ?? raw?.isAdmin),
-    isJoined: bool(raw?.is_joined ?? raw?.isJoined ?? raw?.joined),
-    isFavorite: bool(raw?.is_favorite ?? raw?.isFavorite ?? raw?.favorite),
-    inviteCode: raw?.invite_code ? str(raw.invite_code) : undefined,
-    publicToken: raw?.public_token ? str(raw.public_token) : undefined,
-    createdAt: toIso(raw?.created_at ?? raw?.createdAt),
-    userId: str(pick(raw, ["user_id", "userId", "owner_id"])),
+    id: str(pick(item, ["id", "canal_id", "canalId"])),
+    name: str(item?.name || item?.canal_name),
+    description: str(item?.description),
+    logo: str(item?.logo_url || item?.logo || item?.avatar || "/images/avatar.png"),
+    cover: str(item?.cover_url || item?.cover || item?.cover_image || "/images/cover.jpg"),
+    type: item?.type === "public" ? "public" : "private",
+    isActive: bool(item?.is_active ?? item?.isActive, true),
+    categoryId: str(pick(item, ["category_id", "categoryId", "categorie"])),
+    categoryName: str(item?.category?.name || item?.category_name || item?.categoryName),
+    memberCount: num(item?.user_count ?? item?.member_count ?? item?.memberCount ?? item?.members_count),
+    isAdmin: bool(item?.is_admin ?? item?.isAdmin),
+    isJoined: bool(item?.isRejoind ?? item?.is_joined ?? item?.isJoined ?? item?.joined),
+    isFavorite: bool(item?.isFavorite ?? item?.is_favorite ?? item?.favorite),
+    inviteCode: item?.invite_code || item?.invite_link ? str(item.invite_code || item.invite_link) : undefined,
+    publicToken: item?.public_token || item?.unique_identifier ? str(item.public_token || item.unique_identifier) : undefined,
+    createdAt: toIso(item?.created_at ?? item?.createdAt),
+    userId: str(pick(item, ["autor_id", "author_id", "user_id", "userId", "owner_id"])),
   }
 }
 
 /** Normalise une liste de canaux avec meta de pagination. */
 export function mapCanalList(raw: any, page = 1): CanalsListResponse {
-  const items: any[] = Array.isArray(raw?.canals)
+  const container = raw?.result ?? raw
+  const items: any[] = Array.isArray(container?.data)
+    ? container.data
+    : Array.isArray(raw?.canals)
     ? raw.canals
+    : Array.isArray(container?.canals)
+    ? container.canals
     : Array.isArray(raw?.data)
     ? raw.data
+    : Array.isArray(container)
+    ? container
     : Array.isArray(raw)
     ? raw
     : []
 
-  const hasMore = bool(raw?.has_more ?? raw?.hasMore) || (typeof raw?.next_page_url === "string" && !!raw.next_page_url)
+  const hasMore =
+    bool(container?.has_more ?? container?.hasMore ?? raw?.has_more ?? raw?.hasMore) ||
+    (typeof container?.next_page_url === "string" && !!container.next_page_url) ||
+    (typeof raw?.next_page_url === "string" && !!raw.next_page_url)
 
   return {
     success: bool(raw?.success, true),
@@ -118,12 +129,17 @@ export function mapCanalCategory(raw: any): CanalCategory {
 }
 
 export function mapCanalCategories(raw: any): CanalCategory[] {
-  const items: any[] = Array.isArray(raw?.categories)
+  const container = raw?.result ?? raw
+  const items: any[] = Array.isArray(container)
+    ? container
+    : Array.isArray(container?.data)
+    ? container.data
+    : Array.isArray(raw?.categories)
     ? raw.categories
+    : Array.isArray(container?.categories)
+    ? container.categories
     : Array.isArray(raw?.data)
     ? raw.data
-    : Array.isArray(raw)
-    ? raw
     : []
   return items.map(mapCanalCategory)
 }
@@ -132,20 +148,32 @@ export function mapCanalCategories(raw: any): CanalCategory[] {
 
 /** Normalise un membre d'un canal. */
 export function mapCanalMember(raw: any): CanalMember {
+  const name =
+    raw?.name ||
+    raw?.full_name ||
+    (raw?.first_name ? `${raw.first_name} ${raw.last_name || ""}`.trim() : "") ||
+    raw?.username ||
+    "Membre"
+
   return {
-    id: str(pick(raw, ["id", "member_id"])),
+    id: str(pick(raw, ["id", "member_id", "user_id"])),
     userId: str(pick(raw, ["user_id", "userId"])),
     canalId: str(pick(raw, ["canal_id", "canalId"])),
-    name: str(raw?.name || raw?.full_name),
+    name: str(name),
     username: str(raw?.username),
     avatar: str(raw?.avatar || "/images/avatar.png"),
     isAdmin: bool(raw?.is_admin ?? raw?.isAdmin),
-    joinedAt: toIso(raw?.joined_at ?? raw?.createdAt ?? raw?.created_at),
+    joinedAt: toIso(raw?.subscribed_at ?? raw?.joined_at ?? raw?.createdAt ?? raw?.created_at),
   }
 }
 
 export function mapCanalMembers(raw: any): CanalMember[] {
-  const items: any[] = Array.isArray(raw?.members)
+  const container = raw?.result ?? raw
+  const items: any[] = Array.isArray(container?.data)
+    ? container.data
+    : Array.isArray(container)
+    ? container
+    : Array.isArray(raw?.members)
     ? raw.members
     : Array.isArray(raw?.adherents)
     ? raw.adherents
@@ -189,14 +217,22 @@ export function mapCanalMessage(raw: any, currentUserId?: string): CanalMessage 
 }
 
 export function mapCanalMessages(raw: any, page = 1, currentUserId?: string) {
-  const items: any[] = Array.isArray(raw?.messages)
+  const container = raw?.result ?? raw
+  const items: any[] = Array.isArray(container?.data)
+    ? container.data
+    : Array.isArray(container)
+    ? container
+    : Array.isArray(raw?.messages)
     ? raw.messages
     : Array.isArray(raw?.data)
     ? raw.data
     : Array.isArray(raw)
     ? raw
     : []
-  const hasMore = bool(raw?.has_more ?? raw?.hasMore) || (typeof raw?.next_page_url === "string" && !!raw.next_page_url)
+  const hasMore =
+    bool(container?.has_more ?? container?.hasMore ?? raw?.has_more ?? raw?.hasMore) ||
+    (typeof container?.next_page_url === "string" && !!container.next_page_url) ||
+    (typeof raw?.next_page_url === "string" && !!raw.next_page_url)
   return {
     success: bool(raw?.success, true),
     messages: items.map((m) => mapCanalMessage(m, currentUserId)),
@@ -248,12 +284,21 @@ export function mapCanalMedia(raw: any): CanalMedia {
 }
 
 export function mapCanalMediaList(raw: any): CanalMedia[] {
-  const items: any[] = Array.isArray(raw?.media)
+  const container = raw?.result ?? raw
+  const items: any[] = Array.isArray(container?.data)
+    ? container.data
+    : Array.isArray(container?.media)
+    ? container.media
+    : Array.isArray(container?.medias)
+    ? container.medias
+    : Array.isArray(raw?.media)
     ? raw.media
     : Array.isArray(raw?.medias)
     ? raw.medias
     : Array.isArray(raw?.data)
     ? raw.data
+    : Array.isArray(container)
+    ? container
     : Array.isArray(raw)
     ? raw
     : []
@@ -273,10 +318,17 @@ export function mapCanalDocument(raw: any): CanalDocument {
 }
 
 export function mapCanalDocumentList(raw: any): CanalDocument[] {
-  const items: any[] = Array.isArray(raw?.documents)
+  const container = raw?.result ?? raw
+  const items: any[] = Array.isArray(container?.data)
+    ? container.data
+    : Array.isArray(container?.documents)
+    ? container.documents
+    : Array.isArray(raw?.documents)
     ? raw.documents
     : Array.isArray(raw?.data)
     ? raw.data
+    : Array.isArray(container)
+    ? container
     : Array.isArray(raw)
     ? raw
     : []
@@ -299,14 +351,22 @@ export function mapCanalNotification(raw: any): CanalNotification {
 }
 
 export function mapCanalNotifications(raw: any, page = 1) {
-  const items: any[] = Array.isArray(raw?.notifications)
+  const container = raw?.result ?? raw
+  const items: any[] = Array.isArray(container?.data)
+    ? container.data
+    : Array.isArray(container)
+    ? container
+    : Array.isArray(raw?.notifications)
     ? raw.notifications
     : Array.isArray(raw?.data)
     ? raw.data
     : Array.isArray(raw)
     ? raw
     : []
-  const hasMore = bool(raw?.has_more ?? raw?.hasMore) || (typeof raw?.next_page_url === "string" && !!raw.next_page_url)
+  const hasMore =
+    bool(container?.has_more ?? container?.hasMore ?? raw?.has_more ?? raw?.hasMore) ||
+    (typeof container?.next_page_url === "string" && !!container.next_page_url) ||
+    (typeof raw?.next_page_url === "string" && !!raw.next_page_url)
   return {
     success: bool(raw?.success, true),
     notifications: items.map(mapCanalNotification),

@@ -1,10 +1,7 @@
 /**
  * POST   /api/canal/messages/[canalId]  — envoyer un message dans un canal (multipart)
  *                                         OU modifier un message existant (si _action = "update")
- * DELETE /api/canal/messages/[canalId]  — supprimer un message (id = messageId)
- *
- * Note : [canalId] sert de canalId pour l'envoi et de messageId pour la
- * suppression/modification (le service frontend transmet le bon identifiant).
+ * DELETE /api/canal/messages/[canalId]  — supprimer un message (canalId sert de messageId ici)
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -13,9 +10,9 @@ import { sendCanalMessage, updateCanalMessage, deleteCanalMessage } from "@/serv
 
 export const dynamic = "force-dynamic"
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ canalId: string }> }) {
   try {
-    const { id } = await params
+    const { canalId } = await params
     const userId = await getDughuUserIdFromCookies()
     if (!userId) {
       return NextResponse.json({ success: false, message: "Session requise." }, { status: 401 })
@@ -26,13 +23,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     formData.set("user_id", userId)
 
     if (action === "update") {
-      // Modifier un message — id = messageId
-      const result = await updateCanalMessage(id, formData)
+      // Modifier un message — canalId = messageId
+      const result = await updateCanalMessage(canalId, formData)
       return NextResponse.json(result)
     }
 
-    // Envoyer un message — id = canalId
-    const result = await sendCanalMessage(id, formData)
+    // Envoyer un message — canalId = identifiant du canal
+    const result = await sendCanalMessage(canalId, formData)
     return NextResponse.json(result)
   } catch (error) {
     console.error("CANAL MESSAGE SEND/UPDATE ERROR:", error)
@@ -41,16 +38,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ canalId: string }> }) {
   try {
-    const { id } = await params
+    const { canalId } = await params
     const userId = await getDughuUserIdFromCookies()
     if (!userId) {
       return NextResponse.json({ success: false, message: "Session requise." }, { status: 401 })
     }
 
-    // id = messageId
-    const result = await deleteCanalMessage(id)
+    // canalId = messageId pour la suppression
+    const result = await deleteCanalMessage(canalId)
     return NextResponse.json(result)
   } catch (error) {
     console.error("CANAL MESSAGE DELETE ERROR:", error)

@@ -1,6 +1,6 @@
 /**
- * GET  /api/canal/[id] — détail complet d'un canal
- * POST /api/canal/[id] — supprimer un canal (body: { userId, password, _method: "DELETE" })
+ * GET  /api/canal/[canalId] — détail complet d'un canal
+ * POST /api/canal/[canalId] — supprimer un canal (body: { userId, password, _method: "DELETE" })
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -9,13 +9,13 @@ import { getCanalDetail, deleteCanal } from "@/services/canal/canal.server"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ canalId: string }> }) {
   try {
-    const { id } = await params
-    if (!id) {
+    const { canalId } = await params
+    if (!canalId) {
       return NextResponse.json({ success: false, message: "Identifiant canal requis." }, { status: 400 })
     }
-    const result = await getCanalDetail(id)
+    const result = await getCanalDetail(canalId)
     return NextResponse.json(result)
   } catch (error) {
     console.error("CANAL DETAIL ERROR:", error)
@@ -24,9 +24,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ canalId: string }> }) {
   try {
-    const { id } = await params
+    const { canalId } = await params
     const body = await req.json().catch(() => ({}))
     const method = String(body?._method || "").toUpperCase()
 
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: false, message: "Mot de passe requis pour supprimer le canal." }, { status: 422 })
     }
 
-    const result = await deleteCanal(id, userId, password)
+    const result = await deleteCanal(canalId, userId, password)
     return NextResponse.json(result)
   } catch (error) {
     console.error("CANAL DELETE ERROR:", error)

@@ -44,8 +44,10 @@ Chaque entrée doit contenir :
   - **Composants UI (`src/components/canal/**`)** :
     - Écran 1 (thème clair) : liste de canaux avec onglets Explorer, Mes canaux, Canaux rejoints, Favoris, barre de recherche, filtres catégories scrollables et grille de cartes responsive jusqu'à 6 colonnes.
     - Écran 2 (thème clair) : modale de création d'un canal avec upload de logo et cover, champs descriptifs et sélecteurs de type et statut.
-    - Écran 3 (thème sombre) : vue chat 3 colonnes plein écran avec liste des canaux suivis, zone de messagerie en temps réel, vérification des droits de publication et panneau latéral détaillant le canal et ses médias/documents.
+    - Écran 3 (thème sombre) : vue chat 3 colonnes plein écran avec liste des canaux de l'utilisateur (canaux créés + rejoints), zone de messagerie en temps réel, vérification des droits de publication et panneau latéral détaillant le canal et ses médias/documents.
   - **Liaison Navigation** : bouton « Canal » de la sidebar gauche (`LeftSidebar.tsx`) désormais actif et relié à la page `/canal` (`src/app/(protected)/canal/page.tsx`).
+  - **Correctif Endpoints & Mappeur** : alignement de `fetchAllCanals` sur `GET /api/canal?scope=all`, déballage correct de l'enveloppe Laravel `result.data` dans `canal.mapper.ts` pour toutes les listes (Explorer, Mes canaux, Canaux rejoints, Suggestions), et intégration des URLs de médias complètes (`logo_url`, `cover_url`), du créateur (`autor_id`) et du statut membre (`isRejoind`).
+  - **Résolution Conflit de Slugs Next.js (`canalId` vs `id`)** : uniformisation de tous les segments dynamiques du module Canal sous `[canalId]` (`src/app/api/canal/[canalId]`, `src/app/api/canal/messages/[canalId]`, `src/app/api/canal/notifications/[canalId]`), éliminant l'erreur `You cannot use different slug names for the same dynamic path`.
 
 
 ### Espaces — onglet « Actualité » avec boutons d'action sur chaque publication (ajout)
