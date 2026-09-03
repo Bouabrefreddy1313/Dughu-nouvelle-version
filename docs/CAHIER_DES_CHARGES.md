@@ -1050,7 +1050,7 @@ quand on s'y trouve, le clic ferme le drawer mobile).
 * Les listes de groupes utilisent des cartes avec bannière, avatar, nom, catégorie, nombre de membres et indicateur accessible de confidentialité. Elles s'affichent sur une colonne en mobile, deux en tablette et jusqu'à trois sur grand écran.
 * Les suggestions utilisent une variante horizontale et un bouton « Adhérer ». Dans ce premier lot sans API Groupes, l'adhésion est uniquement conservée dans l'état local et signalée comme telle à l'utilisateur.
 * La recherche est envoyée au serveur dans « Actualités » et filtre localement les groupes des autres onglets. La vue « Groupes administrés » fournit l'état vide « Aucun groupe trouvé. ».
-* La création, les adhésions persistantes, les données distantes des trois autres onglets et les pages de détail d'un groupe restent à brancher lorsque les contrats API et routes correspondants seront disponibles.
+* La création de groupe, les adhésions persistantes, les données distantes des trois autres onglets et les pages de détail d'un groupe restent à brancher lorsque les contrats API et routes correspondants seront disponibles.
 
 ### Navigation principale
 
