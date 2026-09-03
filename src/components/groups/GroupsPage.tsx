@@ -211,7 +211,9 @@ export default function GroupsPage() {
         </div>
 
         <div className="mt-4 border-b border-[#E4E6EB]" role="tablist" aria-label="Sections des groupes">
-          <div className="flex snap-x snap-mandatory overflow-x-auto scrollbar-hide">
+          {/* flex-nowrap + overflow-x-auto : les onglets restent sur une ligne et
+              sont scrollables horizontalement au doigt sur mobile. */}
+          <div className="flex flex-nowrap snap-x snap-mandatory overflow-x-auto scrollbar-hide touch-pan-x">
             {TABS.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.id
@@ -225,7 +227,7 @@ export default function GroupsPage() {
                   aria-controls="groups-tabpanel"
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "relative flex min-h-16 min-w-20 snap-start flex-1 flex-col items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-[#65676B] transition hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#6B3F1D] sm:min-w-34",
+                    "relative flex min-h-16 shrink-0 min-w-[72px] snap-start sm:flex-1 flex-col items-center justify-center gap-1 px-3 py-2 text-xs font-medium text-[#65676B] transition hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#6B3F1D] sm:min-w-34",
                     isActive && "text-[#8A4D23] after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-[#C47830]"
                   )}
                 >
@@ -302,6 +304,7 @@ export default function GroupsPage() {
                         sharesCount={post.sharesCount + post.repostsCount}
                         reacted={post.reactionType}
                         reactions={post.reactions}
+                        users={(post as any).reactionUsers}
                         postPrivacy={Number(post.privacy) as 0 | 1 | 2 | 3}
                         shareUrl={post.shareUrl}
                         isFollowing={post.author.isFollowing}

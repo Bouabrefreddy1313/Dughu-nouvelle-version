@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import Badge from "@/components/common/Badge"
 import ProfileMenu from "@/components/layout/ProfileMenu"
 import GlobalSearch from "@/components/common/GlobalSearch"
+import { useScrollDirection } from "@/hooks/useScrollDirection"
 
 interface HeaderProps {
   user?: {
@@ -49,11 +50,22 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
     { icon: <BriefcaseBusiness size={22} />, label: "Réseautés", tooltipId: "reseautes-tooltip" },
   ]
 
+  const scrollDirection = useScrollDirection({ threshold: 8, offset: 56 })
+
   return (
-    <header className={cn(
-      "fixed top-0 left-0 right-0 h-[56px] bg-white shadow-sm z-50 flex items-center justify-between gap-1 px-2 sm:gap-2 sm:px-4",
-      hideOnMobile && "hidden lg:flex"
-    )}>
+    <header
+      className={cn(
+        // Structure de base
+        "fixed top-0 left-0 right-0 h-[56px] bg-white shadow-sm z-50 flex items-center justify-between gap-1 px-2 sm:gap-2 sm:px-4",
+        // Safe-area iOS (encoche / Dynamic Island)
+        "[padding-top:max(0px,env(safe-area-inset-top))]",
+        // Scroll-aware : masquage fluide sur mobile uniquement
+        // lg+ : toujours visible (pas de transform)
+        "transition-transform duration-300 ease-in-out",
+        scrollDirection === "down" ? "-translate-y-full lg:translate-y-0" : "translate-y-0",
+        hideOnMobile && "hidden lg:flex"
+      )}
+    >
       {/* ═════ GAUCHE : Hamburger + Logo + Recherche ═════ */}
       <div className="flex min-w-0 items-center gap-1 sm:gap-2">
         <button

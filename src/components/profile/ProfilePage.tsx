@@ -716,6 +716,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                   sharesCount={post._count.reposts}
                   reacted={post.reacted}
                   reactions={post.reactions}
+                  users={(post as any).reactionUsers}
                   parentPost={post.parentPost}
                   onLike={(r) => handleReaction(post.id, r)}
                   postPrivacy={post.postPrivacy}

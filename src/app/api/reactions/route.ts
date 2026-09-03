@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { dughu, dughuApi, DughuApiError } from "@/lib/dughu"
+import { dughu, dughuApi, DughuApiError, mapPostReactionsResponse } from "@/lib/dughu"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 const REACTION_TYPES = ["like", "love", "haha", "wow", "sad", "angry"]
@@ -20,6 +20,54 @@ function upstreamMessage(data: unknown, fallback = "Erreur de réaction (API Dug
     }
   }
   return fallback
+}
+
+/**
+ * GET /api/reactions?postId=X&userId=Y — liste des personnes ayant réagi
+ * sur une publication (encapsule GET /getPostReactions/{postId}/{userId} de
+ * l'API Dughu. `userId` = l'utilisateur qui consulte).
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const postId = String(searchParams.get("postId") || "")
+    const userIdParam = String(searchParams.get("userId") || "")
+
+    if (!postId) {
+      return NextResponse.json({ success: false, message: "Paramètre postId requis." }, { status: 422 })
+    }
+
+    if (!dughu.enabled) {
+      return NextResponse.json(
+        { success: false, message: "L'API Dughu n'est pas configurée." },
+        { status: 500 }
+      )
+    }
+
+    let userId = String(userIdParam || "")
+    if (!userId) {
+      // Fallback serveur : lecture du cookie de session Dughu
+      userId = await getDughuUserIdFromCookies()
+    }
+    if (!userId) {
+      return NextResponse.json({ success: false, message: "ID Dughu requis." }, { status: 404 })
+    }
+
+    const raw = await dughuApi.getPostReactions(postId, userId)
+    const { users, summary } = mapPostReactionsResponse((raw as { result?: unknown })?.result ?? raw)
+    return NextResponse.json({ success: true, users, summary })
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("DUGHU_API_KEY manquant")) throw err
+    console.error("DUGHU GET POST REACTIONS ERROR:", err)
+    if (err instanceof DughuApiError) {
+      const status = err.status === 401 || err.status === 403 ? 502 : err.status
+      return NextResponse.json(
+        { success: false, message: upstreamMessage(err.data), upstream: err.data, upstreamStatus: err.status },
+        { status }
+      )
+    }
+    return NextResponse.json({ success: false, message: "Erreur de chargement des réactions (API Dughu." }, { status: 502 })
+  }
 }
 
 export async function POST(req: NextRequest) {

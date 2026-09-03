@@ -61,17 +61,19 @@ function apiErrorFromHttpError(error: unknown): ApiError {
   const status = typeof response.status === "number" ? response.status : undefined
   const data = record(response.data)
   const code = typeof err.code === "string" ? err.code : undefined
+  const isCanceled = code === "ERR_CANCELED" || axios.isCancel(error)
   const isTimeout = code === "ECONNABORTED" || code === "ETIMEDOUT"
-  const isNetwork = status === undefined && Object.keys(response).length === 0
+  const isNetwork = !isCanceled && status === undefined && Object.keys(response).length === 0
 
   const message =
     messageFromBody(data) ||
+    (isCanceled ? "La requête a été annulée." : "") ||
     (isTimeout ? "La requête a expiré. Veuillez réessayer." : "") ||
     (isNetwork ? "Impossible de contacter le serveur. Veuillez vérifier votre connexion." : "") ||
     (status !== undefined ? STATUS_MESSAGES[status] || GENERIC_MESSAGE : "") ||
     GENERIC_MESSAGE
 
-  return new ApiError(message, { status, code, cause: error })
+  return new ApiError(message, { status, code: isCanceled ? "ERR_CANCELED" : code, cause: error })
 }
 
 apiClient.interceptors.response.use(

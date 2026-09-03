@@ -131,9 +131,15 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Évite le débordement horizontal involontaire sur mobile */
+    overflow-x: hidden;
   }
   html {
     @apply font-sans;
+    /* Améliore le scroll sur iOS Safari */
+    -webkit-overflow-scrolling: touch;
+    /* viewport-fit=cover géré via le meta viewport dans layout.tsx */
+    scroll-behavior: smooth;
   }
   body {
     font-family: "Segoe UI", Arial, Tahoma, sans-serif;

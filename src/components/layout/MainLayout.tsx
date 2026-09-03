@@ -204,9 +204,7 @@ export default function MainLayout({
         </>
       )}
 
-      {/* Sidebar droite : mobile/tablette = tiroir coulissant (bouton grille du
-          header), desktop xl+ = colonne fixe à right-[220px] (toujours visible).
-          L'overlay ci-dessous existe seulement quand le tiroir est ouvert. */}
+      {/* Overlay mobile pour la sidebar droite */}
       {mobileRightSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-40 lg:hidden"
@@ -214,42 +212,50 @@ export default function MainLayout({
           aria-hidden="true"
         />
       )}
-      {!noRightSidebar && (
-        <RightSidebar
-          user={user}
-          open={mobileRightSidebarOpen}
-          onClose={() => setMobileRightSidebarOpen(false)}
-        />
-      )}
+      {/* RightSidebar : TOUJOURS montée pour que le bouton ☷ du Header fonctionne
+          sur TOUTES les pages, même avec noRightSidebar={true}.
+          - noRightSidebar={true} → hideOnDesktop=true → sidebar masquée sur xl+
+            (colonne fixe invisible) mais le tiroir mobile reste fonctionnel.
+          - noRightSidebar={false} → sidebar fixe sur xl+ (comportement normal). */}
+      <RightSidebar
+        user={user}
+        open={mobileRightSidebarOpen}
+        onClose={() => setMobileRightSidebarOpen(false)}
+        hideOnDesktop={noRightSidebar}
+      />
 
       {/* Zone de contenu sous le header (réservations d'espace pour les sidebars fixes).
           Quand le header est masqué sur mobile (profil), la couverture part du haut
           de l'écran : padding supérieur nul sous lg, conservé sur desktop. */}
-      <div className={cn("flex w-full", hideHeaderOnMobile ? "pt-0 lg:pt-[88px]" : "pt-[80px] sm:pt-[88px]")}>
+      <div className={cn("flex w-full", hideHeaderOnMobile ? "pt-0 lg:pt-[88px]" : "pt-[56px] sm:pt-[88px]")}>
         {/* Réservation espace de la sidebar gauche (fixe en lg+) */}
         <div className="hidden lg:block lg:w-[270px] lg:shrink-0" aria-hidden="true" />
 
         {/* Contenu central (timeline) */}
-        <main className="min-w-0 flex-1 px-2 pb-20 sm:px-4 sm:pb-16 lg:px-6 lg:pb-12">
+        {/* Mobile : px-0 → posts edge-to-edge, sm+ : px-4, xl : px-4, 2xl : px-6
+            pb-[calc(80px+env(safe-area-inset-bottom,0px))] → espace pour la tapbar + safe-area iOS */}
+        <main className="min-w-0 flex-1 px-0 pb-[calc(80px+env(safe-area-inset-bottom,0px))] sm:px-4 sm:pb-16 lg:px-6 xl:px-4 2xl:px-6 lg:pb-12">
           <div
             className={cn(
               "mx-auto w-full",
-              wide ? "max-w-[1100px]" : "max-w-[750px]",
-              "space-y-3 sm:space-y-4"
+              wide ? "max-w-[1100px]" : "max-w-[750px] xl:max-w-[780px]",
+              // Mobile : pas d'espace entre posts (border-b les sépare)
+              // sm+ : espacement normal entre cartes
+              "space-y-0 sm:space-y-3 md:space-y-4"
             )}
           >
             {children}
           </div>
         </main>
 
-        {/* Réservation espace de la sidebar droite (fixe en xl+) — CONSTANT :
-            220px (marge droite) + 240px (largeur sidebar) + 24px de respiration
-            = 484px. La sidebar droite est IMMOBILE (xl:right-[220px], voir
-            RightSidebar.tsx) et le panneau de conversation s'ouvre en overlay
-            par-dessus (fixed, z-40) : le card du feed n'est ni couvert, ni
-            poussé, ni redimensionné sur aucun écran. */}
+        {/* Réservation espace de la sidebar droite (fixe en xl+) :
+            - xl (1280px à 1535px, laptops 13"-15" ex: 1280x903 à 1417x903) :
+              sidebar droite 240px + right-4 (16px) + 8px respiration = 264px
+              afin que le feed et les cards de post ne soient pas comprimés.
+            - 2xl (1536px+, écrans très larges) : 484px (240px + right-[220px] + 24px)
+              pour aérer la mise en page sur les grands moniteurs. */}
         {!noRightSidebar && (
-          <div className="hidden xl:block xl:w-[484px] xl:shrink-0" aria-hidden="true" />
+          <div className="hidden xl:block xl:w-[264px] 2xl:w-[484px] xl:shrink-0" aria-hidden="true" />
         )}
       </div>
 

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/lib/query-provider";
@@ -10,6 +10,17 @@ export const metadata: Metadata = {
     icon: "/images/favicon.png",
   },
 };
+
+/**
+ * Viewport export Next.js : active viewport-fit=cover pour que les
+ * variables CSS env(safe-area-inset-*) soient disponibles sur iOS.
+ * Sans cela, la barre système iPhone peut chevaucher la navigation mobile.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+}
 
 export default function RootLayout({
   children,

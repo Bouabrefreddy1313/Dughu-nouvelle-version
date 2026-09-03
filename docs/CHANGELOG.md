@@ -11,6 +11,98 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-09-03
+### Module Akwaplay — Plateforme Vidéo (3 écrans)
+* **Écran Accueil** : grille de vidéos, recherche (`akwa_akwa_video_search`), tabs de catégories (`akwa_getCategories`), grille « Tous »/par catégorie, pagination, bouton « Publier » (modale multipart `akwa_store_video`).
+* **Écran lecture vidéo** : détails (`akwa_show_video`), lecteur stream (`akwa_video_stream`), vues (`akwa_incrementViews`), progression (`akwa_saveProgress`), like/dislike, favoris, signalement, commentaires + réponses lazy + suppression.
+* **Écran Profil « Mes Vidéos »** : liste (`akwa_userVideos`), édition via modale préremplie, suppression (`akwa_destroy`) avec retrait optimiste.
+* **Architecture** : `src/types/akwaplay/` (modèles + payloads), `src/services/akwaplay/` (service `akwaplayVideo.service.ts` sur `apiClient` + helpers de formatage), `src/hooks/akwaplay/` (4 hooks vidéos + hooks chaînes), et **24 routes BFF `/api/akwa_*`** générées via la fabrique `src/lib/api/akwa-proxy.ts` (proxy serveur `X-AppApiToken`, conservation méthode/corps/content-type) pour rendre le module fonctionnel de bout en bout.
+* **Correctif d'affichage des vidéos (`/akwa_getAllVideos`)** :
+  - **Résolution du bug `ERR_CONTENT_DECODING_FAILED`** : L'API externe Dughu (Cloudflare) renvoie les réponses compressées en Brotli/gzip (`Content-Encoding: br`). Le runtime Node.js décompressait le flux en texte brut, mais le proxy BFF ([akwa-proxy.ts](file:///c:/Users/HP/dughu/src/lib/api/akwa-proxy.ts) et `dughu/[...path]/route.ts`) relayait aveuglément l'en-tête `Content-Encoding: br` au navigateur. Le navigateur tentait alors de décompresser du texte clair et échouait avec `net::ERR_CONTENT_DECODING_FAILED`. Les en-têtes `content-encoding`, `content-length` et `transfer-encoding` sont désormais systématiquement purgés après décompression par le proxy.
+  - Résolution de l'erreur « Impossible de contacter le serveur » : l'intercepteur Axios client (`axios-instance.ts`) ne prenait pas en compte les annulations de requête (`ERR_CANCELED` / `AbortSignal`) et les transformait à tort en fausse erreur réseau (`isNetwork`). Les annulations sont désormais correctement typées et ignorées lors des changements d'état/re-renders.
+  - Normalisation défensive des réponses API : le backend Dughu encapsulant les données dans `result.data` avec `result.pagination.has_more`, ajout des helpers `extractDataArray` et `extractHasMore` dans `akwaplayVideo.service.ts` pour extraire fiablement vidéos, catégories et pagination.
+  - Support des clés de médias réelles : prise en compte de `signed_thumbnail_path`, `thumbnail_path`, `signed_video_path`, conversion de la durée formatée (ex. `"00:10"`) en secondes et mapping complet du profil auteur (`profile_photo_url`, `avatar`, nom complet).
+
+### Expérience des publications — Lightbox immersive & Réactions enrichies
+
+#### Lightbox Immersive (`PostMediaLightbox.tsx`)
+* **Ouverture plein écran** : Clic direct sur une image ou vignette d'une publication, avec transition douce et fond sombre immersif (`bg-black/95`).
+* **Verrouillage du scroll** : Blocage automatique du défilement de l'arrière-plan (`document.body.style.overflow = "hidden"`).
+* **Disposition Desktop (md/lg+)** : Panneau de commentaires autonome positionné **à GAUCHE** (`w-[380px]` à `w-[440px]`) et image dominante **à DROITE** avec conservation de ratio (`object-contain`).
+* **Disposition Mobile (< md)** : Image plein écran avec barre d'action inférieure flottante et ouverture des commentaires en **Bottom Sheet** coulissant avec tirette de fermeture et geste tactile de glissement vers le bas (swipe down).
+* **Support multi-images** : Navigation par boutons latéraux et touches fléchées (← →) du clavier.
+
+#### Système de Réactions & Sélecteur (`ReactionPicker.tsx`, `ReactionSummary.tsx`, `ReactionUsersModal.tsx`)
+* **Emojis standardisés** : 👍 J'aime, ❤️ J'adore, 😂 Haha, 😮 Wow, 😢 Triste, 😡 Grrr.
+* **Sélecteur interactif (`ReactionPicker.tsx`)** : Affichage des 6 réactions Dughu avec micro-animations (`scale-125`), protection contre les débordements sur petits écrans, retour haptique léger (`navigator.vibrate`), accessible au survol (desktop) et à l'appui long tactile (mobile).
+* **Composant partagé `ReactionSummary.tsx`** : Agrégation des 3 réactions les plus utilisées (`[👍 ❤️ 😮] 19`), synchronisé entre la carte du fil et la Lightbox sans aucune donnée artificielle.
+* **Optimistic UI & Compteurs Synchronisés** : Mise à jour immédiate du compteur total, des compteurs par réaction et du bouton utilisateur sans rafraîchissement de la page.
+* **Modale des réactions (`ReactionUsersModal`)** : Consultation des personnes ayant réagi avec onglets filtrables par émoji (modale desktop et Bottom Sheet mobile).
+* **Liste réelle des réacteurs** : la liste des personnes s'affiche désormais en ouvrant le modal des réactions — elle est chargée à la demande via `GET /api/reactions?postId=X&userId=Y` (encapsule `GET /getPostReactions/{postId}/{userId}` de l'API Dughu), avec repli sur les données éventuellement embarquées dans le payload du post (`mapPost` → `reactionUsers`). Mise à jour optimiste lors d'une réaction/retrait/changement. Aucune donnée factice : si l'API ne fournit pas le détail utilisateur, l'UI affiche les compteurs agrégés et l'utilisateur courant uniquement, avec message explicite dans le modal.
+* **Liste des réacteurs — tolérance au format & diagnostic** : le mapping gère les conteneurs imbriqués (`{ data: { reactions: [...] } }`) et les items retournés sans champ `reaction` explicite (traités comme « 👍 », défaut Dughu `reaction=1`). Le chargement ne dépend plus de l'ID client (le serveur résout l'utilisateur via le cookie de session). Un échec réseau affiche désormais « Impossible de charger la liste des réactions » (distinct de l'absence honnête « liste non disponible »), et les onglets du modal reflètent les types réellement fetchés quand ils sont disponibles.
+
+### Optimisation de la largeur du feed sur petits écrans (1280x903 à 1417x903)
+
+* Ajustement de la réservation d'espace de la sidebar droite dans `MainLayout` : passage de 484px à **264px** sur `xl` (1280px à 1535px) avec un positionnement de la sidebar à `right-4` (16px).
+* Augmentation de la largeur maximale du feed (`PostComposer` + `PostCard`) de 750px à **780px** (`xl:max-w-[780px]`) sur les écrans `xl`.
+* Les cartes de publication et de composition gagnent ainsi entre +165px et +236px de largeur utile sur les laptops et petits écrans (passant de 478px–615px à **714px–780px**).
+
+### Optimisation complète de l'expérience Mobile
+
+#### Hook `useScrollDirection` (`src/hooks/useScrollDirection.ts`)
+
+* Nouveau hook léger et performant : `requestAnimationFrame` + passive event listener + seuil de 8px anti-clignotement.
+* Ne déclenche un re-render React que lorsque la direction change réellement (up/down).
+* Utilisé par le Header et la MobileBottomNav.
+
+#### Header (Topbar) scroll-aware
+
+* Le Header se masque (`translateY(-100%)`) lors d'un scroll vers le bas sur mobile.
+* Il réapparaît lors d'un scroll vers le haut ou en haut de la page.
+* Transition GPU-friendly 300ms ease-in-out.
+* Safe-area iOS : `padding-top: max(0px, env(safe-area-inset-top))` pour l'encoche / Dynamic Island.
+* Desktop (lg+) inchangé.
+
+#### MobileBottomNav (Tapbar) scroll-aware + safe-area iOS
+
+* La barre de navigation mobile se masque (`translateY(100%)`) lors d'un scroll vers le bas.
+* Hauteur dynamique : `calc(58px + env(safe-area-inset-bottom, 0px))`.
+* Padding bottom : `max(4px, env(safe-area-inset-bottom))` pour éviter le chevauchement avec la barre système iPhone.
+
+#### Posts edge-to-edge sur mobile
+
+* Sur mobile (< sm), les `PostCard` sont edge-to-edge : pas de border-radius, shadow ou bordures latérales.
+* Séparateur subtil `border-b border-gray-100` entre les publications.
+* Sur sm+ (tablette/desktop), rendu "carte" (rounded-3xl, shadow, border) préservé.
+* Le conteneur `main` de `MainLayout` est `px-0` sur mobile et `px-4`/`px-6` sur sm+/lg+.
+* `space-y-0` sur mobile, `space-y-3/4` préservé sur sm+.
+* Squelette de chargement mis à jour en cohérence.
+* `PostComposer` et `FlashFeed` ont leur propre padding `px-3 sm:px-0` sur mobile.
+
+#### Sidebar droite universelle
+
+* La `RightSidebar` est désormais **toujours montée** dans `MainLayout`, quelle que soit la page.
+* Nouvelle prop `hideOnDesktop` : masque la colonne fixe xl+ sans désactiver le tiroir mobile.
+* Le bouton ☷ (LayoutGrid) du Header ouvre correctement la sidebar droite sur toutes les pages.
+
+#### Viewport safe-area iOS
+
+* `app/layout.tsx` : ajout de l'export `viewport` Next.js avec `viewport-fit: "cover"`.
+* Active `env(safe-area-inset-*)` sur les appareils iOS avec encoche.
+
+#### CSS global
+
+* `body` : `overflow-x: hidden` pour éviter le débordement horizontal involontaire.
+* `html` : `-webkit-overflow-scrolling: touch` pour un scroll iOS fluide.
+
+#### Scroll horizontal
+
+* `FlashFeed` : `touch-pan-x` pour le swipe au doigt + `px-3 sm:px-0` pour le padding mobile.
+* `GroupCarousel` : `touch-pan-x` pour améliorer le swipe.
+* `GroupsPage` onglets : `flex-nowrap` + `shrink-0` sur les boutons pour corriger le scroll horizontal.
+
+---
+
 ## 2026-09-02
 
 ### Module « Groupes » — première vue responsive

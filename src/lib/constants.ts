@@ -77,11 +77,11 @@ export const REACTION_TYPE_TO_ID: Record<string, number> = {
 /** Definition des 6 reactions disponibles (picker, toasts, icones) */
 export const REACTIONS = [
   { id: 1, name: "J'aime", icon: "👍" },
-  { id: 2, name: "J'adore", icon: "😍" },
-  { id: 3, name: "Haha", icon: "🤣" },
-  { id: 4, name: "Wow", icon: "🤩" },
-  { id: 5, name: "Triste", icon: "🥺" },
-  { id: 6, name: "Grrr", icon: "😤" },
+  { id: 2, name: "J'adore", icon: "❤️" },
+  { id: 3, name: "Haha", icon: "😂" },
+  { id: 4, name: "Wow", icon: "😮" },
+  { id: 5, name: "Triste", icon: "😢" },
+  { id: 6, name: "Grrr", icon: "😡" },
 ] as const
 
 // ── Couleurs de fond pour les publications ────────────────────────────────────

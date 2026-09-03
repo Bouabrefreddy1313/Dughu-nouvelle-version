@@ -37,6 +37,7 @@ import {
 import { addComment } from "@/services/posts/comments.service"
 import { userMessage } from "@/lib/api/api-error"
 import { REACTION_ID_TO_TYPE, POST_COLORS } from "@/lib/constants"
+import type { ReactionUserItem } from "@/types/posts/post.types"
 import { timeAgo, formatNumber } from "@/lib/helpers"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { me, logout } from "@/services/auth/auth.service"
@@ -62,9 +63,9 @@ const PostComposer = dynamic(() => import("@/components/composer/PostComposer").
 
 const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })), {
   loading: () => (
-    <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 animate-pulse mb-4">
+    <div className="bg-white border-b border-gray-100 sm:rounded-3xl sm:shadow-sm sm:border sm:border-gray-100 animate-pulse p-4">
       <div className="flex gap-3 mb-3">
-        <div className="w-10 h-10 rounded-full bg-gray-200" />
+        <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
         <div className="flex-1 space-y-2">
           <div className="h-4 bg-gray-200 rounded w-1/3" />
           <div className="h-3 bg-gray-200 rounded w-1/4" />
@@ -167,6 +168,7 @@ interface Post {
   akwaplay?: any | null
   isLiked?: boolean
   reacted?: string | null
+  reactionUsers?: ReactionUserItem[]
   postPrivacy?: 0 | 1 | 2 | 3
   isSaved?: boolean
   isFollowing?: boolean
@@ -479,15 +481,57 @@ export default function HomePage() {
     else newReacted = reactionType
     const countDelta = newReacted ? (previousType ? 0 : 1) : -1
 
+    const updateReactionsList = (
+      existingReactions: { type: string; count: number }[] | undefined,
+      prev: string | null,
+      next: string | null
+    ): { type: string; count: number }[] => {
+      const map: Record<string, number> = {}
+      ;(existingReactions || []).forEach((r) => {
+        if (r.type && r.count > 0) map[r.type] = r.count
+      })
+      if (prev && map[prev]) {
+        map[prev] = Math.max(0, map[prev] - 1)
+        if (map[prev] === 0) delete map[prev]
+      }
+      if (next) {
+        map[next] = (map[next] || 0) + 1
+      }
+      return Object.entries(map).map(([type, count]) => ({ type, count }))
+    }
+
+    // Met à jour la liste des personnes ayant réagi de façon optimiste :
+    // on retire l'entrée de l'utilisateur courant (si présente) puis on la
+    // ré-ajoute avec le nouveau type quand il réagit. Aucune donnée factice.
+    const updateReactionUsersList = (
+      existing: ReactionUserItem[] | undefined,
+      prev: string | null,
+      next: string | null
+    ): ReactionUserItem[] => {
+      const myId = String(user.id)
+      const list = (existing || []).filter((u) => String(u.id) !== myId)
+      if (!next) return list
+      list.push({
+        id: myId,
+        name: user.name || "Vous",
+        username: user.username || null,
+        avatar: user.avatar || null,
+        reactionType: next,
+      })
+      return list
+    }
+
     const applyToPost = (fn: (p: any) => any) =>
       setPosts((prev) =>
         prev.map((p) => (p.id !== postId ? p : fn(p)))
       )
 
-    // Mise à jour optimiste (compteur en live + emoji sur le bouton)
+    // Mise à jour optimiste (compteur en live + emoji sur le bouton + liste des réactions)
     applyToPost((p) => ({
       ...p,
       reacted: newReacted,
+      reactions: updateReactionsList(p.reactions, previousType, newReacted),
+      reactionUsers: updateReactionUsersList(p.reactionUsers, previousType, newReacted),
       _count: {
         ...p._count,
         likes: Math.max(0, p._count.likes + countDelta),
@@ -507,7 +551,6 @@ export default function HomePage() {
         if (typeof data.count === "number") {
           applyToPost((p) => ({
             ...p,
-            reacted: newReacted,
             _count: { ...p._count, likes: data.count },
           }))
         }
@@ -519,6 +562,8 @@ export default function HomePage() {
         applyToPost((p) => ({
           ...p,
           reacted: previousType,
+          reactions: updateReactionsList(p.reactions, newReacted, previousType),
+          reactionUsers: updateReactionUsersList(p.reactionUsers, newReacted, previousType),
           _count: {
             ...p._count,
             likes: Math.max(0, p._count.likes - countDelta),
@@ -531,6 +576,8 @@ export default function HomePage() {
       applyToPost((p) => ({
         ...p,
         reacted: previousType,
+        reactions: updateReactionsList(p.reactions, newReacted, previousType),
+        reactionUsers: updateReactionUsersList(p.reactionUsers, newReacted, previousType),
         _count: {
           ...p._count,
           likes: Math.max(0, p._count.likes - countDelta),
@@ -840,8 +887,10 @@ export default function HomePage() {
         />
       )}
 
-      {/* Create Post */}
-      <PostComposer user={user} onSubmit={handlePostSubmit} className="mb-4" />
+      {/* Create Post — padding horizontal sur mobile car le main est edge-to-edge */}
+      <div className="px-3 sm:px-0">
+        <PostComposer user={user} onSubmit={handlePostSubmit} className="mb-4" />
+      </div>
 
       {/* Posts Feed */}
       {posts.map((post, postIndex) => (
@@ -863,6 +912,7 @@ export default function HomePage() {
           sharesCount={post._count.reposts}
           reacted={post.reacted}
           reactions={post.reactions}
+          users={post.reactionUsers}
           parentPost={post.parentPost}
           onLike={(reactionId) => handleReaction(post.id, reactionId)}
           postPrivacy={post.postPrivacy}

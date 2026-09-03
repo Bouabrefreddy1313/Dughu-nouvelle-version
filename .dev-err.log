@@ -1,7 +1,652 @@
-⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
- We detected multiple lockfiles and selected the directory of C:\Users\HP\package-lock.json as the root directory.
- To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
-   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
- Detected additional lockfiles: 
-   * C:\Users\HP\dughu\package-lock.json
+[browser] ./dughu/src/app/api/akwa_getAllVideos/[user_id]/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getAllVideos, ["user_id"])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
 
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getCategories/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getCategories, [])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getAllVideos/[user_id]/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getAllVideos, ["user_id"])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getCategories/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getCategories, [])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getAllVideos/[user_id]/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getAllVideos, ["user_id"])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getCategories/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getCategories, [])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getAllVideos/[user_id]/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getAllVideos, ["user_id"])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getCategories/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getCategories, [])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getAllVideos/[user_id]/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getAllVideos, ["user_id"])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getCategories/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getCategories, [])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getAllVideos/[user_id]/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getAllVideos, ["user_id"])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getCategories/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getCategories, [])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getAllVideos/[user_id]/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getAllVideos, ["user_id"])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getCategories/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getCategories, [])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getAllVideos/[user_id]/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getAllVideos, ["user_id"])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getCategories/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getCategories, [])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getAllVideos/[user_id]/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getAllVideos, ["user_id"])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getCategories/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getCategories, [])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getAllVideos/[user_id]/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getAllVideos, ["user_id"])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+[browser] ./dughu/src/app/api/akwa_getCategories/route.ts:6:61
+Unterminated regexp literal
+  4 | export const runtime = "nodejs"
+  5 |
+> 6 | const { GET, POST, PUT, PATCH, DELETE } = createAkwaProxyRoute(/akwa_getCategories, [])
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | export { GET, POST, PUT, PATCH, DELETE }
+  8 |
+  9 |
+
+Parsing ecmascript source code failed 
+    at handleErrors (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+    at processMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2835:28)
+    at <unknown> (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2680:13)
+    at WebSocket.handleMessage (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2325:17) (file://C:/Users/HP/dughu/.next/dev/static/chunks/0shx_next_dist_client_1_t995d._.js:2774:21)
+⨯ ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  [90m16 |[0m  */
+  [90m17 |[0m
+[31m[1m>[0m [90m18 |[0m [36mimport[0m axios [36mfrom[0m [32m"axios"[0m
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m19 |[0m [36mimport[0m { [33mApiError[0m } [36mfrom[0m [32m"@/lib/api/api-error"[0m
+  [90m20 |[0m
+  [90m21 |[0m [90m/** baseURL interne : le navigateur n'appelle jamais Dughu directement. */[0m
+
+
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+[browser] Uncaught Error: ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+    at <unknown> (Error: ./src/lib/api/client/axios-instance.ts:18:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (Error: (./src/lib/api/client/axios-instance.ts:18:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] ./src/lib/api/client/axios-instance.ts:18:1
+Module not found: Can't resolve 'axios'
+  16 |  */
+  17 |
+> 18 | import axios from "axios"
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  19 | import { ApiError } from "@/lib/api/api-error"
+  20 |
+  21 | /** baseURL interne : le navigateur n'appelle jamais Dughu directement. */
+
+Import traces:
+  Client Component Browser:
+    ./src/lib/api/client/axios-instance.ts [Client Component Browser]
+    ./src/services/posts/posts.service.ts [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Client Component Browser]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/lib/api/client/axios-instance.ts [Client Component SSR]
+    ./src/services/posts/posts.service.ts [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Client Component SSR]
+    ./src/app/(protected)/home/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found 
+[browser] Image with src "https://dughuprod.s3.amazonaws.com/page/post/album/686929a3-a7fb-467c-bb47-7d3cef3dfce6.webp" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+[browser] Failed to fetch RSC payload for http://localhost:3000/akwaplay. Falling back to browser navigation. TypeError: Failed to fetch

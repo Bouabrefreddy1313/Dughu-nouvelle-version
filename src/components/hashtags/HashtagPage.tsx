@@ -426,6 +426,7 @@ return (
           sharesCount={post._count.reposts}
           reacted={post.reacted}
           reactions={post.reactions}
+          users={(post as any).reactionUsers}
           parentPost={post.parentPost}
           onLike={(reactionId) => handleReaction(post.id, reactionId)}
           onComment={(text, files) => handleComment(post.id, text, files)}
