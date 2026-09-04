@@ -1302,9 +1302,59 @@ réutilisant l'instance Axios cliente (`apiClient`) et le proxy serveur
   - `akwaplayShort.service.ts` — shorts (liste, like/dislike, commentaires, vues)
   - `akwaplayMusique.service.ts` — musiques libres (liste/recherche, favoris,
     signalement, suppression)
-  - `akwaplay.helpers.ts` — formatage durée (secondes et strings "HH:MM:SS" / "MM:SS"),
-    vues, dates relatives, mapping des clés de médias réelles (`signed_thumbnail_path`,
-    `thumbnail_path`, `signed_video_path`) et profil créateur.
+
+### Fix critique — proxy compression & décodage (ERR_CONTENT_DECODING_FAILED)
+
+L'API Dughu amont (Cloudflare) renvoie les flux compressés en Brotli (`Content-Encoding: br`).
+Node.js décompressant automatiquement le corps de réponse en texte brut, la copie aveugle des
+en-têtes amont dans la fabrique BFF `akwa-proxy.ts` et `dughu/[...path]/route.ts` provoquait une
+erreur `net::ERR_CONTENT_DECODING_FAILED` dans le navigateur. Les en-têtes `content-encoding`,
+`content-length` et `transfer-encoding` sont désormais purgés systématiquement après décompression.
+
+### Stabilisation de l'état de chargement accueil (`useAkwaHomeVideos`)
+
+L'identifiant utilisateur est stabilisé (`effectiveUserId`) pour éviter le rechargement parasite provoqué par la résolution différée de `useAuth()`. Lors de l'annulation d'une requête précédente par `AbortController`, le bloc `finally` ne désactive plus prématurément `loading`, éliminant ainsi le flash transitoire du message « Aucune vidéo trouvée » avant l'arrivée des vidéos.
+
+### Espace & Profil Akwaplay (`/akwaplay/profile`)
+
+* La sidebar Akwaplay relie directement le menu « Profil » vers `/akwaplay/profile`.
+* La page intègre l'ensemble des endpoints utilisateur :
+  - **Mes vidéos** : `GET /akwa_userVideos/{user_id}/{viewer_id}?page={page}` avec suppression (`DELETE /akwa_destroy/{video_id}`) via une **vraie modale de confirmation personnalisée** (aperçu miniature, titre, avertissement d'action irréversible, bouton avec état de chargement et notification Sonner sans aucun confirm() natif), et publication (`POST /akwa_store_video`).
+  - **Formulaire de création de vidéo (`AkwaPublishModal`)** :
+    - `video` : sélection de fichier vidéo avec calcul automatique de la durée (`duration`, format string `mm:ss` requis par le backend).
+    - `thumbnail` : **génération 100% automatique** d'une miniature JPEG 16:9 extraite directement de la vidéo via HTML5 Canvas (avec curseur temporel pour choisir précisément la frame désirée dans la vidéo).
+    - `title` : titre de la vidéo (obligatoire).
+    - `description` : description de la vidéo.
+    - `category_id` : catégorie sélectionnée parmi les catégories actives Akwaplay.
+    - `visibility` : sélecteur de visibilité (`public`, `unlisted`, `private`).
+    - `chanel` / `channel_id` : sélection dynamique d'une chaîne Akwaplay appartenant à l'utilisateur (`GET /api/akwa_userChannels`) ou publication sous son profil personnel.
+    - `user_id` : identifiant de l'utilisateur connecté.
+    - Suivi de la progression du téléversement en pourcentage (`onUploadProgress`).
+  - **Mes chaînes** : `GET /akwa_userChannels/{user_id}` avec création/mise à jour (`POST /akwa_channel_store` exigeant `user_id`, `name`, `channel_id`, `image` et `banner` : la modale propose en tête la sélection visuelle interactive de la bannière et de l'avatar avec prévisualisation immédiate, puis les champs d'informations nom, identifiant unique et description) et suppression (`DELETE /akwa_channel_destroy/{channel_id}`).
+  - **Mes shorts (Capsules)** : `GET /user_shorts?page={page}&user_id={user_id}` affichés via `AkwaShortCard` avec vidéo d'arrière-plan, vues et redirection vers le lecteur plein écran.
+  - **Mes activités** : `GET /akwa_get_user_activities?user_id={user_id}` (normalisation `AkwaUserActivity`, affichage de l'avatar utilisateur, texte d'action dynamique, date relative et bouton de redirection vers la vidéo concernée).
+  - **Mes favoris** : `GET /akwa_getFavoritesVideos/{user_id}?page={page}`.
+* **Module des Capsules / Shorts Akwaplay (`/akwaplay/shorts`)** :
+  - **Grille verticale 9:16 interactive** : liste les capsules issues de `GET /short_fetchShorts/{user_id}?page={page}` avec fallback défensif utilisateur, normalisation du flux vidéo `file_path`, cartes `AkwaShortCard` épurées (titre, créateur, likes et survol animé, sans compteur de vues), pagination dynamique et bouton de création.
+  - **Visionneuse plein écran 9:16 (`AkwaShortViewerModal`)** : lecture automatique en boucle avec contrôles vidéo (play/pause, mute/unmute), navigation fluide haut/bas au clavier ou au clic, vue comptabilisée (`POST /akwa_track_short_view`), interaction J'aime exclusive (sans bouton dislike) avec persistance du statut `isLiked` au rechargement (`POST /short_toggleLikeDislike`), partage de lien et suppression (`DELETE /short_destroy/{short_id}`).
+  - **Volet latéral de commentaires** : récupération des commentaires réels (`GET /short_fetch_comments/{short_id}/{user_id}`), publication (`POST /short_store_comment`), réponses (`POST /short_reply_comment`), likes (`POST /toggleAkwaplayCommentLike`) et suppression (`DELETE /short_delete_comment/{id}`).
+  - **Publication de Capsule (`AkwaShortCreateModal`)** : téléversement de fichier vidéo vertical (`POST /short_store`), prévisualisation vidéo, titre / légende et jauge de progression en pourcentage.
+* L'onglet « Vidéos » du profil général (`/profile`) est synchronisé avec les vidéos Akwaplay de l'utilisateur via `getUserVideos(authorId, viewerId)`.
+
+### Page de lecture vidéo type YouTube (`/akwaplay/watch?v={video_id}`)
+
+* **Disposition 2 colonnes** :
+  - **Colonne principale (gauche)** :
+    - Lecteur vidéo HTML5 16:9 (`streamUrl` / `videoUrl`, `poster`), `onPlay` (incrémente `akwa_incrementViews`), suivi régulier de progression (`akwa_saveProgress`).
+    - Métadonnées complètes : titre, vues, date, description repliable (`line-clamp-2` / dépliée).
+    - Chaîne / auteur : affichage dynamique du créateur qui a publié la vidéo (via clé `uploader`), avatar, statut vérifié, abonnés et composant réutilisable standard `FollowButton` (`isFollowing`, `isLoading`, `onClick`).
+    - Actions interactives optimistes : Like / Dislike (`POST /akwa_toggleLike/{video_id}`) avec isolation stricte des compteurs (le backend Dughu agrégeant l'ensemble des réactions dans la colonne `like_count`, le calcul défensif `Math.max(0, like_count - dislikes_count)` garantit qu'un dislike n'incrémente jamais le compteur de likes), affichage dédié des compteurs sur chaque bouton de la pilule (`likesCount` et `dislikesCount`), Favoris (`POST /akwa_toggleFavorite/{video_id}`), Partage de lien (`navigator.clipboard`), Signalement avec motifs réels (`GET /akwa_getReportReasons` et `POST /akwa_reportVideo`).
+    - Section commentaires : ajout et modification de commentaire (`POST /akwaComment_store` avec `comment_id?`), liste paginée (`GET /akwaFetchComments/{video_id}/{user_id}`), réponses imbriquées (`POST /akwaComment_replyComment` avec extraction directe de `res.data.comment` pour affichage immédiat, et lazy-loading via `GET /fetchCommentReplies/{comment_id}/{user_id}` avec bouton d'ouverture dynamique `totalReplies`), like de commentaires (`POST /akwaComment_toggleLike`), et suppression (`DELETE /akwaDeleteComment` et `DELETE /akwaDeleteReplyComment`).
+  - **Colonne de droite (Suggestions / À suivre)** :
+    - Cartes vidéo compactes horizontales (`suggestions`) basées sur la même catégorie ou les tendances (`GET /akwa_getTrendingByCategory` ou `GET /akwa_trending`).
+    - Au clic, chargement direct de la vidéo sélectionnée et défilement fluide vers le haut.
+  - **Mode Drawer de la sidebar (`drawer={true}`)** : sur `/akwaplay/watch`, la sidebar gauche est masquée par défaut pour maximiser la largeur du lecteur et des commentaires sans superposition ; son ouverture via le menu burger s'affiche sous forme de tiroir superposé (`z-50`) avec un voile sombre d'arrière-plan (`bg-black/60`).
+
 - `src/hooks/akwaplay/` : `useAkwaHomeVideos`, `useAkwaVideoPlayer`,
   `useAkwaVideoComments`, `useAkwaMyVideos` (+ chaînes) avec gestion propre des
   annulations de requêtes (`AbortController`, `ERR_CANCELED`).
@@ -1321,10 +1371,17 @@ La sidebar Akwaplay expose les destinations suivantes :
 | Accueil | `/akwaplay` | `GET /akwa_getAllVideos/{user_id}` |
 | Tendances | `/akwaplay/trending` | `GET /akwa_trending` |
 | Shorts | `/akwaplay/shorts` | `GET /short_fetchShorts/{user_id}` |
-| Musiques libres | `/akwaplay/musiques` | `GET /akwa_musiques` |
+| Musiques libres | `/akwaplay/musiques` | `GET /akwa_musiques?search` & `GET /akwa_musiques/user_favorites/{user_id}` |
 | Favoris | `/akwaplay/favorites` | `GET /akwa_getFavoritesVideos/{user_id}` |
 | Profil | `/profile` | — |
 | Points | `/points` | — |
+
+* **Module des Musiques Libres Akwaplay (`/akwaplay/musiques`)** :
+  - **Liste & Recherche** : consommation de `GET /akwa_musiques?search={query}`, extraction robuste de `res.data.result.data`, normalisation des champs français du backend (`titre`, `artiste`, `duree`, `chemin_audio_url`).
+  - **Favoris** : onglet dédié branché sur `GET /akwa_musiques/user_favorites/{user_id}`, bascule de favoris avec `POST /akwa_musiques/toggle_favoris` (`musique_id`, `user_id`).
+  - **Lecteur audio intégré** : lecture HTML5 en direct, barre de lecture globale flottante avec curseur de progression, volume/muet et durée formatée.
+  - **Création & Ajout (`AkwaMusiqueCreateModal`)** : téléversement audio MP3/WAV multipart via `POST /akwa_musiques/store` avec titre, artiste, genre et pochette optionnelle.
+  - **Suppression** : `DELETE /akwa_musiques/delete/{music_id}` avec confirmation.
 
 ### 5. Endpoints Akwaplay — couverture complète
 

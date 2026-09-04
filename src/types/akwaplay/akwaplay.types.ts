@@ -85,6 +85,22 @@ export interface AkwaReportReason {
   description?: string | null
 }
 
+export interface AkwaUserActivity {
+  id: string | number
+  userId: string | number
+  user?: AkwaAuthor | null
+  text: string
+  time?: string
+  createdAt: string
+  timeAgo?: string
+  activityType?: string
+  videoId?: string | number | null
+  commentId?: string | number | null
+  shortId?: string | number | null
+  likeId?: string | number | null
+  channelId?: string | number | null
+}
+
 // ── Payloads / Requêtes ──────────────────────────────────────────────────────
 
 export interface AkwaStoreVideoPayload {
@@ -95,6 +111,9 @@ export interface AkwaStoreVideoPayload {
   videoFile?: File | Blob | null
   thumbnailFile?: File | Blob | null
   userId: string | number
+  visibility?: "public" | "private" | "unlisted" | string
+  duration?: string
+  channelId?: string | number | null
   privacy?: 0 | 1 | 2 | 3 | string
 }
 
@@ -113,6 +132,7 @@ export interface AkwaReportVideoPayload {
 }
 
 export interface AkwaStoreCommentPayload {
+  commentId?: string | number // Présent lors d'une modification de commentaire
   videoId: string | number
   content: string
   userId: string | number

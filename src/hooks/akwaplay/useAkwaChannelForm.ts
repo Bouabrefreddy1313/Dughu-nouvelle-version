@@ -17,8 +17,11 @@ export function useAkwaChannelForm({ userId, onSuccess }: UseAkwaChannelFormOpti
   // Champs du formulaire
   const [name, setName] = useState("")
   const [identifiant, setIdentifiant] = useState("")
+  const [description, setDescription] = useState("")
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [bannerFile, setChannelBannerFile] = useState<File | null>(null)
+  const [bannerPreview, setChannelBannerPreview] = useState<string | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,8 +31,11 @@ export function useAkwaChannelForm({ userId, onSuccess }: UseAkwaChannelFormOpti
     setEditingChannelId(null)
     setName("")
     setIdentifiant("")
+    setDescription("")
     setAvatarFile(null)
     setAvatarPreview(null)
+    setChannelBannerFile(null)
+    setChannelBannerPreview(null)
     setError(null)
   }, [])
 
@@ -105,7 +111,9 @@ export function useAkwaChannelForm({ userId, onSuccess }: UseAkwaChannelFormOpti
           channelId: editingChannelId ?? undefined,
           name: name.trim(),
           identifiant: formatChannelIdentifiant(identifiant),
+          description: description.trim() || null,
           avatarFile,
+          bannerFile,
           userId,
         })
 
@@ -120,7 +128,7 @@ export function useAkwaChannelForm({ userId, onSuccess }: UseAkwaChannelFormOpti
         setSubmitting(false)
       }
     },
-    [name, identifiant, avatarFile, editingChannelId, userId, closeModal, onSuccess]
+    [name, identifiant, description, avatarFile, bannerFile, editingChannelId, userId, closeModal, onSuccess]
   )
 
   return {

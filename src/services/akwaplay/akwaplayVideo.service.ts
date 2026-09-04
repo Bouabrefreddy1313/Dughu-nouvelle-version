@@ -22,12 +22,14 @@ import type {
   AkwaReplyCommentPayload,
   AkwaToggleCommentLikePayload,
   AkwaToggleActionResponse,
+  AkwaUserActivity,
 } from "@/types/akwaplay/akwaplay.types"
 import {
   normalizeAkwaVideo,
   normalizeAkwaCategory,
   normalizeAkwaComment,
   normalizeAkwaCommentReply,
+  normalizeAkwaUserActivity,
 } from "@/services/akwaplay/akwaplay.helpers"
 
 function toServiceApiError(error: unknown, fallback: string): ApiError {
@@ -184,9 +186,26 @@ export async function storeVideo(
     }
     formData.append("category_id", String(payload.categoryId))
     formData.append("user_id", String(payload.userId))
+
+    // Visibility
+    const visibility = payload.visibility || (String(payload.privacy) === "1" ? "private" : "public")
+    formData.append("visibility", visibility)
     if (payload.privacy !== undefined) {
       formData.append("privacy", String(payload.privacy))
     }
+
+    // Duration (string obligatoire pour l'API)
+    if (payload.duration) {
+      formData.append("duration", String(payload.duration))
+    }
+
+    // Chaîne de publication
+    if (payload.channelId) {
+      formData.append("chanel", String(payload.channelId))
+      formData.append("channel_id", String(payload.channelId))
+      formData.append("channel", String(payload.channelId))
+    }
+
     if (payload.videoFile) {
       formData.append("video", payload.videoFile)
       formData.append("file", payload.videoFile) // Compatibilité multi-backend
@@ -239,9 +258,9 @@ export async function getVideoDetails(
 
     return {
       video,
-      isLiked: Boolean(res.data?.result?.is_liked ?? res.data?.is_liked ?? res.data?.isLiked ?? video.isLiked),
-      isDisliked: Boolean(res.data?.result?.is_disliked ?? res.data?.is_disliked ?? res.data?.isDisliked ?? video.isDisliked),
-      isFavorite: Boolean(res.data?.result?.is_favorite ?? res.data?.is_favorite ?? res.data?.isFavorite ?? video.isFavorite),
+      isLiked: Boolean(video.isLiked),
+      isDisliked: Boolean(video.isDisliked),
+      isFavorite: Boolean(video.isFavorite),
     }
   } catch (error) {
     throw toServiceApiError(error, "Impossible de charger les détails de la vidéo.")
@@ -304,18 +323,29 @@ export async function toggleLikeVideo(
   videoId: string | number,
   userId: string | number,
   action: "like" | "dislike" = "like"
-): Promise<AkwaToggleActionResponse> {
+): Promise<AkwaToggleActionResponse & { message?: string }> {
   try {
     const res = await apiClient.post<any>(`/akwa_toggleLike/${encodeURIComponent(String(videoId))}`, {
       user_id: userId,
+      reaction: action,
       action,
     })
+    const rawDislikes = res.data?.dislikes_count ?? res.data?.dislike_count ?? res.data?.dislikes
+    const rawLikesCount = res.data?.likes_count ?? res.data?.likes
+    const likesCount =
+      rawLikesCount !== undefined
+        ? Number(rawLikesCount)
+        : res.data?.like_count !== undefined
+        ? Math.max(0, Number(res.data.like_count) - Number(rawDislikes ?? 0))
+        : undefined
+
     return {
       success: Boolean(res.data?.success ?? true),
-      liked: Boolean(res.data?.is_liked ?? res.data?.liked),
-      disliked: Boolean(res.data?.is_disliked ?? res.data?.disliked),
-      likesCount: res.data?.likes_count ?? res.data?.likes,
-      dislikesCount: res.data?.dislikes_count ?? res.data?.dislikes,
+      liked: Boolean(res.data?.liked ?? res.data?.is_liked),
+      disliked: Boolean(res.data?.disliked ?? res.data?.is_disliked),
+      likesCount,
+      dislikesCount: rawDislikes !== undefined ? Number(rawDislikes) : undefined,
+      message: res.data?.message,
     }
   } catch (error) {
     throw toServiceApiError(error, "Impossible d'enregistrer votre réaction.")
@@ -424,13 +454,27 @@ export async function storeComment(
   payload: AkwaStoreCommentPayload
 ): Promise<{ success: boolean; comment?: AkwaComment; message?: string }> {
   try {
-    const res = await apiClient.post<any>("/akwaComment_store", {
+    const textValue = (payload.content || (payload as any).text || "").trim()
+    const body: Record<string, any> = {
       video_id: payload.videoId,
-      content: payload.content.trim(),
+      text: textValue,
+      content: textValue,
+      comment: textValue,
       user_id: payload.userId,
-    })
+    }
+    if (payload.commentId) {
+      body.comment_id = payload.commentId
+    }
 
-    const commentData = res.data?.result?.comment ?? res.data?.result ?? res.data?.comment ?? res.data?.data
+    const res = await apiClient.post<any>("/akwaComment_store", body)
+
+    const rawList = res.data?.data
+    const commentData =
+      (Array.isArray(rawList) && rawList.length > 0 ? rawList[0] : undefined) ??
+      res.data?.comment ??
+      res.data?.result ??
+      res.data?.data
+
     return {
       success: Boolean(res.data?.success ?? true),
       comment: commentData ? normalizeAkwaComment(commentData, payload.userId) : undefined,
@@ -474,13 +518,23 @@ export async function replyComment(
   payload: AkwaReplyCommentPayload
 ): Promise<{ success: boolean; reply?: AkwaCommentReply; message?: string }> {
   try {
+    const textValue = (payload.content || (payload as any).text || "").trim()
     const res = await apiClient.post<any>("/akwaComment_replyComment", {
       comment_id: payload.commentId,
-      content: payload.content.trim(),
+      text: textValue,
+      content: textValue,
+      comment: textValue,
       user_id: payload.userId,
     })
 
-    const replyData = res.data?.reply ?? res.data?.data
+    const rawList = res.data?.data
+    const replyData =
+      res.data?.comment ??
+      res.data?.reply ??
+      (Array.isArray(rawList) && rawList.length > 0 ? rawList[0] : undefined) ??
+      res.data?.result ??
+      res.data?.data
+
     return {
       success: Boolean(res.data?.success ?? true),
       reply: replyData ? normalizeAkwaCommentReply(replyData, payload.userId) : undefined,
@@ -497,18 +551,21 @@ export async function replyComment(
  */
 export async function toggleLikeComment(
   payload: AkwaToggleCommentLikePayload
-): Promise<{ success: boolean; isLiked: boolean; likesCount?: number }> {
+): Promise<{ success: boolean; isLiked: boolean; likesCount?: number; message?: string }> {
   try {
+    const type = payload.replyId ? "reply" : "comment"
     const res = await apiClient.post<any>("/akwaComment_toggleLike", {
       comment_id: payload.commentId,
       reply_id: payload.replyId,
       user_id: payload.userId,
+      type,
     })
 
     return {
       success: Boolean(res.data?.success ?? true),
       isLiked: Boolean(res.data?.is_liked ?? res.data?.liked),
-      likesCount: res.data?.likes_count,
+      likesCount: res.data?.likes_count ?? res.data?.like_count,
+      message: res.data?.message,
     }
   } catch (error) {
     throw toServiceApiError(error, "Erreur lors du like de commentaire.")
@@ -711,21 +768,40 @@ export async function getFollowingVideos(
 export async function getUserActivities(
   userId: string | number,
   signal?: AbortSignal
-): Promise<any[]> {
+): Promise<AkwaUserActivity[]> {
   try {
     const res = await apiClient.get<any>(
       `/akwa_get_user_activities?user_id=${encodeURIComponent(String(userId))}`,
       { signal }
     )
-    return Array.isArray(res.data)
-      ? res.data
-      : Array.isArray(res.data?.activities)
-      ? res.data.activities
-      : Array.isArray(res.data?.data)
-      ? res.data.data
-      : []
+    const rawList = res.data?.activities?.data ?? res.data?.activities ?? extractDataArray(res.data)
+    if (!Array.isArray(rawList)) return []
+    return rawList.map(normalizeAkwaUserActivity)
   } catch (error) {
     throw toServiceApiError(error, "Impossible de charger les activités.")
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. ESPACE / PROFIL AKWAPLAY D'UN UTILISATEUR
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Récupère l'espace / profil Akwaplay complet d'un utilisateur (vidéos, infos créateur).
+ * GET /api/user_akwaplay/{user_id}
+ */
+export async function getUserAkwaplay(
+  userId: string | number,
+  signal?: AbortSignal
+): Promise<any> {
+  try {
+    const res = await apiClient.get<any>(
+      `/user_akwaplay/${encodeURIComponent(String(userId))}`,
+      { signal }
+    )
+    return res.data?.result ?? res.data?.data ?? res.data
+  } catch (error) {
+    throw toServiceApiError(error, "Impossible de charger l'espace Akwaplay.")
   }
 }
 

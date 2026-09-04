@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { toast } from "sonner"
 import type { AkwaComment, AkwaCommentReply } from "@/types/akwaplay/akwaplay.types"
 import {
   fetchVideoComments,
@@ -81,6 +82,7 @@ export function useAkwaVideoComments({ videoId, userId }: UseAkwaVideoCommentsOp
           // Insérer le nouveau commentaire en tête
           setComments((prev) => [res.comment!, ...prev])
         }
+        toast.success(res.message || "Commentaire publié !")
         return res
       } finally {
         setSubmitting(false)
@@ -200,7 +202,8 @@ export function useAkwaVideoComments({ videoId, userId }: UseAkwaVideoCommentsOp
       )
 
       try {
-        await toggleLikeComment({ commentId, replyId, userId })
+        const res = await toggleLikeComment({ commentId, replyId, userId })
+        toast.success(res.message || (res.isLiked ? "Like ajouté !" : "Like retiré"))
       } catch (err) {
         // Rollback en cas d'erreur réseau
         setComments((prev) =>

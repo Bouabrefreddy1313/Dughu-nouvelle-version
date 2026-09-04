@@ -18,11 +18,12 @@ interface AkwaSidebarProps {
   open: boolean
   onClose: () => void
   onPublishClick: () => void
+  drawer?: boolean
 }
 
 const NAV_ITEMS = [
   { id: "home", label: "Accueil", icon: Home, href: "/akwaplay" },
-  { id: "profil", label: "Profil", icon: User, href: "/profile" },
+  { id: "profil", label: "Profil", icon: User, href: "/akwaplay/profile" },
   { id: "tendances", label: "Tendances", icon: Zap, href: "/akwaplay/trending" },
   { id: "shorts", label: "Shorts", icon: Clapperboard, href: "/akwaplay/shorts" },
   { id: "musiques", label: "Musiques libres", icon: Music2, href: "/akwaplay/musiques" },
@@ -30,7 +31,7 @@ const NAV_ITEMS = [
   { id: "points", label: "Points", icon: Gift, href: "/points" },
 ] as const
 
-export default function AkwaSidebar({ open, onClose, onPublishClick }: AkwaSidebarProps) {
+export default function AkwaSidebar({ open, onClose, onPublishClick, drawer = false }: AkwaSidebarProps) {
   const router = useRouter()
   const pathname = usePathname()
 
@@ -38,16 +39,19 @@ export default function AkwaSidebar({ open, onClose, onPublishClick }: AkwaSideb
 
   const navigate = (href: string) => {
     router.push(href)
-    // Sur mobile : ferme la sidebar après navigation
-    if (window.innerWidth < 1024) onClose()
+    // Sur mobile ou en mode drawer : ferme la sidebar après navigation
+    if (drawer || window.innerWidth < 1024) onClose()
   }
 
   return (
     <>
-      {/* Overlay mobile */}
+      {/* Overlay sombre */}
       {open && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          className={cn(
+            "fixed inset-0 bg-black/60 transition-opacity",
+            drawer ? "z-40" : "z-30 lg:hidden"
+          )}
           onClick={onClose}
           aria-hidden="true"
         />
@@ -56,10 +60,12 @@ export default function AkwaSidebar({ open, onClose, onPublishClick }: AkwaSideb
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-14 left-0 bottom-0 z-30 flex flex-col transition-transform duration-300 ease-in-out",
+          "fixed top-14 left-0 bottom-0 flex flex-col transition-transform duration-300 ease-in-out",
           "w-[220px] overflow-y-auto overflow-x-hidden",
+          drawer ? "z-50 shadow-2xl" : "z-30",
           open ? "translate-x-0" : "-translate-x-full",
-          "lg:translate-x-0" // toujours visible sur desktop si open
+          !drawer && open ? "lg:translate-x-0" : "",
+          !drawer && !open ? "lg:-translate-x-full" : ""
         )}
         style={{ backgroundColor: "#1c1c1c", borderRight: "1px solid #2a2a2a" }}
         aria-label="Navigation Akwaplay"

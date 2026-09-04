@@ -45,18 +45,21 @@ export function useAkwaHomeVideos({ userId, initialCategoryId = null }: UseAkwaH
     }
   }, [])
 
+  // Résout l'identifiant utilisateur stabilisé (utilisateur connecté ou fallback 31262)
+  const effectiveUserId = (userId && String(userId).trim() !== "") ? String(userId).trim() : "31262"
+
   // 2. Fonction centrale de chargement des vidéos (remplace ou accumule selon pageNum)
   const loadVideos = useCallback(
     async (pageNum = 1, isRefresh = false) => {
-      // Résout l'identifiant utilisateur (utilisateur connecté ou fallback 31262)
-      const targetUserId = (userId && String(userId).trim() !== "") ? String(userId).trim() : "31262"
+      const targetUserId = effectiveUserId
 
-      // Annule la requête précédente en cours
+      // Annule la requête précédente en cours si nécessaire
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
-      abortControllerRef.current = new AbortController()
-      const signal = abortControllerRef.current.signal
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+      const signal = controller.signal
 
       if (pageNum === 1) {
         setLoading(true)
@@ -64,6 +67,8 @@ export function useAkwaHomeVideos({ userId, initialCategoryId = null }: UseAkwaH
       } else {
         setLoadingMore(true)
       }
+
+      let aborted = false
 
       try {
         let result: { videos: AkwaVideo[]; hasMore: boolean; page: number }
@@ -79,11 +84,17 @@ export function useAkwaHomeVideos({ userId, initialCategoryId = null }: UseAkwaH
           result = await getAllVideos(targetUserId, pageNum, signal)
         }
 
+        if (signal.aborted) {
+          aborted = true
+          return
+        }
+
         setVideos((prev) => (pageNum === 1 || isRefresh ? result.videos : [...prev, ...result.videos]))
         setHasMore(result.hasMore)
         setPage(pageNum)
       } catch (err: any) {
         const isAbort =
+          signal.aborted ||
           err?.name === "AbortError" ||
           err?.name === "CanceledError" ||
           err?.code === "ERR_CANCELED" ||
@@ -91,14 +102,20 @@ export function useAkwaHomeVideos({ userId, initialCategoryId = null }: UseAkwaH
           err?.cause?.name === "AbortError" ||
           (err instanceof Error && (err.message.includes("annulée") || err.message.includes("canceled")))
 
-        if (isAbort) return
+        if (isAbort) {
+          aborted = true
+          return
+        }
         setError(err?.message || "Erreur lors du chargement des vidéos.")
       } finally {
-        setLoading(false)
-        setLoadingMore(false)
+        // N'éteindre le loading QUE si cette requête spécifique est toujours active et non avortée
+        if (!aborted && !signal.aborted) {
+          setLoading(false)
+          setLoadingMore(false)
+        }
       }
     },
-    [userId, selectedCategoryId, activeQuery]
+    [effectiveUserId, selectedCategoryId, activeQuery]
   )
 
   // Déclenche le rechargement dès que la catégorie ou la recherche validée change

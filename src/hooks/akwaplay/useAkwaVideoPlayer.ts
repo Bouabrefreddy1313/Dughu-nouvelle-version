@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { toast } from "sonner"
 import type { AkwaVideo, AkwaReportReason } from "@/types/akwaplay/akwaplay.types"
 import {
   getVideoDetails,
@@ -195,6 +196,7 @@ export function useAkwaVideoPlayer({
         if (res.dislikesCount !== undefined) setDislikesCount(res.dislikesCount)
         if (res.liked !== undefined) setIsLiked(res.liked)
         if (res.disliked !== undefined) setIsDisliked(res.disliked)
+        toast.success(res.message || (action === "like" ? "Réaction enregistrée !" : "Mention enregistrée"))
       } catch (err) {
         // Rollback
         setIsLiked(prevIsLiked)
@@ -217,6 +219,7 @@ export function useAkwaVideoPlayer({
     try {
       const res = await toggleFavoriteVideo(videoId, userId)
       setIsFavorite(res.isFavorite)
+      toast.success(res.isFavorite ? "Ajouté à vos favoris !" : "Retiré de vos favoris")
       return res.isFavorite
     } catch (err) {
       setIsFavorite(prevFavorite)

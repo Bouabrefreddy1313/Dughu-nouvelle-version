@@ -2,7 +2,7 @@
 
 import { useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Menu, Search, Video, X, Play } from "lucide-react"
+import { Menu, Search, Video, X } from "lucide-react"
 import { useAuth } from "@/hooks/queries/use-auth"
 
 interface AkwaHeaderProps {
@@ -57,15 +57,15 @@ export default function AkwaHeader({
 
         <button
           onClick={() => router.push("/akwaplay")}
-          className="flex items-center gap-2 group"
+          className="flex items-center gap-2.5 group"
           aria-label="Akwaplay — Accueil"
         >
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-            style={{ backgroundColor: "#f5821f" }}
-          >
-            <Play className="fill-white text-white translate-x-px" size={14} />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/akp.png"
+            alt="Logo Akwaplay"
+            className="w-8 h-8 object-contain shrink-0 transition-transform duration-200 group-hover:scale-105 drop-shadow-sm"
+          />
           <span className="hidden sm:block text-white font-bold text-base tracking-tight">
             Akwa<span style={{ color: "#f5821f" }}>play</span>
           </span>

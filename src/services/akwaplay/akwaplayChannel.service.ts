@@ -69,19 +69,27 @@ export async function storeChannel(
   try {
     const formData = new FormData()
 
-    if (payload.channelId) {
-      formData.append("channel_id", String(payload.channelId))
-    }
-
-    formData.append("name", payload.name.trim())
     const slug = formatChannelIdentifiant(payload.identifiant || payload.name)
+    // Le backend Dughu Laravel exige impérativement 'channel_id' (qui est le slug/identifiant unique de la chaîne)
+    const channelIdValue = String(payload.channelId || slug)
+    formData.append("channel_id", channelIdValue)
+    formData.append("name", payload.name.trim())
     formData.append("identifiant", slug)
     formData.append("slug", slug)
     formData.append("user_id", String(payload.userId))
 
+    if (payload.description) {
+      formData.append("description", payload.description.trim())
+    }
+
     if (payload.avatarFile) {
       formData.append("avatar", payload.avatarFile)
       formData.append("image", payload.avatarFile) // Compatibilité multi-backend
+    }
+
+    if (payload.bannerFile) {
+      formData.append("banner", payload.bannerFile)
+      formData.append("cover", payload.bannerFile)
     }
 
     const res = await apiClient.post<any>("/akwa_channel_store", formData, {
@@ -89,7 +97,7 @@ export async function storeChannel(
       headers: { "Content-Type": "multipart/form-data" },
     })
 
-    const rawChannel = res.data?.channel ?? res.data?.data
+    const rawChannel = res.data?.result ?? res.data?.channel ?? res.data?.data
     return {
       success: Boolean(res.data?.success ?? true),
       message: res.data?.message ?? "Chaîne enregistrée avec succès.",

@@ -23,10 +23,12 @@ export interface AkwaChannel {
 }
 
 export interface AkwaStoreChannelPayload {
-  channelId?: string | number // Présent lors d'une modification
+  channelId?: string | number // Présent lors d'une modification ou identifiant textuel
   name: string
-  identifiant: string
+  identifiant?: string
+  description?: string | null
   avatarFile?: File | Blob | null
+  bannerFile?: File | Blob | null
   userId: string | number
 }
 

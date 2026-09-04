@@ -9,6 +9,7 @@ import type {
   AkwaCategory,
   AkwaAuthor,
   AkwaChannel,
+  AkwaUserActivity,
 } from "@/types/akwaplay/akwaplay.types"
 
 /**
@@ -130,7 +131,7 @@ export function normalizeAkwaAuthor(raw: any): AkwaAuthor {
   const defaultName = fullName || fallbackUsername
 
   return {
-    id: raw.id ?? raw.user_id ?? raw.userId ?? "unknown",
+    id: raw.uploader_id ?? raw.id ?? raw.user_id ?? raw.userId ?? "unknown",
     name: raw.name ?? defaultName,
     username: raw.username ?? raw.user_name ?? null,
     avatar:
@@ -141,7 +142,7 @@ export function normalizeAkwaAuthor(raw: any): AkwaAuthor {
       "/images/avatar.png",
     verified: Boolean(raw.verified ?? raw.is_verified ?? raw.verified_icon_formatted),
     subscribersCount: Number(raw.subscribers_count ?? raw.subscribersCount ?? 0),
-    isSubscribed: Boolean(raw.is_subscribed ?? raw.isSubscribed),
+    isSubscribed: Boolean(raw.is_following ?? raw.is_subscribed ?? raw.isSubscribed ?? raw.following),
   }
 }
 
@@ -174,7 +175,7 @@ export function normalizeAkwaVideo(raw: any): AkwaVideo {
   const id = raw.id ?? raw.video_id ?? raw.videoId
   const duration = parseDurationToSeconds(raw.duration ?? raw.video_duration)
   const createdAt = raw.created_at ?? raw.createdAt ?? new Date().toISOString()
-  const authorData = raw.user ?? raw.author ?? raw.creator ?? raw
+  const authorData = raw.uploader ?? raw.user ?? raw.author ?? raw.creator ?? raw.channel ?? raw
 
   const thumbnail =
     raw.signed_thumbnail_path ||
@@ -201,14 +202,26 @@ export function normalizeAkwaVideo(raw: any): AkwaVideo {
     streamUrl: raw.stream_url ?? raw.streamUrl ?? (id ? `/api/akwa_video_stream/${id}` : null),
     duration,
     durationFormatted: typeof raw.duration === "string" && raw.duration.includes(":") ? raw.duration : formatVideoDuration(duration),
-    viewsCount: Number(raw.views ?? raw.views_count ?? raw.viewsCount ?? 0),
-    likesCount: Number(raw.likes_count ?? raw.likes ?? raw.likesCount ?? 0),
-    dislikesCount: Number(raw.dislikes_count ?? raw.dislikes ?? raw.dislikesCount ?? 0),
-    commentsCount: Number(raw.comments_count ?? raw.comments ?? raw.commentsCount ?? 0),
+    viewsCount: Number(raw.views_count ?? raw.views ?? raw.viewsCount ?? 0),
+    dislikesCount: Number(raw.dislike_count ?? raw.dislikes_count ?? raw.dislikes ?? raw.dislikesCount ?? 0),
+    likesCount: (() => {
+      const dislikes = Number(raw.dislike_count ?? raw.dislikes_count ?? raw.dislikes ?? raw.dislikesCount ?? 0)
+      if (raw.likes_count !== undefined && raw.likes_count !== null && raw.likes_count !== "") {
+        return Number(raw.likes_count)
+      }
+      if (raw.likes !== undefined && raw.likes !== null && raw.likes !== "") {
+        return Number(raw.likes)
+      }
+      if (raw.like_count !== undefined && raw.like_count !== null) {
+        return Math.max(0, Number(raw.like_count) - dislikes)
+      }
+      return Number(raw.likesCount ?? 0)
+    })(),
+    commentsCount: Number(raw.comment_count ?? raw.comments_count ?? raw.comments ?? raw.commentsCount ?? 0),
     sharesCount: Number(raw.shares_count ?? raw.sharesCount ?? 0),
-    isLiked: Boolean(raw.is_liked ?? raw.isLiked ?? raw.liked),
-    isDisliked: Boolean(raw.is_disliked ?? raw.isDisliked ?? raw.disliked),
-    isFavorite: Boolean(raw.is_favorite ?? raw.isFavorite ?? raw.favorite ?? raw.is_favorited),
+    isLiked: Boolean(raw.liked ?? raw.is_liked ?? raw.isLiked),
+    isDisliked: Boolean(raw.disliked ?? raw.is_disliked ?? raw.isDisliked),
+    isFavorite: Boolean(raw.favorited ?? raw.is_favorite ?? raw.isFavorite ?? raw.favorite ?? raw.is_favorited),
     privacy: raw.privacy ?? 0,
     categoryId: raw.category_id ?? raw.categoryId ?? null,
     category: raw.category ? normalizeAkwaCategory(raw.category) : null,
@@ -224,7 +237,7 @@ export function normalizeAkwaVideo(raw: any): AkwaVideo {
  * Normalise une réponse de commentaire de vidéo.
  */
 export function normalizeAkwaCommentReply(raw: any, currentUserId?: string | number): AkwaCommentReply {
-  const userId = raw.user_id ?? raw.userId ?? raw.user?.id
+  const userId = raw.user_id ?? raw.userId ?? raw.user?.id ?? raw.user?.user_id
   const createdAt = raw.created_at ?? raw.createdAt ?? new Date().toISOString()
 
   return {
@@ -245,7 +258,7 @@ export function normalizeAkwaCommentReply(raw: any, currentUserId?: string | num
  * Normalise un commentaire de vidéo et ses réponses optionnelles.
  */
 export function normalizeAkwaComment(raw: any, currentUserId?: string | number): AkwaComment {
-  const userId = raw.user_id ?? raw.userId ?? raw.user?.id
+  const userId = raw.user_id ?? raw.userId ?? raw.user?.id ?? raw.user?.user_id
   const createdAt = raw.created_at ?? raw.createdAt ?? new Date().toISOString()
   const rawReplies = Array.isArray(raw.replies) ? raw.replies : []
 
@@ -320,4 +333,140 @@ export function normalizeAkwaChannel(raw: any): AkwaChannel {
     createdAt,
     videos,
   }
+}
+
+/**
+ * Normalise un objet activité utilisateur provenant de /akwa_get_user_activities.
+ */
+export function normalizeAkwaUserActivity(raw: any): AkwaUserActivity {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Donnée d'activité invalide.")
+  }
+
+  const id = raw.id ?? Math.random().toString(36).slice(2)
+  const userId = raw.user_id ?? raw.userId ?? raw.user?.id ?? "unknown"
+  const createdAt = raw.created_at ?? raw.time ?? new Date().toISOString()
+  const text = String(raw.text ?? raw.description ?? raw.action ?? "Activité Akwaplay")
+
+  const videoId =
+    raw.akwaplay_id ||
+    raw.akwaplay_like_id ||
+    raw.akwaplay_favorite_id ||
+    raw.video_id ||
+    raw.videoId ||
+    null
+
+  const shortId =
+    raw.akwaplay_short_id ||
+    raw.akwaplay_short_like_id ||
+    raw.short_id ||
+    null
+
+  const commentId =
+    raw.akwaplay_comment_id ||
+    raw.akwaplay_comment_like_id ||
+    raw.comment_id ||
+    null
+
+  const channelId = raw.akwaplay_channel_id || raw.channel_id || null
+
+  return {
+    id,
+    userId,
+    user: raw.user ? normalizeAkwaAuthor(raw.user) : null,
+    text,
+    time: raw.time,
+    createdAt,
+    timeAgo: formatRelativeTime(createdAt),
+    activityType: raw.activity_type ?? "video",
+    videoId: videoId && Number(videoId) !== 0 ? videoId : null,
+    shortId: shortId && Number(shortId) !== 0 ? shortId : null,
+    commentId: commentId && Number(commentId) !== 0 ? commentId : null,
+    channelId: channelId && Number(channelId) !== 0 ? channelId : null,
+  }
+}
+
+/**
+ * Génère automatiquement une miniature (thumbnail) JPEG depuis un fichier vidéo côté client.
+ * Extrait également la durée formatée (ex: "01:25") requise par l'API.
+ */
+export function generateVideoThumbnail(
+  file: File,
+  atSeconds = 1
+): Promise<{ file: File; dataUrl: string; durationFormatted: string; durationSeconds: number }> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined" || !window.document) {
+      reject(new Error("generateVideoThumbnail ne peut être exécuté que dans un navigateur."))
+      return
+    }
+
+    const video = document.createElement("video")
+    video.preload = "metadata"
+    video.muted = true
+    video.playsInline = true
+
+    const videoUrl = URL.createObjectURL(file)
+    video.src = videoUrl
+
+    const cleanUp = () => {
+      URL.revokeObjectURL(videoUrl)
+    }
+
+    video.onloadedmetadata = () => {
+      const durationSeconds = video.duration || 0
+      const totalSecs = Math.max(0, Math.floor(durationSeconds))
+      const mins = Math.floor(totalSecs / 60)
+      const secs = totalSecs % 60
+      const durationFormatted = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+
+      // Capture à la position demandée ou par défaut
+      const targetTime = Math.min(Math.max(0.2, atSeconds), Math.max(0.2, durationSeconds - 0.2))
+      video.currentTime = targetTime
+
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement("canvas")
+          canvas.width = video.videoWidth || 640
+          canvas.height = video.videoHeight || 360
+
+          const ctx = canvas.getContext("2d")
+          if (!ctx) {
+            cleanUp()
+            reject(new Error("Impossible d'initialiser le contexte Canvas 2D."))
+            return
+          }
+
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85)
+
+          canvas.toBlob(
+            (blob) => {
+              cleanUp()
+              if (!blob) {
+                reject(new Error("Échec de la conversion du canvas en image."))
+                return
+              }
+              const thumbnailFile = new File([blob], "thumbnail.jpg", { type: "image/jpeg" })
+              resolve({
+                file: thumbnailFile,
+                dataUrl,
+                durationFormatted,
+                durationSeconds,
+              })
+            },
+            "image/jpeg",
+            0.85
+          )
+        } catch (err) {
+          cleanUp()
+          reject(err)
+        }
+      }
+    }
+
+    video.onerror = () => {
+      cleanUp()
+      reject(new Error("Impossible de lire ce format vidéo pour extraire la miniature."))
+    }
+  })
 }
