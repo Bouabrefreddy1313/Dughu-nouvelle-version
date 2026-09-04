@@ -1,6 +1,7 @@
 "use client"
 
 import { useDeferredValue, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Heart,
   Loader2,
@@ -57,8 +58,10 @@ const LIKED_GROUPS: GroupSummary[] = [
 ]
 
 export default function GroupsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: user } = useAuth()
-  const [activeTab, setActiveTab] = useState<GroupsTab>("news")
+  const [activeTab, setActiveTab] = useState<GroupsTab>(searchParams.get("tab") === "mine" ? "mine" : "news")
   const [search, setSearch] = useState("")
   const deferredSearchTerm = useDeferredValue(search.trim())
   const deferredSearch = deferredSearchTerm.toLocaleLowerCase("fr")
@@ -202,7 +205,7 @@ export default function GroupsPage() {
           <h1 id="groups-title" className="text-xl font-bold text-[#2D2D2D] sm:text-2xl">Groupes</h1>
           <button
             type="button"
-            onClick={() => toast.info("La création de groupe sera disponible prochainement.")}
+            onClick={() => router.push("/groups/create")}
             className="flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-[#6B3F1D] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4E2A14] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C47830]"
           >
             <Plus size={18} aria-hidden="true" />

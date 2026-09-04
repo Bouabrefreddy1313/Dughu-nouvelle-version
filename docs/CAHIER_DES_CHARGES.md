@@ -81,9 +81,24 @@ i### Profil
   caractère inactif est annoncé dans le panneau de détail.
 * Le détail « Compte » présente les entrées « Changer le mot de passe », « Liens
   sociaux », « Paramètres de confidentialité », « Vérification », « Liste des
-  sessions » et « Supprimer le compte ». Seul le changement de mot de passe est
-  actuellement fonctionnel ; les autres entrées affichent une information de
-  disponibilité prochaine.
+  sessions » et « Supprimer le compte ». Le changement de mot de passe, les liens
+  sociaux et les paramètres de confidentialité sont fonctionnels ; les autres
+  entrées affichent une information de disponibilité prochaine.
+* « Paramètres de confidentialité » charge les préférences réelles du compte
+  depuis `getSpecificUser` et permet de choisir qui peut suivre l'utilisateur,
+  lui envoyer des messages, voir ses amis, publier sur son fil et voir son
+  anniversaire. L'utilisateur peut également imposer la confirmation de chaque
+  nouvelle demande d'abonnement.
+* La sauvegarde passe par la route interne `PUT /api/profile/privacy`, qui valide
+  strictement les six préférences puis appelle `POST /updatePrivacySettings` en
+  JSON. L'identifiant Dughu est toujours résolu depuis la session côté serveur et
+  n'est jamais accepté depuis le navigateur. La réponse volumineuse de
+  `getSpecificUser` est filtrée : seuls les paramètres de confidentialité sont
+  exposés au client.
+* L'interface de confidentialité prévoit des états de chargement, d'erreur avec
+  nouvelle tentative et d'enregistrement. Les sélecteurs, l'interrupteur de
+  confirmation et les actions restent accessibles au clavier et adaptés aux
+  écrans mobiles.
 * « Supprimer le compte » est visuellement séparé comme action destructive, mais
   aucune suppression n'est possible tant que le parcours sécurisé et sa
   confirmation ne sont pas implémentés.
@@ -121,6 +136,8 @@ i### Profil
   `country_id`.
 * La section « Réseaux » permet de renseigner Facebook, Instagram, Twitter/X,
   LinkedIn, YouTube, Google, un site web, Discord et WeChat.
+* Depuis « Paramètres » puis « Compte », l'option « Liens sociaux » ouvre
+  directement la section « Réseaux » de `/profile/settings`.
 * Les informations de retrouvailles sont enregistrées via `POST /saveInfos` avec
   l'identifiant de session résolu côté serveur. Cette route gère la ville actuelle,
   la ville d'origine, l'établissement fréquenté, le domaine d'activité, la
@@ -1068,7 +1085,7 @@ quand on s'y trouve, le clic ferme le drawer mobile).
 * Les listes de groupes utilisent des cartes avec bannière, avatar, nom, catégorie, nombre de membres et indicateur accessible de confidentialité. Elles s'affichent sur une colonne en mobile, deux en tablette et jusqu'à trois sur grand écran.
 * Les suggestions utilisent une variante horizontale et un bouton « Adhérer ». Dans ce premier lot sans API Groupes, l'adhésion est uniquement conservée dans l'état local et signalée comme telle à l'utilisateur.
 * La recherche est envoyée au serveur dans « Actualités » et filtre localement les groupes des autres onglets. La vue « Groupes administrés » fournit l'état vide « Aucun groupe trouvé. ».
-* La création, les adhésions persistantes, les données distantes des trois autres onglets et les pages de détail d'un groupe restent à brancher lorsque les contrats API et routes correspondants seront disponibles.
+* La création de groupe, les adhésions persistantes, les données distantes des trois autres onglets et les pages de détail d'un groupe restent à brancher lorsque les contrats API et routes correspondants seront disponibles.
 
 ### Navigation principale
 

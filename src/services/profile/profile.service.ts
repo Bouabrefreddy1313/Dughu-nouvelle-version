@@ -21,6 +21,8 @@ import type {
   CountriesResponse,
   VerificationResponse,
   FollowPayload,
+  PrivacySettings,
+  PrivacySettingsResponse,
 } from "@/types/profile/profile.types"
 
 function toServiceApiError(error: unknown, fallback: string): ApiError {
@@ -181,6 +183,35 @@ export async function toggleFollow(payload: FollowPayload, signal?: AbortSignal)
     return res.data
   } catch (error) {
     throw toServiceApiError(error, "Erreur")
+  }
+}
+
+/** Charge uniquement les préférences de confidentialité de l'utilisateur connecté. */
+export async function fetchPrivacySettings(signal?: AbortSignal): Promise<PrivacySettingsResponse> {
+  try {
+    const res = await apiClient.get<PrivacySettingsResponse>("/profile/privacy", { signal })
+    if (!res.data?.success || !res.data.data) {
+      throw new ApiError(res.data?.message || "Impossible de charger vos paramètres de confidentialité.", { status: res.status })
+    }
+    return res.data
+  } catch (error) {
+    throw toServiceApiError(error, "Impossible de charger vos paramètres de confidentialité.")
+  }
+}
+
+/** Met à jour les préférences via la route interne sécurisée. */
+export async function updatePrivacySettings(
+  payload: PrivacySettings,
+  signal?: AbortSignal
+): Promise<PrivacySettingsResponse> {
+  try {
+    const res = await apiClient.put<PrivacySettingsResponse>("/profile/privacy", payload, { signal })
+    if (!res.data?.success || !res.data.data) {
+      throw new ApiError(res.data?.message || "Impossible d'enregistrer vos paramètres de confidentialité.", { status: res.status })
+    }
+    return res.data
+  } catch (error) {
+    throw toServiceApiError(error, "Impossible d'enregistrer vos paramètres de confidentialité.")
   }
 }
 

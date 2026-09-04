@@ -527,7 +527,7 @@ export const dughuApi = {
     lieux_frequentes: string[]
   }) => dughu.json("saveInfos", data),
 
-  updatePrivacySettings: (formData: FormData) => dughu.multipart("updatePrivacySettings", formData),
+  updatePrivacySettings: (data: Record<string, unknown>) => dughu.json("updatePrivacySettings", data),
 
   deleteUser: (formData: FormData) => dughu.multipart("deleteUser", formData),
 

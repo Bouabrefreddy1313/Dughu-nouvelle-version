@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   BriefcaseBusiness,
   Camera,
@@ -155,8 +155,10 @@ function TagInput({ label, values, onChange, placeholder }: { label: string; val
 
 export function ProfileSettingsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const avatarInputRef = useRef<HTMLInputElement>(null)
-  const [section, setSection] = useState<Section>("infos")
+  const requestedSection = searchParams.get("section")
+  const [section, setSection] = useState<Section>(requestedSection === "reseaux" || requestedSection === "retrouvailles" ? requestedSection : "infos")
   const [user, setUser] = useState<SettingsUser | null>(null)
   const [form, setForm] = useState<ProfileForm>(EMPTY_FORM)
   const [countries, setCountries] = useState<Country[]>([])

@@ -201,6 +201,7 @@ Chaque entrée doit contenir :
 * Remplacement des groupes statiques par les données de `POST /usergroupes`, via la route interne `GET /api/groups/mine`, le service serveur Axios, le service frontend et un hook TanStack Query paginé.
 * L'identifiant Dughu provient du cookie serveur. Le mapper conserve les groupes actifs dont l'utilisateur est membre, qu'ils soient publics (`privacy = "1"`) ou privés (`privacy = "2"`).
 * Ajout de la recherche serveur, de la pagination « Afficher plus », de la déduplication, des squelettes, de l'état vide, du réessai sur erreur et d'un indicateur accessible public/privé dans les cartes.
+
 ### Module « Canal » — intégration complète (32 endpoints)
 
 * **Intégration complète du module Canal** avec respect strict de l'architecture Axios à deux instances :
