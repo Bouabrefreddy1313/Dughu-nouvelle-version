@@ -283,37 +283,50 @@ La normalisation technique de ces états est documentée dans
   transmis à `POST /post` dans le champ `post_color_input` (entier), en plus des
   champs `color_1`/`color_2`/`text_color`. La résolution id → CSS est centralisée
   dans `lib/constants.ts` (`resolvePostColorCss`).
-* Likes
-* Commentaires
-* Republications
-  * Au survol du bouton « J'aime », un sélecteur de **réactions** (6 réactions) s'affiche
-    au-dessus du bouton ; la sélection change l'emoji du bouton et transmet la
-    réaction choisie. Le bouton « Republier » ouvre un menu avec « Republier
-    directement » ou « Écrire un commentaire » (republication avec texte).
-    Le sélecteur de réactions et le menu de republication s'affichent sans être
-    rognés par la barre d'actions.
-  * L'enregistrement d'une réaction (like et autres) ne doit pas échouer lorsque
-    l'API Dughu répond avec une forme de succès sans champ `success` explicite
-    (`{}`, `{done:true}`, `{is_like:1}`…) : seul un `success: false` explicite
-    est considéré comme une erreur, et l'état « aimé » est déduit des champs
-    `is_like` / `liked`. L'UI applique une mise à jour optimiste du compteur et
-    de l'emoji.
-  * Les réactions autres que « J'aime » (love, haha, wow, sad, angry) sont
-    transmises à l'API Dughu avec **les deux champs** `type` (nom) et `reaction`
-    (numéro 1-6), comme pour le like de commentaire — sans `type`, l'API Dughu
-    ne traite que le like par défaut.
-* Médias
-* Partage
+* Médias et Visionneuse immersive (Lightbox) :
+  * Un clic sur une image d'une publication ouvre la visionneuse immersive (`PostMediaLightbox`).
+  * **Desktop** : l'image est agrandie au maximum en conservant son ratio avec un arrière-plan sombre (`bg-black/95`). Le panneau de commentaires dédié est positionné **à gauche** de l'image (`w-[380px]` à `w-[440px]`), avec sa propre zone de défilement indépendante pour consulter et ajouter des commentaires sans déplacer l'image.
+  * **Mobile** : l'image occupe quasiment tout l'écran ; une barre flottante translucide permet de réagir, voir les réactions, partager, et d'ouvrir les commentaires sous forme de **Bottom Sheet** coulissant avec tirette de fermeture et geste tactile de glissement vers le bas (swipe down).
+  * L'arrière-plan de la page est verrouillé (`overflow: hidden`) pendant l'ouverture.
+  * L'animation d'ouverture donne la sensation d'une image qui sort de la publication pour devenir le contenu principal.
+  * Fermeture simple : bouton croix visible, touche Échap, ou clic sur le fond sombre.
+* Système de réactions et agrégation :
+  * 6 réactions disponibles : 👍 J'aime, ❤️ J'adore, 😂 Haha, 😮 Wow, 😢 Triste, 😡 Grrr.
+  * Sélecteur de réactions (`ReactionPicker`) : accessible au survol sur desktop, ou par appui long tactile (~350ms) sur mobile, ainsi qu'au clic.
+  * Le bouton affiche clairement la réaction active de l'utilisateur (icône et libellé en marron `#A35A2A`) ou « J'aime » neutre en l'absence de réaction.
+  * Un clic sur la même réaction annule la réaction (unlike). Choisir une autre réaction remplace immédiatement la réaction précédente.
+  * Agrégation (`ReactionSummary`) : affiche les principales réactions réellement présentes (au maximum 3 sous forme d'icônes empilées `[👍 ❤️ 😮]`) suivies du nombre total de réactions. Aucune réaction fictive n'est inventée.
+  * Clic sur le résumé des réactions : ouvre une interface responsive (`ReactionUsersModal` / Bottom Sheet mobile) avec onglets par type (« Toutes », « 👍 », « ❤️ », etc.) et liste des personnes ayant réagi.
+  * **Optimistic UI** : mise à jour immédiate des compteurs, du bouton et de l'affichage local sans attendre la réponse serveur, avec synchronisation continue et cohérence absolue entre la carte du fil et la Lightbox.
+* **Barre d'actions complète dans la vue détail** (page `/post/[id]` et lightbox du post d'origine) : **J'aime** (+ palette de réactions) · **Gratifier** (100 points, modale de confirmation) · **Republier** (simple ou avec commentaire) · **Partager** (modale interne `SharePostModal` vers WhatsApp, X, Facebook, LinkedIn, Instagram/copie de lien). Ces actions sont centralisées dans `PostMediaLightbox` et fonctionnent directement depuis la page de détail.
 * Gratifier : bouton d’action rapide qui envoie **100 points** à l’auteur du post
   en un clic (endpoint `points/give`). Une modale de confirmation (« Voulez-vous
   vraiment offrir 100 points à … ? ») s’affiche avant l’envoi pour éviter les
   erreurs. Le bouton est masqué sur ses propres publications et un spinner de
   chargement apparaît dans la modale pendant l’envoi. Un menu « Donner des
   points » distinct (3 points → « Donner des points ») permet quant à lui de
-choisir le montant. La détection du post « sien » se base sur l'identifiant
+  choisir le montant. La détection du post « sien » se base sur l'identifiant
   Dughu de l'auteur (`user_id`) comparé au `dughu.userId` de l'utilisateur
   connecté ; toute publication d'un tiers (ou dont l'auteur est inconnu : id
   vide ou post de page) affiche le bouton.
+* **Carte de prévisualisation au survol (Preview Card / Hover Card)** :
+  * Au survol du nom d'un **utilisateur**, d'un **espace** ou d'un **groupe** dans le fil d'actualité (sur chaque publication ou publication repartagée) :
+  * Un carré flottant élégant (`EntityPreviewCard`, basé sur le composant primitif `@base-ui/react/preview-card` dans `src/components/ui/preview-card.tsx`) s'ouvre de manière fluide avec détection de collision d'écran et temporisation au survol (delay 250ms).
+  * Il affiche la **photo de couverture** (ou dégradé chaud Dughu), la **photo de profil / avatar** agrandie en superposition, le nom officiel, le nom d'utilisateur `@username`, les badges (compte vérifié, confidentialité groupe) et les statistiques clés.
+  * **Boutons d'action intégrés** :
+    * *Utilisateur* : bouton S'abonner / Abonné (`FollowButton`), bouton d'accès direct à la messagerie (`/messages?userId=...`) et lien vers le profil.
+    * *Espace* : bouton interactif J'aime / Aimé (`likePage`), et lien « Visiter » (`/espaces/[pageId]`).
+    * *Groupe* : bouton Adhérer / Rejoint, et lien « Voir le groupe » (`/groups`).
+* **Navigation et interaction sur les posts repartagés (Reposts)** :
+  * La carte embarquée de la publication d'origine (`ParentPostCard`) est entièrement interactive : curseur pointeur, survol bordé et ombré, badge distinctif « Repartagé ».
+  * Un clic sur le bloc du post repartagé ouvre instantanément la vue immersive dédiée du post original (`ParentPostLightbox` / page `/post/[id]`) sans aucun rechargement de page brut :
+    * **Disposition d'affichage** : le **post est affiché à droite** (visuel ou média immersif haute définition, vidéo avec contrôles de lecture, ou carte texte/couleur stylisée) et le **volet des commentaires est affiché à gauche** (identité de l'auteur, date, texte intégral avec hashtags, réactions rapides, fil de commentaires en temps réel avec réponses imbriquées et barre de composition de nouveau commentaire).
+    * **Format uniforme des commentaires** : chaque commentaire et réponse affiche le nom complet de l'utilisateur, le badge ambre « Auteur » si la personne est l'auteur de la publication, l'horodatage relatif francisé (« à l'instant », « il y a 2 min », « il y a 3h »...) au lieu de chaînes brutes ISO, et la barre d'actions séparée par des points médians (`👍 • Répondre • Supprimer` ou `Signaler`).
+    * L'URL est synchronisée de façon fluide vers `/post/[id]` (`window.history.pushState`), permettant le partage direct du lien et la persistance lors d'un rechargement, tandis que la fermeture de la vue (croix, touche Échap ou clic d'arrière-plan) restaure immédiatement la position dans le fil d'actualité sans perte d'état.
+    * Les clics sur les éléments internes du post d'origine (nom d'auteur ouvrant la preview card, hashtags, contrôles vidéo) conservent leur comportement propre sans déclencher intempestivement l'ouverture de la vue complète.
+* **Unicité des publications dans le flux (Feed)** :
+  * Le flux d'actualité (`HomePage`) intègre une déduplication systématique des publications par leur identifiant unique (`deduplicatePosts`), éliminant tout doublon lors du défilement infini ou de la création de nouvelles publications, garantissant ainsi des clés de rendu stables (`key={`feed-card-${post.id}-${postIndex}`}`).
+
 #### Mini-profil (sidebar droite)
 
 * La carte « mini-profil » de la sidebar droite affiche le solde **total** de points de
@@ -366,8 +379,13 @@ choisir le montant. La détection du post « sien » se base sur l'identifiant
   `points` = montant saisi, `post_id` = la publication.
 * Copier le lien du post (copie locale, presse-papiers) : utilise le lien de partage
   canonique fourni par l'API (`shareUrl`) ou construit `/home?post={id}` en secours.
-* Ces actions ne s'affichent pas sur ses propres publications (garde côté affichage,
-  la vérification d'autorisation reste côté serveur).
+* **Booster son propre post** (endpoint `boostPost`) : réservé à l'auteur de la
+  publication, l'action « Booster » du menu envoie `{ post_id, user_id, boost_days }`
+  à l'API Dughu (durée bornée 1 à 30 jours, défaut 1 jour) puis rafraîchit le fil.
+* Les actions « Bloquer » et « Donner des points » ne s'affichent pas sur ses propres
+  publications ; à l'inverse, « Supprimer » et « Booster » ne sont visibles que sur
+  ses propres publications (garde côté affichage, la vérification d'autorisation
+  reste côté serveur).
 
 ### Stories
 
@@ -1149,3 +1167,285 @@ Une fonctionnalité est terminée lorsqu'elle :
 Ce document doit être mis à jour progressivement pendant le développement.
 
 Il doit représenter l'état réel du projet et non une vision théorique déconnectée du code.
+
+---
+
+## 8. Expérience Mobile
+
+### Navigation scroll-aware
+
+* Le **Header (Topbar)** est `fixed` et se masque progressivement (`translateY(-100%)`) lorsque l'utilisateur scrolle vers le bas sur mobile.
+* Il réapparaît lors d'un scroll vers le haut ou lorsque l'utilisateur est en haut de la page.
+* La **Barre de navigation mobile (Tapbar / MobileBottomNav)** se masque (`translateY(100%)`) lors d'un scroll vers le bas et réapparaît lors d'un scroll vers le haut.
+* Ces comportements sont pilotés par le hook `useScrollDirection` (`src/hooks/useScrollDirection.ts`) : `requestAnimationFrame` + passive event listener + seuil de 8px anti-clignotement.
+* Les transitions sont GPU-friendly (`transform` uniquement, 300ms ease-in-out).
+* Le comportement desktop (lg+) est inchangé : les barres restent toujours visibles.
+
+### Safe Area iOS
+
+* Le viewport est configuré avec `viewport-fit=cover` (dans `app/layout.tsx`) pour activer les variables CSS `env(safe-area-inset-*)`.
+* La Tapbar utilise `padding-bottom: max(4px, env(safe-area-inset-bottom))` pour ne jamais chevaucher la barre système iPhone.
+* Sa hauteur est dynamique : `calc(58px + env(safe-area-inset-bottom, 0px))`.
+* Le Header utilise `padding-top: max(0px, env(safe-area-inset-top))` pour l'encoche / Dynamic Island.
+
+### Posts edge-to-edge sur mobile
+
+* Sur mobile (< sm), les `PostCard` n'ont pas de border-radius, shadow ou bordures latérales.
+* Un séparateur subtil `border-b border-gray-100` distingue les publications.
+* Sur sm+ (tablette/desktop), le rendu "carte" (rounded-3xl, shadow, border) est préservé.
+* Le conteneur `main` dans `MainLayout` est `px-0` sur mobile et `px-4`/`px-6` sur sm+/lg+.
+* Le `PostComposer` et le `FlashFeed` ont leur propre padding horizontal (`px-3`) sur mobile.
+
+### Sidebar droite universelle
+
+* La `RightSidebar` est **toujours montée** dans `MainLayout`, quelle que soit la page.
+* La prop `hideOnDesktop` (passée automatiquement quand `noRightSidebar={true}`) masque la colonne fixe desktop sans désactiver le tiroir mobile.
+* Résultat : le bouton ☷ (LayoutGrid) du Header ouvre correctement la sidebar droite sur **toutes les pages**, y compris le profil, les espaces, les messages.
+
+### Scroll horizontal
+
+* Les rails horizontaux (`FlashFeed`, `GroupCarousel`, onglets `GroupsPage`) utilisent `touch-pan-x` pour améliorer le swipe au doigt sur mobile.
+* Les éléments dans ces rails ont `shrink-0` pour rester sur une ligne.
+* Les onglets de `GroupsPage` utilisent `flex-nowrap` pour permettre le scroll horizontal réel.
+
+---
+
+## 9. Mise en page Desktop & Laptops (1280px à 1535px)
+
+* **Résolution des écrans compacts (1280x903 à 1417x903)** :
+  - Sur le breakpoint `xl` (1280px à 1535px, typique des ordinateurs portables 13" à 15"), la sidebar droite est positionnée à `right-4` (16px du bord droit) et sa réservation d'espace dans `MainLayout` passe de 484px à **264px**.
+  - La largeur maximale du feed central s'élargit jusqu'à **780px** (`xl:max-w-[780px]`).
+  - Le composer de publication (`PostComposer`) et les cartes de publication (`PostCard`) disposent ainsi d'une largeur confortable de **714px à 780px** (au lieu de 478px à 615px précédemment), supprimant l'effet de tassement excessif.
+* **Grands écrans (`2xl`, 1536px+)** :
+  - La réservation de 484px et la marge droite aérée de 220px (`2xl:right-[220px]`) sont conservées pour les moniteurs larges de bureau.
+
+---
+
+## 10. Lightbox Immersive & Système de Réactions
+
+### Visualisation Immersive des Médias (`PostMediaLightbox`)
+
+* **Ouverture** : Clic direct sur une image d'une publication (image unique ou vignette dans une grille multi-images). L'image s'ouvre avec une animation fluide d'échelle et de fondu sur fond sombre immersif (`bg-black/95`).
+* **Verrouillage du scroll** : Le défilement de la page arrière est automatiquement bloqué (`overflow: hidden` sur `body`).
+* **Disposition Desktop (md/lg+)** :
+  - **Panneau Commentaires à GAUCHE** (`w-[380px]` à `w-[440px]`, fond blanc, scrollable verticalement de manière autonome) : en-tête du post, texte, hashtags, résumé cliquable des réactions, boutons d'interaction, liste des commentaires avec réponses/likes/suppression/signalement, et barre de saisie sticky en bas (texte, pièces jointes, emojis).
+  - **Image à DROITE (dominante)** : zone visuelle principale centrée, préservant son ratio (`object-contain`). Navigation clavier (flèches ← →, Échap) et boutons flottants si plusieurs images.
+* **Disposition Mobile (< md)** :
+  - Image plein écran centrée avec commandes supérieures discrètes (fermeture ✕, compteur d'images).
+  - Barre d'action inférieure semi-transparente avec boutons Réagir, Commentaires et Partager.
+  - Bouton Commentaires ouvrant un **Bottom Sheet** fluide coulissant vers le haut, permettant de consulter et saisir des commentaires sans quitter la photo.
+
+### Système de Réactions & Agrégation Réelle
+
+* **6 Réactions officielles Dughu** : `👍 J'aime`, `😍 J'adore`, `🤣 Haha`, `🤩 Wow`, `🥺 Triste`, `😤 Grrr`.
+* **Sélecteur de Réactions (`ReactionPicker`)** :
+  - Accessible au survol desktop et à l'appui long (long-press 380ms) sur mobile.
+  - Micro-animations au survol (`scale-125`, infobulles).
+  - Remplacement ou annulation instantanée d'une réaction au clic.
+* **Optimistic UI & Compteurs Synchronisés** :
+  - Mise à jour instantanée du compteur total, des compteurs par réaction et de l'état du bouton dans l'interface avant confirmation serveur.
+  - Synchronisation sans rechargement de page via l'architecture Axios (`POST /api/reactions`).
+  - Restauration de l'état précédent en cas d'échec réseau.
+* **Agrégation Réelle (`LikesSummary`)** :
+  - Affiche uniquement les réactions réellement attribuées au post (jusqu'à 3 icônes distinctes empilées).
+* **Consultation des Personnes Ayant Réagi (`ReactionUsersModal`)** :
+  - Clic sur le résumé des réactions ouvre une interface dédiée (modale sur desktop, Bottom Sheet sur mobile).
+  - Onglets filtrables : `Toutes`, `👍`, `😍`, etc. avec décomptes précis.
+  - Liste des utilisateurs avec photo, nom, username et badge de leur réaction.
+
+
+> **Provenance des données** : la liste des personnes provient UNIQUEMENT de
+> l'API Dughu — chargée à la demande à l'ouverture du modal via
+> `GET /api/reactions?postId=X&userId=Y` (encapsule
+> `GET /getPostReactions/{postId}/{userId}`), avec repli sur les données
+> éventuellement embarquées dans le payload du post (`reactions` / `likes`
+> extraites par `mapPost` → `reactionUsers`).
+> Aucune liste ni réaction factice n'est jamais fabriquée : si l'API ne fournit
+> pas le détail utilisateur, l'UI affiche les compteurs agrégés et l'utilisateur
+> courant uniquement (avec message explicite dans le modal).
+>
+> **Détail de profil** : les items de l'endpoint dédié qui identifient un
+> utilisateur sans préciser le type de réaction sont affichés comme « 👍 »
+> (la valeur par défaut du système Dughu — `reaction=1`) ; un échec
+> réseau-affiche « Impossible de charger la liste des réactions », distinct
+> de l'absence honnête de données (« liste non disponible »).
+
+---
+## Module Akwaplay — Plateforme Vidéo
+
+Le module Akwaplay (route `/akwaplay`) est découpé en 3 écrans, avec une
+architecture **types → service frontend → routes BFF(`/api/akwa_*`) → endpoint Dughu**
+réutilisant l'instance Axios cliente (`apiClient`) et le proxy serveur
+(`X-AppApiToken` côté serveur uniquement, jamais exposé au navigateur).
+
+### 1. Écran Accueil (grille de vidéos)
+- Sidebar gauche : Profil, Points, Accueil, Capsules, Musiques libres, Tendances, Favoris.
+- Barre de recherche `GET /akwa_akwa_video_search/{user_id}?query={query}`.
+- Tabs de catégories dynamiques via `GET /akwa_getCategories` (« Tous » par défaut).
+- Grille : `GET /akwa_getAllVideos/{user_id}?page=` ou
+  `GET /akwa_getVideosByCategory/{category_id}/{user_id}?page=` selon l'onglet.
+- Miniature + durée, titre, avatar + auteur, vues, date relative, pagination.
+- Bouton « Publier » → modale `POST /akwa_store_video` (multipart : title,
+  description, category_id, video, thumbnail, user_id, privacy ; `video_id`
+  présent = édition).
+
+### 2. Écran lecture vidéo
+- Détails `GET /akwa_show_video?user_id=&video_id=` ; lecteur via
+  `GET /akwa_video_stream/{video_id}`.
+- Vue incrémentée au démarrage : `POST /akwa_incrementViews/{video_id}`.
+- Progression sauvegardée toutes les X secondes / à la pause :
+  `POST /akwa_saveProgress`.
+- Actions : like/dislike `POST /akwa_toggleLike/{video_id}`, favoris
+  `POST /akwa_toggleFavorite/{video_id}`, partage (natif / copie de lien),
+  signalement (`GET /akwa_getReportReasons` puis `POST /akwa_reportVideo`).
+- Commentaires : liste `GET /akwaFetchComments/{video_id}/{user_id}`,
+  ajout `POST /akwaComment_store`, réponses lazy
+  `GET /fetchCommentReplies/{comment_id}/{user_id}`, réponse
+  `POST /akwaComment_replyComment`, like
+  `POST /akwaComment_toggleLike`, suppression
+  `DELETE /akwaDeleteComment/{comment_id}` /
+  `DELETE /akwaDeleteReplyComment/{reply_comment_id}`.
+- « Voir aussi » : `GET /akwa_trending?page=` ou
+  `GET /akwa_getTrendingByCategory/{category_id}/{user_id}`.
+
+### 3. Écran Profil — onglet « Mes Vidéos »
+- Liste `GET /akwa_userVideos/{user_id}/{viewer_id}?page=` ; vignettes avec
+  crayon (édition → modale préremplie + `POST /akwa_store_video` avec
+  `video_id`) et poubelle (`DELETE /akwa_destroy/{video_id}` avec confirmation,
+  retrait optimiste de la vignette).
+
+### Flux technique
+- `src/types/akwaplay/` : modèles (`AkwaVideo`, `AkwaCategory`, `AkwaComment`,
+  `AkwaCommentReply`, `AkwaReportReason`, payloads & réponses paginées).
+- `src/services/akwaplay/` :
+  - `akwaplayVideo.service.ts` — vidéos (accueil, détail, CRUD, commentaires,
+    favoris, abonnements, activités) avec helpers d'extraction défensifs
+    (`extractDataArray`, `extractHasMore`) tolérant les formats imbriqués
+    (`result.data`, `result.pagination`).
+  - `akwaplayChannel.service.ts` — chaînes (liste, détail, CRUD, follow)
+  - `akwaplayShort.service.ts` — shorts (liste, like/dislike, commentaires, vues)
+  - `akwaplayMusique.service.ts` — musiques libres (liste/recherche, favoris,
+    signalement, suppression)
+
+### Fix critique — proxy compression & décodage (ERR_CONTENT_DECODING_FAILED)
+
+L'API Dughu amont (Cloudflare) renvoie les flux compressés en Brotli (`Content-Encoding: br`).
+Node.js décompressant automatiquement le corps de réponse en texte brut, la copie aveugle des
+en-têtes amont dans la fabrique BFF `akwa-proxy.ts` et `dughu/[...path]/route.ts` provoquait une
+erreur `net::ERR_CONTENT_DECODING_FAILED` dans le navigateur. Les en-têtes `content-encoding`,
+`content-length` et `transfer-encoding` sont désormais purgés systématiquement après décompression.
+
+### Stabilisation de l'état de chargement accueil (`useAkwaHomeVideos`)
+
+L'identifiant utilisateur est stabilisé (`effectiveUserId`) pour éviter le rechargement parasite provoqué par la résolution différée de `useAuth()`. Lors de l'annulation d'une requête précédente par `AbortController`, le bloc `finally` ne désactive plus prématurément `loading`, éliminant ainsi le flash transitoire du message « Aucune vidéo trouvée » avant l'arrivée des vidéos.
+
+### Espace & Profil Akwaplay (`/akwaplay/profile`)
+
+* La sidebar Akwaplay relie directement le menu « Profil » vers `/akwaplay/profile`.
+* La page intègre l'ensemble des endpoints utilisateur :
+  - **Mes vidéos** : `GET /akwa_userVideos/{user_id}/{viewer_id}?page={page}` avec suppression (`DELETE /akwa_destroy/{video_id}`) via une **vraie modale de confirmation personnalisée** (aperçu miniature, titre, avertissement d'action irréversible, bouton avec état de chargement et notification Sonner sans aucun confirm() natif), et publication (`POST /akwa_store_video`).
+  - **Formulaire de création de vidéo (`AkwaPublishModal`)** :
+    - `video` : sélection de fichier vidéo avec calcul automatique de la durée (`duration`, format string `mm:ss` requis par le backend).
+    - `thumbnail` : **génération 100% automatique** d'une miniature JPEG 16:9 extraite directement de la vidéo via HTML5 Canvas (avec curseur temporel pour choisir précisément la frame désirée dans la vidéo).
+    - `title` : titre de la vidéo (obligatoire).
+    - `description` : description de la vidéo.
+    - `category_id` : catégorie sélectionnée parmi les catégories actives Akwaplay.
+    - `visibility` : sélecteur de visibilité (`public`, `unlisted`, `private`).
+    - `chanel` / `channel_id` : sélection dynamique d'une chaîne Akwaplay appartenant à l'utilisateur (`GET /api/akwa_userChannels`) ou publication sous son profil personnel.
+    - `user_id` : identifiant de l'utilisateur connecté.
+    - Suivi de la progression du téléversement en pourcentage (`onUploadProgress`).
+  - **Mes chaînes** : `GET /akwa_userChannels/{user_id}` avec création/mise à jour (`POST /akwa_channel_store` exigeant `user_id`, `name`, `channel_id`, `image` et `banner` : la modale propose en tête la sélection visuelle interactive de la bannière et de l'avatar avec prévisualisation immédiate, puis les champs d'informations nom, identifiant unique et description) et suppression (`DELETE /akwa_channel_destroy/{channel_id}`).
+  - **Mes shorts (Capsules)** : `GET /user_shorts?page={page}&user_id={user_id}` affichés via `AkwaShortCard` avec vidéo d'arrière-plan, vues et redirection vers le lecteur plein écran.
+  - **Mes activités** : `GET /akwa_get_user_activities?user_id={user_id}` (normalisation `AkwaUserActivity`, affichage de l'avatar utilisateur, texte d'action dynamique, date relative et bouton de redirection vers la vidéo concernée).
+  - **Mes favoris** : `GET /akwa_getFavoritesVideos/{user_id}?page={page}`.
+* **Module des Capsules / Shorts Akwaplay (`/akwaplay/shorts`)** :
+  - **Grille verticale 9:16 interactive** : liste les capsules issues de `GET /short_fetchShorts/{user_id}?page={page}` avec fallback défensif utilisateur, normalisation du flux vidéo `file_path`, cartes `AkwaShortCard` épurées (titre, créateur, likes et survol animé, sans compteur de vues), pagination dynamique et bouton de création.
+  - **Visionneuse plein écran 9:16 (`AkwaShortViewerModal`)** : lecture automatique en boucle avec contrôles vidéo (play/pause, mute/unmute), navigation fluide haut/bas au clavier ou au clic, vue comptabilisée (`POST /akwa_track_short_view`), interaction J'aime exclusive (sans bouton dislike) avec persistance du statut `isLiked` au rechargement (`POST /short_toggleLikeDislike`), partage de lien et suppression (`DELETE /short_destroy/{short_id}`).
+  - **Volet latéral de commentaires** : récupération des commentaires réels (`GET /short_fetch_comments/{short_id}/{user_id}`), publication (`POST /short_store_comment`), réponses (`POST /short_reply_comment`), likes (`POST /toggleAkwaplayCommentLike`) et suppression (`DELETE /short_delete_comment/{id}`).
+  - **Publication de Capsule (`AkwaShortCreateModal`)** : téléversement de fichier vidéo vertical (`POST /short_store`), prévisualisation vidéo, titre / légende et jauge de progression en pourcentage.
+* L'onglet « Vidéos » du profil général (`/profile`) est synchronisé avec les vidéos Akwaplay de l'utilisateur via `getUserVideos(authorId, viewerId)`.
+
+### Page de lecture vidéo type YouTube (`/akwaplay/watch?v={video_id}`)
+
+* **Disposition 2 colonnes** :
+  - **Colonne principale (gauche)** :
+    - Lecteur vidéo HTML5 16:9 (`streamUrl` / `videoUrl`, `poster`), `onPlay` (incrémente `akwa_incrementViews`), suivi régulier de progression (`akwa_saveProgress`).
+    - Métadonnées complètes : titre, vues, date, description repliable (`line-clamp-2` / dépliée).
+    - Chaîne / auteur : affichage dynamique du créateur qui a publié la vidéo (via clé `uploader`), avatar, statut vérifié, abonnés et composant réutilisable standard `FollowButton` (`isFollowing`, `isLoading`, `onClick`).
+    - Actions interactives optimistes : Like / Dislike (`POST /akwa_toggleLike/{video_id}`) avec isolation stricte des compteurs (le backend Dughu agrégeant l'ensemble des réactions dans la colonne `like_count`, le calcul défensif `Math.max(0, like_count - dislikes_count)` garantit qu'un dislike n'incrémente jamais le compteur de likes), affichage dédié des compteurs sur chaque bouton de la pilule (`likesCount` et `dislikesCount`), Favoris (`POST /akwa_toggleFavorite/{video_id}`), Partage de lien (`navigator.clipboard`), Signalement avec motifs réels (`GET /akwa_getReportReasons` et `POST /akwa_reportVideo`).
+    - Section commentaires : ajout et modification de commentaire (`POST /akwaComment_store` avec `comment_id?`), liste paginée (`GET /akwaFetchComments/{video_id}/{user_id}`), réponses imbriquées (`POST /akwaComment_replyComment` avec extraction directe de `res.data.comment` pour affichage immédiat, et lazy-loading via `GET /fetchCommentReplies/{comment_id}/{user_id}` avec bouton d'ouverture dynamique `totalReplies`), like de commentaires (`POST /akwaComment_toggleLike`), et suppression (`DELETE /akwaDeleteComment` et `DELETE /akwaDeleteReplyComment`).
+  - **Colonne de droite (Suggestions / À suivre)** :
+    - Cartes vidéo compactes horizontales (`suggestions`) basées sur la même catégorie ou les tendances (`GET /akwa_getTrendingByCategory` ou `GET /akwa_trending`).
+    - Au clic, chargement direct de la vidéo sélectionnée et défilement fluide vers le haut.
+  - **Mode Drawer de la sidebar (`drawer={true}`)** : sur `/akwaplay/watch`, la sidebar gauche est masquée par défaut pour maximiser la largeur du lecteur et des commentaires sans superposition ; son ouverture via le menu burger s'affiche sous forme de tiroir superposé (`z-50`) avec un voile sombre d'arrière-plan (`bg-black/60`).
+
+- `src/hooks/akwaplay/` : `useAkwaHomeVideos`, `useAkwaVideoPlayer`,
+  `useAkwaVideoComments`, `useAkwaMyVideos` (+ chaînes) avec gestion propre des
+  annulations de requêtes (`AbortController`, `ERR_CANCELED`).
+- BFF : chaque endpoint Dughu `/akwa_*` est exposé via une route interne
+  `/api/akwa_*` produite par la fabrique `src/lib/api/akwa-proxy.ts`
+  (proxy qui préserve la méthode, le corps et le content-type).
+
+### 4. Navigation Akwaplay (sidebar gauche)
+
+La sidebar Akwaplay expose les destinations suivantes :
+
+| Item | Route | Endpoint principal |
+|---|---|---|
+| Accueil | `/akwaplay` | `GET /akwa_getAllVideos/{user_id}` |
+| Tendances | `/akwaplay/trending` | `GET /akwa_trending` |
+| Shorts | `/akwaplay/shorts` | `GET /short_fetchShorts/{user_id}` |
+| Musiques libres | `/akwaplay/musiques` | `GET /akwa_musiques?search` & `GET /akwa_musiques/user_favorites/{user_id}` |
+| Favoris | `/akwaplay/favorites` | `GET /akwa_getFavoritesVideos/{user_id}` |
+| Profil | `/profile` | — |
+| Points | `/akwaplay/points` | `GET /pointsHistory/{user_id}/akwaplay` |
+
+* **Module des Musiques Libres Akwaplay (`/akwaplay/musiques`)** :
+  - **Liste & Recherche** : consommation de `GET /akwa_musiques?search={query}`, extraction robuste de `res.data.result.data`, normalisation des champs français du backend (`titre`, `artiste`, `duree`, `chemin_audio_url`).
+  - **Favoris** : onglet dédié branché sur `GET /akwa_musiques/user_favorites/{user_id}`, bascule de favoris avec `POST /akwa_musiques/toggle_favoris` (`musique_id`, `user_id`).
+  - **Lecteur audio intégré** : lecture HTML5 en direct, barre de lecture globale flottante avec curseur de progression, volume/muet et durée formatée.
+  - **Création & Ajout (`AkwaMusiqueCreateModal`)** : téléversement audio MP3/WAV multipart via `POST /akwa_musiques/store` avec titre, artiste, genre et pochette optionnelle.
+  - **Suppression** : `DELETE /akwa_musiques/delete/{music_id}` avec confirmation.
+
+* **Module des Points Akwaplay (`/akwaplay/points`)** :
+  - Accès via l'item « Points » de la **sidebar gauche Akwaplay** (état actif sur la page courante, fermeture du menu mobile après navigation).
+  - **Historique des points obtenus uniquement sur Akwaplay** : endpoint Dughu `GET /pointsHistory/{user_id}/akwaplay` (segment de chemin dédié à la source), encapsulé par la route BFF `GET /api/pointsHistory?source=akwaplay` (instance Axios serveur, token `X-AppApiToken` jamais exposé, repli sur le cookie de session).
+  - **Tableau** aux colonnes **Date · Type · Description · Points** (`AkwaplayPointsTable`, thème sombre) : badge vert « Gain » / rouge « Perte », montant signé au format français, date locale `fr-FR`.
+  - **États** : squelettes de chargement, erreur (message + « Réessayer ») et état vide (aucun point) gérés ; `userId` résolu depuis la session (`dughu.userId`, replis `dughuUserId` puis `id`).
+  - Architecture : composant → hook TanStack `usePointsHistory({ userId, source })` → service frontend `fetchPointsHistory` (Axios cliente) → route `/api/pointsHistory` → service serveur → instance Axios serveur ; normalisation défensive réutilisée (`points.mapper.ts`).
+
+### 5. Endpoints Akwaplay — couverture complète
+
+Tous les endpoints listés dans la spécification Postman sont couverts par des
+routes BFF dans `src/app/api/` via `createAkwaProxyRoute` :
+
+**Vidéos** : `getAllVideos`, `getCategories`, `getVideosByCategory`,
+`userVideos`, `getFavoritesVideos`, `trending`, `getTrendingByCategory`,
+`followingVideos`, `video_stream`, `incrementViews`, `saveProgress`,
+`akwa_video_search`, `show_video`, `store_video`, `toggleLike`,
+`toggleFavorite`, `getReportReasons`, `reportVideo`, `akwa_destroy`.
+
+**Commentaires vidéo** : `akwaFetchComments`, `fetchCommentReplies`,
+`akwaComment_store`, `akwaComment_replyComment`, `akwaComment_toggleLike`,
+`akwaDeleteComment`, `akwaDeleteReplyComment`.
+
+**Chaînes** : `akwa_userChannels`, `akwa_channel_show`, `akwa_channel_store`,
+`akwa_channel_toggleFollow`, `akwa_channel_destroy`, `user_akwaplay`.
+
+**Shorts** : `short_fetchShorts`, `user_shorts`, `short_store`,
+`short_toggleLikeDislike`, `short_destroy`, `short_fetch_comments`,
+`short_store_comment`, `short_reply_comment`, `short_delete_comment`,
+`short_delete_reply_comment`, `akwa_track_short_view`,
+`toggleAkwaplayCommentLike`.
+
+**Musiques** : `akwa_musiques` (recherche), `user_favorites`, `store`,
+`toggle_favoris`, `report_musique`, `delete/[music_id]`, `update/[music_id]`.
+
+### Fix critique — chargement des vidéos
+
+Le hook `useAkwaHomeVideos` bloquait le chargement quand `userId` était une
+chaîne vide (`""`). La garde a été renforcée pour attendre que l'userId soit
+non-vide avant de déclencher les requêtes API.
+
+
+

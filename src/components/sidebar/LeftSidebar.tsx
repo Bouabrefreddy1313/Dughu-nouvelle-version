@@ -264,7 +264,12 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<Image src="/images/akp.png" alt="Akwaplay" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Akwaplay"
+            active={active === "akwaplay"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/akwaplay")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem

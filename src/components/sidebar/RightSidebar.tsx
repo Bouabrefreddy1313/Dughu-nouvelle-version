@@ -18,6 +18,10 @@ interface RightSidebarProps {
   open?: boolean
   /** Mobile / tablette : demande de fermeture du tiroir. */
   onClose?: () => void
+  /** Si true, masque la version fixe desktop (xl+) — utilisé sur les pages
+   *  avec noRightSidebar={true} pour ne pas occuper la colonne droite.
+   *  Le tiroir mobile reste toujours fonctionnel. */
+  hideOnDesktop?: boolean
 }
 
 interface BoostedPost {
@@ -54,15 +58,14 @@ interface ActivityItem {
 const PROMOTIONS_PER_PAGE = 2
 const TOTAL_DOTS = 5
 
-// --- Constantes de layout responsive (xl+) ---
-// GAP_RIGHT_PX  : espace fixe entre la sidebar droite et le bord droit de l'écran.
-// SIDEBAR_WIDTH_PX : largeur de la sidebar droite elle-même.
-// L'espace réservé dans MainLayout (xl:w-[484px]) doit toujours valoir
-// GAP_RIGHT_PX + SIDEBAR_WIDTH_PX + 24px de respiration = 484px, pour que le
-// card du feed ne soit JAMAIS couvert par la sidebar droite, sur tout écran.
-// Le panneau de conversation (ConversationSidebar) s'ouvre en overlay par-dessus
-// (fixed, z-40 > z-30) : la sidebar droite ne se déplace jamais quand le chat
-// s'ouvre (position immobile xl:right-[220px]).
+// --- Constantes de layout responsive (xl+ & 2xl+) ---
+// - Sur xl (1280px à 1535px, ex: 1280x903 à 1417x903) :
+//   la sidebar droite se positionne à right-4 (16px) avec une réservation de
+//   264px dans MainLayout, ce qui permet au feed central (composer + posts)
+//   d'avoir une largeur confortable de 714px à 780px sans être comprimé.
+// - Sur 2xl (1536px+) :
+//   la sidebar droite reprend son décalage aéré de 220px (GAP_RIGHT_PX) et sa
+//   réservation de 484px adaptée aux très grands moniteurs.
 const GAP_RIGHT_PX = 220
 const SIDEBAR_WIDTH_PX = 240
 
@@ -127,7 +130,7 @@ function getActivityMeta(type: string): { icon: React.ReactNode; action: string;
   }
 }
 
-export default function RightSidebar({ user, open = false, onClose }: RightSidebarProps) {
+export default function RightSidebar({ user, open = false, onClose, hideOnDesktop = false }: RightSidebarProps) {
   const [activeDot, setActiveDot] = useState(0)
   const [boostedPosts, setBoostedPosts] = useState<BoostedPost[]>([])
   const [shuffledBoosted, setShuffledBoosted] = useState<BoostedPost[]>([])
@@ -253,17 +256,21 @@ export default function RightSidebar({ user, open = false, onClose }: RightSideb
     //   ouvert par le bouton grille du header (prop `open`) — caché hors écran
     //   sinon (translate-x-full + invisible) ;
     // - xl+ (desktop) : colonne fixe et IMMOBILE, décalée de GAP_RIGHT_PX
-    //   (220px) du bord droit, toujours visible. La conversation s'ouvre en
-    //   overlay (z-40) par-dessus sans jamais pousser le card du feed.
-    // Note : valeurs Tailwind arbitraires entre crochets (ex: right-[220px]).
+    //   (220px) du bord droit, toujours visible — SAUF si hideOnDesktop=true
+    //   (pages avec noRightSidebar) où la colonne fixe est masquée mais le
+    //   tiroir mobile reste fonctionnel.
     <aside
       aria-label="Sidebar droite"
       className={cn(
         "flex flex-col fixed top-0 right-0 bottom-0 w-[300px] max-w-[85vw] z-50",
         "overflow-y-auto scrollbar-hide space-y-5 pb-10 pl-2 pr-3 bg-[#f7f8fa]",
         "transition-[transform,visibility] duration-300 ease-in-out",
+        // Tiroir mobile : ouvert/fermé selon la prop `open`
         open ? "translate-x-0 visible" : "translate-x-full invisible",
-        "xl:translate-x-0 xl:visible xl:top-[88px] xl:bottom-0 xl:w-[240px] xl:max-w-none xl:right-[220px] xl:z-30"
+        // Desktop xl+ : colonne fixe immobile, sauf si hideOnDesktop=true.
+        // Sur xl (1280px - 1535px) : right-4 pour libérer de l'espace pour le feed.
+        // Sur 2xl (1536px+) : right-[220px] pour les moniteurs très larges.
+        !hideOnDesktop && "xl:translate-x-0 xl:visible xl:top-[88px] xl:bottom-0 xl:w-[240px] xl:max-w-none xl:right-4 2xl:right-[220px] xl:z-30"
       )}
     >
       {/* Barre de fermeture — mobile & tablette uniquement */}

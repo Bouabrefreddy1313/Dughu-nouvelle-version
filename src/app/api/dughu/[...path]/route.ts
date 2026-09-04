@@ -38,6 +38,11 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
 
     const upstreamText = await upstream.text()
     const headersOut = new Headers(upstream.headers)
+    // Supprime les en-têtes d'encodage/compression : le corps a déjà été décompressé par le runtime
+    headersOut.delete("content-encoding")
+    headersOut.delete("content-length")
+    headersOut.delete("transfer-encoding")
+
     let payload: BodyInit = upstreamText
     const ct = upstream.headers.get("content-type") || ""
     if (ct.includes("application/json") && upstreamText) {

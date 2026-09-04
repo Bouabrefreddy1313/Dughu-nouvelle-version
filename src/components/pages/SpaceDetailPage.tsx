@@ -458,6 +458,7 @@ export default function SpaceDetailPage() {
                                 sharesCount={p._count?.reposts ?? 0}
                                 reacted={p.reacted}
                                 reactions={p.reactions}
+                                users={p.reactionUsers}
                                 parentPost={p.parentPost}
                                 postPrivacy={p.postPrivacy}
                                 className="shadow-sm"

@@ -28,6 +28,15 @@ export interface FeedPost {
   [key: string]: unknown
 }
 
+/** Personne ayant réagi sur une publication (liste affichée dans le modal des réactions). */
+export interface ReactionUserItem {
+  id: string
+  name: string | null
+  username?: string | null
+  avatar?: string | null
+  reactionType: string // "like", "love", "haha", "wow", "sad", "angry"
+}
+
 /** Réponse générique d'une mutation publication/réaction. */
 export interface PostMutationResponse {
   success?: boolean

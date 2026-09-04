@@ -473,6 +473,7 @@ export default function SavedPage() {
             sharesCount={post._count.reposts}
             reacted={post.reacted}
             reactions={post.reactions}
+            users={(post as any).reactionUsers}
             parentPost={post.parentPost}
             postPrivacy={post.postPrivacy}
             onLike={(reactionId) => handleReaction(post.id, reactionId)}

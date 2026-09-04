@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -31,12 +32,21 @@ import {
   Smile,
   MessageCircle,
   Users,
+  Rocket,
 } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
 import FollowButton from "@/components/common/FollowButton"
+import { EntityPreviewCard } from "@/components/feed/EntityPreviewCard"
 import { CommentBody } from "@/components/feed/CommentBody"
+import { PostMediaLightbox, type LightboxImageItem } from "@/components/feed/PostMediaLightbox"
+import { ReactionPicker } from "@/components/feed/ReactionPicker"
+import { ReactionSummary } from "@/components/feed/ReactionSummary"
+import { ReactionUsersModal } from "@/components/feed/ReactionUsersModal"
+import type { ReactionUserItem } from "@/types/posts/post.types"
+import { usePostReactions } from "@/hooks/queries/use-post-reactions"
 import { toast } from "sonner"
 import { REACTIONS, REACTION_ID_TO_TYPE, REACTION_TYPE_TO_ID, POST_PRIVACY_OPTIONS, resolvePostColorCss } from "@/lib/constants"
 import { givePoints } from "@/services/posts/feed.service"
@@ -51,6 +61,7 @@ import { userMessage } from "@/lib/api/api-error"
 import { RepostWithTextModal } from "@/components/feed/RepostWithTextModal"
 import { SharePostModal } from "@/components/feed/SharePostModal"
 import { GivePointsModal } from "@/components/feed/GivePointsModal"
+import { ParentPostLightbox } from "@/components/feed/ParentPostLightbox"
 import { HashtagText } from "@/components/common/HashtagText"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button as UIButton } from "@/components/ui/button"
@@ -158,6 +169,10 @@ interface PostCardProps {
    * sur la réaction de l'utilisateur courant (ou 👍 par défaut).
    */
   reactions?: ReactionSummaryItem[]
+  /** Liste des personnes ayant réagi (fournie par l'API quand elle est présente).
+   * Sert au modal des réactions. Jamais de liste factice : si absente,
+   * le modal affiche les compteurs et l'utilisateur courant uniquement. */
+  users?: ReactionUserItem[]
   onLike?: (reactionId?: number) => void
   onComment?: (text: string, files?: File[]) => void | Promise<void>
   /** Republier directement, sans texte d'accompagnement. */
@@ -177,6 +192,10 @@ interface PostCardProps {
   isSaved?: boolean
   /** Autorise l'affichage de l'action « Supprimer » (réservé à l'auteur du post). */
   canDelete?: boolean
+  /** Booster la publication (réservé à l'auteur) via /api/boostPost. */
+  onBoost?: () => void
+  /** Autorise l'affichage de l'action « Booster » (réservé à l'auteur du post). */
+  canBoost?: boolean
   /** L'auteur a un Flash actif : affiche un anneau autour de sa photo de profil. */
   hasActiveFlash?: boolean
   /** Les Flash de l'auteur ont déjà été vus : l'anneau devient gris au lieu du dégradé marron. */
@@ -296,73 +315,6 @@ function formatCommentTime(dateString: string): string {
   })
 }
 
-/**
- * Résumé des réactions d'un post : icônes des réactions les plus
- * utilisées (empilées, façon Facebook) + nombre total de likes.
- * Remplace l'ancien texte statique "X J'aime".
- */
-function LikesSummary({
-  reactions,
-  likesCount,
-  fallbackReactionId,
-}: {
-  reactions?: ReactionSummaryItem[]
-  likesCount: number
-  fallbackReactionId?: number | null
-}) {
-  if (!likesCount || likesCount <= 0) return null
-
-  let topTypes: string[] = []
-
-  if (reactions && reactions.length > 0) {
-    topTypes = [...reactions]
-      .filter((reaction) => reaction.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 3)
-      .map((reaction) => reaction.type)
-  }
-
-  // Toujours inclure la réaction de l'utilisateur courant en premier
-  const myType = fallbackReactionId
-    ? REACTION_ID_TO_TYPE[fallbackReactionId] || "like"
-    : null
-  if (myType) {
-    topTypes = [myType, ...topTypes.filter((t) => t !== myType)]
-  }
-
-  if (topTypes.length === 0) topTypes = ["like"]
-
-  const icons = topTypes
-    .map(
-      (type) =>
-        REACTIONS.find((reaction) => reaction.id === REACTION_TYPE_TO_ID[type])
-          ?.icon
-    )
-    .filter(Boolean) as string[]
-
-  if (icons.length === 0) icons.push("👍")
-
-  return (
-    <button
-      type="button"
-      className="flex items-center gap-1.5 hover:underline"
-    >
-      <div className="flex items-center -space-x-1.5">
-        {icons.map((icon, index) => (
-          <span
-            key={`${icon}-${index}`}
-            className="w-[22px] h-[22px] rounded-full bg-white ring-2 ring-white shadow-sm flex items-center justify-center text-[14px] leading-none"
-            style={{ zIndex: icons.length - index }}
-          >
-            {icon}
-          </span>
-        ))}
-      </div>
-
-      <span>{likesCount}</span>
-    </button>
-  )
-}
 
 /**
  * Petit badge de confidentialité affiché à côté du temps écoulé du post.
@@ -384,83 +336,165 @@ function PrivacyBadge({ postPrivacy }: { postPrivacy?: 0 | 1 | 2 | 3 }) {
  * Carte embarquée du post d'origine dans une republication (repost).
  * Affiche l'auteur, le texte (éventuellement coloré) et les médias du post
  * republié, avec le rendu compact et bien délimité du reste du fil.
+ * Un clic sur la carte redirige / fait défiler vers le post d'origine avec surbrillance.
  */
 function ParentPostCard({
   parentPost,
+  currentUser,
 }: {
   parentPost: NonNullable<React.ComponentProps<typeof PostCard>["parentPost"]>
+  currentUser?: React.ComponentProps<typeof PostCard>["currentUser"]
 }) {
+  const [showModal, setShowModal] = useState(false)
   const content = parentPost.content
   const resolved = resolvePostColorCss(parentPost.color)
   const bgColor = resolved?.bg ?? null
   const textColor = resolved?.text ?? "#050505"
 
+  const handleNavigateToOrigin = (e: React.MouseEvent) => {
+    // Si le clic provient d'un élément interactif interne (lien, bouton, vidéo, etc.), ne pas intercepter
+    const target = e.target as HTMLElement
+    if (target.closest("a, button, video, input, textarea")) {
+      return
+    }
+
+    // Ouvre directement la vue immersive où l'on voit le post à droite et les commentaires à gauche
+    setShowModal(true)
+  }
+
   return (
-    <div className="mx-3 sm:mx-4 mt-1 rounded-2xl border border-gray-100 bg-[#F7F8FA] overflow-hidden">
-      <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-        <Avatar
-          src={parentPost.author.avatar}
-          name={parentPost.author.name}
-          size="sm"
-          verified={parentPost.author.verified}
-        />
-        <div className="min-w-0">
-          <a
-            href={parentPost.author.pageId ? `/espaces/${parentPost.author.pageId}` : `/profile/${parentPost.author.username || parentPost.author.id}`}
-            className="block text-[13px] font-semibold text-[#050505] truncate hover:underline"
-          >
-            {parentPost.author.name}
-          </a>
-          {parentPost.timeAgo ? (
-            <p className="text-[11px] text-[#65676B]">{parentPost.timeAgo}</p>
-          ) : null}
+    <>
+      <div
+        onClick={handleNavigateToOrigin}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            handleNavigateToOrigin(e as unknown as React.MouseEvent)
+          }
+        }}
+        title="Cliquer pour accéder à la publication d'origine"
+        className="group mx-3 sm:mx-4 mt-1 rounded-2xl border border-gray-200/80 bg-[#F7F8FA] overflow-hidden cursor-pointer transition-all duration-200 hover:border-[#E7D8C4] hover:bg-[#F2F4F8] hover:shadow-sm active:scale-[0.99]"
+      >
+        <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <Avatar
+              src={parentPost.author.avatar}
+              name={parentPost.author.name}
+              size="sm"
+              verified={parentPost.author.verified}
+            />
+            <div className="min-w-0">
+              {parentPost.author.pageId ? (
+                <EntityPreviewCard
+                  type="page"
+                  pageData={{
+                    pageId: parentPost.author.pageId,
+                    name: parentPost.author.name,
+                    avatar: parentPost.author.avatar,
+                    verified: parentPost.author.verified,
+                  }}
+                  currentUser={currentUser}
+                >
+                  <a
+                    href={`/espaces/${parentPost.author.pageId}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="block text-[13px] font-semibold text-[#050505] truncate hover:underline"
+                  >
+                    {parentPost.author.name}
+                  </a>
+                </EntityPreviewCard>
+              ) : (
+                <EntityPreviewCard
+                  type="user"
+                  userData={{
+                    id: parentPost.author.id,
+                    name: parentPost.author.name,
+                    avatar: parentPost.author.avatar,
+                    username: parentPost.author.username,
+                    verified: parentPost.author.verified,
+                  }}
+                  currentUser={currentUser}
+                >
+                  <a
+                    href={`/profile/${parentPost.author.username || parentPost.author.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="block text-[13px] font-semibold text-[#050505] truncate hover:underline"
+                  >
+                    {parentPost.author.name}
+                  </a>
+                </EntityPreviewCard>
+              )}
+              {parentPost.timeAgo ? (
+                <p className="text-[11px] text-[#65676B]">{parentPost.timeAgo}</p>
+              ) : null}
+            </div>
+          </div>
+
+          <span className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-[#8A4D23] bg-[#C47830]/10 px-2 py-0.5 rounded-full group-hover:bg-[#C47830]/20 transition-colors">
+            <Repeat2 size={12} className="shrink-0" />
+            <span className="hidden sm:inline">Repartagé</span>
+          </span>
         </div>
+
+        {content ? (
+          bgColor ? (
+            <div
+              className="w-full min-h-[120px] py-6 px-4 flex items-center justify-center"
+              style={{ background: bgColor, color: textColor }}
+            >
+              <p className="text-[20px] font-bold text-center whitespace-pre-wrap leading-relaxed break-words">
+                <HashtagText text={content} hashtagClassName="text-inherit underline" />
+              </p>
+            </div>
+          ) : (
+            <p className="px-3 pb-2 pt-1 text-[14px] text-[#050505] whitespace-pre-wrap leading-relaxed break-words">
+              <HashtagText text={content} />
+            </p>
+          )
+        ) : null}
+
+        {parentPost.image && !parentPost.video && (
+          <div className="w-full overflow-hidden">
+            <Image
+              src={parentPost.image}
+              alt=""
+              width={600}
+              height={300}
+              className="w-full max-h-[300px] object-cover transition-transform duration-300 group-hover:scale-[1.01]"
+              sizes="(max-width: 640px) 100vw, 600px"
+            />
+          </div>
+        )}
+
+        {parentPost.video && (
+          <div
+            className="w-full overflow-hidden bg-black"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <video
+              src={parentPost.video}
+              controls
+              muted
+              playsInline
+              loop
+              preload="metadata"
+              className="w-full max-h-[300px] object-cover"
+            />
+          </div>
+        )}
       </div>
 
-      {content ? (
-        bgColor ? (
-          <div
-            className="w-full min-h-[120px] py-6 px-4 flex items-center justify-center"
-            style={{ background: bgColor, color: textColor }}
-          >
-            <p className="text-[20px] font-bold text-center whitespace-pre-wrap leading-relaxed break-words">
-              <HashtagText text={content} hashtagClassName="text-inherit underline" />
-            </p>
-          </div>
-        ) : (
-          <p className="px-3 pb-2 pt-1 text-[14px] text-[#050505] whitespace-pre-wrap leading-relaxed break-words">
-            <HashtagText text={content} />
-          </p>
-        )
-      ) : null}
-
-      {parentPost.image && !parentPost.video && (
-        <div className="w-full overflow-hidden">
-          <Image
-            src={parentPost.image}
-            alt=""
-            width={600}
-            height={300}
-            className="w-full max-h-[300px] object-cover"
-            sizes="(max-width: 640px) 100vw, 600px"
-          />
-        </div>
+      {showModal && (
+        <ParentPostLightbox
+          open={showModal}
+          onClose={() => setShowModal(false)}
+          parentPost={parentPost}
+          currentUser={currentUser}
+        />
       )}
-
-      {parentPost.video && (
-        <div className="w-full overflow-hidden bg-black">
-          <video
-            src={parentPost.video}
-            controls
-            muted
-            playsInline
-            loop
-            preload="metadata"
-            className="w-full max-h-[300px] object-cover"
-          />
-        </div>
-      )}
-    </div>
+    </>
   )
 }
 
@@ -888,6 +922,7 @@ export function PostCard({
   sharesCount = 0,
   reacted,
   reactions,
+  users,
   postPrivacy = 0,
   onLike,
   onComment,
@@ -905,6 +940,8 @@ export function PostCard({
   isBlocked,
   isSaved,
   canDelete,
+  onBoost,
+  canBoost,
   hasActiveFlash = false,
   flashViewed = false,
   onOpenAuthorFlash,
@@ -929,8 +966,15 @@ export function PostCard({
   const [showReactions, setShowReactions] = useState(false)
   const [showCommentReactions, setShowCommentReactions] =
     useState<string | null>(null)
-  const [selectedReaction, setSelectedReaction] = useState<number | null>(
+  const [localLikesCount, setLocalLikesCount] = useState(likesCount)
+  const [localSelectedReaction, setLocalSelectedReaction] = useState<number | null>(
     reacted ? REACTION_TYPE_TO_ID[reacted] || null : null
+  )
+  // `reactions` peut être null quand l'API ne fournit pas de répartition : on garde
+  // toujours un tableau pour éviter `is not iterable` / `.filter of null` dans les composants.
+
+  const [localReactions, setLocalReactions] = useState<ReactionSummaryItem[]>(
+    Array.isArray(reactions) ? reactions : []
   )
   const [commentReactions, setCommentReactions] = useState<
     Record<string, number>
@@ -950,10 +994,47 @@ export function PostCard({
   // Modal de confirmation avant d'envoyer 100 points
   const [confirmPointsOpen, setConfirmPointsOpen] = useState(false)
 
+  // États pour la Lightbox immersive et les réactions
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
+  const [showReactionUsersModal, setShowReactionUsersModal] = useState(false)
+  // Liste des personnes ayant réagi : chargée LAZY à l'ouverture du modal
+  // (GET /api/reactions → GET /getPostReactions/{postId}/{userId} de l'API Dughu).
+  // L'utilisateur qui consulte (ID Dughu prioritaire, sinon ID local).
+  const reactionUsersViewerId = String(currentUser?.dughu?.userId ?? currentUser?.id ?? "")
+  const reactionUsersQuery = usePostReactions(postId, reactionUsersViewerId || undefined, showReactionUsersModal)
+  const fetchedReactionUsers = reactionUsersQuery.data?.users
+  const fetchedReactionSummary = reactionUsersQuery.data?.summary
+  // Priorité aux données fetchées quand elles sont disponibles (elles sont plus
+  // fraîches et complètes), sinon repli sur les données embarquées du payload.
+
+  const modalReactionUsers: ReactionUserItem[] = (fetchedReactionUsers && fetchedReactionUsers.length > 0
+    ? fetchedReactionUsers
+    : (Array.isArray(users) ? users : []))
+  const modalReactionSummary: { type: string; count: number }[] =
+    (fetchedReactionSummary && fetchedReactionSummary.length > 0
+      ? fetchedReactionSummary
+      : (Array.isArray(localReactions) ? localReactions : []))
+  const likeLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const postMenuRef = useRef<HTMLDivElement | null>(null)
   const emojiPickerRef = useRef<HTMLDivElement | null>(null)
   const repostMenuRef = useRef<HTMLDivElement | null>(null)
   const repostModalRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    setLocalLikesCount(likesCount)
+  }, [likesCount])
+
+  useEffect(() => {
+    setLocalSelectedReaction(reacted ? REACTION_TYPE_TO_ID[reacted] || null : null)
+  }, [reacted])
+
+  const [prevReactionsProp, setPrevReactionsProp] = useState(reactions)
+  if (prevReactionsProp !== reactions) {
+    setPrevReactionsProp(reactions)
+    setLocalReactions(Array.isArray(reactions) ? reactions : [])
+  }
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1002,9 +1083,79 @@ export function PostCard({
     }
   }, [repostMenuOpen, repostModalOpen])
 
-  useEffect(() => {
-    setSelectedReaction(reacted ? REACTION_TYPE_TO_ID[reacted] || null : null)
-  }, [reacted])
+  // Images normalisées pour la Lightbox
+  const lightboxImages: LightboxImageItem[] = useMemo(() => {
+    if (images && images.length > 0) {
+      return images.map((img) => ({ url: img.url, id: img.id }))
+    }
+    if (image && !video) {
+      return [{ url: image }]
+    }
+    return []
+  }, [images, image, video])
+
+  // Gestion optimiste du like et du changement de réaction
+  const handleLikeAction = useCallback((reactionId?: number) => {
+    const target = reactionId ?? (localSelectedReaction ? localSelectedReaction : 1)
+    const prevReaction = localSelectedReaction
+    const prevType = prevReaction ? REACTION_ID_TO_TYPE[prevReaction] : null
+    const targetType = REACTION_ID_TO_TYPE[target]
+
+    setShowReactions(false)
+
+    if (prevReaction && prevReaction === target) {
+      // Annule la réaction (unlike)
+      setLocalSelectedReaction(null)
+      setLocalLikesCount((c) => Math.max(0, c - 1))
+      if (prevType) {
+        setLocalReactions((list) =>
+          (list || [])
+            .map((r) => (r.type === prevType ? { ...r, count: Math.max(0, r.count - 1) } : r))
+            .filter((r) => r.count > 0)
+        )
+      }
+      onLike?.(target)
+    } else {
+      // Applique la nouvelle réaction ou modification
+      setLocalSelectedReaction(target)
+      if (!prevReaction) {
+        setLocalLikesCount((c) => c + 1)
+      }
+      setLocalReactions((list) => {
+        const copy = [...(list || [])]
+        if (prevType) {
+          const pIdx = copy.findIndex((r) => r.type === prevType)
+          if (pIdx >= 0) {
+            copy[pIdx] = { ...copy[pIdx], count: Math.max(0, copy[pIdx].count - 1) }
+          }
+        }
+        if (targetType) {
+          const nIdx = copy.findIndex((r) => r.type === targetType)
+          if (nIdx >= 0) {
+            copy[nIdx] = { ...copy[nIdx], count: copy[nIdx].count + 1 }
+          } else {
+            copy.push({ type: targetType, count: 1 })
+          }
+        }
+        return copy.filter((r) => r.count > 0)
+      })
+      onLike?.(target)
+    }
+  }, [localSelectedReaction, onLike])
+
+  // Long press mobile sur le bouton like pour ouvrir le sélecteur
+  const handleLikeTouchStart = () => {
+    likeLongPressTimer.current = setTimeout(() => {
+      setShowReactions(true)
+    }, 380)
+  }
+
+  const handleLikeTouchEnd = () => {
+    if (likeLongPressTimer.current) {
+      clearTimeout(likeLongPressTimer.current)
+      likeLongPressTimer.current = null
+    }
+  }
 
   const commentImageRef = useRef<HTMLInputElement>(null)
   const commentVideoRef = useRef<HTMLInputElement>(null)
@@ -1024,7 +1175,7 @@ export function PostCard({
     clearHideReactionsTimer()
     hideReactionsTimer.current = setTimeout(() => {
       setShowReactions(false)
-    }, 180)
+    }, 200)
   }
 
   const showCommentReactionPicker = (id: string) => {
@@ -1320,6 +1471,21 @@ export function PostCard({
       await loadComments()
     } catch (error) {
       console.error("Comment failed:", error)
+    }
+  }
+
+  const handleLightboxAddComment = async (text: string, files?: File[]) => {
+    if (!text.trim() && (!files || files.length === 0)) return
+    if (!currentUser?.id) {
+      toast.error("Connectez-vous pour commenter")
+      return
+    }
+    try {
+      await onComment?.(text, files)
+      await loadComments()
+    } catch (error) {
+      console.error("Lightbox comment failed:", error)
+      toast.error("Erreur lors de l'ajout du commentaire")
     }
   }
 
@@ -1938,7 +2104,7 @@ export function PostCard({
   const visibleComments = comments.slice(0, 2)
 
   const selectedReactionDefinition = REACTIONS.find(
-    (reaction) => reaction.id === selectedReaction
+    (reaction) => reaction.id === localSelectedReaction
   )
 
   let postColor: {
@@ -1980,8 +2146,13 @@ export function PostCard({
 
   return (
     <article
+      id={postId ? `post-${postId}` : undefined}
+      data-post-id={postId}
       className={cn(
-        "bg-white rounded-3xl shadow-sm border border-gray-100",
+        // Mobile : edge-to-edge, séparateur subtil border-b, pas de shadow ni d'arrondi
+        "bg-white border-b border-gray-100",
+        // sm+ (tablette/desktop) : rendu carte avec arrondi, shadow et bordure complète
+        "sm:rounded-3xl sm:shadow-sm sm:border sm:border-gray-100",
         className
       )}
     >
@@ -2019,12 +2190,47 @@ export function PostCard({
         )}
 
         <div className="flex-1 min-w-0">
-          <a
-            href={author.pageId ? `/espaces/${author.pageId}` : `/profile/${author.username || author.id}`}
-            className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
-          >
-            {author.name}
-          </a>
+          {author.pageId ? (
+            <EntityPreviewCard
+              type="page"
+              pageData={{
+                pageId: author.pageId,
+                name: author.name,
+                avatar: author.avatar,
+                verified: author.verified,
+              }}
+              currentUser={currentUser}
+            >
+              <a
+                href={`/espaces/${author.pageId}`}
+                className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
+              >
+                {author.name}
+              </a>
+            </EntityPreviewCard>
+          ) : (
+            <EntityPreviewCard
+              type="user"
+              userData={{
+                id: author.id,
+                name: author.name,
+                avatar: author.avatar,
+                username: author.username,
+                verified: author.verified,
+                isFollowing: isFollowing,
+                isFollowLoading: isFollowLoading,
+                onToggleFollow: onToggleFollow,
+              }}
+              currentUser={currentUser}
+            >
+              <a
+                href={`/profile/${author.username || author.id}`}
+                className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
+              >
+                {author.name}
+              </a>
+            </EntityPreviewCard>
+          )}
 
           <div className="flex items-center gap-1.5 text-[12px] text-[#65676B]">
             {timeAgo && <span>{timeAgo}</span>}
@@ -2049,7 +2255,7 @@ export function PostCard({
           <button
             type="button"
             onClick={() => {
-              if (!onDelete && !onSave && !onHide && !canBlock && !canGivePoints && !canCopyLink) {
+              if (!onDelete && !onSave && !onHide && !canBlock && !canGivePoints && !canCopyLink && !(onBoost && canBoost)) {
                 onMenuClick?.()
                 return
               }
@@ -2066,6 +2272,21 @@ export function PostCard({
 
           {postMenuOpen && (
             <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in duration-150">
+              {onBoost && canBoost && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPostMenuOpen(false)
+                    onBoost()
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                >
+                  <span className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                    <Rocket size={16} className="text-[#A35A2A]" />
+                  </span>
+                  <span className="text-[13px] font-medium text-[#050505]">Booster</span>
+                </button>
+              )}
               {onDelete && canDelete && (
                 <button
                   type="button"
@@ -2174,10 +2395,23 @@ export function PostCard({
 
       {group && (
         <div className="px-4 pb-3">
-          <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#C47830]/12 px-3 py-1.5 text-xs font-semibold text-[#8A4D23]">
-            <Users size={14} aria-hidden="true" />
-            <span className="truncate">{group.name}</span>
-          </span>
+          <EntityPreviewCard
+            type="group"
+            groupData={{
+              id: group.id,
+              name: group.name,
+              slug: group.slug,
+              avatar: group.avatar,
+            }}
+          >
+            <Link
+              href="/groups"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#C47830]/12 px-3 py-1.5 text-xs font-semibold text-[#8A4D23] transition hover:bg-[#C47830]/20"
+            >
+              <Users size={14} aria-hidden="true" />
+              <span className="truncate">{group.name}</span>
+            </Link>
+          </EntityPreviewCard>
         </div>
       )}
 
@@ -2241,12 +2475,16 @@ export function PostCard({
       ) : null}
 
       {images && images.length > 1 ? (
-        <div className="grid grid-cols-2 gap-0.5 bg-black">
+        <div className="grid grid-cols-2 gap-0.5 bg-black cursor-pointer">
           {images.slice(0, 4).map((img, index) => (
             <div
               key={`${img.url}-${index}`}
+              onClick={() => {
+                setLightboxIndex(index)
+                setLightboxOpen(true)
+              }}
               className={cn(
-                "relative overflow-hidden bg-black",
+                "relative overflow-hidden bg-black group/gridimg hover:opacity-95 transition-opacity",
                 images.length === 3 && index === 0 && "row-span-2",
                 images.length !== 3 && "aspect-square",
                 images.length === 3 && index !== 0 && "aspect-square"
@@ -2257,7 +2495,7 @@ export function PostCard({
                 alt=""
                 fill
                 sizes="(max-width: 640px) 50vw, 500px"
-                className="object-cover"
+                className="object-cover group-hover/gridimg:scale-[1.02] transition-transform duration-300"
               />
               {index === 3 && images.length > 4 && (
                 <div className="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-xl font-semibold">
@@ -2268,13 +2506,22 @@ export function PostCard({
           ))}
         </div>
       ) : image && !video ? (
-        <div className={cn("w-full overflow-hidden", group && "relative aspect-[4/3] sm:aspect-video bg-black")}>
+        <div
+          onClick={() => {
+            setLightboxIndex(0)
+            setLightboxOpen(true)
+          }}
+          className={cn(
+            "w-full overflow-hidden cursor-pointer group/singleimg",
+            group && "relative aspect-[4/3] sm:aspect-video bg-black"
+          )}
+        >
           {group ? (
             <Image
               src={image}
               alt=""
               fill
-              className="object-cover"
+              className="object-cover group-hover/singleimg:scale-[1.01] transition-transform duration-300"
               sizes="(max-width: 767px) 100vw, 820px"
             />
           ) : (
@@ -2283,7 +2530,7 @@ export function PostCard({
               alt=""
               width={1200}
               height={675}
-              className="w-full max-h-[80vh] object-cover"
+              className="w-full max-h-[80vh] object-cover group-hover/singleimg:opacity-98 transition-opacity"
               sizes="100vw"
             />
           )}
@@ -2315,13 +2562,14 @@ export function PostCard({
         </div>
       ) : null}
 
-      {parentPost && <ParentPostCard parentPost={parentPost} />}
+      {parentPost && <ParentPostCard parentPost={parentPost} currentUser={currentUser} />}
 
       <div className="px-4 py-2 flex items-center justify-between text-[13px] text-[#65676B]">
-        <LikesSummary
-          reactions={reactions}
-          likesCount={likesCount}
-          fallbackReactionId={selectedReaction}
+        <ReactionSummary
+          reactions={localReactions}
+          likesCount={localLikesCount}
+          fallbackReactionId={localSelectedReaction}
+          onClick={() => setShowReactionUsersModal(true)}
         />
 
         <div className="flex items-center gap-4 ml-auto">
@@ -2363,15 +2611,13 @@ export function PostCard({
         >
           <button
             type="button"
-            onClick={() => {
-              const reactionId = selectedReaction || 1
-              setSelectedReaction(reactionId)
-              onLike?.(reactionId)
-            }}
+            onClick={() => handleLikeAction()}
+            onTouchStart={handleLikeTouchStart}
+            onTouchEnd={handleLikeTouchEnd}
             className={cn(
               "w-full flex items-center justify-center gap-1 sm:gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium rounded-lg my-1 transition",
-              selectedReaction
-                ? "text-[#1877F2]"
+              localSelectedReaction
+                ? "text-[#A35A2A]"
                 : "text-[#65676B] hover:bg-gray-50"
             )}
           >
@@ -2382,23 +2628,13 @@ export function PostCard({
           </button>
 
           {showReactions && (
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-full shadow-xl border border-gray-100 px-3 py-2 flex items-center gap-1 z-50">
-              {REACTIONS.map((reaction) => (
-                <button
-                  type="button"
-                  key={reaction.id}
-                  onClick={() => {
-                    setSelectedReaction(reaction.id)
-                    setShowReactions(false)
-                    onLike?.(reaction.id)
-                  }}
-                  className="text-[24px] hover:scale-125 transition-transform"
-                  title={reaction.name}
-                >
-                  {reaction.icon}
-                </button>
-              ))}
-            </div>
+            <ReactionPicker
+              selectedReactionId={localSelectedReaction}
+              onSelect={handleLikeAction}
+              onClose={() => setShowReactions(false)}
+              align="left"
+              className="bottom-full mb-2"
+            />
           )}
         </div>
 
@@ -2821,6 +3057,59 @@ export function PostCard({
           </div>
         </div>
       )}
+
+      {/* Lightbox / Media Viewer immersif pour les images */}
+      {lightboxImages.length > 0 && (
+        <PostMediaLightbox
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          author={author}
+          timeAgo={timeAgo}
+          content={content}
+          postId={postId}
+          shareUrl={shareUrl || null}
+          postPrivacy={postPrivacy}
+          likesCount={localLikesCount || 0}
+          reactions={localReactions}
+          selectedReaction={localSelectedReaction}
+          onLike={handleLikeAction}
+          onOpenReactionsModal={() => setShowReactionUsersModal(true)}
+          onShare={() => setShareModalOpen(true)}
+          comments={comments}
+          loadingComments={loadingComments}
+          currentUser={currentUser}
+          onAddComment={handleLightboxAddComment}
+          onLikeComment={(cId, rId, isReply) => handleCommentReaction(cId, rId, isReply)}
+          onDeleteComment={(cId, isReply) => {
+            setDeleteCommentId(cId)
+            setDeleteCommentIsReply(!!isReply)
+          }}
+          onReportComment={(cId, isReply) => handleReportComment(cId, isReply)}
+          onReplyComment={async (parentId, text) => {
+            const parent = comments.find((c) => c.id === parentId)
+            if (parent) {
+              setReplyingTo(parentId)
+              setReplyText(text)
+              await handleReplySubmit(parentId, parent)
+            }
+          }}
+        />
+      )}
+
+      {/* Modale / Bottom Sheet des personnes ayant réagi */}
+      <ReactionUsersModal
+        open={showReactionUsersModal}
+        onClose={() => setShowReactionUsersModal(false)}
+        reactionsSummary={modalReactionSummary}
+        totalCount={localLikesCount || 0}
+        loading={reactionUsersQuery.isLoading}
+        error={reactionUsersQuery.isError}
+        users={Array.isArray(modalReactionUsers) ? modalReactionUsers : []}
+        currentUserReaction={localSelectedReaction ? REACTION_ID_TO_TYPE[localSelectedReaction] : null}
+        currentUser={currentUser}
+      />
     </article>
   )
 }

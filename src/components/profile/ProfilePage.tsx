@@ -19,6 +19,8 @@ import { useProfile } from "@/hooks/profile/use-profile"
 import { toggleFollow } from "@/services/profile/profile.service"
 import { fetchPosts, createPost, addReaction, deletePost, storeSave, hidePost, blockUser } from "@/services/posts/posts.service"
 import { addComment } from "@/services/posts/comments.service"
+import { getUserVideos } from "@/services/akwaplay/akwaplayVideo.service"
+import type { AkwaVideo } from "@/types/akwaplay/akwaplay.types"
 import { useRelation } from "@/hooks/relations/useRelation"
 import { ProfileHeader } from "./ProfileHeader"
 import { ProfileAbout, type ProfileInfo } from "./ProfileAbout"
@@ -246,6 +248,23 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     myDughuId || undefined
   )
   const userCapsules = useMemo(() => userCapsulesData ?? [], [userCapsulesData])
+
+  // Vidéos Akwaplay de l'utilisateur (endpoint /akwa_userVideos/{user_id}/{viewer_id})
+  const [userAkwaVideos, setUserAkwaVideos] = useState<AkwaVideo[]>([])
+  const [akwaVideosLoading, setAkwaVideosLoading] = useState(false)
+
+  useEffect(() => {
+    const authorId = profileDughuId || profileId
+    if (!authorId) return
+    const viewerId = myDughuId || currentUser?.id || authorId
+    setAkwaVideosLoading(true)
+    getUserVideos(authorId, viewerId, 1)
+      .then((res) => {
+        setUserAkwaVideos(res.videos || [])
+      })
+      .catch(() => {})
+      .finally(() => setAkwaVideosLoading(false))
+  }, [profileDughuId, profileId, myDughuId, currentUser?.id])
 
   const handleCreatePost = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[]; privacy?: number }) => {
     if (!currentUser) {
@@ -535,6 +554,19 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     })
   }
 
+  const profileVideos = profile?.videos
+  const videos = useMemo(() => {
+    const fromProfile = (profileVideos || []) as ProfileVideo[]
+    if (fromProfile.length > 0) return fromProfile
+    return (userAkwaVideos || []).map((v) => ({
+      id: String(v.id),
+      url: v.videoUrl,
+      thumb: v.thumbnail,
+      views: v.viewsCount,
+      createdAt: v.createdAt,
+    }))
+  }, [profileVideos, userAkwaVideos])
+
   // Tant qu'aucun identifiant n'est connu (par ex. profil "moi" en attente du
   // chargement de l'utilisateur connecté), on affiche le skeleton au lieu de
   // l'erreur "Profil introuvable".
@@ -587,7 +619,6 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
   const user = profile.user
   const stats = profile.stats || { posts: 0, followers: 0, following: 0, friends: 0 }
   const photos = (profile.photos || []) as ProfilePhoto[]
-  const videos = (profile.videos || []) as ProfileVideo[]
   const groups = (profile.groups || []) as ProfileGroup[]
   const friends = (profile.friends || []) as ProfileFriend[]
 
@@ -716,6 +747,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                   sharesCount={post._count.reposts}
                   reacted={post.reacted}
                   reactions={post.reactions}
+                  users={(post as any).reactionUsers}
                   parentPost={post.parentPost}
                   onLike={(r) => handleReaction(post.id, r)}
                   postPrivacy={post.postPrivacy}
@@ -812,17 +844,31 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {videos.map((v: any) => {
                     const videoUrl = v.url ? resolveMediaUrl(v.url) : ""
+                    const thumbUrl = v.thumb ? resolveMediaUrl(v.thumb) : null
                     return (
-                      <div key={v.id} className="relative aspect-video overflow-hidden rounded-xl bg-black group">
-                        <video
-                          src={videoUrl || ""}
-                          muted
-                          playsInline
-                          preload="metadata"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center">
+                      <div
+                        key={v.id}
+                        onClick={() => router.push(`/akwaplay/watch?v=${v.id}`)}
+                        className="relative aspect-video overflow-hidden rounded-xl bg-black group cursor-pointer"
+                      >
+                        {thumbUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={thumbUrl}
+                            alt=""
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                          />
+                        ) : (
+                          <video
+                            src={videoUrl || ""}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition">
+                          <div className="w-12 h-12 rounded-full bg-[#f5821f] flex items-center justify-center shadow-lg">
                             <Play size={22} className="text-white fill-white ml-0.5" />
                           </div>
                         </div>

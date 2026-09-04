@@ -1,8 +1,9 @@
 "use client"
 
 import { useRouter, usePathname } from "next/navigation"
-import { Home, Zap, Play, Video, UserCircle2, Clapperboard, UsersRound, BriefcaseBusiness } from "lucide-react"
+import { Home, Zap, Play, Video, Clapperboard, UsersRound, BriefcaseBusiness } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useScrollDirection } from "@/hooks/useScrollDirection"
 
 interface MobileBottomNavProps {
   user?: { name?: string | null; avatar?: string | null } | null
@@ -20,10 +21,27 @@ const NAV_ITEMS = [
 export default function MobileBottomNav({ user }: MobileBottomNavProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const scrollDirection = useScrollDirection({ threshold: 8, offset: 56 })
 
-  // Masquer sur desktop (lg+)
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-white border-t border-gray-200 h-[58px] pb-1 lg:hidden">
+    <nav
+      className={cn(
+        // Positionnement et apparence de base
+        "fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-white border-t border-gray-200 lg:hidden",
+        // Hauteur : 58px + safe-area-inset-bottom (encoche iPhone)
+        // La safe-area assure que les boutons ne sont jamais sous la barre système
+        "h-[calc(58px+env(safe-area-inset-bottom,0px))]",
+        // Padding bottom pour pousser les items au-dessus de la zone système
+        "[padding-bottom:max(4px,env(safe-area-inset-bottom))]",
+        // Scroll-aware : masquage fluide vers le bas sur mobile uniquement
+        // GPU-friendly : transform uniquement, pas de height/top
+        "transition-transform duration-300 ease-in-out",
+        scrollDirection === "down"
+          ? "translate-y-full"
+          : "translate-y-0",
+      )}
+      aria-label="Navigation principale mobile"
+    >
       {NAV_ITEMS.map((item) => {
         const isActive = pathname === item.href || (item.href === "/home" && pathname === "/")
         return (
@@ -32,10 +50,11 @@ export default function MobileBottomNav({ user }: MobileBottomNavProps) {
             type="button"
             onClick={() => router.push(item.href)}
             className={cn(
-              "flex flex-col items-center justify-center gap-0.5 h-full min-w-0 flex-1 transition-colors",
+              "flex flex-col items-center justify-center gap-0.5 h-[58px] min-w-0 flex-1 transition-colors",
               isActive ? "text-[#A35A2B]" : "text-[#65676B] hover:text-[#A35A2B]"
             )}
             aria-label={item.label}
+            aria-current={isActive ? "page" : undefined}
           >
             <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
             <span className={cn(

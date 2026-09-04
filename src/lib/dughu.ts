@@ -229,6 +229,11 @@ export const dughuApi = {
 
   toggleLikePost: (formData: FormData) => dughu.multipart("toggleLikePost", formData),
 
+  // Liste des personnes ayant réagi sur un post (contrat : GET /getPostReactions/{postId}/{userId}).
+  // `userId` = l'utilisateur qui consulte (affichage du détail des réactions).
+  getPostReactions: (postId: string | number, userId: string | number) =>
+    dughu.get(`getPostReactions/${encodeURIComponent(String(postId))}/${encodeURIComponent(String(userId))}`),
+
   // ── Gestion du menu des posts ──
   deletePost: (postId: string | number) =>
     dughuFetch(`deletePost/${encodeURIComponent(String(postId))}`, { method: "DELETE" }),
@@ -247,6 +252,18 @@ export const dughuApi = {
 
   hidePost: (userId: string | number, postId: string | number) =>
     dughu.form("hidePost", { user_id: String(userId), post_id: String(postId) }),
+
+  // Booster une publication (réservé à l'auteur) — POST /boostPost { post_id, user_id, boost_days }
+  boostPost: (params: {
+    post_id: string | number
+    user_id: string | number
+    boost_days: string | number
+  }) =>
+    dughu.form("boostPost", {
+      post_id: String(params.post_id),
+      user_id: String(params.user_id),
+      boost_days: String(params.boost_days),
+    }),
 
   // Épingler / désépingler une publication (réservé à l'auteur du post)
   togglePinStatus: (userId: string | number, postId: string | number) =>
@@ -1066,6 +1083,143 @@ function extractReactionSummary(p: any): { type: string; count: number }[] | nul
   return entries.map(([type, count]) => ({ type, count }))
 }
 
+/**
+ * Lit le type de réaction d'un élément de liste (réactions d'un post).
+ * Accepte les champs habituels de l'API Dughu (réaction numérique ou nom).
+ */
+function readReactionTypeFrom(item: any): string | null {
+  if (!item || typeof item !== "object") return null
+  const raw = pick(item, "reaction", "reaction_id", "reactionId", "reaction_type", "typeLike", "type_like", "user_reaction", "reactionType", "type")
+  const direct = raw === undefined || raw === null || raw === "" ? null : toReactionTypeName(raw)
+  if (direct) return direct
+  // Le type peut aussi être porté par l'utilisateur imbriqué
+  const nested = item.user || item.author || item.utilisateur
+  if (nested && typeof nested === "object") {
+    const nestedRaw = pick(nested, "reaction", "reaction_id", "reactionId", "reaction_type", "typeLike", "type_like", "user_reaction", "reactionType", "type")
+    if (nestedRaw !== undefined && nestedRaw !== null && nestedRaw !== "") return toReactionTypeName(nestedRaw)
+  }
+  return null
+}
+
+/**
+ * Extrait la liste des personnes ayant réagi sur un post LORSQU'ELLE EST FOURNIE
+ * par l'API Dughu. Ne renvoie QUE des données réellement présentes dans le
+ * payload — aucune réaction ni utilisateur fictif n'est jamais inventé.
+
+ * Formes gérées :
+ *  - p.reactions = [{ user: {...}, reaction: 1 }, ...]  (liste riche)
+ *  - p.likes = [{ user_id, name, avatar, typeLike }, ...]  (liste riche)
+ *  - items plats { user_id, name, avatar, reaction/typeLike, ... }
+ *
+ * `defaultType` : utilisé UNIQUEMENT pour les endpoints dédiés (getPostReactions)
+ * quand un item identifie bien un utilisateur mais ne précise pas le type de
+ * réaction — la convention Dughu (défaut du toggleLikePost étant « like »).
+ * Sans `defaultType` (cas du payload du post), un item sans type est ignoré.
+ *
+ * Retourne null si l'API n'a pas fourni de liste exploitable (l'UI affiche
+ * alors uniquement les compteurs agrégés,et jamais de fausses personnes).
+ */
+function extractReactionUsers(p: any, defaultType: string | null = null): Record<string, any>[] | null {
+  if (!p || typeof p !== "object") return null
+  const usersById = new Map<string, Record<string, any>>()
+
+  const pushUser = (item: any) => {
+    if (!item || typeof item !== "object") return
+    const explicitType = readReactionTypeFrom(item)
+    const reactionType = explicitType || (defaultType ? defaultType : null)
+    if (!reactionType) return
+
+    let identity: Record<string, any> | null = null
+    const nestedUser = item.user || item.author || item.utilisateur
+    if (nestedUser && typeof nestedUser === "object") {
+      const mapped = normalizeUser(nestedUser)
+      if (mapped) {
+        identity = {
+          id: String(mapped.id),
+          name: String(mapped.name || "Utilisateur"),
+          username: mapped.username ? String(mapped.username) : null,
+          avatar: String(mapped.avatar || "/images/avatar.png"),
+        }
+      }
+    } else {
+      const id = pick(item, "user_id", "userId", "userID", "id", "ID")
+      if (id !== undefined && id !== null && id !== "") {
+        const rawName = pick(item, "name", "full_name", "fullName", "user_name", "userName")
+        const rawUsername = pick(item, "username", "user_name", "userName")
+        const rawAvatar = pick(item, "avatar", "profileImage", "profile_image", "avatar_url", "photo")
+        identity = {
+          id: String(id),
+          name: String(rawName || "Utilisateur"),
+          username: rawUsername ? String(rawUsername) : null,
+          avatar: rawAvatar ? String(resolveMediaUrl(toUrl(rawAvatar))) : "/images/avatar.png",
+        }
+      }
+    }
+
+    if (!identity) return
+    const key = String(identity.id)
+    if (key && !usersById.has(key)) usersById.set(key, { ...identity, reactionType })
+  }
+
+  const rawList = pick(p, "reactions", "reactionList", "reaction_list")
+  if (Array.isArray(rawList)) for (const item of rawList) pushUser(item)
+  const rawLikes = pick(p, "likes", "reactedUsers", "reactionUsers", "users")
+  if (Array.isArray(rawLikes)) for (const item of rawLikes) {
+    if (item && typeof item === "object") pushUser(item)
+  }
+
+  if (usersById.size === 0) return null
+  return Array.from(usersById.values())
+}
+
+/**
+ * Normalise la réponse de GET /getPostReactions/{postId}/{userId} de l'API Dughu
+ * en { users, summary } — uniquement des données réellement présentes.
+ *
+ * Formes gérées (selon les conventions Dughu) :
+ *  - tableau direct : [{ user: {...}, reaction: 1 }, ...]
+ *  - conteneur : { reactions: [...] }, { data: [...] }, { result: [...] }, { users: [...] }
+ *  - items plats : { user_id, name, avatar, typeLike/reaction, ... }
+ *
+ * Retourne { users: [], summary: [] } si rien d'exploitable (l'UI n'affichera
+ * alors aucune donnée factice).
+ */
+export function mapPostReactionsResponse(raw: any): { users: Record<string, any>[]; summary: { type: string; count: number }[] } {
+  if (!raw || typeof raw !== "object") {
+    if (Array.isArray(raw)) return { users: extractReactionUsers({ reactions: raw }) ?? [], summary: [] }
+    return { users: [], summary: [] }
+  }
+
+  let list: any[] = []
+  const rawList = raw?.reactions ?? raw?.data ?? raw?.result ?? raw?.users ?? raw?.list ?? raw?.items ?? raw?.reaction_list ?? raw?.reactionList
+  if (Array.isArray(rawList)) list = rawList
+  else if (rawList && typeof rawList === "object") {
+    // Conteneur imbriqué possible : { data: { reactions: [...] } }, { reactions: { data: [...] } } …
+    const nestedList = rawList.reactions ?? rawList.data ?? rawList.users ?? rawList.list ?? rawList.items ?? rawList.result ?? rawList.reaction_list ?? rawList.reactionList
+    if (Array.isArray(nestedList)) list = nestedList
+  }
+  else if (Array.isArray(raw)) list = raw
+
+  // `"like"` en défaut : l'endpoint dédié liste les réactions/likes du post,
+  // et la valeur par défaut du système de réaction Dughu est "like" (`reaction=1`).
+  // Les items qui précisent explicitement leur type conservent leur type exact.
+
+  const users = extractReactionUsers({ reactions: list }, "like") ?? []
+
+  // Compteurs par type recomptés UNIQUEMENT depuis la liste réellement retournée.
+
+  const counts: Record<string, number> = {}
+  for (const u of users) {
+    const type = String(u?.reactionType || "").toLowerCase()
+    if (type) counts[type] = (counts[type] || 0) + 1
+  }
+
+  return {
+    users,
+    summary: Object.entries(counts).map(([type, count]) => ({ type, count })),
+  }
+}
+
 export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | null {
   if (!p || typeof p !== "object") return null
   const id = pick(p, "id", "ID", "post_id", "postId") || String(Math.random()).slice(2)
@@ -1216,6 +1370,7 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     isFollowing: !!author.isFollowing,
     parentPost,
     reactions: extractReactionSummary(p),
+    reactionUsers: extractReactionUsers(p) ?? [],
     // Confidentialité renvoyée par l'API Dughu (entier 0-3) :
     //   0 = Public, 1 = Followers/Abonnés, 2 = Réseau, 3 = Amis stricts
     postPrivacy: (() => {

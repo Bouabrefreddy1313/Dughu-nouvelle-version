@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
       userId,
       page: Number(searchParams.get("page")) || 1,
       search: searchParams.get("search") || undefined,
+      source: searchParams.get("source") || undefined,
     })
     return NextResponse.json(data)
   } catch (error) {

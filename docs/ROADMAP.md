@@ -26,6 +26,7 @@ Elle peut évoluer selon les besoins du projet.
 
 * 🟢 Publications
 * 🟢 Likes
+* 🟢 Système de réactions enrichi — 6 émojis (👍 ❤️ 😂 😮 😢 😡), agrégation par type (top 3 icônes + total), sélecteur interactif (survol, appui long, clic), état utilisateur unique (une seule réaction active, changement = remplacement, retrait possible), liste des personnes ayant réagi (Bottom Sheet mobile / modale desktop, onglets par type), optimistic UI & compteurs synchronisés sans refresh.
 * 🟢 Commentaires
 * 🟢 Republications
 * 🟡 Timeline

@@ -11,6 +11,175 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-09-04
+### Fonctionnalité — Historique des points Akwaplay (`/akwaplay/points`)
+* **Nouvelle page Akwaplay `/akwaplay/points`** accessible depuis l'item « Points » de la sidebar gauche (l'item ne pointe plus vers `/points` mais vers `/akwaplay/points`), au thème sombre Akwaplay (`AkwaHeader` + `AkwaSidebar`).
+* **Endpoint dédié** `GET /pointsHistory/{user_id}/akwaplay` : l'historique est désormais restreint aux points obtenus sur Akwaplay uniquement. Le service serveur (`points.server.ts`) accepte un paramètre `source` ajouté en **segment de chemin**, la route BFF `GET /api/pointsHistory` relaie `?source=…`, le service frontend et le hook TanStack `usePointsHistory({ userId, source })` le transmettent (clé de requête isolée par source).
+* **Tableau `AkwaplayPointsTable`** (thème sombre) aux colonnes **Date · Type · Description · Points** : badge vert « Gain » / rouge « Perte », montant signé formaté `fr-FR`, date locale ; squelettes de chargement, état d'erreur avec « Réessayer » et état vide.
+* `userId` résolu depuis la session (`dughu.userId`, replis `dughuUserId` puis `id`) — l'identifiant n'est jamais codé en dur.
+* Conformité HTTP : composant → hook → service frontend (Axios cliente) → route `/api/pointsHistory` → service serveur (Axios serveur, token `X-AppApiToken` côté serveur uniquement) → API Dughu ; normalisation défensive réutilisée (`points.mapper.ts`), aucun `fetch` natif côté frontend.
+
+### Fonctionnalité — Booster un post depuis le menu « 3 points »
+* **Nouvelle route `POST /api/boostPost`** (route handler BFF) qui encapsule l'appel à l'API Dughu `POST /boostPost` avec les champs `post_id`, `user_id`, `boost_days` :
+  - validation des paramètres (`postId`/`userId`), durée de boost bornée 1 à 30 jours (défaut 1) ;
+  - `user_id` transmis à Dughu = identifiant Dughu de session (cookie en repli), jamais l'identifiant interne ;
+  - erreurs normalisées en messages compréhensibles (pas de stack trace exposée).
+* **Bouton « Booster » dans le menu « 3 points » de `PostCard`** : réservé à l'auteur de la publication (`canBoost`), icône fusée, ouverture directement sur `/api/boostPost` puis rafraîchissement du fil.
+* Extension de `dughuApi.boostPost` dans `src/lib/dughu.ts` et du service frontend `boostPost` (`posts.service.ts`) avec le champ `boostDays`.
+
+### Correction — Ouverture des posts repartagés (Lightbox immersive)
+* **Résolution de la boucle infinie « Too many re-renders »** à l'ouverture du post d'origine d'un repost (`ParentPostLightbox`) : dans `PostMediaLightbox`, la synchronisation d'état pendant le rendu comparait la prop `reactions` par référence. Quand cette prop était absente, la valeur par défaut `[]` était recréée à **chaque rendu**, rendant la comparaison toujours vraie → `setState` pendant le rendu → boucle infinie.
+  - Introduction d'une constante de module `EMPTY_REACTIONS` (référence stable entre les rendus) utilisée comme valeur par défaut de la prop `reactions`.
+  - Comparaison des listes de réactions par **contenu** (helper `sameReactions` : type + count) au lieu de la référence : plus aucun re-rendu parasite même si un parent fournit un nouveau tableau équivalent à chaque rendu.
+  - L'état local `localReactions` est initialisé et synchronisé via cette liste normalisée.
+* **Chargement des commentaires du post d'origine rendu stable** : l'effet de `ParentPostLightbox` dépend désormais de `parentPost.id` (et non de l'objet `parentPost`, recréé à chaque rendu du parent du fil) grâce à une `ref` mise à jour uniquement dans un effet — suppression des re-fetch de commentaires et des push d'historique redondants pendant que la lightbox est ouverte.
+
+### Correction — Boost : propagation du message d'erreur upstream
+* La route `POST /api/boostPost` masquait le message métier de l'API Dughu derrière un générique « Erreur lors du boost. » : un HTTP 400 avec corps `{ status, message: "Points insuffisants pour un boost de X jour(s."` (levé par `dughuFetch` en `DughuApiError`) retombait dans le `catch` générique. La route détecte désormais `DughuApiError` et **remonte le message upstream** (même pattern que `/api/reactions`), avec `upstreamStatus`. L'utilisateur voit désormais la vraie raison (« Points insuffisants… ») au lieu d'une erreur technique brute。
+* Suite du routage des erreurs : `posts.service.ts` (`boostPost`) propage déjà le message frontend via `ApiError` (message français approuvé, jamais de détail technique brut..
+
+### Correction — Like inopérant dans la lightbox immersive
+* **Like des réactions dans la vue immersive** (`ParentPostLightbox` et page `/post/[id]`) : le clic « J'aime » échouait silencieusement car `addReaction` était appelé **sans `dughuUserId`**, contrairement au fil `/home` — la route `/api/reactions` (en repli sur le cookie de session) peut alors répondre 404 « ID Dughu requis. », et le `catch` silencieux (rollback sans message) donnait l'illusion d'un bouton inopérant. Les deux appels transmettent désormais `dughuUserId` (même contrat fiableque le fil) et affichent un toast « Impossible de réagir à cette publication. » en cas d'échec**(conformément aux guidelines d'erreur)**。
+* Le type de réaction transmis utilise désormais le mapping réel `REACTION_ID_TO_TYPE` (et non plus un « like » en dur), pour aligner le contrat avec les réactions autres que « J'aime » sélectionnables dans la lightbox.
+
+
+
+### Correction — Barre d'actions complète sur la page de détail du post (`/post/[id]` et lightbox)
+* La vue détail d'une publication (`PostMediaLightbox`, partagée par la page `/post/[id]` et la lightbox du post d'origine `ParentPostLightbox`) n'exposait que « J'aime » et « Partager » — et le bouton **Partager** n'était même **pas câblé** (`onShare` non fourni) : rien ne s'ouvrait « sur la page ». Les boutons **Gratifier** et **Republier** étaient totalement absents.
+* La barre d'actions de la vue détail affiche désormais **J'aime · Gratifier · Republier · Partager** :
+  * **Gratifier** (100 points, `POST /api/points/give`) avec modale de confirmation ; masqué sur ses propres publications.
+  * **Republier** (simple via `createPost` avec `parentId`, ou avec commentaire via `rePost`) avec menu déroulant et modale de commentaire.
+  * **Partager** : ouvre désormais la `SharePostModal` interne (au lieu de ne rien faire) ; si un `onShare` est fourni par le parent (ex. `PostCard`), il reste prioritaire.
+* Implémentation centralisée dans `src/components/feed/PostMediaLightbox.tsx` (modales + services via `givePoints` / `createPost` / `rePost`), avec nouvelles props optionnelles `postId`/`shareUrl` propagées depuis la page `/post/[id]`, `ParentPostLightbox` et `PostCard`.
+* Détail technique : la confirmation « Gratifier » est rendue en overlay simple `z-[9999]` (et non par le `Dialog` shadcn, porté dans `<body>` à `z-50`, qui serait invisible sous la lightbox `z-[9999]`).
+
+## 2026-09-03
+## 2026-09-03
+### Module Akwaplay — Plateforme Vidéo (3 écrans)
+* **Écran Accueil** : grille de vidéos, recherche (`akwa_akwa_video_search`), tabs de catégories (`akwa_getCategories`), grille « Tous »/par catégorie, pagination, bouton « Publier » (modale multipart `akwa_store_video`).
+* **Écran lecture vidéo** : détails (`akwa_show_video`), lecteur stream (`akwa_video_stream`), vues (`akwa_incrementViews`), progression (`akwa_saveProgress`), like/dislike, favoris, signalement, commentaires + réponses lazy + suppression.
+* **Création et publication de vidéo (`POST /api/akwa_store_video`)** :
+  - Formulaire complet de publication intégrant tous les champs exigés : `user_id`, `title`, `description`, `thumbnail`, `category_id`, `visibility` (`public`, `unlisted`, `private`), `duration` (string `mm:ss`), `chanel` / `channel_id` (sélection de chaîne), et `video`.
+  - **Génération automatique de la miniature (Thumbnail)** : extraction 100% automatique côté client de la frame vidéo via HTML5 Canvas dès la sélection du fichier (sans téléversement manuel), conversion en Blob/File JPEG et aperçu 16:9 dynamique avec curseur temporel pour choisir précisément la frame désirée dans la vidéo.
+  - Détection automatique de la durée vidéo envoyée au format requis par le backend Dughu.
+  - Sélection des chaînes Akwaplay créées par l'utilisateur (`GET /api/akwa_userChannels`) ou publication personnelle.
+* **Identité visuelle Akwaplay** :
+  - **Nouveau logo Akwaplay** : Remplacement de l'icône de lecture générique par l'image officielle `/images/akp.png` dans l'en-tête principal `AkwaHeader` avec effet d'agrandissement doux au survol.
+* **Module Capsules (Shorts) Akwaplay (`/akwaplay/shorts`)** :
+  - **Résolution du non-affichage des capsules (`GET /short_fetchShorts` & `GET /user_shorts`)** : L'API Dughu encapsule la pagination dans un objet `shorts: { current_page, data: [...] }`. Le service cherchait `Array.isArray(res.data.shorts)` qui échouait, retournant une liste vide. Extraction désormais directe de `res.data?.shorts?.data`.
+  - **Prise en charge de la clé vidéo réelle `file_path`** : Les fichiers vidéo MP4 des shorts étant délivrés sous `file_path` avec `thumbnail_path: null`, normalisation défensive et affichage dynamique des capsules via `AkwaShortCard` avec prévisualisation vidéo en direct et animation au survol.
+  - **Suppression du badge de vues** : Retrait complet de l'affichage du compteur de vues sur les cartes de capsules pour une interface épurée centrée sur le contenu et le créateur.
+  - **Résolution du flash « La requête a été annulée »** : Lors du chargement initial et de la résolution de `useAuth()`, la première requête avortée par `AbortController` était capturée par le bloc d'erreur au lieu d'être ignorée silencieusement (`ApiError` avec message français). Prise en charge défensive de tous les types d'annulation (`isAbort`) et protection du bloc `finally` pour ne jamais afficher l'écran d'erreur transitoire.
+  - **Suppression du bouton Dislike** : Retrait définitif du bouton Dislike sur les capsules conformément à la demande utilisateur (seul le bouton J'aime est conservé).
+  - **Persistance et synchronisation du statut Like** :
+    - Détection stricte et normalisation de `isLiked` (support boolean, integers `1`/`0`, strings `"1"`/`"0"` renvoyés par l'API backend).
+    - Persistance du `userId` de session (évite d'appeler `short_fetchShorts` avec un identifiant de repli au premier render d'un rechargement complet).
+  - **Création de Capsule (`AkwaShortCreateModal`)** : Modale dédiée pour téléverser une vidéo verticale avec prévisualisation, légende/titre et jauge de progression d'upload (`POST /api/short_store`).
+* **Module Musiques Libres Akwaplay (`/akwaplay/musiques`)** :
+  - **Résolution du non-affichage des musiques (`GET /api/akwa_musiques`)** : L'API Dughu renvoie la liste sous `result.data`. L'ancien service ne vérifiait que `res.data` ou `res.data.musiques`, retournant une liste vide. Extraction désormais directe de `res.data?.result?.data`.
+  - **Prise en charge des clés en français du backend** : Normalisation défensive des champs réels (`titre`, `artiste`, `chemin_audio_url`, `duree` formatée convertie en secondes).
+  - **Onglet Mes Favoris (`GET /api/akwa_musiques/user_favorites/{user_id}`)** : Récupération des morceaux favoris de l'utilisateur avec bascule instantanée via `POST /api/akwa_musiques/toggle_favoris` (paramètre `musique_id`).
+  - **Lecteur audio interactif** : Piste audio HTML5 avec écoute en direct, barre flottante inférieure avec curseur temporel, bouton lecture/pause et contrôle du son.
+  - **Création et ajout de musique (`AkwaMusiqueCreateModal`)** : Modale de téléversement multipart (`POST /api/akwa_musiques/store`) pour ajouter un morceau avec titre, artiste, genre, fichier audio et pochette.
+  - **Suppression** : `DELETE /api/akwa_musiques/delete/{music_id}` avec confirmation.
+* **Correctif d'affichage des vidéos (`/akwa_getAllVideos`)** :
+  - **Résolution du bug `ERR_CONTENT_DECODING_FAILED`** : L'API externe Dughu (Cloudflare) renvoie les réponses compressées en Brotli/gzip (`Content-Encoding: br`). Le runtime Node.js décompressait le flux en texte brut, mais le proxy BFF ([akwa-proxy.ts](file:///c:/Users/HP/dughu/src/lib/api/akwa-proxy.ts) et `dughu/[...path]/route.ts`) relayait aveuglément l'en-tête `Content-Encoding: br` au navigateur. Le navigateur tentait alors de décompresser du texte clair et échouait avec `net::ERR_CONTENT_DECODING_FAILED`. Les en-têtes `content-encoding`, `content-length` et `transfer-encoding` sont désormais systématiquement purgés après décompression par le proxy.
+  - Résolution de l'erreur « Impossible de contacter le serveur » : l'intercepteur Axios client (`axios-instance.ts`) ne prenait pas en compte les annulations de requête (`ERR_CANCELED` / `AbortSignal`) et les transformait à tort en fausse erreur réseau (`isNetwork`). Les annulations sont désormais correctement typées et ignorées lors des changements d'état/re-renders.
+  - Normalisation défensive des réponses API : le backend Dughu encapsulant les données dans `result.data` avec `result.pagination.has_more`, ajout des helpers `extractDataArray` et `extractHasMore` dans `akwaplayVideo.service.ts` pour extraire fiablement vidéos, catégories et pagination.
+  - Support des clés de médias réelles : prise en compte de `signed_thumbnail_path`, `thumbnail_path`, `signed_video_path`, conversion de la durée formatée (ex. `"00:10"`) en secondes et mapping complet du profil auteur (`profile_photo_url`, `avatar`, nom complet).
+  - Normalisation et affichage complet des activités utilisateur (`/akwa_get_user_activities`) : typage `AkwaUserActivity`, extraction de `activities.data`, affichage des cartes avec avatar, action (`act.text`), heure relative et redirection vers la vidéo (`/akwaplay/watch?v={id}`).
+  - Résolution du flash de l'état vide (« Aucune vidéo trouvée ») à l'accueil : stabilisation de `effectiveUserId` et protection des requêtes avortées (`AbortController`) pour que l'état `loading` ne soit jamais désactivé prématurément avant l'arrivée effective des vidéos.
+* **Page de lecture vidéo YouTube (`/akwaplay/watch?v={video_id}`)** :
+  - Lecteur vidéo HTML5 immersif responsive 16:9 avec incrémentation des vues (`akwa_incrementViews`) et sauvegarde de progression (`akwa_saveProgress`).
+  - Bloc métadonnées avec profil créateur publié (extraction de la clé API `uploader` : nom, avatar, abonnés) et intégration du composant réutilisable de l'application `FollowButton` (`src/components/common/FollowButton.tsx`) pour s'abonner/se désabonner.
+  - Like/Dislike avec mise à jour optimiste (`akwa_toggleLike`), favoris (`akwa_toggleFavorite`), partage et modale de signalement (`akwa_getReportReasons` et `akwa_reportVideo`).
+  - Résolution de la persistance et de l'affichage du like au rechargement : normalisation des clés réelles du backend Dughu (`like_count`, `liked`, `disliked`, `favorited`, `comment_count`), transmission du champ `reaction: action` dans `POST /api/akwa_toggleLike/{video_id}` et notification toast Sonner de confirmation.
+  - Séparation et affichage dédié des compteurs Like et Dislike : le bouton pouce en bas (`ThumbsDown`) dispose désormais de son propre badge dynamique `dislikesCount`.
+  - Résolution de l'incrémentation parasite du compteur de likes lors d'un dislike : le backend Dughu stockant dans la colonne SQL `like_count` le total agrégé de toutes les réactions (`likes + dislikes`), la formule défensive `Math.max(0, like_count - dislikes_count)` isole désormais strictement les mentions J'aime pour qu'un dislike n'incrémente plus jamais le compteur de likes.
+  - Section commentaires : fil interactif, résolution de l'erreur d'envoi en transmettant le champ `text` attendu par le backend Dughu pour `POST /akwaComment_store` (avec support de `comment_id` pour modification) et `POST /akwaComment_replyComment`, extraction de `res.data.comment` dans `replyComment` garantissant l'insertion et l'affichage instantanés des réponses, synchronisation du bouton d'ouverture (`totalReplies`), pagination (`akwaFetchComments`), réponses imbriquées dépliables (`fetchCommentReplies`), likes et suppression.
+  - Barre latérale de suggestions : flux compact horizontal de vidéos suggérées issues des tendances et de la catégorie.
+  - Disposition ergonomique de la barre latérale : affichée sur grand écran (`≥ 1024px`) avec décalage fluide du corps de page (`lg:ml-[220px]`) pour ne jamais superposer le contenu.
+
+### Expérience des publications — Lightbox immersive & Réactions enrichies
+
+#### Lightbox Immersive (`PostMediaLightbox.tsx`)
+* **Ouverture plein écran** : Clic direct sur une image ou vignette d'une publication, avec transition douce et fond sombre immersif (`bg-black/95`).
+* **Verrouillage du scroll** : Blocage automatique du défilement de l'arrière-plan (`document.body.style.overflow = "hidden"`).
+* **Disposition Desktop (md/lg+)** : Panneau de commentaires autonome positionné **à GAUCHE** (`w-[380px]` à `w-[440px]`) et image dominante **à DROITE** avec conservation de ratio (`object-contain`).
+* **Disposition Mobile (< md)** : Image plein écran avec barre d'action inférieure flottante et ouverture des commentaires en **Bottom Sheet** coulissant avec tirette de fermeture et geste tactile de glissement vers le bas (swipe down).
+* **Support multi-images** : Navigation par boutons latéraux et touches fléchées (← →) du clavier.
+
+#### Système de Réactions & Sélecteur (`ReactionPicker.tsx`, `ReactionSummary.tsx`, `ReactionUsersModal.tsx`)
+* **Emojis standardisés** : 👍 J'aime, ❤️ J'adore, 😂 Haha, 😮 Wow, 😢 Triste, 😡 Grrr.
+* **Sélecteur interactif (`ReactionPicker.tsx`)** : Affichage des 6 réactions Dughu avec micro-animations (`scale-125`), protection contre les débordements sur petits écrans, retour haptique léger (`navigator.vibrate`), accessible au survol (desktop) et à l'appui long tactile (mobile).
+* **Composant partagé `ReactionSummary.tsx`** : Agrégation des 3 réactions les plus utilisées (`[👍 ❤️ 😮] 19`), synchronisé entre la carte du fil et la Lightbox sans aucune donnée artificielle.
+* **Optimistic UI & Compteurs Synchronisés** : Mise à jour immédiate du compteur total, des compteurs par réaction et du bouton utilisateur sans rafraîchissement de la page.
+* **Modale des réactions (`ReactionUsersModal`)** : Consultation des personnes ayant réagi avec onglets filtrables par émoji (modale desktop et Bottom Sheet mobile).
+* **Liste réelle des réacteurs** : la liste des personnes s'affiche désormais en ouvrant le modal des réactions — elle est chargée à la demande via `GET /api/reactions?postId=X&userId=Y` (encapsule `GET /getPostReactions/{postId}/{userId}` de l'API Dughu), avec repli sur les données éventuellement embarquées dans le payload du post (`mapPost` → `reactionUsers`). Mise à jour optimiste lors d'une réaction/retrait/changement. Aucune donnée factice : si l'API ne fournit pas le détail utilisateur, l'UI affiche les compteurs agrégés et l'utilisateur courant uniquement, avec message explicite dans le modal.
+* **Liste des réacteurs — tolérance au format & diagnostic** : le mapping gère les conteneurs imbriqués (`{ data: { reactions: [...] } }`) et les items retournés sans champ `reaction` explicite (traités comme « 👍 », défaut Dughu `reaction=1`). Le chargement ne dépend plus de l'ID client (le serveur résout l'utilisateur via le cookie de session). Un échec réseau affiche désormais « Impossible de charger la liste des réactions » (distinct de l'absence honnête « liste non disponible »), et les onglets du modal reflètent les types réellement fetchés quand ils sont disponibles.
+
+### Optimisation de la largeur du feed sur petits écrans (1280x903 à 1417x903)
+
+* Ajustement de la réservation d'espace de la sidebar droite dans `MainLayout` : passage de 484px à **264px** sur `xl` (1280px à 1535px) avec un positionnement de la sidebar à `right-4` (16px).
+* Augmentation de la largeur maximale du feed (`PostComposer` + `PostCard`) de 750px à **780px** (`xl:max-w-[780px]`) sur les écrans `xl`.
+* Les cartes de publication et de composition gagnent ainsi entre +165px et +236px de largeur utile sur les laptops et petits écrans (passant de 478px–615px à **714px–780px**).
+
+### Optimisation complète de l'expérience Mobile
+
+#### Hook `useScrollDirection` (`src/hooks/useScrollDirection.ts`)
+
+* Nouveau hook léger et performant : `requestAnimationFrame` + passive event listener + seuil de 8px anti-clignotement.
+* Ne déclenche un re-render React que lorsque la direction change réellement (up/down).
+* Utilisé par le Header et la MobileBottomNav.
+
+#### Header (Topbar) scroll-aware
+
+* Le Header se masque (`translateY(-100%)`) lors d'un scroll vers le bas sur mobile.
+* Il réapparaît lors d'un scroll vers le haut ou en haut de la page.
+* Transition GPU-friendly 300ms ease-in-out.
+* Safe-area iOS : `padding-top: max(0px, env(safe-area-inset-top))` pour l'encoche / Dynamic Island.
+* Desktop (lg+) inchangé.
+
+#### MobileBottomNav (Tapbar) scroll-aware + safe-area iOS
+
+* La barre de navigation mobile se masque (`translateY(100%)`) lors d'un scroll vers le bas.
+* Hauteur dynamique : `calc(58px + env(safe-area-inset-bottom, 0px))`.
+* Padding bottom : `max(4px, env(safe-area-inset-bottom))` pour éviter le chevauchement avec la barre système iPhone.
+
+#### Posts edge-to-edge sur mobile
+
+* Sur mobile (< sm), les `PostCard` sont edge-to-edge : pas de border-radius, shadow ou bordures latérales.
+* Séparateur subtil `border-b border-gray-100` entre les publications.
+* Sur sm+ (tablette/desktop), rendu "carte" (rounded-3xl, shadow, border) préservé.
+* Le conteneur `main` de `MainLayout` est `px-0` sur mobile et `px-4`/`px-6` sur sm+/lg+.
+* `space-y-0` sur mobile, `space-y-3/4` préservé sur sm+.
+* Squelette de chargement mis à jour en cohérence.
+* `PostComposer` et `FlashFeed` ont leur propre padding `px-3 sm:px-0` sur mobile.
+
+#### Sidebar droite universelle
+
+* La `RightSidebar` est désormais **toujours montée** dans `MainLayout`, quelle que soit la page.
+* Nouvelle prop `hideOnDesktop` : masque la colonne fixe xl+ sans désactiver le tiroir mobile.
+* Le bouton ☷ (LayoutGrid) du Header ouvre correctement la sidebar droite sur toutes les pages.
+
+#### Viewport safe-area iOS
+
+* `app/layout.tsx` : ajout de l'export `viewport` Next.js avec `viewport-fit: "cover"`.
+* Active `env(safe-area-inset-*)` sur les appareils iOS avec encoche.
+
+#### CSS global
+
+* `body` : `overflow-x: hidden` pour éviter le débordement horizontal involontaire.
+* `html` : `-webkit-overflow-scrolling: touch` pour un scroll iOS fluide.
+
+#### Scroll horizontal
+
+* `FlashFeed` : `touch-pan-x` pour le swipe au doigt + `px-3 sm:px-0` pour le padding mobile.
+* `GroupCarousel` : `touch-pan-x` pour améliorer le swipe.
+* `GroupsPage` onglets : `flex-nowrap` + `shrink-0` sur les boutons pour corriger le scroll horizontal.
+
+---
+
 ## 2026-09-02
 
 ### Module « Groupes » — première vue responsive

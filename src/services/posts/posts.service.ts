@@ -15,6 +15,7 @@ import { ApiError } from "@/lib/api/api-error"
 import type {
   PostMutationResponse,
   PostsResponse,
+  ReactionUserItem,
 } from "@/types/posts/post.types"
 
 function toServiceApiError(error: unknown, fallback: string): ApiError {
@@ -132,6 +133,34 @@ export async function addReaction(
   }
 }
 
+/** Réponse de GET /api/reactions (liste des personnes ayant réagi sur un post). */
+export interface PostReactionsResponse {
+  success?: boolean
+  message?: string
+  users?: ReactionUserItem[]
+  summary?: { type: string; count: number }[]
+}
+
+/**
+ * Charge la liste des personnes ayant réagi sur une publication via
+ * GET /api/reactions?postId=X&userId=Y (encapsule GET /getPostReactions
+ * de l'API Dughu. `userId` = l'utilisateur qui consulte).
+ */
+export async function fetchPostReactions(
+  payload: { postId: string; userId?: string },
+  signal?: AbortSignal
+): Promise<PostReactionsResponse> {
+  try {
+    const qs = new URLSearchParams()
+    qs.set("postId", String(payload.postId))
+    if (payload.userId) qs.set("userId", String(payload.userId))
+    const res = await apiClient.get<PostReactionsResponse>(`/reactions?${qs.toString()}`, { signal })
+    return res.data
+  } catch (error) {
+    throw toServiceApiError(error, "Impossible de charger la liste des réactions")
+  }
+}
+
 /**
  * [MIGRATION LOT 5] Le domaine Commentaires vit désormais dans
  * src/services/posts/comments.service.ts (fetchComments, addComment,
@@ -206,7 +235,7 @@ export async function storeSave(
 
 /** Booste une publication via POST /api/boostPost. */
 export async function boostPost(
-  payload: { postId: string; userId?: string; days?: number },
+  payload: { postId: string; userId?: string; boostDays?: number },
   signal?: AbortSignal
 ): Promise<PostMutationResponse> {
   try {
@@ -216,7 +245,7 @@ export async function boostPost(
     }
     return res.data
   } catch (error) {
-    throw toServiceApiError(error, "Erreur boost")
+    throw toServiceApiError(error, "Erreur lors du boost de la publication.")
   }
 }
 

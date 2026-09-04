@@ -4,10 +4,746 @@
 
 ▲ Next.js 16.2.12 (Turbopack)
 - Local:         http://localhost:3000
-- Network:       http://192.168.1.10:3000
+- Network:       http://192.168.1.15:3000
 - Environments: .env
-✓ Ready in 509ms
+✓ Ready in 1346ms
 
- GET /api/pokes?box=received 200 in 1394ms (next.js: 258ms, application-code: 1136ms)
- GET /api/pokes?box=received 200 in 882ms (next.js: 4ms, application-code: 878ms)
+○ Compiling /home ...
+ GET /home 500 in 15.7s (next.js: 15.3s, proxy.ts: 174ms, application-code: 177ms)
+ GET /api/akwa_probe_nobom 500 in 1278ms (next.js: 1231ms, application-code: 47ms)
+ GET /api/akwa_probe_bom 500 in 155ms (next.js: 111ms, application-code: 43ms)
+ GET /api/akwa_probe_nobom 500 in 29ms (next.js: 9ms, application-code: 20ms)
+ GET /api/akwa_getAllVideos/123456 500 in 482ms (next.js: 474ms, application-code: 9ms)
+✓ Compiled in 3.1s
+ GET /home 200 in 950ms (next.js: 213ms, proxy.ts: 132ms, application-code: 605ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/auth/me 200 in 2.4s (next.js: 1188ms, application-code: 1256ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] POST https://apitest.dughu.com/api/fetchShorts | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243&page=1&per_page=10
+[dughuFetch] GET https://apitest.dughu.com/api/getFriendsStories?user_id=34243&per_page=20&page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] POST https://apitest.dughu.com/api/suggestPages?page=1 | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243
+[dughuFetch] POST https://apitest.dughu.com/api/suggestgroupes?page=1 | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243
+[dughuFetch] GET https://apitest.dughu.com/api/getHashtags | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getPopularPosts/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/auth/me 200 in 809ms (next.js: 3ms, application-code: 806ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getFriendsStories?user_id=34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getUserStories?user_id=34243&target_user_id=34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/photos?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/userFriends/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/videos?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getUserStories?user_id=34243&target_user_id=34243&per_page=50&page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+DUGHU PHOTOS RAW: {"success":true,"message":"Liste des photos de l'utilisateur","result":{"current_page":1,"data":[{"post_id":2333,"postFile":"public/images/b18c24ee-d37a-4745-98b7-c68ac443abad.webp","time":1787950888,"postFileLink":"https://dughuprod.s3.amazonaws.com/public/images/b18c24ee-d37a-4745-98b7-c68ac443abad.webp"},{"post_id":2091,"postFile":"public/images/b5bf4a46-cca2-4a99-a518-26ecc1773825.webp","time":1786528107,"postFileLink":"https://dughuprod.s3.amazonaws.com/public/images/b5bf4a46-cca2-4a99-a518
+[dughuFetch] GET https://apitest.dughu.com/api/getFriendsStories?user_id=34243&per_page=20&page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getUserStories?user_id=34243&target_user_id=34243&per_page=50&page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/capsules?userId=34243&page=1 200 in 2.7s (next.js: 324ms, application-code: 2.4s)
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/stories 200 in 2.3s (next.js: 128ms, application-code: 2.1s)
+[dughuFetch] GET https://apitest.dughu.com/api/album?user_id=34243&page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getPostAllRepost/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getPostAll/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getPostColors | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+DUGHU VIDEOS RAW: {"success":true,"message":"Liste des vidéos de l'utilisateur","result":{"current_page":1,"data":[{"post_id":2089,"postFile":"upload/post/videos/6a7c3d8d4f0cd7.83193933.mp4","time":1786527117,"videoViews":15,"postFileLink":"https://dughuprod.s3.amazonaws.com/upload/post/videos/6a7c3d8d4f0cd7.83193933.mp4"},{"post_id":2088,"postFile":"upload/post/videos/6a7c3b0aad6a05.22311117.mp4","time":1786526474,"videoViews":16,"postFileLink":"https://dughuprod.s3.amazonaws.com/upload/post/videos/6a7c3b0aad6a0
+ GET /api/profile?userId=34243&slug=don-emilio&dughuUserId=34243 200 in 3.8s (next.js: 600ms, application-code: 3.2s)
+ GET /api/colors 200 in 1148ms (next.js: 369ms, application-code: 779ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getPostColors | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+FEED: page 1 | posts: 15 | hasMore: true
+ GET /api/posts?page=1&filter=all&userId=34243&dughuUserId=34243&authorId= 200 in 1672ms (next.js: 417ms, application-code: 1255ms)
+[FLASH FRIENDS] userId=34243 users=0 stories=0 friendsKeys=[ 'success', 'message', 'authStories', 'stories', 'pagination' ]
+[FLASH FRIENDS RAW] {"success":true,"message":"🎉 Les flashs ont été chargées avec succès !","authStories":[],"stories":[],"pagination":{"current_page":1,"per_page":"20","has_more_pages":false}}
+ GET /api/stories/friends?userId=34243&page=1&perPage=20 200 in 4.4s (next.js: 385ms, application-code: 4.0s)
+ GET /api/colors 200 in 453ms (next.js: 3ms, application-code: 451ms)
+ GET /api/messages/chats?userId=34243 200 in 4.7s (next.js: 263ms, application-code: 4.4s)
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2324/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2181/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2291/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2349/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2090/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/suggestions?userId=34243 200 in 5.4s (next.js: 445ms, application-code: 4.9s)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2179/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2349&userId=34243&dughuUserId=34243 200 in 608ms (next.js: 161ms, application-code: 447ms)
+ GET /api/comments?postId=2291&userId=34243&dughuUserId=34243 200 in 601ms (next.js: 147ms, application-code: 454ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2314/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2319/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2090&userId=34243&dughuUserId=34243 200 in 771ms (next.js: 162ms, application-code: 609ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2174/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2324&userId=34243&dughuUserId=34243 200 in 889ms (next.js: 131ms, application-code: 758ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2220/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2181&userId=34243&dughuUserId=34243 200 in 968ms (next.js: 151ms, application-code: 817ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2170/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2319&userId=34243&dughuUserId=34243 200 in 452ms (next.js: 3ms, application-code: 449ms)
+ GET /api/comments?postId=2314&userId=34243&dughuUserId=34243 200 in 466ms (next.js: 3ms, application-code: 464ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2182/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2289/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2174&userId=34243&dughuUserId=34243 200 in 482ms (next.js: 3ms, application-code: 479ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2180/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2220&userId=34243&dughuUserId=34243 200 in 494ms (next.js: 3ms, application-code: 491ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2238/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2170&userId=34243&dughuUserId=34243 200 in 512ms (next.js: 1945µs, application-code: 510ms)
+ GET /api/comments?postId=2179&userId=34243&dughuUserId=34243 200 in 1419ms (next.js: 2ms, application-code: 1417ms)
+ GET /api/comments?postId=2289&userId=34243&dughuUserId=34243 200 in 639ms (next.js: 1720µs, application-code: 637ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2349/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2291/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2180&userId=34243&dughuUserId=34243 200 in 498ms (next.js: 1912µs, application-code: 496ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2090/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2238&userId=34243&dughuUserId=34243 200 in 455ms (next.js: 2ms, application-code: 452ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2090&userId=34243&dughuUserId=34243 200 in 451ms (next.js: 1713µs, application-code: 449ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2324/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2349&userId=34243&dughuUserId=34243 200 in 792ms (next.js: 3ms, application-code: 789ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2181/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2291&userId=34243&dughuUserId=34243 200 in 805ms (next.js: 2ms, application-code: 803ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2319/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/pointsToday/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2324&userId=34243&dughuUserId=34243 200 in 484ms (next.js: 2ms, application-code: 481ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2314/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2181&userId=34243&dughuUserId=34243 200 in 482ms (next.js: 1996µs, application-code: 480ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2174/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2319&userId=34243&dughuUserId=34243 200 in 491ms (next.js: 3ms, application-code: 488ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2220/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2174&userId=34243&dughuUserId=34243 200 in 470ms (next.js: 1670µs, application-code: 469ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2170/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/messages/chats?userId=34243 200 in 1656ms (next.js: 2ms, application-code: 1654ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2179/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/pointsToday/34243 200 in 2.0s (next.js: 1176ms, application-code: 873ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2289/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2314&userId=34243&dughuUserId=34243 200 in 917ms (next.js: 1859µs, application-code: 915ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2180/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2220&userId=34243&dughuUserId=34243 200 in 637ms (next.js: 2ms, application-code: 634ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2238/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2170&userId=34243&dughuUserId=34243 200 in 468ms (next.js: 3ms, application-code: 466ms)
+ GET /api/comments?postId=2179&userId=34243&dughuUserId=34243 200 in 467ms (next.js: 3ms, application-code: 464ms)
+ GET /api/comments?postId=2289&userId=34243&dughuUserId=34243 200 in 447ms (next.js: 1819µs, application-code: 445ms)
+ GET /api/comments?postId=2182&userId=34243&dughuUserId=34243 200 in 3.0s (next.js: 3ms, application-code: 3.0s)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2182/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2180&userId=34243&dughuUserId=34243 200 in 446ms (next.js: 1958µs, application-code: 444ms)
+ GET /api/comments?postId=2238&userId=34243&dughuUserId=34243 200 in 484ms (next.js: 1759µs, application-code: 482ms)
+ GET /api/comments?postId=2182&userId=34243&dughuUserId=34243 200 in 478ms (next.js: 2ms, application-code: 476ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/messages/chats?userId=34243 200 in 1584ms (next.js: 1876µs, application-code: 1582ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/messages/chats?userId=34243 200 in 2.0s (next.js: 2ms, application-code: 2.0s)
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/messages/chats?userId=34243 200 in 1730ms (next.js: 2ms, application-code: 1728ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/messages/chats?userId=34243 200 in 1884ms (next.js: 12ms, application-code: 1873ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+○ Compiling /akwaplay ...
+ GET /api/messages/chats?userId=34243 200 in 2.6s (next.js: 56ms, application-code: 2.5s)
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/messages/chats?userId=34243 200 in 1613ms (next.js: 9ms, application-code: 1605ms)
+ GET /akwaplay 200 in 7.3s (next.js: 6.5s, proxy.ts: 683ms, application-code: 87ms)
+ GET /api/akwa_getAllVideos/34243?page=1 200 in 265ms
+ GET /api/akwa_getCategories 200 in 979ms (next.js: 457ms, application-code: 522ms)
+ GET /api/akwa_getCategories 200 in 494ms (next.js: 4ms, application-code: 489ms)
+ GET /api/akwa_getCategories 200 in 497ms (next.js: 3ms, application-code: 493ms)
+ GET /api/akwa_getAllVideos/34243?page=1 200 in 1950ms (next.js: 1003ms, application-code: 947ms)
+✓ Compiled in 1276ms
+✓ Compiled in 267ms
+✓ Compiled in 286ms
+✓ Compiled in 200ms
+✓ Compiled in 261ms
+✓ Compiled in 228ms
+✓ Compiled in 2.5s
+ GET /akwaplay 200 in 532ms (next.js: 138ms, proxy.ts: 145ms, application-code: 250ms)
+ GET /akwaplay 200 in 324ms (next.js: 6ms, proxy.ts: 37ms, application-code: 280ms)
+ GET /akwaplay 200 in 265ms (next.js: 54ms, proxy.ts: 19ms, application-code: 192ms)
+ GET /akwaplay 200 in 264ms (next.js: 91ms, proxy.ts: 19ms, application-code: 154ms)
+ GET /akwaplay 200 in 264ms (next.js: 122ms, proxy.ts: 22ms, application-code: 121ms)
+ GET /akwaplay 200 in 264ms (next.js: 145ms, proxy.ts: 22ms, application-code: 97ms)
+ GET /akwaplay 200 in 243ms (next.js: 5ms, proxy.ts: 205ms, application-code: 32ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/auth/me 200 in 1170ms (next.js: 43ms, application-code: 1126ms)
+ GET /api/akwa_getCategories 200 in 1347ms (next.js: 32ms, application-code: 1315ms)
+ GET /api/akwa_getAllVideos/34243?page=1 200 in 1456ms (next.js: 52ms, application-code: 1404ms)
+○ Compiling /points ...
+ GET /points 200 in 6.0s (next.js: 5.5s, proxy.ts: 120ms, application-code: 390ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] POST https://apitest.dughu.com/api/suggestPages?page=1 | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243
+[dughuFetch] POST https://apitest.dughu.com/api/suggestgroupes?page=1 | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243
+[dughuFetch] GET https://apitest.dughu.com/api/getHashtags | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getPopularPosts/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/pointsToday/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/auth/me 200 in 1816ms (next.js: 32ms, application-code: 1784ms)
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/photos?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/userFriends/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/videos?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/pointsToday/34243 200 in 1643ms (next.js: 109ms, application-code: 1535ms)
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/photos?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/userFriends/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/videos?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+DUGHU PHOTOS RAW: {"success":true,"message":"Liste des photos de l'utilisateur","result":{"current_page":1,"data":[{"post_id":2333,"postFile":"public/images/b18c24ee-d37a-4745-98b7-c68ac443abad.webp","time":1787950888,"postFileLink":"https://dughuprod.s3.amazonaws.com/public/images/b18c24ee-d37a-4745-98b7-c68ac443abad.webp"},{"post_id":2091,"postFile":"public/images/b5bf4a46-cca2-4a99-a518-26ecc1773825.webp","time":1786528107,"postFileLink":"https://dughuprod.s3.amazonaws.com/public/images/b5bf4a46-cca2-4a99-a518
+DUGHU PHOTOS RAW: {"success":true,"message":"Liste des photos de l'utilisateur","result":{"current_page":1,"data":[{"post_id":2333,"postFile":"public/images/b18c24ee-d37a-4745-98b7-c68ac443abad.webp","time":1787950888,"postFileLink":"https://dughuprod.s3.amazonaws.com/public/images/b18c24ee-d37a-4745-98b7-c68ac443abad.webp"},{"post_id":2091,"postFile":"public/images/b5bf4a46-cca2-4a99-a518-26ecc1773825.webp","time":1786528107,"postFileLink":"https://dughuprod.s3.amazonaws.com/public/images/b5bf4a46-cca2-4a99-a518
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/messages/chats?userId=34243 200 in 3.7s (next.js: 319ms, application-code: 3.4s)
+DUGHU VIDEOS RAW: {"success":true,"message":"Liste des vidéos de l'utilisateur","result":{"current_page":1,"data":[{"post_id":2089,"postFile":"upload/post/videos/6a7c3d8d4f0cd7.83193933.mp4","time":1786527117,"videoViews":15,"postFileLink":"https://dughuprod.s3.amazonaws.com/upload/post/videos/6a7c3d8d4f0cd7.83193933.mp4"},{"post_id":2088,"postFile":"upload/post/videos/6a7c3b0aad6a05.22311117.mp4","time":1786526474,"videoViews":16,"postFileLink":"https://dughuprod.s3.amazonaws.com/upload/post/videos/6a7c3b0aad6a0
+ GET /api/profile?userId=34243&slug=don-emilio&dughuUserId=34243 200 in 3.1s (next.js: 56ms, application-code: 3.1s)
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+DUGHU VIDEOS RAW: {"success":true,"message":"Liste des vidéos de l'utilisateur","result":{"current_page":1,"data":[{"post_id":2089,"postFile":"upload/post/videos/6a7c3d8d4f0cd7.83193933.mp4","time":1786527117,"videoViews":15,"postFileLink":"https://dughuprod.s3.amazonaws.com/upload/post/videos/6a7c3d8d4f0cd7.83193933.mp4"},{"post_id":2088,"postFile":"upload/post/videos/6a7c3b0aad6a05.22311117.mp4","time":1786526474,"videoViews":16,"postFileLink":"https://dughuprod.s3.amazonaws.com/upload/post/videos/6a7c3b0aad6a0
+ GET /api/pointsHistory?userId=34243&page=1 200 in 3.5s (next.js: 1074ms, application-code: 2.4s)
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/suggestions?userId=34243 200 in 6.6s (next.js: 385ms, application-code: 6.3s)
+[dughuFetch] POST https://apitest.dughu.com/api/suggestPages?page=1 | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243
+[dughuFetch] POST https://apitest.dughu.com/api/suggestgroupes?page=1 | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243
+[dughuFetch] GET https://apitest.dughu.com/api/getHashtags | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getPopularPosts/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/messages/chats?userId=34243 200 in 4.9s (next.js: 902ms, application-code: 4.0s)
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /akwaplay 200 in 5.2s (next.js: 268ms, proxy.ts: 505ms, application-code: 4.4s)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+✓ Finished writing to filesystem cache in 12.2s
+ GET /api/messages/chats?userId=34243 200 in 8.6s (next.js: 4.0s, application-code: 4.6s)
+ GET /api/akwa_getCategories 200 in 2.4s (next.js: 22ms, application-code: 2.4s)
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/suggestions?userId=34243 200 in 12.2s (next.js: 598ms, application-code: 11.6s)
+ GET /api/akwa_getCategories 200 in 796ms (next.js: 63ms, application-code: 732ms)
+ GET /api/akwa_getAllVideos/34243?page=1 200 in 1799ms (next.js: 319ms, application-code: 1480ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/akwa_getCategories 200 in 1023ms (next.js: 5ms, application-code: 1018ms)
+ GET /api/akwa_getAllVideos/34243?page=1 200 in 1535ms (next.js: 9ms, application-code: 1526ms)
+ GET /api/messages/chats?userId=34243 200 in 6.7s (next.js: 30ms, application-code: 6.7s)
+ GET /profile 200 in 2.1s (next.js: 2.1s, proxy.ts: 9ms, application-code: 81ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getFriendsStories?user_id=34243&per_page=20&page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/auth/me 200 in 911ms (next.js: 9ms, application-code: 902ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] POST https://apitest.dughu.com/api/suggestPages?page=1 | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243
+[dughuFetch] POST https://apitest.dughu.com/api/suggestgroupes?page=1 | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243
+[dughuFetch] GET https://apitest.dughu.com/api/getHashtags | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getPopularPosts/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getPostColors | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] POST https://apitest.dughu.com/api/userPost | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243&auth_user_id=34243&page=1
+ GET /api/auth/me 200 in 523ms (next.js: 12ms, application-code: 510ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getUserStories?user_id=34243&target_user_id=34243&per_page=50&page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getFriendsStories?user_id=34243&per_page=20&page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getUserStories?user_id=34243&target_user_id=34243&per_page=50&page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/colors 200 in 1306ms (next.js: 80ms, application-code: 1226ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getPostColors | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/shortsUser/34243?viewer_id=34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/posts?page=1&filter=all&userId=34243&dughuUserId=34243&authorId=34243 200 in 1583ms (next.js: 168ms, application-code: 1415ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[FLASH FRIENDS] userId=34243 users=0 stories=0 friendsKeys=[ 'success', 'message', 'authStories', 'stories', 'pagination' ]
+[FLASH FRIENDS RAW] {"success":true,"message":"🎉 Les flashs ont été chargées avec succès !","authStories":[],"stories":[],"pagination":{"current_page":1,"per_page":"20","has_more_pages":false}}
+ GET /api/stories/friends?userId=34243&page=1&perPage=20 200 in 2.9s (next.js: 99ms, application-code: 2.8s)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2345/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2333/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/capsules/user/34243?viewerId=34243 200 in 1667ms (next.js: 1071ms, application-code: 596ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2332/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/colors 200 in 790ms (next.js: 23ms, application-code: 767ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2314/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/messages/chats?userId=34243 200 in 2.4s (next.js: 7ms, application-code: 2.4s)
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2313/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2345&userId=34243&dughuUserId=34243 200 in 566ms (next.js: 70ms, application-code: 497ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2312/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2333&userId=34243&dughuUserId=34243 200 in 599ms (next.js: 86ms, application-code: 512ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2311/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2332&userId=34243&dughuUserId=34243 200 in 534ms (next.js: 8ms, application-code: 526ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2310/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2314&userId=34243&dughuUserId=34243 200 in 489ms (next.js: 4ms, application-code: 486ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2308/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2313&userId=34243&dughuUserId=34243 200 in 472ms (next.js: 5ms, application-code: 467ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2309/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2312&userId=34243&dughuUserId=34243 200 in 472ms (next.js: 3ms, application-code: 470ms)
+ GET /api/comments?postId=2311&userId=34243&dughuUserId=34243 200 in 520ms (next.js: 4ms, application-code: 516ms)
+ GET /akwaplay 200 in 77ms (next.js: 7ms, proxy.ts: 12ms, application-code: 59ms)
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2310&userId=34243&dughuUserId=34243 200 in 491ms (next.js: 4ms, application-code: 487ms)
+ GET /api/comments?postId=2308&userId=34243&dughuUserId=34243 200 in 495ms (next.js: 4ms, application-code: 491ms)
+ GET /api/comments?postId=2309&userId=34243&dughuUserId=34243 200 in 826ms (next.js: 4ms, application-code: 822ms)
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2345/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2333/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2332/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2314/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2313/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/suggestions?userId=34243 200 in 4.5s (next.js: 24ms, application-code: 4.5s)
+ GET /api/comments?postId=2332&userId=34243&dughuUserId=34243 200 in 535ms (next.js: 24ms, application-code: 511ms)
+ GET /api/comments?postId=2314&userId=34243&dughuUserId=34243 200 in 593ms (next.js: 43ms, application-code: 550ms)
+ GET /api/comments?postId=2313&userId=34243&dughuUserId=34243 200 in 678ms (next.js: 56ms, application-code: 622ms)
+ GET /api/comments?postId=2345&userId=34243&dughuUserId=34243 200 in 835ms (next.js: 5ms, application-code: 830ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2312/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2311/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2310/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2308/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getComments/2309/34243?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2333&userId=34243&dughuUserId=34243 200 in 1067ms (next.js: 13ms, application-code: 1054ms)
+ GET /api/comments?postId=2312&userId=34243&dughuUserId=34243 200 in 625ms (next.js: 11ms, application-code: 614ms)
+ GET /api/comments?postId=2311&userId=34243&dughuUserId=34243 200 in 628ms (next.js: 20ms, application-code: 608ms)
+[dughuFetch] POST https://apitest.dughu.com/api/suggestPages?page=1 | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243
+[dughuFetch] POST https://apitest.dughu.com/api/suggestgroupes?page=1 | hasToken:true | headers:accept,content-type,x-appapitoken | bodyPreview:user_id=34243
+[dughuFetch] GET https://apitest.dughu.com/api/getHashtags | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getPopularPosts/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getUserChats/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/comments?postId=2308&userId=34243&dughuUserId=34243 200 in 695ms (next.js: 40ms, application-code: 656ms)
+ GET /api/comments?postId=2309&userId=34243&dughuUserId=34243 200 in 698ms (next.js: 47ms, application-code: 652ms)
+ GET /akwaplay 200 in 647ms (next.js: 5ms, proxy.ts: 12ms, application-code: 630ms)
+ GET /api/comments?postId=2310&userId=34243&dughuUserId=34243 200 in 903ms (next.js: 28ms, application-code: 875ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/auth/me 200 in 542ms (next.js: 6ms, application-code: 537ms)
+ GET /api/akwa_getCategories 200 in 946ms (next.js: 14ms, application-code: 933ms)
+ GET /api/akwa_getAllVideos/34243?page=1 200 in 934ms (next.js: 23ms, application-code: 910ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34280/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/20/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/28341/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/7/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/15514/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34172/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34248/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/messages/chats?userId=34243 200 in 3.0s (next.js: 5ms, application-code: 3.0s)
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+[dughuFetch] GET https://apitest.dughu.com/api/profile/don-emilio/activites?page=1 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/suggestions?userId=34243 200 in 4.7s (next.js: 9ms, application-code: 4.7s)
+ GET /akwaplay 200 in 1091ms (next.js: 231ms, proxy.ts: 238ms, application-code: 622ms)
+ GET /akwaplay 200 in 361ms (next.js: 105ms, proxy.ts: 179ms, application-code: 77ms)
+ GET /akwaplay 200 in 84ms (next.js: 5ms, proxy.ts: 7ms, application-code: 72ms)
+ GET /akwaplay 200 in 39ms (next.js: 3ms, proxy.ts: 7ms, application-code: 29ms)
+ GET /akwaplay 200 in 213ms (next.js: 18ms, proxy.ts: 24ms, application-code: 171ms)
+ GET /akwaplay 200 in 212ms (next.js: 41ms, proxy.ts: 24ms, application-code: 147ms)
+ GET /akwaplay 200 in 211ms (next.js: 72ms, proxy.ts: 24ms, application-code: 116ms)
+ GET /akwaplay 200 in 210ms (next.js: 95ms, proxy.ts: 22ms, application-code: 93ms)
+ GET /akwaplay 200 in 207ms (next.js: 118ms, proxy.ts: 20ms, application-code: 69ms)
+ GET /akwaplay 200 in 208ms (next.js: 141ms, proxy.ts: 21ms, application-code: 46ms)
+ GET /akwaplay 200 in 184ms (next.js: 63ms, proxy.ts: 19ms, application-code: 103ms)
+ GET /akwaplay 200 in 188ms (next.js: 39ms, proxy.ts: 20ms, application-code: 129ms)
+ GET /akwaplay 200 in 188ms (next.js: 15ms, proxy.ts: 17ms, application-code: 155ms)
+ GET /akwaplay 200 in 181ms (next.js: 89ms, proxy.ts: 16ms, application-code: 76ms)
+ GET /akwaplay 200 in 185ms (next.js: 112ms, proxy.ts: 16ms, application-code: 57ms)
+ GET /akwaplay 200 in 200ms (next.js: 133ms, proxy.ts: 16ms, application-code: 52ms)
+ GET /akwaplay 200 in 202ms (next.js: 35ms, proxy.ts: 20ms, application-code: 147ms)
+ GET /akwaplay 200 in 205ms (next.js: 12ms, proxy.ts: 20ms, application-code: 172ms)
+ GET /akwaplay 200 in 204ms (next.js: 59ms, proxy.ts: 21ms, application-code: 124ms)
+ GET /akwaplay 200 in 204ms (next.js: 88ms, proxy.ts: 20ms, application-code: 96ms)
+ GET /akwaplay 200 in 212ms (next.js: 114ms, proxy.ts: 19ms, application-code: 78ms)
+ GET /akwaplay 200 in 206ms (next.js: 38ms, proxy.ts: 114ms, application-code: 55ms)
+ GET /akwaplay 200 in 207ms (next.js: 15ms, proxy.ts: 18ms, application-code: 173ms)
+ GET /akwaplay 200 in 210ms (next.js: 40ms, proxy.ts: 19ms, application-code: 151ms)
+ GET /akwaplay 200 in 207ms (next.js: 68ms, proxy.ts: 17ms, application-code: 122ms)
+ GET /akwaplay 200 in 209ms (next.js: 93ms, proxy.ts: 17ms, application-code: 99ms)
+ GET /akwaplay 200 in 202ms (next.js: 32ms, proxy.ts: 94ms, application-code: 76ms)
+ GET /akwaplay 200 in 182ms (next.js: 37ms, proxy.ts: 90ms, application-code: 55ms)
+ GET /akwaplay 200 in 225ms (next.js: 15ms, proxy.ts: 15ms, application-code: 195ms)
+ GET /akwaplay 200 in 223ms (next.js: 67ms, proxy.ts: 15ms, application-code: 140ms)
+ GET /akwaplay 200 in 227ms (next.js: 43ms, proxy.ts: 15ms, application-code: 169ms)
+ GET /akwaplay 200 in 226ms (next.js: 73ms, proxy.ts: 43ms, application-code: 109ms)
+ GET /akwaplay 200 in 225ms (next.js: 35ms, proxy.ts: 100ms, application-code: 90ms)
+ GET /akwaplay 200 in 200ms (next.js: 35ms, proxy.ts: 98ms, application-code: 66ms)
+ GET /akwaplay 200 in 201ms (next.js: 17ms, proxy.ts: 15ms, application-code: 169ms)
+ GET /akwaplay 200 in 198ms (next.js: 45ms, proxy.ts: 17ms, application-code: 136ms)
+ GET /akwaplay 200 in 198ms (next.js: 65ms, proxy.ts: 20ms, application-code: 113ms)
+ GET /akwaplay 200 in 194ms (next.js: 62ms, proxy.ts: 46ms, application-code: 87ms)
+ GET /akwaplay 200 in 163ms (next.js: 36ms, proxy.ts: 61ms, application-code: 67ms)
+ GET /akwaplay 200 in 178ms (next.js: 28ms, proxy.ts: 60ms, application-code: 90ms)
+ GET /akwaplay 200 in 255ms (next.js: 21ms, proxy.ts: 12ms, application-code: 222ms)
+ GET /akwaplay 200 in 252ms (next.js: 52ms, proxy.ts: 13ms, application-code: 187ms)
+ GET /akwaplay 200 in 250ms (next.js: 119ms, proxy.ts: 19ms, application-code: 113ms)
+ GET /akwaplay 200 in 244ms (next.js: 34ms, proxy.ts: 119ms, application-code: 91ms)
+ GET /akwaplay 200 in 239ms (next.js: 54ms, proxy.ts: 116ms, application-code: 70ms)
+ GET /akwaplay 200 in 170ms (next.js: 35ms, proxy.ts: 54ms, application-code: 81ms)
+ GET /akwaplay 200 in 184ms (next.js: 12ms, proxy.ts: 16ms, application-code: 156ms)
+ GET /akwaplay 200 in 183ms (next.js: 34ms, proxy.ts: 18ms, application-code: 131ms)
+ GET /akwaplay 200 in 182ms (next.js: 54ms, proxy.ts: 18ms, application-code: 110ms)
+ GET /akwaplay 200 in 174ms (next.js: 59ms, proxy.ts: 55ms, application-code: 61ms)
+ GET /akwaplay 200 in 179ms (next.js: 61ms, proxy.ts: 33ms, application-code: 86ms)
+ GET /akwaplay 200 in 139ms (next.js: 3ms, proxy.ts: 57ms, application-code: 79ms)
+ GET /akwaplay 200 in 206ms (next.js: 18ms, proxy.ts: 11ms, application-code: 177ms)
+ GET /akwaplay 200 in 206ms (next.js: 41ms, proxy.ts: 13ms, application-code: 152ms)
+ GET /akwaplay 200 in 205ms (next.js: 58ms, proxy.ts: 18ms, application-code: 129ms)
+ GET /akwaplay 200 in 200ms (next.js: 55ms, proxy.ts: 38ms, application-code: 106ms)
+ GET /akwaplay 200 in 195ms (next.js: 59ms, proxy.ts: 59ms, application-code: 78ms)
+ GET /akwaplay 200 in 184ms (next.js: 4ms, proxy.ts: 76ms, application-code: 104ms)
+ GET /akwaplay 200 in 180ms (next.js: 12ms, proxy.ts: 15ms, application-code: 152ms)
+ GET /akwaplay 200 in 178ms (next.js: 33ms, proxy.ts: 15ms, application-code: 130ms)
+ GET /akwaplay 200 in 176ms (next.js: 58ms, proxy.ts: 14ms, application-code: 104ms)
+ GET /akwaplay 200 in 173ms (next.js: 79ms, proxy.ts: 12ms, application-code: 82ms)
+ GET /akwaplay 200 in 173ms (next.js: 98ms, proxy.ts: 12ms, application-code: 63ms)
+ GET /akwaplay 200 in 104ms (next.js: 7ms, proxy.ts: 6ms, application-code: 92ms)
+ GET /akwaplay 200 in 157ms (next.js: 10ms, proxy.ts: 13ms, application-code: 134ms)
+ GET /akwaplay 200 in 160ms (next.js: 29ms, proxy.ts: 13ms, application-code: 118ms)
+ GET /akwaplay 200 in 157ms (next.js: 89ms, proxy.ts: 11ms, application-code: 57ms)
+ GET /akwaplay 200 in 161ms (next.js: 49ms, proxy.ts: 12ms, application-code: 100ms)
+ GET /akwaplay 200 in 159ms (next.js: 70ms, proxy.ts: 12ms, application-code: 78ms)
+ GET /akwaplay 200 in 157ms (next.js: 3ms, proxy.ts: 4ms, application-code: 150ms)
+ GET /akwaplay 200 in 132ms (next.js: 11ms, proxy.ts: 12ms, application-code: 108ms)
+ GET /akwaplay 200 in 128ms (next.js: 26ms, proxy.ts: 12ms, application-code: 90ms)
+ GET /akwaplay 200 in 146ms (next.js: 84ms, proxy.ts: 11ms, application-code: 52ms)
+ GET /akwaplay 200 in 148ms (next.js: 61ms, proxy.ts: 11ms, application-code: 76ms)
+ GET /akwaplay 200 in 150ms (next.js: 43ms, proxy.ts: 11ms, application-code: 95ms)
+ GET /akwaplay 200 in 143ms (next.js: 4ms, proxy.ts: 4ms, application-code: 134ms)
+ GET /akwaplay 200 in 147ms (next.js: 10ms, proxy.ts: 10ms, application-code: 127ms)
+ GET /akwaplay 200 in 147ms (next.js: 28ms, proxy.ts: 10ms, application-code: 109ms)
+ GET /akwaplay 200 in 164ms (next.js: 26ms, proxy.ts: 56ms, application-code: 81ms)
+ GET /akwaplay 200 in 166ms (next.js: 7ms, proxy.ts: 56ms, application-code: 103ms)
+ GET /akwaplay 200 in 167ms (next.js: 46ms, proxy.ts: 57ms, application-code: 65ms)
+ GET /akwaplay 200 in 146ms (next.js: 8ms, proxy.ts: 5ms, application-code: 133ms)
+ GET /akwaplay 200 in 167ms (next.js: 31ms, proxy.ts: 28ms, application-code: 108ms)
+ GET /akwaplay 200 in 169ms (next.js: 10ms, proxy.ts: 28ms, application-code: 131ms)
+ GET /akwaplay 200 in 181ms (next.js: 7ms, proxy.ts: 55ms, application-code: 119ms)
+ GET /akwaplay 200 in 179ms (next.js: 24ms, proxy.ts: 55ms, application-code: 101ms)
+ GET /akwaplay 200 in 140ms (next.js: 47ms, proxy.ts: 12ms, application-code: 81ms)
+ GET /akwaplay 200 in 161ms (next.js: 8ms, proxy.ts: 8ms, application-code: 145ms)
+ GET /akwaplay 200 in 176ms (next.js: 11ms, proxy.ts: 44ms, application-code: 120ms)
+ GET /akwaplay 200 in 146ms (next.js: 32ms, proxy.ts: 16ms, application-code: 98ms)
+ GET /akwaplay 200 in 157ms (next.js: 7ms, proxy.ts: 50ms, application-code: 100ms)
+ GET /akwaplay 200 in 158ms (next.js: 25ms, proxy.ts: 50ms, application-code: 84ms)
+ GET /akwaplay 200 in 138ms (next.js: 47ms, proxy.ts: 28ms, application-code: 63ms)
+ GET /akwaplay 200 in 142ms (next.js: 7ms, proxy.ts: 4ms, application-code: 132ms)
+ GET /akwaplay 200 in 238ms (next.js: 11ms, proxy.ts: 29ms, application-code: 199ms)
+ GET /akwaplay 200 in 221ms (next.js: 32ms, proxy.ts: 10ms, application-code: 179ms)
+ GET /akwaplay 200 in 240ms (next.js: 11ms, proxy.ts: 61ms, application-code: 168ms)
+ GET /akwaplay 200 in 219ms (next.js: 37ms, proxy.ts: 40ms, application-code: 142ms)
+ GET /akwaplay 200 in 218ms (next.js: 61ms, proxy.ts: 40ms, application-code: 117ms)
+ GET /akwaplay 200 in 175ms (next.js: 7ms, proxy.ts: 5ms, application-code: 162ms)
+ GET /akwaplay 200 in 171ms (next.js: 9ms, proxy.ts: 31ms, application-code: 131ms)
+ GET /akwaplay 200 in 149ms (next.js: 34ms, proxy.ts: 9ms, application-code: 106ms)
+ GET /akwaplay 200 in 169ms (next.js: 7ms, proxy.ts: 53ms, application-code: 109ms)
+ GET /akwaplay 200 in 152ms (next.js: 30ms, proxy.ts: 30ms, application-code: 92ms)
+ GET /akwaplay 200 in 152ms (next.js: 51ms, proxy.ts: 30ms, application-code: 71ms)
+ GET /akwaplay 200 in 176ms (next.js: 8ms, proxy.ts: 8ms, application-code: 161ms)
+ GET /akwaplay 200 in 174ms (next.js: 37ms, proxy.ts: 9ms, application-code: 129ms)
+ GET /akwaplay 200 in 173ms (next.js: 32ms, proxy.ts: 35ms, application-code: 106ms)
+ GET /akwaplay 200 in 125ms (next.js: 6ms, proxy.ts: 30ms, application-code: 89ms)
+ GET /akwaplay 200 in 148ms (next.js: 26ms, proxy.ts: 29ms, application-code: 93ms)
+ GET /akwaplay 200 in 148ms (next.js: 46ms, proxy.ts: 29ms, application-code: 73ms)
+ GET /akwaplay 200 in 175ms (next.js: 8ms, proxy.ts: 10ms, application-code: 157ms)
+ GET /akwaplay 200 in 173ms (next.js: 33ms, proxy.ts: 10ms, application-code: 130ms)
+ GET /akwaplay 200 in 168ms (next.js: 37ms, proxy.ts: 30ms, application-code: 102ms)
+ GET /akwaplay 200 in 148ms (next.js: 10ms, proxy.ts: 55ms, application-code: 83ms)
+ GET /akwaplay 200 in 127ms (next.js: 26ms, proxy.ts: 35ms, application-code: 65ms)
+ GET /akwaplay 200 in 125ms (next.js: 45ms, proxy.ts: 32ms, application-code: 48ms)
+ GET /akwaplay 200 in 156ms (next.js: 10ms, proxy.ts: 10ms, application-code: 136ms)
+ GET /akwaplay 200 in 156ms (next.js: 31ms, proxy.ts: 9ms, application-code: 115ms)
+ GET /akwaplay 200 in 155ms (next.js: 52ms, proxy.ts: 9ms, application-code: 94ms)
+ GET /akwaplay 200 in 135ms (next.js: 6ms, proxy.ts: 52ms, application-code: 77ms)
+ GET /akwaplay 200 in 135ms (next.js: 25ms, proxy.ts: 52ms, application-code: 58ms)
+ GET /akwaplay 200 in 135ms (next.js: 44ms, proxy.ts: 30ms, application-code: 61ms)
+ GET /akwaplay 200 in 151ms (next.js: 12ms, proxy.ts: 8ms, application-code: 132ms)
+ GET /akwaplay 200 in 151ms (next.js: 33ms, proxy.ts: 8ms, application-code: 109ms)
+ GET /akwaplay 200 in 149ms (next.js: 45ms, proxy.ts: 12ms, application-code: 92ms)
+ GET /akwaplay 200 in 126ms (next.js: 11ms, proxy.ts: 44ms, application-code: 71ms)
+ GET /akwaplay 200 in 127ms (next.js: 30ms, proxy.ts: 45ms, application-code: 52ms)
+ GET /akwaplay 200 in 91ms (next.js: 45ms, proxy.ts: 8ms, application-code: 37ms)
+ GET /akwaplay 200 in 148ms (next.js: 31ms, proxy.ts: 8ms, application-code: 109ms)
+ GET /akwaplay 200 in 150ms (next.js: 12ms, proxy.ts: 7ms, application-code: 131ms)
+ GET /akwaplay 200 in 148ms (next.js: 47ms, proxy.ts: 8ms, application-code: 92ms)
+ GET /akwaplay 200 in 144ms (next.js: 7ms, proxy.ts: 65ms, application-code: 73ms)
+ GET /akwaplay 200 in 146ms (next.js: 23ms, proxy.ts: 66ms, application-code: 57ms)
+ GET /akwaplay 200 in 91ms (next.js: 45ms, proxy.ts: 7ms, application-code: 39ms)
+ GET /akwaplay 200 in 140ms (next.js: 26ms, proxy.ts: 7ms, application-code: 106ms)
+ GET /akwaplay 200 in 142ms (next.js: 11ms, proxy.ts: 7ms, application-code: 124ms)
+ GET /akwaplay 200 in 141ms (next.js: 42ms, proxy.ts: 7ms, application-code: 91ms)
+ GET /akwaplay 200 in 141ms (next.js: 6ms, proxy.ts: 63ms, application-code: 71ms)
+ GET /akwaplay 200 in 142ms (next.js: 24ms, proxy.ts: 63ms, application-code: 54ms)
+ GET /akwaplay 200 in 105ms (next.js: 38ms, proxy.ts: 6ms, application-code: 61ms)
+ GET /akwaplay 200 in 141ms (next.js: 10ms, proxy.ts: 10ms, application-code: 122ms)
+ GET /akwaplay 200 in 136ms (next.js: 43ms, proxy.ts: 8ms, application-code: 85ms)
+ GET /akwaplay 200 in 137ms (next.js: 27ms, proxy.ts: 8ms, application-code: 103ms)
+ GET /akwaplay 200 in 134ms (next.js: 7ms, proxy.ts: 65ms, application-code: 62ms)
+ GET /akwaplay 200 in 114ms (next.js: 22ms, proxy.ts: 46ms, application-code: 46ms)
+ GET /akwaplay 200 in 82ms (next.js: 38ms, proxy.ts: 7ms, application-code: 37ms)
+ GET /akwaplay 200 in 145ms (next.js: 29ms, proxy.ts: 16ms, application-code: 101ms)
+ GET /akwaplay 200 in 148ms (next.js: 15ms, proxy.ts: 14ms, application-code: 119ms)
+ GET /akwaplay 200 in 145ms (next.js: 45ms, proxy.ts: 17ms, application-code: 83ms)
+ GET /akwaplay 200 in 130ms (next.js: 28ms, proxy.ts: 44ms, application-code: 58ms)
+ GET /akwaplay 200 in 129ms (next.js: 26ms, proxy.ts: 62ms, application-code: 41ms)
+ GET /akwaplay 200 in 125ms (next.js: 43ms, proxy.ts: 59ms, application-code: 23ms)
+ GET /akwaplay 200 in 141ms (next.js: 13ms, proxy.ts: 12ms, application-code: 115ms)
+ GET /akwaplay 200 in 141ms (next.js: 31ms, proxy.ts: 12ms, application-code: 97ms)
+ GET /akwaplay 200 in 138ms (next.js: 44ms, proxy.ts: 15ms, application-code: 79ms)
+ GET /akwaplay 200 in 137ms (next.js: 61ms, proxy.ts: 14ms, application-code: 61ms)
+ GET /akwaplay 200 in 136ms (next.js: 99ms, proxy.ts: 15ms, application-code: 23ms)
+ GET /akwaplay 200 in 137ms (next.js: 78ms, proxy.ts: 15ms, application-code: 44ms)
+ GET /akwaplay 200 in 145ms (next.js: 10ms, proxy.ts: 11ms, application-code: 123ms)
+ GET /akwaplay 200 in 145ms (next.js: 27ms, proxy.ts: 13ms, application-code: 106ms)
+ GET /akwaplay 200 in 140ms (next.js: 66ms, proxy.ts: 11ms, application-code: 64ms)
+ GET /akwaplay 200 in 141ms (next.js: 83ms, proxy.ts: 11ms, application-code: 47ms)
+ GET /akwaplay 200 in 143ms (next.js: 101ms, proxy.ts: 11ms, application-code: 32ms)
+ GET /akwaplay 200 in 148ms (next.js: 50ms, proxy.ts: 12ms, application-code: 87ms)
+ GET /akwaplay 200 in 147ms (next.js: 12ms, proxy.ts: 13ms, application-code: 122ms)
+ GET /akwaplay 200 in 142ms (next.js: 28ms, proxy.ts: 11ms, application-code: 102ms)
+ GET /akwaplay 200 in 142ms (next.js: 46ms, proxy.ts: 12ms, application-code: 84ms)
+ GET /akwaplay 200 in 138ms (next.js: 87ms, proxy.ts: 10ms, application-code: 42ms)
+ GET /akwaplay 200 in 143ms (next.js: 64ms, proxy.ts: 11ms, application-code: 68ms)
+ GET /akwaplay 200 in 143ms (next.js: 86ms, proxy.ts: 29ms, application-code: 28ms)
+ GET /akwaplay 200 in 153ms (next.js: 15ms, proxy.ts: 11ms, application-code: 127ms)
+ GET /akwaplay 200 in 153ms (next.js: 32ms, proxy.ts: 11ms, application-code: 109ms)
+ GET /akwaplay 200 in 150ms (next.js: 52ms, proxy.ts: 12ms, application-code: 86ms)
+ GET /akwaplay 200 in 150ms (next.js: 71ms, proxy.ts: 11ms, application-code: 68ms)
+ GET /akwaplay 200 in 148ms (next.js: 66ms, proxy.ts: 53ms, application-code: 29ms)
+ GET /akwaplay 200 in 152ms (next.js: 45ms, proxy.ts: 53ms, application-code: 54ms)
+ GET /akwaplay 200 in 150ms (next.js: 12ms, proxy.ts: 10ms, application-code: 129ms)
+ GET /akwaplay 200 in 149ms (next.js: 30ms, proxy.ts: 11ms, application-code: 107ms)
+ GET /akwaplay 200 in 149ms (next.js: 50ms, proxy.ts: 13ms, application-code: 86ms)
+ GET /akwaplay 200 in 146ms (next.js: 48ms, proxy.ts: 30ms, application-code: 69ms)
+ GET /akwaplay 200 in 147ms (next.js: 81ms, proxy.ts: 27ms, application-code: 39ms)
+ GET /akwaplay 200 in 150ms (next.js: 64ms, proxy.ts: 27ms, application-code: 59ms)
+ GET /akwaplay 200 in 157ms (next.js: 13ms, proxy.ts: 10ms, application-code: 135ms)
+ GET /akwaplay 200 in 153ms (next.js: 30ms, proxy.ts: 12ms, application-code: 111ms)
+ GET /akwaplay 200 in 153ms (next.js: 48ms, proxy.ts: 14ms, application-code: 91ms)
+ GET /akwaplay 200 in 151ms (next.js: 45ms, proxy.ts: 31ms, application-code: 75ms)
+ GET /akwaplay 200 in 150ms (next.js: 49ms, proxy.ts: 47ms, application-code: 54ms)
+ GET /akwaplay 200 in 158ms (next.js: 71ms, proxy.ts: 46ms, application-code: 41ms)
+ GET /akwaplay 200 in 150ms (next.js: 48ms, proxy.ts: 20ms, application-code: 82ms)
+ GET /akwaplay 200 in 153ms (next.js: 14ms, proxy.ts: 20ms, application-code: 118ms)
+ GET /akwaplay 200 in 152ms (next.js: 31ms, proxy.ts: 20ms, application-code: 101ms)
+ GET /akwaplay 200 in 152ms (next.js: 65ms, proxy.ts: 21ms, application-code: 66ms)
+ GET /akwaplay 200 in 140ms (next.js: 26ms, proxy.ts: 66ms, application-code: 48ms)
+ GET /akwaplay 200 in 139ms (next.js: 43ms, proxy.ts: 66ms, application-code: 30ms)
+ GET /akwaplay 200 in 143ms (next.js: 11ms, proxy.ts: 9ms, application-code: 123ms)
+ GET /akwaplay 200 in 143ms (next.js: 29ms, proxy.ts: 10ms, application-code: 104ms)
+ GET /akwaplay 200 in 145ms (next.js: 50ms, proxy.ts: 11ms, application-code: 84ms)
+ GET /akwaplay 200 in 142ms (next.js: 47ms, proxy.ts: 29ms, application-code: 67ms)
+ GET /akwaplay 200 in 139ms (next.js: 40ms, proxy.ts: 47ms, application-code: 52ms)
+ GET /akwaplay 200 in 143ms (next.js: 39ms, proxy.ts: 66ms, application-code: 38ms)
+ GET /akwaplay 200 in 138ms (next.js: 11ms, proxy.ts: 8ms, application-code: 120ms)
+ GET /akwaplay 200 in 137ms (next.js: 28ms, proxy.ts: 9ms, application-code: 101ms)
+ GET /akwaplay 200 in 134ms (next.js: 43ms, proxy.ts: 10ms, application-code: 80ms)
+ GET /akwaplay 200 in 134ms (next.js: 28ms, proxy.ts: 45ms, application-code: 60ms)
+ GET /akwaplay 200 in 112ms (next.js: 26ms, proxy.ts: 41ms, application-code: 44ms)
+ GET /akwaplay 200 in 112ms (next.js: 42ms, proxy.ts: 41ms, application-code: 30ms)
+ GET /akwaplay 200 in 144ms (next.js: 30ms, proxy.ts: 13ms, application-code: 102ms)
+ GET /akwaplay 200 in 147ms (next.js: 15ms, proxy.ts: 13ms, application-code: 119ms)
+ GET /akwaplay 200 in 144ms (next.js: 43ms, proxy.ts: 18ms, application-code: 83ms)
+ GET /akwaplay 200 in 137ms (next.js: 59ms, proxy.ts: 15ms, application-code: 64ms)
+ GET /akwaplay 200 in 134ms (next.js: 41ms, proxy.ts: 47ms, application-code: 46ms)
+ GET /akwaplay 200 in 131ms (next.js: 64ms, proxy.ts: 44ms, application-code: 22ms)
+ GET /akwaplay 200 in 136ms (next.js: 25ms, proxy.ts: 12ms, application-code: 98ms)
+ GET /akwaplay 200 in 138ms (next.js: 10ms, proxy.ts: 12ms, application-code: 116ms)
+ GET /akwaplay 200 in 134ms (next.js: 46ms, proxy.ts: 11ms, application-code: 76ms)
+ GET /akwaplay 200 in 133ms (next.js: 63ms, proxy.ts: 10ms, application-code: 59ms)
+ GET /akwaplay 200 in 134ms (next.js: 79ms, proxy.ts: 10ms, application-code: 45ms)
+ GET /akwaplay 200 in 137ms (next.js: 96ms, proxy.ts: 10ms, application-code: 30ms)
+ GET /akwaplay 200 in 134ms (next.js: 10ms, proxy.ts: 11ms, application-code: 113ms)
+ GET /akwaplay 200 in 132ms (next.js: 26ms, proxy.ts: 12ms, application-code: 94ms)
+ GET /akwaplay 200 in 131ms (next.js: 42ms, proxy.ts: 11ms, application-code: 78ms)
+ GET /akwaplay 200 in 130ms (next.js: 58ms, proxy.ts: 12ms, application-code: 60ms)
+ GET /akwaplay 200 in 128ms (next.js: 79ms, proxy.ts: 11ms, application-code: 38ms)
+ GET /akwaplay 200 in 125ms (next.js: 78ms, proxy.ts: 27ms, application-code: 21ms)
+ GET /akwaplay 200 in 613ms (next.js: 42ms, proxy.ts: 13ms, application-code: 559ms)
+ GET /akwaplay 200 in 710ms (next.js: 412ms, proxy.ts: 14ms, application-code: 284ms)
+ GET /akwaplay 200 in 712ms (next.js: 488ms, proxy.ts: 13ms, application-code: 211ms)
+ GET /akwaplay 200 in 709ms (next.js: 456ms, proxy.ts: 14ms, application-code: 239ms)
+ GET /akwaplay 200 in 741ms (next.js: 505ms, proxy.ts: 39ms, application-code: 196ms)
+ GET /akwaplay 200 in 743ms (next.js: 535ms, proxy.ts: 39ms, application-code: 169ms)
+ GET /akwaplay 200 in 293ms (next.js: 22ms, proxy.ts: 89ms, application-code: 182ms)
+ GET /akwaplay 200 in 190ms (next.js: 34ms, proxy.ts: 39ms, application-code: 117ms)
+ GET /akwaplay 200 in 194ms (next.js: 12ms, proxy.ts: 40ms, application-code: 142ms)
+ GET /akwaplay 200 in 191ms (next.js: 60ms, proxy.ts: 39ms, application-code: 93ms)
+ GET /akwaplay 200 in 166ms (next.js: 7ms, proxy.ts: 90ms, application-code: 69ms)
+ GET /akwaplay 200 in 166ms (next.js: 28ms, proxy.ts: 91ms, application-code: 47ms)
+ GET /akwaplay 200 in 226ms (next.js: 13ms, proxy.ts: 12ms, application-code: 202ms)
+ GET /akwaplay 200 in 221ms (next.js: 48ms, proxy.ts: 14ms, application-code: 159ms)
+ GET /akwaplay 200 in 220ms (next.js: 70ms, proxy.ts: 45ms, application-code: 105ms)
+ GET /akwaplay 200 in 222ms (next.js: 50ms, proxy.ts: 39ms, application-code: 132ms)
+ GET /akwaplay 200 in 182ms (next.js: 61ms, proxy.ts: 40ms, application-code: 81ms)
+ GET /akwaplay 200 in 192ms (next.js: 35ms, proxy.ts: 93ms, application-code: 64ms)
+ GET /akwaplay 200 in 231ms (next.js: 16ms, proxy.ts: 15ms, application-code: 200ms)
+ GET /akwaplay 200 in 229ms (next.js: 48ms, proxy.ts: 16ms, application-code: 166ms)
+ GET /akwaplay 200 in 232ms (next.js: 83ms, proxy.ts: 17ms, application-code: 132ms)
+ GET /akwaplay 200 in 232ms (next.js: 117ms, proxy.ts: 16ms, application-code: 99ms)
+ GET /akwaplay 200 in 232ms (next.js: 71ms, proxy.ts: 83ms, application-code: 79ms)
+ GET /akwaplay 200 in 204ms (next.js: 31ms, proxy.ts: 114ms, application-code: 59ms)
+ GET /akwaplay 200 in 215ms (next.js: 17ms, proxy.ts: 15ms, application-code: 183ms)
+ GET /akwaplay 200 in 211ms (next.js: 41ms, proxy.ts: 13ms, application-code: 157ms)
+ GET /akwaplay 200 in 211ms (next.js: 66ms, proxy.ts: 15ms, application-code: 130ms)
+ GET /akwaplay 200 in 212ms (next.js: 92ms, proxy.ts: 15ms, application-code: 104ms)
+ GET /akwaplay 200 in 208ms (next.js: 69ms, proxy.ts: 62ms, application-code: 78ms)
+ GET /akwaplay 200 in 186ms (next.js: 31ms, proxy.ts: 71ms, application-code: 85ms)
+ GET /akwaplay 200 in 210ms (next.js: 15ms, proxy.ts: 13ms, application-code: 182ms)
+ GET /akwaplay 200 in 205ms (next.js: 46ms, proxy.ts: 15ms, application-code: 144ms)
+ GET /akwaplay 200 in 201ms (next.js: 43ms, proxy.ts: 41ms, application-code: 117ms)
+ GET /akwaplay 200 in 202ms (next.js: 64ms, proxy.ts: 41ms, application-code: 97ms)
+ GET /akwaplay 200 in 200ms (next.js: 5ms, proxy.ts: 84ms, application-code: 110ms)
+ GET /akwaplay 200 in 210ms (next.js: 33ms, proxy.ts: 89ms, application-code: 88ms)
+ GET /akwaplay 200 in 187ms (next.js: 12ms, proxy.ts: 11ms, application-code: 164ms)
+ GET /akwaplay 200 in 181ms (next.js: 35ms, proxy.ts: 13ms, application-code: 133ms)
+ GET /akwaplay 200 in 180ms (next.js: 33ms, proxy.ts: 37ms, application-code: 110ms)
+ GET /akwaplay 200 in 183ms (next.js: 64ms, proxy.ts: 36ms, application-code: 83ms)
+ GET /akwaplay 200 in 133ms (next.js: 5ms, proxy.ts: 35ms, application-code: 93ms)
+ GET /akwaplay 200 in 168ms (next.js: 25ms, proxy.ts: 30ms, application-code: 113ms)
+ GET /akwaplay 200 in 131ms (next.js: 11ms, proxy.ts: 16ms, application-code: 105ms)
+ GET /akwaplay 200 in 127ms (next.js: 32ms, proxy.ts: 16ms, application-code: 79ms)
+ GET /akwaplay 200 in 123ms (next.js: 69ms, proxy.ts: 12ms, application-code: 42ms)
+ GET /akwaplay 200 in 726ms (next.js: 352ms, proxy.ts: 32ms, application-code: 342ms)
+ GET /akwaplay 200 in 300ms (next.js: 50ms, proxy.ts: 112ms, application-code: 138ms)
+ GET /akwaplay 200 in 622ms (next.js: 28ms, proxy.ts: 423ms, application-code: 171ms)
+ GET /akwaplay 200 in 298ms (next.js: 119ms, proxy.ts: 112ms, application-code: 67ms)
+ GET /akwaplay 200 in 302ms (next.js: 82ms, proxy.ts: 113ms, application-code: 107ms)
+ GET /akwaplay 200 in 302ms (next.js: 149ms, proxy.ts: 113ms, application-code: 39ms)
+ GET /akwaplay 200 in 235ms (next.js: 16ms, proxy.ts: 35ms, application-code: 184ms)
+ GET /akwaplay 200 in 230ms (next.js: 63ms, proxy.ts: 35ms, application-code: 132ms)
+ GET /akwaplay 200 in 230ms (next.js: 87ms, proxy.ts: 36ms, application-code: 107ms)
+ GET /akwaplay 200 in 235ms (next.js: 37ms, proxy.ts: 35ms, application-code: 163ms)
+ GET /akwaplay 200 in 225ms (next.js: 110ms, proxy.ts: 31ms, application-code: 84ms)
+ GET /akwaplay 200 in 217ms (next.js: 163ms, proxy.ts: 18ms, application-code: 36ms)
+ GET /akwaplay 200 in 3.2s (next.js: 35ms, proxy.ts: 16ms, application-code: 3.1s)
+ GET /akwaplay 200 in 3.2s (next.js: 13ms, proxy.ts: 16ms, application-code: 3.2s)
+ GET /akwaplay 200 in 3.2s (next.js: 1071ms, proxy.ts: 18ms, application-code: 2.1s)
+ GET /akwaplay 200 in 3.2s (next.js: 1100ms, proxy.ts: 16ms, application-code: 2.1s)
+ GET /akwaplay 200 in 3.2s (next.js: 1118ms, proxy.ts: 17ms, application-code: 2.1s)
+ GET /akwaplay 200 in 3.2s (next.js: 2.1s, proxy.ts: 1070ms, application-code: 23ms)
+ GET /akwaplay 200 in 2.1s (next.js: 38ms, proxy.ts: 9ms, application-code: 2.1s)
+ GET /akwaplay 200 in 2.1s (next.js: 23ms, proxy.ts: 9ms, application-code: 2.1s)
+ GET /akwaplay 200 in 2.1s (next.js: 8ms, proxy.ts: 9ms, application-code: 2.1s)
+ GET /akwaplay 200 in 2.1s (next.js: 2.1s, proxy.ts: 9ms, application-code: 52ms)
+ GET /akwaplay 200 in 2.1s (next.js: 2.1s, proxy.ts: 9ms, application-code: 19ms)
+ GET /akwaplay 200 in 2.1s (next.js: 2.1s, proxy.ts: 9ms, application-code: 35ms)
+ GET /akwaplay 200 in 1491ms (next.js: 22ms, proxy.ts: 10ms, application-code: 1459ms)
+ GET /akwaplay 200 in 1493ms (next.js: 8ms, proxy.ts: 9ms, application-code: 1476ms)
+ GET /akwaplay 200 in 1492ms (next.js: 51ms, proxy.ts: 10ms, application-code: 1432ms)
+ GET /akwaplay 200 in 1493ms (next.js: 35ms, proxy.ts: 10ms, application-code: 1448ms)
+ GET /akwaplay 200 in 1492ms (next.js: 1426ms, proxy.ts: 10ms, application-code: 57ms)
+ GET /akwaplay 200 in 1493ms (next.js: 1454ms, proxy.ts: 10ms, application-code: 29ms)
+✓ Finished writing to filesystem cache in 47s
+ GET /akwaplay 200 in 44s (next.js: 44s, proxy.ts: 18ms, application-code: 149ms)
+ GET /akwaplay 200 in 44s (next.js: 44s, proxy.ts: 18ms, application-code: 105ms)
+ GET /akwaplay 200 in 44s (next.js: 44s, proxy.ts: 18ms, application-code: 48ms)
+ GET /akwaplay 200 in 44s (next.js: 44s, proxy.ts: 18ms, application-code: 66ms)
+ GET /akwaplay 200 in 44s (next.js: 44s, proxy.ts: 18ms, application-code: 24ms)
+ GET /akwaplay 200 in 44s (next.js: 44s, proxy.ts: 18ms, application-code: 85ms)
+ GET /akwaplay 200 in 566ms (next.js: 51ms, proxy.ts: 99ms, application-code: 416ms)
+ GET /akwaplay 200 in 569ms (next.js: 32ms, proxy.ts: 99ms, application-code: 438ms)
+ GET /akwaplay 200 in 562ms (next.js: 415ms, proxy.ts: 98ms, application-code: 49ms)
+ GET /akwaplay 200 in 565ms (next.js: 397ms, proxy.ts: 99ms, application-code: 69ms)
+ GET /akwaplay 200 in 563ms (next.js: 440ms, proxy.ts: 98ms, application-code: 25ms)
+ GET /akwaplay 200 in 579ms (next.js: 12ms, proxy.ts: 98ms, application-code: 470ms)
+ GET /akwaplay 200 in 493ms (next.js: 11ms, proxy.ts: 11ms, application-code: 470ms)
+ GET /akwaplay 200 in 545ms (next.js: 26ms, proxy.ts: 12ms, application-code: 508ms)
+ GET /akwaplay 200 in 597ms (next.js: 402ms, proxy.ts: 13ms, application-code: 182ms)
+ GET /akwaplay 200 in 599ms (next.js: 424ms, proxy.ts: 15ms, application-code: 160ms)
+ GET /akwaplay 200 in 599ms (next.js: 442ms, proxy.ts: 14ms, application-code: 143ms)
+ GET /akwaplay 200 in 602ms (next.js: 62ms, proxy.ts: 423ms, application-code: 118ms)
+ GET /akwaplay 200 in 237ms (next.js: 3ms, proxy.ts: 29ms, application-code: 205ms)
+ GET /akwaplay 200 in 149ms (next.js: 26ms, proxy.ts: 11ms, application-code: 112ms)
+ GET /akwaplay 200 in 154ms (next.js: 10ms, proxy.ts: 12ms, application-code: 132ms)
+ GET /akwaplay 200 in 150ms (next.js: 53ms, proxy.ts: 10ms, application-code: 87ms)
+ GET /akwaplay 200 in 151ms (next.js: 80ms, proxy.ts: 10ms, application-code: 60ms)
+ GET /akwaplay 200 in 78ms (next.js: 3ms, proxy.ts: 6ms, application-code: 70ms)
+ GET /akwaplay 200 in 60ms (next.js: 4ms, proxy.ts: 7ms, application-code: 49ms)
+ GET /akwaplay 200 in 94ms (next.js: 6ms, proxy.ts: 22ms, application-code: 66ms)
+ GET /akwaplay 200 in 134ms (next.js: 28ms, proxy.ts: 5ms, application-code: 101ms)
+ GET /akwaplay 200 in 51ms (next.js: 22ms, proxy.ts: 8ms, application-code: 21ms)
+ GET /akwaplay 200 in 166ms (next.js: 21ms, proxy.ts: 22ms, application-code: 122ms)
+ GET /akwaplay 200 in 174ms (next.js: 41ms, proxy.ts: 23ms, application-code: 110ms)
+ GET /akwaplay 200 in 150ms (next.js: 7ms, proxy.ts: 12ms, application-code: 130ms)
+ GET /akwaplay 200 in 140ms (next.js: 6ms, proxy.ts: 30ms, application-code: 104ms)
+ GET /akwaplay 200 in 142ms (next.js: 37ms, proxy.ts: 30ms, application-code: 75ms)
+ GET /akwaplay 200 in 145ms (next.js: 21ms, proxy.ts: 30ms, application-code: 95ms)
+ GET /akwaplay 200 in 76ms (next.js: 26ms, proxy.ts: 7ms, application-code: 44ms)
+ GET /akwaplay 200 in 128ms (next.js: 7ms, proxy.ts: 47ms, application-code: 74ms)
+ GET /akwaplay 200 in 138ms (next.js: 5ms, proxy.ts: 6ms, application-code: 127ms)
+ GET /akwaplay 200 in 88ms (next.js: 23ms, proxy.ts: 7ms, application-code: 57ms)
+ GET /akwaplay 200 in 112ms (next.js: 9ms, proxy.ts: 61ms, application-code: 41ms)
+ GET /akwaplay 200 in 136ms (next.js: 26ms, proxy.ts: 21ms, application-code: 90ms)
+ GET /akwaplay 200 in 143ms (next.js: 24ms, proxy.ts: 61ms, application-code: 57ms)
+ GET /akwaplay 200 in 114ms (next.js: 49ms, proxy.ts: 10ms, application-code: 55ms)
+[dughuFetch] GET https://apitest.dughu.com/api/getSpecificUser/34243/34243 | hasToken:true | headers:accept,x-appapitoken | bodyPreview:
+ GET /api/auth/me 200 in 1017ms (next.js: 67ms, application-code: 951ms)
+ GET /api/akwa_getCategories 200 in 1036ms (next.js: 32ms, application-code: 1004ms)
+ GET /api/akwa_getAllVideos/34243?page=1 200 in 1113ms (next.js: 53ms, application-code: 1060ms)
 [?25h

@@ -73,10 +73,10 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
   }
 
   return (
-    <div className="relative mb-4 group/rail">
+    <div className="relative mb-4 group/rail px-3 sm:px-0">
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-3 overflow-x-auto scroll-smooth pb-1 touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {/* Créer un Flash (rail) — garde toujours la photo de profil */}
         <FlashAddCard currentUser={currentUser} onClick={onAddStory} />
