@@ -235,7 +235,7 @@ export async function storeSave(
 
 /** Booste une publication via POST /api/boostPost. */
 export async function boostPost(
-  payload: { postId: string; userId?: string; days?: number },
+  payload: { postId: string; userId?: string; boostDays?: number },
   signal?: AbortSignal
 ): Promise<PostMutationResponse> {
   try {
@@ -245,7 +245,7 @@ export async function boostPost(
     }
     return res.data
   } catch (error) {
-    throw toServiceApiError(error, "Erreur boost")
+    throw toServiceApiError(error, "Erreur lors du boost de la publication.")
   }
 }
 

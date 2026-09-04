@@ -29,6 +29,8 @@ export async function fetchPointsHistory(
     /** Nombre de pages API à agréger. */
     pages?: number
     search?: string
+    /** Sous-source (segment de chemin), ex. « akwaplay » → /api/pointsHistory?source=akwaplay. */
+    source?: string
   } = {},
   signal?: AbortSignal
 ): Promise<PointsHistoryResponse> {
@@ -39,6 +41,7 @@ export async function fetchPointsHistory(
   const qsFor = (page: number) => {
     const qs = new URLSearchParams()
     if (params.userId) qs.set("userId", params.userId)
+    if (params.source) qs.set("source", params.source)
     qs.set("page", String(page))
     if (search) qs.set("search", search)
     return `/pointsHistory?${qs}`

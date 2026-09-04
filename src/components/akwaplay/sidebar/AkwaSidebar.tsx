@@ -25,10 +25,10 @@ const NAV_ITEMS = [
   { id: "home", label: "Accueil", icon: Home, href: "/akwaplay" },
   { id: "profil", label: "Profil", icon: User, href: "/akwaplay/profile" },
   { id: "tendances", label: "Tendances", icon: Zap, href: "/akwaplay/trending" },
-  { id: "shorts", label: "Shorts", icon: Clapperboard, href: "/akwaplay/shorts" },
+  { id: "shorts", label: "Capsules", icon: Clapperboard, href: "/akwaplay/shorts" },
   { id: "musiques", label: "Musiques libres", icon: Music2, href: "/akwaplay/musiques" },
   { id: "favoris", label: "Favoris", icon: Star, href: "/akwaplay/favorites" },
-  { id: "points", label: "Points", icon: Gift, href: "/points" },
+  { id: "points", label: "Points", icon: Gift, href: "/akwaplay/points" },
 ] as const
 
 export default function AkwaSidebar({ open, onClose, onPublishClick, drawer = false }: AkwaSidebarProps) {

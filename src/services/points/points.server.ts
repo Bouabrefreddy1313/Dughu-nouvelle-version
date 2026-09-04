@@ -16,6 +16,11 @@ export interface PointsHistoryParams {
   page?: number
   /** Recherche serveur (paramètre `search`, supporté par l'API). */
   search?: string
+  /**
+   * Sous-source de l'historique (segment de chemin terminé, ex. `/pointsHistory/{userId}/akwaplay`).
+   * Permet de ne récupérer que les mouvements liés à une source particulière (ex. « akwaplay »).
+   */
+  source?: string
 }
 
 const ERROR_MESSAGE = "Impossible de charger l'historique des points."
@@ -39,9 +44,12 @@ export async function fetchPointsHistory(
   const query: Record<string, string | number> = { page: params.page && params.page > 0 ? params.page : 1 }
   if (params.search && params.search.trim() !== "") query.search = params.search.trim()
 
+  const source = params.source?.trim() ? encodeURIComponent(params.source.trim()) : ""
+  const endpoint = `pointsHistory/${encodeURIComponent(params.userId)}${source ? `/${source}` : ""}`
+
   try {
     const raw = await dughuServerGet<unknown>(
-      `pointsHistory/${encodeURIComponent(params.userId)}`,
+      endpoint,
       query,
       { retry: true }
     )

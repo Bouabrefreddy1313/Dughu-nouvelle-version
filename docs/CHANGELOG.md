@@ -11,6 +11,49 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-09-04
+### Fonctionnalité — Historique des points Akwaplay (`/akwaplay/points`)
+* **Nouvelle page Akwaplay `/akwaplay/points`** accessible depuis l'item « Points » de la sidebar gauche (l'item ne pointe plus vers `/points` mais vers `/akwaplay/points`), au thème sombre Akwaplay (`AkwaHeader` + `AkwaSidebar`).
+* **Endpoint dédié** `GET /pointsHistory/{user_id}/akwaplay` : l'historique est désormais restreint aux points obtenus sur Akwaplay uniquement. Le service serveur (`points.server.ts`) accepte un paramètre `source` ajouté en **segment de chemin**, la route BFF `GET /api/pointsHistory` relaie `?source=…`, le service frontend et le hook TanStack `usePointsHistory({ userId, source })` le transmettent (clé de requête isolée par source).
+* **Tableau `AkwaplayPointsTable`** (thème sombre) aux colonnes **Date · Type · Description · Points** : badge vert « Gain » / rouge « Perte », montant signé formaté `fr-FR`, date locale ; squelettes de chargement, état d'erreur avec « Réessayer » et état vide.
+* `userId` résolu depuis la session (`dughu.userId`, replis `dughuUserId` puis `id`) — l'identifiant n'est jamais codé en dur.
+* Conformité HTTP : composant → hook → service frontend (Axios cliente) → route `/api/pointsHistory` → service serveur (Axios serveur, token `X-AppApiToken` côté serveur uniquement) → API Dughu ; normalisation défensive réutilisée (`points.mapper.ts`), aucun `fetch` natif côté frontend.
+
+### Fonctionnalité — Booster un post depuis le menu « 3 points »
+* **Nouvelle route `POST /api/boostPost`** (route handler BFF) qui encapsule l'appel à l'API Dughu `POST /boostPost` avec les champs `post_id`, `user_id`, `boost_days` :
+  - validation des paramètres (`postId`/`userId`), durée de boost bornée 1 à 30 jours (défaut 1) ;
+  - `user_id` transmis à Dughu = identifiant Dughu de session (cookie en repli), jamais l'identifiant interne ;
+  - erreurs normalisées en messages compréhensibles (pas de stack trace exposée).
+* **Bouton « Booster » dans le menu « 3 points » de `PostCard`** : réservé à l'auteur de la publication (`canBoost`), icône fusée, ouverture directement sur `/api/boostPost` puis rafraîchissement du fil.
+* Extension de `dughuApi.boostPost` dans `src/lib/dughu.ts` et du service frontend `boostPost` (`posts.service.ts`) avec le champ `boostDays`.
+
+### Correction — Ouverture des posts repartagés (Lightbox immersive)
+* **Résolution de la boucle infinie « Too many re-renders »** à l'ouverture du post d'origine d'un repost (`ParentPostLightbox`) : dans `PostMediaLightbox`, la synchronisation d'état pendant le rendu comparait la prop `reactions` par référence. Quand cette prop était absente, la valeur par défaut `[]` était recréée à **chaque rendu**, rendant la comparaison toujours vraie → `setState` pendant le rendu → boucle infinie.
+  - Introduction d'une constante de module `EMPTY_REACTIONS` (référence stable entre les rendus) utilisée comme valeur par défaut de la prop `reactions`.
+  - Comparaison des listes de réactions par **contenu** (helper `sameReactions` : type + count) au lieu de la référence : plus aucun re-rendu parasite même si un parent fournit un nouveau tableau équivalent à chaque rendu.
+  - L'état local `localReactions` est initialisé et synchronisé via cette liste normalisée.
+* **Chargement des commentaires du post d'origine rendu stable** : l'effet de `ParentPostLightbox` dépend désormais de `parentPost.id` (et non de l'objet `parentPost`, recréé à chaque rendu du parent du fil) grâce à une `ref` mise à jour uniquement dans un effet — suppression des re-fetch de commentaires et des push d'historique redondants pendant que la lightbox est ouverte.
+
+### Correction — Boost : propagation du message d'erreur upstream
+* La route `POST /api/boostPost` masquait le message métier de l'API Dughu derrière un générique « Erreur lors du boost. » : un HTTP 400 avec corps `{ status, message: "Points insuffisants pour un boost de X jour(s."` (levé par `dughuFetch` en `DughuApiError`) retombait dans le `catch` générique. La route détecte désormais `DughuApiError` et **remonte le message upstream** (même pattern que `/api/reactions`), avec `upstreamStatus`. L'utilisateur voit désormais la vraie raison (« Points insuffisants… ») au lieu d'une erreur technique brute。
+* Suite du routage des erreurs : `posts.service.ts` (`boostPost`) propage déjà le message frontend via `ApiError` (message français approuvé, jamais de détail technique brut..
+
+### Correction — Like inopérant dans la lightbox immersive
+* **Like des réactions dans la vue immersive** (`ParentPostLightbox` et page `/post/[id]`) : le clic « J'aime » échouait silencieusement car `addReaction` était appelé **sans `dughuUserId`**, contrairement au fil `/home` — la route `/api/reactions` (en repli sur le cookie de session) peut alors répondre 404 « ID Dughu requis. », et le `catch` silencieux (rollback sans message) donnait l'illusion d'un bouton inopérant. Les deux appels transmettent désormais `dughuUserId` (même contrat fiableque le fil) et affichent un toast « Impossible de réagir à cette publication. » en cas d'échec**(conformément aux guidelines d'erreur)**。
+* Le type de réaction transmis utilise désormais le mapping réel `REACTION_ID_TO_TYPE` (et non plus un « like » en dur), pour aligner le contrat avec les réactions autres que « J'aime » sélectionnables dans la lightbox.
+
+
+
+### Correction — Barre d'actions complète sur la page de détail du post (`/post/[id]` et lightbox)
+* La vue détail d'une publication (`PostMediaLightbox`, partagée par la page `/post/[id]` et la lightbox du post d'origine `ParentPostLightbox`) n'exposait que « J'aime » et « Partager » — et le bouton **Partager** n'était même **pas câblé** (`onShare` non fourni) : rien ne s'ouvrait « sur la page ». Les boutons **Gratifier** et **Republier** étaient totalement absents.
+* La barre d'actions de la vue détail affiche désormais **J'aime · Gratifier · Republier · Partager** :
+  * **Gratifier** (100 points, `POST /api/points/give`) avec modale de confirmation ; masqué sur ses propres publications.
+  * **Republier** (simple via `createPost` avec `parentId`, ou avec commentaire via `rePost`) avec menu déroulant et modale de commentaire.
+  * **Partager** : ouvre désormais la `SharePostModal` interne (au lieu de ne rien faire) ; si un `onShare` est fourni par le parent (ex. `PostCard`), il reste prioritaire.
+* Implémentation centralisée dans `src/components/feed/PostMediaLightbox.tsx` (modales + services via `givePoints` / `createPost` / `rePost`), avec nouvelles props optionnelles `postId`/`shareUrl` propagées depuis la page `/post/[id]`, `ParentPostLightbox` et `PostCard`.
+* Détail technique : la confirmation « Gratifier » est rendue en overlay simple `z-[9999]` (et non par le `Dialog` shadcn, porté dans `<body>` à `z-50`, qui serait invisible sous la lightbox `z-[9999]`).
+
+## 2026-09-03
 ## 2026-09-03
 ### Module Akwaplay — Plateforme Vidéo (3 écrans)
 * **Écran Accueil** : grille de vidéos, recherche (`akwa_akwa_video_search`), tabs de catégories (`akwa_getCategories`), grille « Tous »/par catégorie, pagination, bouton « Publier » (modale multipart `akwa_store_video`).

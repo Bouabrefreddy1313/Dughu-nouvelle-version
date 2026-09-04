@@ -191,6 +191,16 @@ interface Story {
   viewed?: boolean
 }
 
+function deduplicatePosts(postsList: Post[]): Post[] {
+  const seen = new Set<string>()
+  return postsList.filter((p) => {
+    const id = String(p.id)
+    if (seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
+}
+
 /* ============================================================
    PAGE PRINCIPALE
    ============================================================ */
@@ -318,8 +328,8 @@ export default function HomePage() {
             ? { ...p.parentPost, timeAgo: timeAgo(p.parentPost?.createdAt) }
             : null,
         }))
-        if (reset || page === 1) setPosts(mapped)
-        else setPosts((prev) => [...prev, ...mapped])
+        if (reset || page === 1) setPosts(deduplicatePosts(mapped))
+        else setPosts((prev) => deduplicatePosts([...prev, ...mapped]))
         setHasMore(data.hasMore !== false)
         if ((data.posts || []).length === 0) setHasMore(false)
       } else {
@@ -438,6 +448,36 @@ export default function HomePage() {
     return () => observer.disconnect()
   }, [hasMore, loading, pageNum, loadPosts])
 
+  // Défilement automatique vers le post ciblé (ex: après un clic sur un post repartagé)
+  useEffect(() => {
+    if (loading || posts.length === 0) return
+
+    const checkAndScroll = () => {
+      let targetPostId = ""
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search)
+        targetPostId = params.get("post") || ""
+        if (!targetPostId && window.location.hash.startsWith("#post-")) {
+          targetPostId = window.location.hash.replace("#post-", "")
+        }
+      }
+
+      if (!targetPostId) return
+
+      const el = document.getElementById(`post-${targetPostId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+        el.classList.add("ring-4", "ring-[#C47830]/60", "transition-all", "duration-700")
+        setTimeout(() => {
+          el.classList.remove("ring-4", "ring-[#C47830]/60")
+        }, 3000)
+      }
+    }
+
+    const t = setTimeout(checkAndScroll, 400)
+    return () => clearTimeout(t)
+  }, [loading, posts.length])
+
   const handleCreatePost = async (formData: FormData) => {
     if (!user) { toast.error("Connectez-vous pour publier"); return }
     const colorRaw = (formData.get("color") as string) || null
@@ -449,7 +489,7 @@ export default function HomePage() {
         if (postColor && data.post?.id) writePostColor(String(data.post.id), postColor)
         if (!data.post) return
         const createdPost = data.post
-        setPosts((prev) => [
+        setPosts((prev) => deduplicatePosts([
           {
             ...createdPost,
             timeLabel: timeAgo(String(createdPost.createdAt || "")),
@@ -457,7 +497,7 @@ export default function HomePage() {
             color: postColor,
           } as unknown as Post,
           ...prev,
-        ])
+        ]))
         toast.success("Publication créée !")
       }
     } catch {
@@ -764,10 +804,16 @@ export default function HomePage() {
 
   const handleBoost = async (postId: string) => {
     try {
-      await boostPost({ postId, userId: user?.id, days: 1 })
-      toast.success("Post boosté !")
+      const data = await boostPost({ postId, userId: user?.id, boostDays: 1 })
+      if (data?.success === false) {
+        toast.error(data?.message || "Impossible de booster cette publication.")
+        return
+      }
+      toast.success("Publication boostée !")
       loadPosts(1, true)
-    } catch { toast.error("Erreur boost") }
+    } catch (error) {
+      toast.error(userMessage(error, "Impossible de booster cette publication."))
+    }
   }
 
   const handleReport = async (postId: string) => {
@@ -894,9 +940,9 @@ export default function HomePage() {
 
       {/* Posts Feed */}
       {posts.map((post, postIndex) => (
-        <Fragment key={post.id}>
+        <Fragment key={`feed-frag-${post.id}-${postIndex}`}>
         <PostCard
-          key={post.id}
+          key={`feed-card-${post.id}-${postIndex}`}
           postId={post.id}
           author={post.author}
           currentUser={user}
@@ -924,6 +970,8 @@ export default function HomePage() {
           onToggleFollow={() => handleToggleFollow(post.author)}
           onDelete={() => setDeleteTarget(post.id)}
           canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
+          onBoost={() => handleBoost(post.id)}
+          canBoost={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
           onSave={() => handleSave(post.id)}
           onHide={() => handleHide(post.id)}
           onBlock={() => handleBlock(post.author?.id)}

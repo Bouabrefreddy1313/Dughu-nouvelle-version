@@ -554,6 +554,19 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     })
   }
 
+  const profileVideos = profile?.videos
+  const videos = useMemo(() => {
+    const fromProfile = (profileVideos || []) as ProfileVideo[]
+    if (fromProfile.length > 0) return fromProfile
+    return (userAkwaVideos || []).map((v) => ({
+      id: String(v.id),
+      url: v.videoUrl,
+      thumb: v.thumbnail,
+      views: v.viewsCount,
+      createdAt: v.createdAt,
+    }))
+  }, [profileVideos, userAkwaVideos])
+
   // Tant qu'aucun identifiant n'est connu (par ex. profil "moi" en attente du
   // chargement de l'utilisateur connecté), on affiche le skeleton au lieu de
   // l'erreur "Profil introuvable".
@@ -606,17 +619,6 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
   const user = profile.user
   const stats = profile.stats || { posts: 0, followers: 0, following: 0, friends: 0 }
   const photos = (profile.photos || []) as ProfilePhoto[]
-  const videos = useMemo(() => {
-    const fromProfile = (profile.videos || []) as ProfileVideo[]
-    if (fromProfile.length > 0) return fromProfile
-    return userAkwaVideos.map((v) => ({
-      id: String(v.id),
-      url: v.videoUrl,
-      thumb: v.thumbnail,
-      views: v.viewsCount,
-      createdAt: v.createdAt,
-    }))
-  }, [profile.videos, userAkwaVideos])
   const groups = (profile.groups || []) as ProfileGroup[]
   const friends = (profile.friends || []) as ProfileFriend[]
 

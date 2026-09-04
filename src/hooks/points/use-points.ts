@@ -31,12 +31,14 @@ export function usePointsToday(params: { userId?: string; enabled?: boolean } = 
   })
 }
 
-export function usePointsHistory(params: { userId?: string; enabled?: boolean } = {}) {
-  const { userId, enabled = true } = params
+export function usePointsHistory(
+  params: { userId?: string; source?: string; enabled?: boolean } = {}
+) {
+  const { userId, source, enabled = true } = params
 
   return useQuery<PointsHistoryResponse>({
-    queryKey: ["pointsHistory", userId ?? ""],
-    queryFn: ({ signal }) => fetchPointsHistory({ userId }, signal),
+    queryKey: ["pointsHistory", source ?? "all", userId ?? ""],
+    queryFn: ({ signal }) => fetchPointsHistory({ userId, source }, signal),
     enabled: enabled && !!userId,
     staleTime: 30_000,
   })

@@ -253,6 +253,18 @@ export const dughuApi = {
   hidePost: (userId: string | number, postId: string | number) =>
     dughu.form("hidePost", { user_id: String(userId), post_id: String(postId) }),
 
+  // Booster une publication (réservé à l'auteur) — POST /boostPost { post_id, user_id, boost_days }
+  boostPost: (params: {
+    post_id: string | number
+    user_id: string | number
+    boost_days: string | number
+  }) =>
+    dughu.form("boostPost", {
+      post_id: String(params.post_id),
+      user_id: String(params.user_id),
+      boost_days: String(params.boost_days),
+    }),
+
   // Épingler / désépingler une publication (réservé à l'auteur du post)
   togglePinStatus: (userId: string | number, postId: string | number) =>
     dughu.form(`togglePinStatus/${encodeURIComponent(String(postId))}`, { user_id: String(userId) }),

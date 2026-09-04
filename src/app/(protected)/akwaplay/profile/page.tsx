@@ -4,7 +4,7 @@ import AkwaProfilePage from "@/components/akwaplay/profile/AkwaProfilePage"
 
 export const metadata: Metadata = {
   title: "Profil Créateur | Akwaplay Dughu",
-  description: "Consultez et gérez vos vidéos, chaînes, shorts et activités sur Akwaplay.",
+  description: "Consultez et gérez vos vidéos, chaînes, capsules et activités sur Akwaplay.",
 }
 
 export default async function Page() {

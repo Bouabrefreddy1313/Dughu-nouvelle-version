@@ -32,11 +32,14 @@ import {
   Smile,
   MessageCircle,
   Users,
+  Rocket,
 } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
 import FollowButton from "@/components/common/FollowButton"
+import { EntityPreviewCard } from "@/components/feed/EntityPreviewCard"
 import { CommentBody } from "@/components/feed/CommentBody"
 import { PostMediaLightbox, type LightboxImageItem } from "@/components/feed/PostMediaLightbox"
 import { ReactionPicker } from "@/components/feed/ReactionPicker"
@@ -58,6 +61,7 @@ import { userMessage } from "@/lib/api/api-error"
 import { RepostWithTextModal } from "@/components/feed/RepostWithTextModal"
 import { SharePostModal } from "@/components/feed/SharePostModal"
 import { GivePointsModal } from "@/components/feed/GivePointsModal"
+import { ParentPostLightbox } from "@/components/feed/ParentPostLightbox"
 import { HashtagText } from "@/components/common/HashtagText"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button as UIButton } from "@/components/ui/button"
@@ -188,6 +192,10 @@ interface PostCardProps {
   isSaved?: boolean
   /** Autorise l'affichage de l'action « Supprimer » (réservé à l'auteur du post). */
   canDelete?: boolean
+  /** Booster la publication (réservé à l'auteur) via /api/boostPost. */
+  onBoost?: () => void
+  /** Autorise l'affichage de l'action « Booster » (réservé à l'auteur du post). */
+  canBoost?: boolean
   /** L'auteur a un Flash actif : affiche un anneau autour de sa photo de profil. */
   hasActiveFlash?: boolean
   /** Les Flash de l'auteur ont déjà été vus : l'anneau devient gris au lieu du dégradé marron. */
@@ -328,83 +336,165 @@ function PrivacyBadge({ postPrivacy }: { postPrivacy?: 0 | 1 | 2 | 3 }) {
  * Carte embarquée du post d'origine dans une republication (repost).
  * Affiche l'auteur, le texte (éventuellement coloré) et les médias du post
  * republié, avec le rendu compact et bien délimité du reste du fil.
+ * Un clic sur la carte redirige / fait défiler vers le post d'origine avec surbrillance.
  */
 function ParentPostCard({
   parentPost,
+  currentUser,
 }: {
   parentPost: NonNullable<React.ComponentProps<typeof PostCard>["parentPost"]>
+  currentUser?: React.ComponentProps<typeof PostCard>["currentUser"]
 }) {
+  const [showModal, setShowModal] = useState(false)
   const content = parentPost.content
   const resolved = resolvePostColorCss(parentPost.color)
   const bgColor = resolved?.bg ?? null
   const textColor = resolved?.text ?? "#050505"
 
+  const handleNavigateToOrigin = (e: React.MouseEvent) => {
+    // Si le clic provient d'un élément interactif interne (lien, bouton, vidéo, etc.), ne pas intercepter
+    const target = e.target as HTMLElement
+    if (target.closest("a, button, video, input, textarea")) {
+      return
+    }
+
+    // Ouvre directement la vue immersive où l'on voit le post à droite et les commentaires à gauche
+    setShowModal(true)
+  }
+
   return (
-    <div className="mx-3 sm:mx-4 mt-1 rounded-2xl border border-gray-100 bg-[#F7F8FA] overflow-hidden">
-      <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-        <Avatar
-          src={parentPost.author.avatar}
-          name={parentPost.author.name}
-          size="sm"
-          verified={parentPost.author.verified}
-        />
-        <div className="min-w-0">
-          <a
-            href={parentPost.author.pageId ? `/espaces/${parentPost.author.pageId}` : `/profile/${parentPost.author.username || parentPost.author.id}`}
-            className="block text-[13px] font-semibold text-[#050505] truncate hover:underline"
-          >
-            {parentPost.author.name}
-          </a>
-          {parentPost.timeAgo ? (
-            <p className="text-[11px] text-[#65676B]">{parentPost.timeAgo}</p>
-          ) : null}
+    <>
+      <div
+        onClick={handleNavigateToOrigin}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            handleNavigateToOrigin(e as unknown as React.MouseEvent)
+          }
+        }}
+        title="Cliquer pour accéder à la publication d'origine"
+        className="group mx-3 sm:mx-4 mt-1 rounded-2xl border border-gray-200/80 bg-[#F7F8FA] overflow-hidden cursor-pointer transition-all duration-200 hover:border-[#E7D8C4] hover:bg-[#F2F4F8] hover:shadow-sm active:scale-[0.99]"
+      >
+        <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <Avatar
+              src={parentPost.author.avatar}
+              name={parentPost.author.name}
+              size="sm"
+              verified={parentPost.author.verified}
+            />
+            <div className="min-w-0">
+              {parentPost.author.pageId ? (
+                <EntityPreviewCard
+                  type="page"
+                  pageData={{
+                    pageId: parentPost.author.pageId,
+                    name: parentPost.author.name,
+                    avatar: parentPost.author.avatar,
+                    verified: parentPost.author.verified,
+                  }}
+                  currentUser={currentUser}
+                >
+                  <a
+                    href={`/espaces/${parentPost.author.pageId}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="block text-[13px] font-semibold text-[#050505] truncate hover:underline"
+                  >
+                    {parentPost.author.name}
+                  </a>
+                </EntityPreviewCard>
+              ) : (
+                <EntityPreviewCard
+                  type="user"
+                  userData={{
+                    id: parentPost.author.id,
+                    name: parentPost.author.name,
+                    avatar: parentPost.author.avatar,
+                    username: parentPost.author.username,
+                    verified: parentPost.author.verified,
+                  }}
+                  currentUser={currentUser}
+                >
+                  <a
+                    href={`/profile/${parentPost.author.username || parentPost.author.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="block text-[13px] font-semibold text-[#050505] truncate hover:underline"
+                  >
+                    {parentPost.author.name}
+                  </a>
+                </EntityPreviewCard>
+              )}
+              {parentPost.timeAgo ? (
+                <p className="text-[11px] text-[#65676B]">{parentPost.timeAgo}</p>
+              ) : null}
+            </div>
+          </div>
+
+          <span className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-[#8A4D23] bg-[#C47830]/10 px-2 py-0.5 rounded-full group-hover:bg-[#C47830]/20 transition-colors">
+            <Repeat2 size={12} className="shrink-0" />
+            <span className="hidden sm:inline">Repartagé</span>
+          </span>
         </div>
+
+        {content ? (
+          bgColor ? (
+            <div
+              className="w-full min-h-[120px] py-6 px-4 flex items-center justify-center"
+              style={{ background: bgColor, color: textColor }}
+            >
+              <p className="text-[20px] font-bold text-center whitespace-pre-wrap leading-relaxed break-words">
+                <HashtagText text={content} hashtagClassName="text-inherit underline" />
+              </p>
+            </div>
+          ) : (
+            <p className="px-3 pb-2 pt-1 text-[14px] text-[#050505] whitespace-pre-wrap leading-relaxed break-words">
+              <HashtagText text={content} />
+            </p>
+          )
+        ) : null}
+
+        {parentPost.image && !parentPost.video && (
+          <div className="w-full overflow-hidden">
+            <Image
+              src={parentPost.image}
+              alt=""
+              width={600}
+              height={300}
+              className="w-full max-h-[300px] object-cover transition-transform duration-300 group-hover:scale-[1.01]"
+              sizes="(max-width: 640px) 100vw, 600px"
+            />
+          </div>
+        )}
+
+        {parentPost.video && (
+          <div
+            className="w-full overflow-hidden bg-black"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <video
+              src={parentPost.video}
+              controls
+              muted
+              playsInline
+              loop
+              preload="metadata"
+              className="w-full max-h-[300px] object-cover"
+            />
+          </div>
+        )}
       </div>
 
-      {content ? (
-        bgColor ? (
-          <div
-            className="w-full min-h-[120px] py-6 px-4 flex items-center justify-center"
-            style={{ background: bgColor, color: textColor }}
-          >
-            <p className="text-[20px] font-bold text-center whitespace-pre-wrap leading-relaxed break-words">
-              <HashtagText text={content} hashtagClassName="text-inherit underline" />
-            </p>
-          </div>
-        ) : (
-          <p className="px-3 pb-2 pt-1 text-[14px] text-[#050505] whitespace-pre-wrap leading-relaxed break-words">
-            <HashtagText text={content} />
-          </p>
-        )
-      ) : null}
-
-      {parentPost.image && !parentPost.video && (
-        <div className="w-full overflow-hidden">
-          <Image
-            src={parentPost.image}
-            alt=""
-            width={600}
-            height={300}
-            className="w-full max-h-[300px] object-cover"
-            sizes="(max-width: 640px) 100vw, 600px"
-          />
-        </div>
+      {showModal && (
+        <ParentPostLightbox
+          open={showModal}
+          onClose={() => setShowModal(false)}
+          parentPost={parentPost}
+          currentUser={currentUser}
+        />
       )}
-
-      {parentPost.video && (
-        <div className="w-full overflow-hidden bg-black">
-          <video
-            src={parentPost.video}
-            controls
-            muted
-            playsInline
-            loop
-            preload="metadata"
-            className="w-full max-h-[300px] object-cover"
-          />
-        </div>
-      )}
-    </div>
+    </>
   )
 }
 
@@ -850,6 +940,8 @@ export function PostCard({
   isBlocked,
   isSaved,
   canDelete,
+  onBoost,
+  canBoost,
   hasActiveFlash = false,
   flashViewed = false,
   onOpenAuthorFlash,
@@ -2054,6 +2146,8 @@ export function PostCard({
 
   return (
     <article
+      id={postId ? `post-${postId}` : undefined}
+      data-post-id={postId}
       className={cn(
         // Mobile : edge-to-edge, séparateur subtil border-b, pas de shadow ni d'arrondi
         "bg-white border-b border-gray-100",
@@ -2096,12 +2190,47 @@ export function PostCard({
         )}
 
         <div className="flex-1 min-w-0">
-          <a
-            href={author.pageId ? `/espaces/${author.pageId}` : `/profile/${author.username || author.id}`}
-            className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
-          >
-            {author.name}
-          </a>
+          {author.pageId ? (
+            <EntityPreviewCard
+              type="page"
+              pageData={{
+                pageId: author.pageId,
+                name: author.name,
+                avatar: author.avatar,
+                verified: author.verified,
+              }}
+              currentUser={currentUser}
+            >
+              <a
+                href={`/espaces/${author.pageId}`}
+                className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
+              >
+                {author.name}
+              </a>
+            </EntityPreviewCard>
+          ) : (
+            <EntityPreviewCard
+              type="user"
+              userData={{
+                id: author.id,
+                name: author.name,
+                avatar: author.avatar,
+                username: author.username,
+                verified: author.verified,
+                isFollowing: isFollowing,
+                isFollowLoading: isFollowLoading,
+                onToggleFollow: onToggleFollow,
+              }}
+              currentUser={currentUser}
+            >
+              <a
+                href={`/profile/${author.username || author.id}`}
+                className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
+              >
+                {author.name}
+              </a>
+            </EntityPreviewCard>
+          )}
 
           <div className="flex items-center gap-1.5 text-[12px] text-[#65676B]">
             {timeAgo && <span>{timeAgo}</span>}
@@ -2126,7 +2255,7 @@ export function PostCard({
           <button
             type="button"
             onClick={() => {
-              if (!onDelete && !onSave && !onHide && !canBlock && !canGivePoints && !canCopyLink) {
+              if (!onDelete && !onSave && !onHide && !canBlock && !canGivePoints && !canCopyLink && !(onBoost && canBoost)) {
                 onMenuClick?.()
                 return
               }
@@ -2143,6 +2272,21 @@ export function PostCard({
 
           {postMenuOpen && (
             <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in duration-150">
+              {onBoost && canBoost && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPostMenuOpen(false)
+                    onBoost()
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                >
+                  <span className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                    <Rocket size={16} className="text-[#A35A2A]" />
+                  </span>
+                  <span className="text-[13px] font-medium text-[#050505]">Booster</span>
+                </button>
+              )}
               {onDelete && canDelete && (
                 <button
                   type="button"
@@ -2251,10 +2395,23 @@ export function PostCard({
 
       {group && (
         <div className="px-4 pb-3">
-          <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#C47830]/12 px-3 py-1.5 text-xs font-semibold text-[#8A4D23]">
-            <Users size={14} aria-hidden="true" />
-            <span className="truncate">{group.name}</span>
-          </span>
+          <EntityPreviewCard
+            type="group"
+            groupData={{
+              id: group.id,
+              name: group.name,
+              slug: group.slug,
+              avatar: group.avatar,
+            }}
+          >
+            <Link
+              href="/groups"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#C47830]/12 px-3 py-1.5 text-xs font-semibold text-[#8A4D23] transition hover:bg-[#C47830]/20"
+            >
+              <Users size={14} aria-hidden="true" />
+              <span className="truncate">{group.name}</span>
+            </Link>
+          </EntityPreviewCard>
         </div>
       )}
 
@@ -2405,7 +2562,7 @@ export function PostCard({
         </div>
       ) : null}
 
-      {parentPost && <ParentPostCard parentPost={parentPost} />}
+      {parentPost && <ParentPostCard parentPost={parentPost} currentUser={currentUser} />}
 
       <div className="px-4 py-2 flex items-center justify-between text-[13px] text-[#65676B]">
         <ReactionSummary
@@ -2911,6 +3068,8 @@ export function PostCard({
           author={author}
           timeAgo={timeAgo}
           content={content}
+          postId={postId}
+          shareUrl={shareUrl || null}
           postPrivacy={postPrivacy}
           likesCount={localLikesCount || 0}
           reactions={localReactions}

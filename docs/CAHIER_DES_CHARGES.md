@@ -298,16 +298,35 @@ La normalisation technique de ces états est documentée dans
   * Agrégation (`ReactionSummary`) : affiche les principales réactions réellement présentes (au maximum 3 sous forme d'icônes empilées `[👍 ❤️ 😮]`) suivies du nombre total de réactions. Aucune réaction fictive n'est inventée.
   * Clic sur le résumé des réactions : ouvre une interface responsive (`ReactionUsersModal` / Bottom Sheet mobile) avec onglets par type (« Toutes », « 👍 », « ❤️ », etc.) et liste des personnes ayant réagi.
   * **Optimistic UI** : mise à jour immédiate des compteurs, du bouton et de l'affichage local sans attendre la réponse serveur, avec synchronisation continue et cohérence absolue entre la carte du fil et la Lightbox.
+* **Barre d'actions complète dans la vue détail** (page `/post/[id]` et lightbox du post d'origine) : **J'aime** (+ palette de réactions) · **Gratifier** (100 points, modale de confirmation) · **Republier** (simple ou avec commentaire) · **Partager** (modale interne `SharePostModal` vers WhatsApp, X, Facebook, LinkedIn, Instagram/copie de lien). Ces actions sont centralisées dans `PostMediaLightbox` et fonctionnent directement depuis la page de détail.
 * Gratifier : bouton d’action rapide qui envoie **100 points** à l’auteur du post
   en un clic (endpoint `points/give`). Une modale de confirmation (« Voulez-vous
   vraiment offrir 100 points à … ? ») s’affiche avant l’envoi pour éviter les
   erreurs. Le bouton est masqué sur ses propres publications et un spinner de
   chargement apparaît dans la modale pendant l’envoi. Un menu « Donner des
   points » distinct (3 points → « Donner des points ») permet quant à lui de
-choisir le montant. La détection du post « sien » se base sur l'identifiant
+  choisir le montant. La détection du post « sien » se base sur l'identifiant
   Dughu de l'auteur (`user_id`) comparé au `dughu.userId` de l'utilisateur
   connecté ; toute publication d'un tiers (ou dont l'auteur est inconnu : id
   vide ou post de page) affiche le bouton.
+* **Carte de prévisualisation au survol (Preview Card / Hover Card)** :
+  * Au survol du nom d'un **utilisateur**, d'un **espace** ou d'un **groupe** dans le fil d'actualité (sur chaque publication ou publication repartagée) :
+  * Un carré flottant élégant (`EntityPreviewCard`, basé sur le composant primitif `@base-ui/react/preview-card` dans `src/components/ui/preview-card.tsx`) s'ouvre de manière fluide avec détection de collision d'écran et temporisation au survol (delay 250ms).
+  * Il affiche la **photo de couverture** (ou dégradé chaud Dughu), la **photo de profil / avatar** agrandie en superposition, le nom officiel, le nom d'utilisateur `@username`, les badges (compte vérifié, confidentialité groupe) et les statistiques clés.
+  * **Boutons d'action intégrés** :
+    * *Utilisateur* : bouton S'abonner / Abonné (`FollowButton`), bouton d'accès direct à la messagerie (`/messages?userId=...`) et lien vers le profil.
+    * *Espace* : bouton interactif J'aime / Aimé (`likePage`), et lien « Visiter » (`/espaces/[pageId]`).
+    * *Groupe* : bouton Adhérer / Rejoint, et lien « Voir le groupe » (`/groups`).
+* **Navigation et interaction sur les posts repartagés (Reposts)** :
+  * La carte embarquée de la publication d'origine (`ParentPostCard`) est entièrement interactive : curseur pointeur, survol bordé et ombré, badge distinctif « Repartagé ».
+  * Un clic sur le bloc du post repartagé ouvre instantanément la vue immersive dédiée du post original (`ParentPostLightbox` / page `/post/[id]`) sans aucun rechargement de page brut :
+    * **Disposition d'affichage** : le **post est affiché à droite** (visuel ou média immersif haute définition, vidéo avec contrôles de lecture, ou carte texte/couleur stylisée) et le **volet des commentaires est affiché à gauche** (identité de l'auteur, date, texte intégral avec hashtags, réactions rapides, fil de commentaires en temps réel avec réponses imbriquées et barre de composition de nouveau commentaire).
+    * **Format uniforme des commentaires** : chaque commentaire et réponse affiche le nom complet de l'utilisateur, le badge ambre « Auteur » si la personne est l'auteur de la publication, l'horodatage relatif francisé (« à l'instant », « il y a 2 min », « il y a 3h »...) au lieu de chaînes brutes ISO, et la barre d'actions séparée par des points médians (`👍 • Répondre • Supprimer` ou `Signaler`).
+    * L'URL est synchronisée de façon fluide vers `/post/[id]` (`window.history.pushState`), permettant le partage direct du lien et la persistance lors d'un rechargement, tandis que la fermeture de la vue (croix, touche Échap ou clic d'arrière-plan) restaure immédiatement la position dans le fil d'actualité sans perte d'état.
+    * Les clics sur les éléments internes du post d'origine (nom d'auteur ouvrant la preview card, hashtags, contrôles vidéo) conservent leur comportement propre sans déclencher intempestivement l'ouverture de la vue complète.
+* **Unicité des publications dans le flux (Feed)** :
+  * Le flux d'actualité (`HomePage`) intègre une déduplication systématique des publications par leur identifiant unique (`deduplicatePosts`), éliminant tout doublon lors du défilement infini ou de la création de nouvelles publications, garantissant ainsi des clés de rendu stables (`key={`feed-card-${post.id}-${postIndex}`}`).
+
 #### Mini-profil (sidebar droite)
 
 * La carte « mini-profil » de la sidebar droite affiche le solde **total** de points de
@@ -360,8 +379,13 @@ choisir le montant. La détection du post « sien » se base sur l'identifiant
   `points` = montant saisi, `post_id` = la publication.
 * Copier le lien du post (copie locale, presse-papiers) : utilise le lien de partage
   canonique fourni par l'API (`shareUrl`) ou construit `/home?post={id}` en secours.
-* Ces actions ne s'affichent pas sur ses propres publications (garde côté affichage,
-  la vérification d'autorisation reste côté serveur).
+* **Booster son propre post** (endpoint `boostPost`) : réservé à l'auteur de la
+  publication, l'action « Booster » du menu envoie `{ post_id, user_id, boost_days }`
+  à l'API Dughu (durée bornée 1 à 30 jours, défaut 1 jour) puis rafraîchit le fil.
+* Les actions « Bloquer » et « Donner des points » ne s'affichent pas sur ses propres
+  publications ; à l'inverse, « Supprimer » et « Booster » ne sont visibles que sur
+  ses propres publications (garde côté affichage, la vérification d'autorisation
+  reste côté serveur).
 
 ### Stories
 
@@ -1374,7 +1398,7 @@ La sidebar Akwaplay expose les destinations suivantes :
 | Musiques libres | `/akwaplay/musiques` | `GET /akwa_musiques?search` & `GET /akwa_musiques/user_favorites/{user_id}` |
 | Favoris | `/akwaplay/favorites` | `GET /akwa_getFavoritesVideos/{user_id}` |
 | Profil | `/profile` | — |
-| Points | `/points` | — |
+| Points | `/akwaplay/points` | `GET /pointsHistory/{user_id}/akwaplay` |
 
 * **Module des Musiques Libres Akwaplay (`/akwaplay/musiques`)** :
   - **Liste & Recherche** : consommation de `GET /akwa_musiques?search={query}`, extraction robuste de `res.data.result.data`, normalisation des champs français du backend (`titre`, `artiste`, `duree`, `chemin_audio_url`).
@@ -1382,6 +1406,13 @@ La sidebar Akwaplay expose les destinations suivantes :
   - **Lecteur audio intégré** : lecture HTML5 en direct, barre de lecture globale flottante avec curseur de progression, volume/muet et durée formatée.
   - **Création & Ajout (`AkwaMusiqueCreateModal`)** : téléversement audio MP3/WAV multipart via `POST /akwa_musiques/store` avec titre, artiste, genre et pochette optionnelle.
   - **Suppression** : `DELETE /akwa_musiques/delete/{music_id}` avec confirmation.
+
+* **Module des Points Akwaplay (`/akwaplay/points`)** :
+  - Accès via l'item « Points » de la **sidebar gauche Akwaplay** (état actif sur la page courante, fermeture du menu mobile après navigation).
+  - **Historique des points obtenus uniquement sur Akwaplay** : endpoint Dughu `GET /pointsHistory/{user_id}/akwaplay` (segment de chemin dédié à la source), encapsulé par la route BFF `GET /api/pointsHistory?source=akwaplay` (instance Axios serveur, token `X-AppApiToken` jamais exposé, repli sur le cookie de session).
+  - **Tableau** aux colonnes **Date · Type · Description · Points** (`AkwaplayPointsTable`, thème sombre) : badge vert « Gain » / rouge « Perte », montant signé au format français, date locale `fr-FR`.
+  - **États** : squelettes de chargement, erreur (message + « Réessayer ») et état vide (aucun point) gérés ; `userId` résolu depuis la session (`dughu.userId`, replis `dughuUserId` puis `id`).
+  - Architecture : composant → hook TanStack `usePointsHistory({ userId, source })` → service frontend `fetchPointsHistory` (Axios cliente) → route `/api/pointsHistory` → service serveur → instance Axios serveur ; normalisation défensive réutilisée (`points.mapper.ts`).
 
 ### 5. Endpoints Akwaplay — couverture complète
 

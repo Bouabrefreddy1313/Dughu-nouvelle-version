@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import {
   X,
@@ -12,11 +12,13 @@ import {
   Smile,
   Paperclip,
   Trash2,
-  Reply,
   Flag,
   ChevronDown,
+  Reply,
   Repeat2,
-  Heart,
+  Gift,
+  Loader2,
+  Pen,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
@@ -27,10 +29,35 @@ import { CommentBody } from "@/components/feed/CommentBody"
 import {
   REACTIONS,
   REACTION_ID_TO_TYPE,
-  REACTION_TYPE_TO_ID,
   POST_PRIVACY_OPTIONS,
+  resolvePostColorCss,
 } from "@/lib/constants"
 import { toast } from "sonner"
+import { givePoints } from "@/services/posts/feed.service"
+import { createPost, rePost } from "@/services/posts/posts.service"
+import { userMessage } from "@/lib/api/api-error"
+import { RepostWithTextModal } from "@/components/feed/RepostWithTextModal"
+import { SharePostModal } from "@/components/feed/SharePostModal"
+
+function formatCommentTime(dateString?: string): string {
+  if (!dateString) return ""
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return dateString
+  const now = new Date()
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+  if (seconds < 60) return "à l'instant"
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `il y a ${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `il y a ${hours}h`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `il y a ${days}j`
+  return date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+  })
+}
 
 export interface LightboxImageItem {
   url: string
@@ -65,7 +92,9 @@ export interface LightboxCommentItem {
 interface PostMediaLightboxProps {
   open: boolean
   onClose: () => void
-  images: LightboxImageItem[]
+  images?: LightboxImageItem[]
+  video?: string | null
+  color?: string | null
   initialIndex?: number
   author: {
     id: string
@@ -77,6 +106,8 @@ interface PostMediaLightboxProps {
   }
   timeAgo?: string
   content?: string
+  postId?: string
+  shareUrl?: string | null
   postPrivacy?: 0 | 1 | 2 | 3
   likesCount: number
   reactions?: { type: string; count: number }[]
@@ -102,17 +133,44 @@ interface PostMediaLightboxProps {
 
 const EMOJI_LIST = ["👍", "❤️", "😂", "🔥", "👏", "🎉", "😮", "🙏", "💯", "😍", "✨", "💪"]
 
+/** Liste de réactions « vide » partagée : référence STABLE entre les rendus. */
+const EMPTY_REACTIONS: ReactionSummaryItem[] = []
+
+/**
+ * Compare deux listes de réactions par CONTENU (type + count) plutôt que par
+ * référence. Indispensable pour la synchronisation d'état pendant le rendu :
+ * une comparaison par référence bouclerait si le parent fournit un nouveau
+ * tableau à chaque rendu (ex. valeur par défaut `[]` recréée à chaque appel
+ * du composant quand la prop `reactions` est absente) → « Too many re-renders ».
+ */
+function sameReactions(
+  a: ReactionSummaryItem[] | undefined,
+  b: ReactionSummaryItem[] | undefined
+): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (a.length !== b.length) return false
+  return a.every((item, i) => {
+    const other = b[i]
+    return !!other && item.type === other.type && item.count === other.count
+  })
+}
+
 export function PostMediaLightbox({
   open,
   onClose,
-  images,
+  images = [],
+  video,
+  color,
   initialIndex = 0,
   author,
   timeAgo,
   content,
+  postId,
+  shareUrl,
   postPrivacy,
   likesCount,
-  reactions = [],
+  reactions = EMPTY_REACTIONS,
   selectedReaction,
   onLike,
   onOpenReactionsModal,
@@ -136,39 +194,60 @@ export function PostMediaLightbox({
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState("")
   const [expandedReplies, setExpandedReplies] = useState<Record<string, boolean>>({})
+  const [hoverCommentReactionId, setHoverCommentReactionId] = useState<string | null>(null)
+  // Modale de partage du post vers les réseaux sociaux (par défaut dans la lumièrebox)
+  const [showShareModal, setShowShareModal] = useState(false)
+  // Menu « Republier » (direct / avec commentaire) + modale de republication avec texte
+  const [repostMenuOpen, setRepostMenuOpen] = useState(false)
+  const [showRepostTextModal, setShowRepostTextModal] = useState(false)
+  // Confirmation « Gratifier » (don de 100 points) — une simple overlay z-[9999],
+  // car le Dialog shadcn (porté dans <body> à z-50) serait invisible sous la lightbox.
+  const [confirmGratifyOpen, setConfirmGratifyOpen] = useState(false)
+  const [sendingPoints, setSendingPoints] = useState(false)
+
+  // La prop `reactions` peut être absente : on lui substitue une constante de
+  // module (jamais recréée à chaque rendu). Sans cela, la synchronisation de
+  // state ci-dessous (comparaison de références) détecterait un changement à
+  // CHAQUE rendu → setState pendant le rendu → boucle « Too many re-renders ».
+  const normalizedReactions = Array.isArray(reactions) ? reactions : EMPTY_REACTIONS
 
   const [localLikesCount, setLocalLikesCount] = useState(likesCount)
   const [localSelectedReaction, setLocalSelectedReaction] = useState(selectedReaction)
-  const [localReactions, setLocalReactions] = useState<ReactionSummaryItem[]>(
-    Array.isArray(reactions) ? reactions : []
-  )
+  const [localReactions, setLocalReactions] = useState<ReactionSummaryItem[]>(normalizedReactions)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const touchStartY = useRef<number | null>(null)
   const touchCurrentY = useRef<number | null>(null)
 
-  // Synchronise avec les props parent
-  useEffect(() => {
+  // Synchronisation avec les props parent sans effet en cascade.
+  // Les listes de réactions sont comparées par CONTENU (et non par référence)
+  // pour rester robuste même si un parent fournit un nouveau tableau à chaque rendu.
+  const [prevProps, setPrevProps] = useState({
+    likesCount,
+    selectedReaction,
+    reactions: normalizedReactions,
+    open,
+    initialIndex,
+  })
+
+  if (
+    prevProps.likesCount !== likesCount ||
+    prevProps.selectedReaction !== selectedReaction ||
+    !sameReactions(prevProps.reactions, normalizedReactions) ||
+    prevProps.open !== open ||
+    prevProps.initialIndex !== initialIndex
+  ) {
+    setPrevProps({ likesCount, selectedReaction, reactions: normalizedReactions, open, initialIndex })
     setLocalLikesCount(likesCount)
-  }, [likesCount])
-
-  useEffect(() => {
     setLocalSelectedReaction(selectedReaction)
-  }, [selectedReaction])
-
-  useEffect(() => {
-    setLocalReactions(Array.isArray(reactions) ? reactions : [])
-  }, [reactions])
-
-  // Synchronise index initial lors de l'ouverture
-  useEffect(() => {
-    if (open) {
+    setLocalReactions(normalizedReactions)
+    if (open && (!prevProps.open || prevProps.initialIndex !== initialIndex)) {
       setCurrentIndex(initialIndex)
       setShowMobileComments(false)
       setShowReactionsPicker(false)
     }
-  }, [open, initialIndex])
+  }
 
   // Verrouille le défilement de la page derrière
   useEffect(() => {
@@ -181,7 +260,7 @@ export function PostMediaLightbox({
         if (showMobileComments) setShowMobileComments(false)
         else onClose()
       } else if (e.key === "ArrowLeft") {
-        setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
+        setCurrentIndex((prev) => (prev > 0 ? prev - 1 : (images.length > 0 ? images.length - 1 : 0)))
       } else if (e.key === "ArrowRight") {
         setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
       }
@@ -194,9 +273,10 @@ export function PostMediaLightbox({
     }
   }, [open, onClose, images.length, showMobileComments])
 
-  if (!open || images.length === 0) return null
+  if (!open) return null
 
-  const currentImage = images[currentIndex] || images[0]
+  const currentImage = images && images.length > 0 ? (images[currentIndex] || images[0]) : null
+  const resolvedColor = resolvePostColorCss(color)
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
@@ -312,6 +392,99 @@ export function PostMediaLightbox({
     }
   }
 
+  // ── Actions d'interaction : Gratifier (100 pts) · Republier · Partager ──
+  const resPostId = postId || (images?.[0]?.id) || ""
+  const ownPost =
+    !!currentUser?.id && String(author.id) === String(currentUser?.dughu?.userId || "")
+  const canGratify = !!currentUser?.id && !!resPostId && !ownPost
+
+  const handleGratify = async () => {
+    if (!currentUser?.id || !resPostId) {
+      toast.error("Connectez-vous pour offrir des points")
+      return
+    }
+    setSendingPoints(true)
+    try {
+      const data = await givePoints({
+        postId: resPostId,
+        authorId: String(author.id),
+        points: 100,
+        userId: currentUser.id,
+        dughuUserId: String(currentUser?.dughu?.userId || ""),
+      })
+      if (data.success) {
+        toast.success("100 points offerts à l'auteur.")
+        setConfirmGratifyOpen(false)
+      } else {
+        toast.error(data.message || "Impossible d'offrir des points.")
+      }
+    } catch (error) {
+      toast.error(userMessage(error, "Impossible d'offrir des points."))
+    } finally {
+      setSendingPoints(false)
+    }
+  }
+
+  const handleRepostDirect = async () => {
+    if (!currentUser?.id || !resPostId) {
+      toast.error("Connectez-vous pour republier")
+      return
+    }
+    try {
+      const formData = new FormData()
+      formData.append("parentId", resPostId)
+      formData.append("userId", currentUser.id)
+      formData.append("dughuUserId", currentUser?.dughu?.userId ? String(currentUser.dughu.userId) : "")
+      const data = await createPost(formData)
+      if (data.success && data.post) toast.success("Repost effectué !")
+      else toast.error(data.message || "Erreur repost")
+    } catch {
+      toast.error("Erreur repost")
+    }
+  }
+
+  const handleRepostWithText = async (text: string) => {
+    if (!currentUser?.id || !resPostId) {
+      toast.error("Connectez-vous pour republier")
+      return
+    }
+    const commentary = text.trim()
+    if (!commentary) {
+      void handleRepostDirect()
+      return
+    }
+    try {
+      const formData = new FormData()
+      formData.append("parentId", resPostId)
+      formData.append("userId", currentUser.id)
+      formData.append("dughuUserId", currentUser?.dughu?.userId ? String(currentUser.dughu.userId) : "")
+      formData.append("postText", commentary)
+      const data = await rePost(formData)
+      if (data.success && data.post) toast.success("Repost publié !")
+      else toast.error(data.message || "Erreur repost")
+    } catch {
+      toast.error("Erreur repost")
+    }
+  }
+
+  const sharePreviewPost = {
+    id: resPostId,
+    content: content || null,
+    image: images?.[0]?.url || null,
+    video: typeof video === "string" ? video : null,
+    author: author,
+    shareUrl: shareUrl || null,
+  }
+  const repostPreviewParent = {
+    id: resPostId,
+    author: author,
+    content: content || null,
+    image: images?.[0]?.url || null,
+    video: typeof video === "string" ? video : null,
+    color: color,
+    timeAgo: timeAgo,
+  }
+
   // Définition de la réaction sélectionnée
   const selectedReactionDef = REACTIONS.find((r) => r.id === localSelectedReaction)
 
@@ -406,10 +579,69 @@ export function PostMediaLightbox({
             )}
           </div>
 
+          {/* Bouton Gratifier (100 points) — masqué sur son propre post */}
+          {canGratify && (
+            <button
+              type="button"
+              onClick={() => setConfirmGratifyOpen(true)}
+              className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold text-[#65676B] hover:bg-gray-50 transition"
+              aria-label="Gratifier l'auteur de ce post de 100 points"
+            >
+              <Image src="/images/dixip.png" alt="Gratifier" width={20} height={20} className="w-4 h-4 object-contain" />
+              <span>Gratifier</span>
+            </button>
+          )}
+
+          {/* Bouton Republier */}
+          <div className="relative flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => setRepostMenuOpen((v) => !v)}
+              className="flex w-full items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold text-[#65676B] hover:bg-gray-50 transition"
+            >
+              <Repeat2 size={16} />
+              <span>Republier</span>
+            </button>
+
+            {repostMenuOpen && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-1.5 z-50 animate-in fade-in zoom-in duration-150">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRepostMenuOpen(false)
+                    void handleRepostDirect()
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                >
+                  <Repeat2 size={14} className="text-[#65676B]" />
+                  <span className="text-[13px] font-medium text-[#050505]">
+                    Republier directement
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRepostMenuOpen(false)
+                    setShowRepostTextModal(true)
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                >
+                  <Pen size={14} className="text-[#A35A2B]" />
+                  <span className="text-[13px] font-medium text-[#050505]">
+                    Écrire un commentaire
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Bouton Partager */}
           <button
             type="button"
-            onClick={onShare}
+            onClick={() => {
+              if (onShare) onShare()
+              else setShowShareModal(true)
+            }}
             className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold text-[#65676B] hover:bg-gray-50 transition"
           >
             <Share2 size={16} />
@@ -443,17 +675,32 @@ export function PostMediaLightbox({
             const isReplying = replyingTo === comment.id
             const replies = comment.replies || []
             const areRepliesExpanded = expandedReplies[comment.id]
+            const isOwnComment = comment.isMine || comment.userId === currentUser?.id || comment.user?.id === currentUser?.id
+            const isAuthor = (Boolean(comment.userId) && comment.userId === author.id) || (Boolean(comment.user?.id) && comment.user?.id === author.id)
 
             return (
-              <div key={comment.id} className="space-y-2">
-                <div className="flex items-start gap-2.5">
-                  <Avatar src={comment.user?.avatar} name={comment.user?.name} size="sm" className="shrink-0 mt-0.5" />
+              <div key={comment.id} className="mb-3">
+                <div className="flex items-start gap-2">
+                  <Avatar src={comment.user?.avatar} name={comment.user?.name} size="xs" className="w-7 h-7 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <div className="bg-[#F0F2F5] rounded-2xl px-3.5 py-2 inline-block max-w-full">
-                      <p className="text-xs font-bold text-[#050505] leading-snug truncate">
-                        {comment.user?.name || "Utilisateur"}
-                      </p>
-                      <p className="text-sm text-[#050505] break-words whitespace-pre-wrap mt-0.5">
+                    <div className="rounded-2xl bg-[#F0F2F5] px-3 py-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-[13px] font-semibold text-[#050505]">
+                          {comment.user?.name || "Utilisateur"}
+                        </p>
+
+                        {isAuthor && (
+                          <span className="text-[10px] bg-[#A35A2A] text-white px-1.5 py-0.5 rounded-full font-medium">
+                            Auteur
+                          </span>
+                        )}
+
+                        <span className="text-[11px] text-[#65676B]">
+                          {formatCommentTime(comment.createdAt)}
+                        </span>
+                      </div>
+
+                      <div className="mt-1">
                         <CommentBody
                           content={comment.content}
                           image={comment.image}
@@ -461,99 +708,225 @@ export function PostMediaLightbox({
                           file={comment.file}
                           fileType={comment.fileType}
                         />
-                      </p>
-                    </div>
-
-                    {/* Actions de commentaire */}
-                    <div className="flex items-center gap-3 text-[11px] text-[#65676B] px-2 mt-1">
-                      <span>{comment.createdAt}</span>
-                      <button
-                        type="button"
-                        onClick={() => onLikeComment?.(comment.id, 1, false)}
-                        className={cn("font-semibold hover:underline", comment.liked && "text-[#A35A2A]")}
-                      >
-                        J&apos;aime {comment.likesCount ? `(${comment.likesCount})` : ""}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setReplyingTo(isReplying ? null : comment.id)}
-                        className="font-semibold hover:underline"
-                      >
-                        Répondre
-                      </button>
-                      {comment.isMine && (
-                        <button
-                          type="button"
-                          onClick={() => onDeleteComment?.(comment.id, false)}
-                          className="hover:text-red-500 transition"
-                          title="Supprimer"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Zone de réponse */}
-                    {isReplying && (
-                      <div className="mt-2 flex items-center gap-2 pl-2">
-                        <input
-                          type="text"
-                          value={replyText}
-                          onChange={(e) => setReplyText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") submitReply(comment.id)
-                          }}
-                          placeholder={`Répondre à ${comment.user?.name || "l'auteur"}...`}
-                          className="flex-1 bg-gray-100 rounded-full px-3 py-1.5 text-xs text-[#050505] outline-none focus:ring-1 focus:ring-[#A35A2A]"
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          onClick={() => submitReply(comment.id)}
-                          className="p-1.5 rounded-full bg-[#A35A2A] text-white hover:bg-[#8B4A1F] transition text-xs"
-                        >
-                          <Send size={12} />
-                        </button>
                       </div>
-                    )}
 
-                    {/* Réponses imbriquées */}
-                    {replies.length > 0 && (
-                      <div className="mt-2 pl-4 border-l-2 border-gray-200 space-y-2">
-                        {!areRepliesExpanded && (
+                      {/* Actions de commentaire : 👍 • Répondre • Supprimer / Signaler */}
+                      <div className="flex items-center gap-0.5 mt-2 -ml-2">
+                        <div
+                          className="relative"
+                          onMouseEnter={() => setHoverCommentReactionId(comment.id)}
+                          onMouseLeave={() => setHoverCommentReactionId(null)}
+                        >
                           <button
                             type="button"
-                            onClick={() => setExpandedReplies((prev) => ({ ...prev, [comment.id]: true }))}
-                            className="text-xs font-semibold text-[#A35A2A] hover:underline flex items-center gap-1"
+                            onClick={() => onLikeComment?.(comment.id, 1, false)}
+                            className={cn(
+                              "flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors",
+                              comment.liked
+                                ? "text-[#E4405F] hover:bg-red-50"
+                                : "text-[#65676B] hover:bg-red-50 hover:text-[#E4405F]"
+                            )}
                           >
-                            <span>Voir {replies.length} réponse{replies.length > 1 ? "s" : ""}</span>
-                            <ChevronDown size={12} />
+                            <span>👍</span>
+                            {comment.likesCount ? <span>{comment.likesCount}</span> : null}
+                          </button>
+
+                          {hoverCommentReactionId === comment.id && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-white rounded-full shadow-xl border border-gray-100 px-2 py-1 flex items-center gap-0.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                              {REACTIONS.map((reaction) => (
+                                <button
+                                  type="button"
+                                  key={reaction.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    onLikeComment?.(comment.id, reaction.id, false)
+                                    setHoverCommentReactionId(null)
+                                  }}
+                                  className="text-[20px] hover:scale-125 transition-transform"
+                                  title={reaction.name}
+                                >
+                                  {reaction.icon}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <span className="text-[#D1D5DB] text-[11px]" aria-hidden>
+                          •
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => setReplyingTo(isReplying ? null : comment.id)}
+                          className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-[#65676B] hover:bg-[#A35A2A]/10 hover:text-[#A35A2A] transition-colors"
+                        >
+                          <Reply size={12} />
+                          <span>Répondre</span>
+                        </button>
+
+                        <span className="text-[#D1D5DB] text-[11px]" aria-hidden>
+                          •
+                        </span>
+
+                        {isOwnComment ? (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteComment?.(comment.id, false)}
+                            className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-[#65676B] hover:bg-red-50 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 size={12} />
+                            <span>Supprimer</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onReportComment?.(comment.id, false)}
+                            className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-[#65676B] hover:bg-orange-50 hover:text-[#E4405F] transition-colors"
+                          >
+                            <Flag size={12} />
+                            <span>Signaler</span>
                           </button>
                         )}
-                        {areRepliesExpanded && replies.map((reply) => (
-                          <div key={reply.id} className="flex items-start gap-2 pt-1">
-                            <Avatar src={reply.user?.avatar} name={reply.user?.name} size="xs" className="shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <div className="bg-[#F0F2F5] rounded-2xl px-3 py-1.5 inline-block max-w-full">
-                                <p className="text-[11px] font-bold text-[#050505] truncate">
-                                  {reply.user?.name || "Utilisateur"}
-                                </p>
-                                <p className="text-xs text-[#050505] break-words whitespace-pre-wrap">
-                                  <CommentBody
-                                    content={reply.content}
-                                    image={reply.image}
-                                    video={reply.video}
-                                    file={reply.file}
-                                    fileType={reply.fileType}
-                                    size="sm"
-                                  />
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
                       </div>
-                    )}
+
+                      {/* Zone de réponse */}
+                      {isReplying && (
+                        <div className="mt-2 flex items-center gap-2 pl-1">
+                          <input
+                            type="text"
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") submitReply(comment.id)
+                            }}
+                            placeholder={`Répondre à ${comment.user?.name || "l'auteur"}...`}
+                            className="flex-1 bg-white border border-gray-200 rounded-full px-3 py-1.5 text-xs text-[#050505] outline-none focus:ring-1 focus:ring-[#A35A2A]"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => submitReply(comment.id)}
+                            className="p-1.5 rounded-full bg-[#A35A2A] text-white hover:bg-[#8B4A1F] transition text-xs"
+                          >
+                            <Send size={12} />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Réponses imbriquées */}
+                      {replies.length > 0 && (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedReplies((prev) => ({ ...prev, [comment.id]: !prev[comment.id] }))}
+                            className="flex items-center gap-1.5 text-[12px] font-semibold text-[#65676B] hover:text-[#A35A2A] transition-colors"
+                          >
+                            <span className="text-[#9CA3AF]">—</span>
+                            <span>
+                              {areRepliesExpanded
+                                ? "Masquer les réponses"
+                                : replies.length === 1
+                                ? "Voir 1 réponse"
+                                : `Voir ${replies.length} réponses`}
+                            </span>
+                            <ChevronDown
+                              size={12}
+                              className={cn("transition-transform duration-200", areRepliesExpanded && "rotate-180")}
+                            />
+                          </button>
+
+                          {areRepliesExpanded && (
+                            <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                              {replies.map((reply) => {
+                                const isOwnReply = reply.isMine || reply.userId === currentUser?.id || reply.user?.id === currentUser?.id
+                                const isReplyAuthor = (Boolean(reply.userId) && reply.userId === author.id) || (Boolean(reply.user?.id) && reply.user?.id === author.id)
+
+                                return (
+                                  <div key={reply.id} className="flex items-start gap-2">
+                                    <Avatar src={reply.user?.avatar} name={reply.user?.name} size="xs" className="w-6 h-6 shrink-0 mt-0.5" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="rounded-2xl bg-[#F0F2F5] px-3 py-1.5">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <p className="text-[12px] font-semibold text-[#050505]">
+                                            {reply.user?.name || "Utilisateur"}
+                                          </p>
+                                          {isReplyAuthor && (
+                                            <span className="text-[9px] bg-[#A35A2A] text-white px-1.5 py-0.2 rounded-full font-medium">
+                                              Auteur
+                                            </span>
+                                          )}
+                                          <span className="text-[10px] text-[#65676B]">
+                                            {formatCommentTime(reply.createdAt)}
+                                          </span>
+                                        </div>
+                                        <div className="mt-0.5">
+                                          <CommentBody
+                                            content={reply.content}
+                                            image={reply.image}
+                                            video={reply.video}
+                                            file={reply.file}
+                                            fileType={reply.fileType}
+                                            size="sm"
+                                          />
+                                        </div>
+
+                                        <div className="flex items-center gap-0.5 mt-1.5 -ml-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => onLikeComment?.(reply.id, 1, true)}
+                                            className={cn(
+                                              "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
+                                              reply.liked ? "text-[#E4405F]" : "text-[#65676B] hover:text-[#E4405F]"
+                                            )}
+                                          >
+                                            <span>👍</span>
+                                            {reply.likesCount ? <span>{reply.likesCount}</span> : null}
+                                          </button>
+
+                                          <span className="text-[#D1D5DB] text-[10px]" aria-hidden>•</span>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => setReplyingTo(comment.id)}
+                                            className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-[#65676B] hover:text-[#A35A2A]"
+                                          >
+                                            <Reply size={10} />
+                                            <span>Répondre</span>
+                                          </button>
+
+                                          <span className="text-[#D1D5DB] text-[10px]" aria-hidden>•</span>
+
+                                          {isOwnReply ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => onDeleteComment?.(reply.id, true)}
+                                              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-[#65676B] hover:text-red-600"
+                                            >
+                                              <Trash2 size={10} />
+                                              <span>Supprimer</span>
+                                            </button>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => onReportComment?.(reply.id, true)}
+                                              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-[#65676B] hover:text-[#E4405F]"
+                                            >
+                                              <Flag size={10} />
+                                              <span>Signaler</span>
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -726,18 +1099,46 @@ export function PostMediaLightbox({
           </>
         )}
 
-        {/* L'image principale au centre */}
-        <div className="flex-1 flex items-center justify-center p-2 sm:p-4 md:p-8">
-          <div className="relative w-full h-full max-w-full max-h-full flex items-center justify-center">
-            <Image
-              src={currentImage.url}
-              alt=""
-              width={1600}
-              height={1200}
-              priority
-              className="max-h-[85vh] md:max-h-[92vh] max-w-full w-auto h-auto object-contain rounded-lg drop-shadow-2xl transition-all duration-300 ease-out animate-in zoom-in-95"
-            />
-          </div>
+        {/* Le post / média principal au centre/droite */}
+        <div className="flex-1 flex items-center justify-center p-2 sm:p-4 md:p-8 overflow-auto">
+          {currentImage ? (
+            <div className="relative w-full h-full max-w-full max-h-full flex items-center justify-center">
+              <Image
+                src={currentImage.url}
+                alt=""
+                width={1600}
+                height={1200}
+                priority
+                className="max-h-[85vh] md:max-h-[92vh] max-w-full w-auto h-auto object-contain rounded-lg drop-shadow-2xl transition-all duration-300 ease-out animate-in zoom-in-95"
+              />
+            </div>
+          ) : video ? (
+            <div className="relative w-full max-w-4xl max-h-[85vh] md:max-h-[92vh] flex items-center justify-center">
+              <video
+                src={video}
+                controls
+                autoPlay
+                playsInline
+                className="max-h-[85vh] md:max-h-[92vh] max-w-full w-auto h-auto object-contain rounded-xl drop-shadow-2xl"
+              />
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "w-full max-w-2xl min-h-[260px] sm:min-h-[380px] p-8 sm:p-12 rounded-3xl flex items-center justify-center text-center shadow-2xl transition-all animate-in zoom-in-95",
+                !resolvedColor?.bg && "bg-white/10 backdrop-blur-md text-white border border-white/15"
+              )}
+              style={
+                resolvedColor?.bg
+                  ? { background: resolvedColor.bg, color: resolvedColor.text || "#FFFFFF" }
+                  : undefined
+              }
+            >
+              <p className="text-xl sm:text-3xl font-bold whitespace-pre-wrap leading-relaxed break-words">
+                <HashtagText text={content || ""} hashtagClassName="text-inherit underline" />
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════
@@ -802,7 +1203,10 @@ export function PostMediaLightbox({
             {/* Bouton Partager */}
             <button
               type="button"
-              onClick={onShare}
+              onClick={() => {
+                if (onShare) onShare()
+                else setShowShareModal(true)
+              }}
               className="p-2.5 rounded-full bg-white/15 backdrop-blur-md text-white hover:bg-white/25 active:scale-95 transition"
               aria-label="Partager"
             >
@@ -868,6 +1272,87 @@ export function PostMediaLightbox({
             {renderCommentsContent()}
           </div>
         </div>
+      )}
+
+      {/* Modale de confirmation « Gratifier » (overlay simple : le Dialog shadcn,
+          porté dans <body> à z-50, serait invisible sous la lightbox z-[9999]). */}
+      {confirmGratifyOpen && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]"
+          onClick={() => {
+            if (!sendingPoints) setConfirmGratifyOpen(false)
+          }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl animate-[scaleIn_0.18s_ease-out]"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Gratifier l'auteur"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#A35A2B]/10">
+                <Gift size={20} className="text-[#A35A2B]" />
+              </span>
+              <h3 className="text-base font-semibold leading-tight text-[#050505]">
+                Gratifier l'auteur
+              </h3>
+            </div>
+            <p className="mt-3 text-sm text-[#65676B]">
+              Voulez-vous vraiment offrir <strong>100 points</strong> à{" "}
+              <strong>{author.name || "cet utilisateur"}</strong> pour cette publication ?
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmGratifyOpen(false)}
+                disabled={sendingPoints}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-[#65676B] hover:bg-gray-50 transition"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleGratify()}
+                disabled={sendingPoints}
+                className="px-4 py-2 rounded-lg bg-[#A35A2B] text-white text-sm font-medium hover:bg-[#8B4A1F] transition"
+              >
+                {sendingPoints ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin" />
+                    Envoi...
+                  </span>
+                ) : (
+                  "Confirmer"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale de republication avec texte d'accompagnement */}
+      {showRepostTextModal && (
+        <RepostWithTextModal
+          isOpen={showRepostTextModal}
+          setIsOpen={setShowRepostTextModal}
+          onClose={() => setShowRepostTextModal(false)}
+          onSubmit={(text) => {
+            void handleRepostWithText(text)
+            setShowRepostTextModal(false)
+          }}
+          parentPost={repostPreviewParent}
+        />
+      )}
+
+      {/* Modale de partage vers les réseaux sociaux */}
+      {showShareModal && (
+        <SharePostModal
+          isOpen={showShareModal}
+          setIsOpen={setShowShareModal}
+          onClose={() => setShowShareModal(false)}
+          post={sharePreviewPost}
+        />
       )}
     </div>
   )

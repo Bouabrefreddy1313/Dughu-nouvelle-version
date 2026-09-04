@@ -471,7 +471,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                 {[
                   { key: "videos", label: "Mes Vidéos", icon: Video, count: videos.length },
                   { key: "channels", label: "Chaînes", icon: Tv, count: channels.length },
-                  { key: "shorts", label: "Shorts", icon: Clapperboard, count: shorts.length },
+                  { key: "shorts", label: "Capsules", icon: Clapperboard, count: shorts.length },
                   { key: "activities", label: "Activités", icon: Activity, count: activities.length },
                   { key: "favorites", label: "Favoris", icon: Star, count: favorites.length },
                 ].map((t) => {
