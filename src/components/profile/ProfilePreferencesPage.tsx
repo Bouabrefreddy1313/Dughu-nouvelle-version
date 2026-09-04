@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner"
 import MainLayout from "@/components/layout/MainLayout"
 import { ChangePasswordPanel } from "@/components/profile/ChangePasswordPanel"
+import { PrivacySettingsPanel } from "@/components/profile/PrivacySettingsPanel"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { cn } from "@/lib/utils"
 
@@ -273,7 +274,9 @@ function SpeedPreview() {
   )
 }
 
-function AccountSettingsList({ onChangePassword }: { onChangePassword: () => void }) {
+function AccountSettingsList({ onChangePassword, onPrivacySettings }: { onChangePassword: () => void; onPrivacySettings: () => void }) {
+  const router = useRouter()
+
   return (
     <div className="mt-7 overflow-hidden rounded-2xl border border-gray-200 bg-white">
       <div className="border-b border-gray-100 px-4 py-4 sm:px-5">
@@ -288,7 +291,21 @@ function AccountSettingsList({ onChangePassword }: { onChangePassword: () => voi
             <button
               key={item.key}
               type="button"
-              onClick={() => item.key === "change-password" ? onChangePassword() : toast.info(`${item.title} sera bientôt disponible.`)}
+              onClick={() => {
+                if (item.key === "change-password") {
+                  onChangePassword()
+                  return
+                }
+                if (item.key === "social-links") {
+                  router.push("/profile/settings?section=reseaux")
+                  return
+                }
+                if (item.key === "privacy-settings") {
+                  onPrivacySettings()
+                  return
+                }
+                toast.info(`${item.title} sera bientôt disponible.`)
+              }}
               className={cn(
                 "group flex min-h-16 w-full min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:px-4",
                 item.destructive
@@ -303,7 +320,9 @@ function AccountSettingsList({ onChangePassword }: { onChangePassword: () => voi
                 <span className="block break-words text-sm font-semibold">{item.title}</span>
                 <span className={cn("mt-1 block text-xs leading-5", item.destructive ? "text-red-600" : "text-[#65676B]")}>{item.description}</span>
               </span>
-              <span className={cn("hidden shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold sm:inline-flex", item.destructive ? "bg-red-100 text-red-700" : "bg-[#F0F2F5] text-[#65676B]")}>Bientôt</span>
+              {/* {item.key !== "social-links" && item.key !== "privacy-settings" && (
+                <span className={cn("hidden shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold sm:inline-flex", item.destructive ? "bg-red-100 text-red-700" : "bg-[#F0F2F5] text-[#65676B]")}>Bientôt</span>
+              )} */}
               <ChevronRight size={18} className="shrink-0 opacity-60 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
             </button>
           )
@@ -313,11 +332,15 @@ function AccountSettingsList({ onChangePassword }: { onChangePassword: () => voi
   )
 }
 
-function SettingDetails({ setting, onBack, passwordOpen, onPasswordOpenChange }: { setting: SettingItem; onBack: () => void; passwordOpen: boolean; onPasswordOpenChange: (open: boolean) => void }) {
+function SettingDetails({ setting, onBack, passwordOpen, onPasswordOpenChange, privacyOpen, onPrivacyOpenChange }: { setting: SettingItem; onBack: () => void; passwordOpen: boolean; onPasswordOpenChange: (open: boolean) => void; privacyOpen: boolean; onPrivacyOpenChange: (open: boolean) => void }) {
   const Icon = setting.icon
 
   if (setting.key === "account" && passwordOpen) {
     return <ChangePasswordPanel onBack={() => onPasswordOpenChange(false)} />
+  }
+
+  if (setting.key === "account" && privacyOpen) {
+    return <PrivacySettingsPanel onBack={() => onPrivacyOpenChange(false)} />
   }
 
   return (
@@ -338,7 +361,7 @@ function SettingDetails({ setting, onBack, passwordOpen, onPasswordOpenChange }:
       </div>
 
       {setting.key === "account" ? (
-        <AccountSettingsList onChangePassword={() => onPasswordOpenChange(true)} />
+        <AccountSettingsList onChangePassword={() => onPasswordOpenChange(true)} onPrivacySettings={() => onPrivacyOpenChange(true)} />
       ) : (
         <div className="mt-7 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
           <h3 className="font-bold text-[#2D2D2D]">Ce que vous pourrez gérer</h3>
@@ -365,9 +388,11 @@ export function ProfilePreferencesPage() {
   const { data: currentUser } = useAuth()
   const [selectedKey, setSelectedKey] = useState<SettingKey | null>(null)
   const [passwordOpen, setPasswordOpen] = useState(false)
+  const [privacyOpen, setPrivacyOpen] = useState(false)
   const activeSetting = SETTINGS_ITEMS.find((item) => item.key === selectedKey) ?? SETTINGS_ITEMS[0]
   const selectSetting = (key: SettingKey) => {
     setPasswordOpen(false)
+    setPrivacyOpen(false)
     setSelectedKey(key)
   }
 
@@ -394,7 +419,7 @@ export function ProfilePreferencesPage() {
           </aside>
 
           <section className={cn("min-w-0 bg-[#FCFCFC] md:block", selectedKey ? "block" : "hidden")}>
-            <SettingDetails setting={activeSetting} onBack={() => { setPasswordOpen(false); setSelectedKey(null) }} passwordOpen={passwordOpen} onPasswordOpenChange={setPasswordOpen} />
+            <SettingDetails setting={activeSetting} onBack={() => { setPasswordOpen(false); setPrivacyOpen(false); setSelectedKey(null) }} passwordOpen={passwordOpen} onPasswordOpenChange={setPasswordOpen} privacyOpen={privacyOpen} onPrivacyOpenChange={setPrivacyOpen} />
           </section>
         </div>
       </div>

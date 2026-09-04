@@ -148,3 +148,24 @@ export interface FollowPayload {
   userId?: string
   targetId?: string
 }
+
+export type PrivacyAudience = "0" | "1" | "2"
+export type FollowPrivacy = "0" | "1"
+export type PostPrivacy = "everyone" | "ifollow" | "nobody"
+export type ConfirmFollowers = "0" | "1"
+
+/** Les six préférences de confidentialité actuellement prises en charge. */
+export interface PrivacySettings {
+  followPrivacy: FollowPrivacy
+  messagePrivacy: PrivacyAudience
+  friendPrivacy: PrivacyAudience
+  postPrivacy: PostPrivacy
+  birthPrivacy: PrivacyAudience
+  confirmFollowers: ConfirmFollowers
+}
+
+export interface PrivacySettingsResponse {
+  success: boolean
+  message?: string
+  data?: PrivacySettings
+}

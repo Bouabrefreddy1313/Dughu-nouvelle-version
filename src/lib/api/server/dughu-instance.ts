@@ -122,3 +122,17 @@ export function dughuServerMultipart<T = unknown>(
 ): Promise<T> {
   return execute<T>({ method: "POST", url: path, data: formData }, options)
 }
+
+/** POST JSON vers l'API Dughu — mutation sans retry automatique. */
+export function dughuServerJson<T = unknown>(
+  path: string,
+  data: Record<string, unknown>,
+  options?: ExecuteOptions
+): Promise<T> {
+  return execute<T>({
+    method: "POST",
+    url: path,
+    data,
+    headers: { "Content-Type": "application/json" },
+  }, options)
+}
