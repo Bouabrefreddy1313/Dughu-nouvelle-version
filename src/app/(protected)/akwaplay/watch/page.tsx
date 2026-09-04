@@ -1,5 +1,7 @@
+import { Suspense } from "react"
 import type { Metadata } from "next"
 import { cookies } from "next/headers"
+import { RefreshCw } from "lucide-react"
 import AkwaWatchPage from "@/components/akwaplay/watch/AkwaWatchPage"
 
 export const metadata: Metadata = {
@@ -17,5 +19,15 @@ export default async function Page({ searchParams }: PageProps) {
   const params = await searchParams
   const videoId = params?.v || ""
 
-  return <AkwaWatchPage initialVideoId={videoId} initialUserId={userId} />
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#141414] flex items-center justify-center">
+          <RefreshCw className="w-8 h-8 text-[#f5821f] animate-spin" aria-label="Chargement" />
+        </div>
+      }
+    >
+      <AkwaWatchPage initialVideoId={videoId} initialUserId={userId} />
+    </Suspense>
+  )
 }

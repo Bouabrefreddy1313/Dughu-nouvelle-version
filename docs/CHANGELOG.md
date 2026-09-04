@@ -12,6 +12,16 @@ Chaque entrée doit contenir :
 * éventuelles corrections importantes.
 
 ## 2026-09-04
+### Build — Limite Suspense globale pour `useSearchParams()` (correction)
+* **Symptôme** : `next build` échouait avec `useSearchParams() should be wrapped in a suspense boundary at page "/groups"`.
+* **Cause** : dans Next.js App Router, l'utilisation du hook client `useSearchParams()` lors du pré-rendu statique sans frontière `<Suspense>` parente provoque une erreur bloquante au build.
+* **Audit & Correctif** :
+  - `src/app/(protected)/groups/page.tsx` : enveloppe `<GroupsPage />` dans un `<Suspense>` avec spinner `Loader2` centré sur fond clair (`#F7F8FA`, couleur de marque `#A35A2A`), identique aux autres pages Dughu (`/retrouvailles`, `/profile/relations`, `/profile/settings`).
+  - `src/app/(protected)/akwaplay/profile/page.tsx` : enveloppe `<AkwaProfilePage />` dans un `<Suspense>` avec spinner `RefreshCw` centré sur fond sombre (`#141414`, couleur de marque `#f5821f`), cohérent avec Akwaplay.
+  - `src/app/(protected)/akwaplay/watch/page.tsx` : enveloppe `<AkwaWatchPage />` dans un `<Suspense>` avec spinner `RefreshCw` centré sur fond sombre.
+  - Audit complet de l'ensemble de la codebase : les autres usages de `useSearchParams()` (`/retrouvailles`, `/profile/relations`, `/profile/settings`, `/messages`, `/otp`, `/akwaplay/shorts`) disposaient déjà d'une frontière Suspense conforme.
+* **Vérifié** : `next build` réussit avec succès sans avertissement ni erreur de prérendu (79 pages statiques et dynamiques générées).
+
 ### Fonctionnalité — Historique des points Akwaplay (`/akwaplay/points`)
 * **Nouvelle page Akwaplay `/akwaplay/points`** accessible depuis l'item « Points » de la sidebar gauche (l'item ne pointe plus vers `/points` mais vers `/akwaplay/points`), au thème sombre Akwaplay (`AkwaHeader` + `AkwaSidebar`).
 * **Endpoint dédié** `GET /pointsHistory/{user_id}/akwaplay` : l'historique est désormais restreint aux points obtenus sur Akwaplay uniquement. Le service serveur (`points.server.ts`) accepte un paramètre `source` ajouté en **segment de chemin**, la route BFF `GET /api/pointsHistory` relaie `?source=…`, le service frontend et le hook TanStack `usePointsHistory({ userId, source })` le transmettent (clé de requête isolée par source).
