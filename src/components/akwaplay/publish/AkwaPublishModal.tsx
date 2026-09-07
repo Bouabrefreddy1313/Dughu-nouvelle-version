@@ -206,7 +206,7 @@ export default function AkwaPublishModal({
         {/* En-tête */}
         <div className="flex items-center justify-between pb-3.5 border-b border-[#2a2a2a] shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#f5821f]/20 flex items-center justify-center text-[#f5821f]">
+            <div className="w-8 h-8 rounded-xl bg-[#985810]/20 flex items-center justify-center text-[#985810]">
               <Film size={18} />
             </div>
             <div>
@@ -232,8 +232,8 @@ export default function AkwaPublishModal({
             <div
               className={`border-2 border-dashed rounded-xl p-4 text-center transition ${
                 videoFile
-                  ? "border-[#f5821f]/60 bg-[#f5821f]/5"
-                  : "border-[#3a3a3a] hover:border-[#f5821f]/50 hover:bg-[#252525]"
+                  ? "border-[#985810]/60 bg-[#985810]/5"
+                  : "border-[#3a3a3a] hover:border-[#985810]/50 hover:bg-[#252525]"
               }`}
             >
               <input
@@ -248,7 +248,7 @@ export default function AkwaPublishModal({
                 <UploadCloud
                   className="mx-auto mb-1.5"
                   size={32}
-                  style={{ color: videoFile ? "#f5821f" : "#888888" }}
+                  style={{ color: videoFile ? "#985810" : "#888888" }}
                 />
                 <p className="text-sm font-semibold text-white truncate max-w-sm mx-auto">
                   {videoFile ? videoFile.name : "Cliquez ou glissez une vidéo ici"}
@@ -258,7 +258,7 @@ export default function AkwaPublishModal({
                   {duration && (
                     <>
                       <span>•</span>
-                      <span className="text-[#f5821f] font-medium">Durée : {duration}</span>
+                      <span className="text-[#985810] font-medium">Durée : {duration}</span>
                     </>
                   )}
                 </div>
@@ -273,7 +273,7 @@ export default function AkwaPublishModal({
                 Miniature (Thumbnail) *
               </label>
               {isAutoThumbnail && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-[#f5821f] font-semibold bg-[#f5821f]/10 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-[11px] text-[#985810] font-semibold bg-[#985810]/10 px-2 py-0.5 rounded-full">
                   <Sparkles size={11} />
                   Générée automatiquement
                 </span>
@@ -282,7 +282,7 @@ export default function AkwaPublishModal({
 
             {generatingThumb ? (
               <div className="w-full aspect-video rounded-xl bg-[#222222] flex flex-col items-center justify-center gap-2 border border-[#333333] animate-pulse">
-                <RefreshCw size={24} className="text-[#f5821f] animate-spin" />
+                <RefreshCw size={24} className="text-[#985810] animate-spin" />
                 <span className="text-xs text-[#9a9a9a]">Extraction de la miniature...</span>
               </div>
             ) : thumbnailPreview ? (
@@ -306,7 +306,7 @@ export default function AkwaPublishModal({
                   <div className="p-2.5 rounded-xl bg-[#222222] border border-[#2e2e2e] space-y-1.5">
                     <div className="flex justify-between items-center text-[11px] text-[#9a9a9a]">
                       <span>Moment de capture dans la vidéo :</span>
-                      <span className="font-mono text-[#f5821f] font-semibold">
+                      <span className="font-mono text-[#985810] font-semibold">
                         {Math.floor(thumbnailTime)}s / {Math.floor(durationSecs)}s
                       </span>
                     </div>
@@ -317,7 +317,7 @@ export default function AkwaPublishModal({
                       step={0.5}
                       value={thumbnailTime}
                       onChange={(e) => handleRegenerateThumbnail(Number(e.target.value))}
-                      className="w-full accent-[#f5821f] cursor-pointer"
+                      className="w-full accent-[#985810] cursor-pointer"
                     />
                   </div>
                 )}
@@ -342,7 +342,7 @@ export default function AkwaPublishModal({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Donnez un titre captivant à votre vidéo"
               maxLength={150}
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-[#6a6a6a] outline-none transition focus:ring-2 focus:ring-[#f5821f]/40 bg-[#262626] border border-[#363636]"
+              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-[#6a6a6a] outline-none transition focus:ring-2 focus:ring-[#985810]/40 bg-[#262626] border border-[#363636]"
               required
               disabled={publishing}
             />
@@ -361,7 +361,7 @@ export default function AkwaPublishModal({
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none transition focus:ring-2 focus:ring-[#f5821f]/40 bg-[#262626] border border-[#363636]"
+                className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none transition focus:ring-2 focus:ring-[#985810]/40 bg-[#262626] border border-[#363636]"
                 required
                 disabled={publishing}
               >
@@ -382,7 +382,7 @@ export default function AkwaPublishModal({
               <select
                 value={channelId}
                 onChange={(e) => setChannelId(e.target.value)}
-                className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none transition focus:ring-2 focus:ring-[#f5821f]/40 bg-[#262626] border border-[#363636]"
+                className="w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none transition focus:ring-2 focus:ring-[#985810]/40 bg-[#262626] border border-[#363636]"
                 disabled={publishing || channelsLoading}
               >
                 <option value="" className="bg-[#1c1c1c]">
@@ -416,13 +416,13 @@ export default function AkwaPublishModal({
                     onClick={() => setVisibility(id as any)}
                     className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
                       active
-                        ? "border-[#f5821f] bg-[#f5821f]/10 text-white"
+                        ? "border-[#985810] bg-[#985810]/10 text-white"
                         : "border-[#333333] bg-[#242424] text-[#888888] hover:border-[#444444] hover:text-[#cccccc]"
                     }`}
                   >
                     <div className="flex items-center justify-between w-full mb-1">
-                      <Icon size={14} className={active ? "text-[#f5821f]" : ""} />
-                      {active && <Check size={12} className="text-[#f5821f]" />}
+                      <Icon size={14} className={active ? "text-[#985810]" : ""} />
+                      {active && <Check size={12} className="text-[#985810]" />}
                     </div>
                     <div>
                       <p className="text-xs font-bold text-white">{label}</p>
@@ -444,7 +444,7 @@ export default function AkwaPublishModal({
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Décrivez votre vidéo, ajoutez des précisions, des liens ou des mots-clés…"
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-[#6a6a6a] outline-none resize-none transition focus:ring-2 focus:ring-[#f5821f]/40 bg-[#262626] border border-[#363636]"
+              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-[#6a6a6a] outline-none resize-none transition focus:ring-2 focus:ring-[#985810]/40 bg-[#262626] border border-[#363636]"
               disabled={publishing}
             />
           </div>
@@ -454,12 +454,12 @@ export default function AkwaPublishModal({
             <div className="space-y-1.5 p-3 rounded-xl bg-[#242424] border border-[#333333]">
               <div className="flex justify-between text-xs text-[#a0a0a0]">
                 <span>Téléversement en cours...</span>
-                <span className="font-mono text-[#f5821f] font-semibold">{uploadProgress}%</span>
+                <span className="font-mono text-[#985810] font-semibold">{uploadProgress}%</span>
               </div>
               <div className="w-full rounded-full h-2 overflow-hidden bg-[#1c1c1c]">
                 <div
                   className="h-full transition-all duration-200"
-                  style={{ width: `${uploadProgress}%`, backgroundColor: "#f5821f" }}
+                  style={{ width: `${uploadProgress}%`, backgroundColor: "#985810" }}
                 />
               </div>
             </div>
@@ -486,8 +486,8 @@ export default function AkwaPublishModal({
             <button
               type="submit"
               disabled={publishing || generatingThumb}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#f5821f]/20"
-              style={{ backgroundColor: "#f5821f" }}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white transition hover:opacity-90 disabled:opacity-50 shadow-lg shadow-[#985810]/20"
+              style={{ backgroundColor: "#985810" }}
             >
               {publishing ? (
                 <>

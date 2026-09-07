@@ -52,7 +52,7 @@ export default function AkwaVideoGrid({
         <p className="text-[#9a9a9a] text-sm max-w-xs">{error}</p>
         <button
           onClick={onRetry}
-          className="px-5 py-2 rounded-full text-sm font-semibold text-white transition hover:bg-[#f5821f]"
+          className="px-5 py-2 rounded-full text-sm font-semibold text-white transition hover:bg-[#985810]"
           style={{ backgroundColor: "#2a2a2a" }}
         >
           Réessayer
@@ -80,7 +80,7 @@ export default function AkwaVideoGrid({
         <button
           onClick={onPublishClick}
           className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
-          style={{ backgroundColor: "#f5821f" }}
+          style={{ backgroundColor: "#985810" }}
         >
           <Plus size={15} />
           Publier une vidéo

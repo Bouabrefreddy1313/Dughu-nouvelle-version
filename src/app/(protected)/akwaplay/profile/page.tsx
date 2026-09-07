@@ -17,7 +17,7 @@ export default async function Page() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#141414] flex items-center justify-center">
-          <RefreshCw className="w-8 h-8 text-[#f5821f] animate-spin" aria-label="Chargement" />
+          <RefreshCw className="w-8 h-8 text-[#985810] animate-spin" aria-label="Chargement" />
         </div>
       }
     >

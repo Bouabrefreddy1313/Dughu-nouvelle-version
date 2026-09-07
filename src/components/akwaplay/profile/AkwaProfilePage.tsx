@@ -399,12 +399,12 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                   <img
                     src={profileAuthor.avatar || "/images/avatar.png"}
                     alt={profileAuthor.name}
-                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover ring-4 ring-[#f5821f]/30"
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover ring-4 ring-[#985810]/30"
                   />
                   {profileAuthor.verified && (
                     <div
                       className="absolute bottom-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-white"
-                      style={{ backgroundColor: "#f5821f" }}
+                      style={{ backgroundColor: "#985810" }}
                     >
                       <CheckCircle2 size={16} />
                     </div>
@@ -431,13 +431,13 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                           className="px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:bg-white/10 flex items-center gap-1.5"
                           style={{ backgroundColor: "#2a2a2a", border: "1px solid #3a3a3a" }}
                         >
-                          <Tv size={15} className="text-[#f5821f]" />
+                          <Tv size={15} className="text-[#985810]" />
                           <span>Créer une chaîne</span>
                         </button>
                         <button
                           onClick={() => setPublishModalOpen(true)}
                           className="px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90 flex items-center gap-1.5"
-                          style={{ backgroundColor: "#f5821f" }}
+                          style={{ backgroundColor: "#985810" }}
                         >
                           <Plus size={16} />
                           <span>Publier</span>
@@ -484,7 +484,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                       className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition whitespace-nowrap ${
                         active ? "text-white" : "text-[#9a9a9a] hover:text-white hover:bg-white/5"
                       }`}
-                      style={active ? { backgroundColor: "#f5821f" } : {}}
+                      style={active ? { backgroundColor: "#985810" } : {}}
                     >
                       <Icon size={16} />
                       <span>{t.label}</span>
@@ -521,7 +521,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                     <p className="text-sm text-[#9a9a9a]">{videosError}</p>
                     <button
                       onClick={() => loadUserVideos(1, true)}
-                      className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#2a2a2a] hover:bg-[#f5821f] transition"
+                      className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#2a2a2a] hover:bg-[#985810] transition"
                     >
                       Réessayer
                     </button>
@@ -537,7 +537,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                       <button
                         onClick={() => setPublishModalOpen(true)}
                         className="mt-4 px-5 py-2.5 rounded-full text-sm font-semibold text-white flex items-center gap-2"
-                        style={{ backgroundColor: "#f5821f" }}
+                        style={{ backgroundColor: "#985810" }}
                       >
                         <Plus size={16} />
                         <span>Publier maintenant</span>
@@ -585,7 +585,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                     <p className="text-sm text-[#9a9a9a]">{channelsError}</p>
                     <button
                       onClick={loadUserChannels}
-                      className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#2a2a2a] hover:bg-[#f5821f] transition"
+                      className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#2a2a2a] hover:bg-[#985810] transition"
                     >
                       Réessayer
                     </button>
@@ -601,7 +601,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                       <button
                         onClick={() => setCreateChannelModal(true)}
                         className="mt-4 px-5 py-2.5 rounded-full text-sm font-semibold text-white flex items-center gap-2"
-                        style={{ backgroundColor: "#f5821f" }}
+                        style={{ backgroundColor: "#985810" }}
                       >
                         <Plus size={16} />
                         <span>Créer une chaîne</span>
@@ -613,7 +613,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                     {channels.map((ch) => (
                       <div
                         key={ch.id}
-                        className="p-5 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a] hover:border-[#f5821f]/50 transition flex items-center justify-between gap-4"
+                        className="p-5 rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a] hover:border-[#985810]/50 transition flex items-center justify-between gap-4"
                       >
                         <div className="flex items-center gap-3.5 min-w-0">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -663,7 +663,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                     <p className="text-sm text-[#9a9a9a]">{shortsError}</p>
                     <button
                       onClick={loadUserShorts}
-                      className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#2a2a2a] hover:bg-[#f5821f] transition"
+                      className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#2a2a2a] hover:bg-[#985810] transition"
                     >
                       Réessayer
                     </button>
@@ -704,7 +704,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                     <p className="text-sm text-[#9a9a9a]">{activitiesError}</p>
                     <button
                       onClick={loadUserActivities}
-                      className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#2a2a2a] hover:bg-[#f5821f] transition"
+                      className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#2a2a2a] hover:bg-[#985810] transition"
                     >
                       Réessayer
                     </button>
@@ -728,7 +728,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                         }}
                         className={`p-4 rounded-xl bg-[#1c1c1c] border border-[#2a2a2a] flex items-center justify-between gap-3 text-sm transition ${
                           act.videoId || act.shortId
-                            ? "hover:border-[#f5821f]/50 hover:bg-[#222222] cursor-pointer"
+                            ? "hover:border-[#985810]/50 hover:bg-[#222222] cursor-pointer"
                             : ""
                         }`}
                       >
@@ -753,9 +753,9 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                         </div>
 
                         {act.videoId && (
-                          <div className="shrink-0 text-xs text-[#f5821f] font-semibold flex items-center gap-1">
+                          <div className="shrink-0 text-xs text-[#985810] font-semibold flex items-center gap-1">
                             <span>Voir</span>
-                            <Play size={12} className="fill-[#f5821f]" />
+                            <Play size={12} className="fill-[#985810]" />
                           </div>
                         )}
                       </div>
@@ -779,7 +779,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                     <p className="text-sm text-[#9a9a9a]">{favoritesError}</p>
                     <button
                       onClick={loadFavorites}
-                      className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#2a2a2a] hover:bg-[#f5821f] transition"
+                      className="px-4 py-2 rounded-full text-sm font-semibold text-white bg-[#2a2a2a] hover:bg-[#985810] transition"
                     >
                       Réessayer
                     </button>
@@ -822,7 +822,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
               </button>
 
               <h3 className="text-base font-bold text-white mb-5 flex items-center gap-2">
-                <Tv className="text-[#f5821f]" size={20} />
+                <Tv className="text-[#985810]" size={20} />
                 <span>Créer une chaîne Akwaplay</span>
               </h3>
 
@@ -900,7 +900,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                         <button
                           type="button"
                           onClick={() => avatarInputRef.current?.click()}
-                          className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#f5821f] text-white flex items-center justify-center shadow-md hover:scale-105 transition"
+                          className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#985810] text-white flex items-center justify-center shadow-md hover:scale-105 transition"
                           title="Choisir la photo de la chaîne"
                         >
                           <Camera size={12} />
@@ -927,7 +927,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                       value={channelName}
                       onChange={(e) => handleChannelNameChange(e.target.value)}
                       placeholder="Ex: Passion Cinéma, Gaming Zone..."
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs text-white bg-[#141414] border border-[#333333] focus:border-[#f5821f] outline-none transition placeholder-[#666666]"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-xs text-white bg-[#141414] border border-[#333333] focus:border-[#985810] outline-none transition placeholder-[#666666]"
                     />
                   </div>
 
@@ -935,7 +935,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                     <label className="block text-xs font-semibold text-[#a0a0a0] mb-1.5">
                       Identifiant unique (slug / channel_id) <span className="text-red-500">*</span>
                     </label>
-                    <div className="flex items-center rounded-xl bg-[#141414] border border-[#333333] focus-within:border-[#f5821f] transition px-3">
+                    <div className="flex items-center rounded-xl bg-[#141414] border border-[#333333] focus-within:border-[#985810] transition px-3">
                       <span className="text-xs text-[#777777] font-mono mr-1">@</span>
                       <input
                         type="text"
@@ -960,7 +960,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                       value={channelDescription}
                       onChange={(e) => setChannelDescription(e.target.value)}
                       placeholder="Présentez le concept, le thème ou les contenus de votre chaîne..."
-                      className="w-full px-3.5 py-2 rounded-xl text-xs text-white bg-[#141414] border border-[#333333] focus:border-[#f5821f] outline-none transition placeholder-[#666666] resize-none"
+                      className="w-full px-3.5 py-2 rounded-xl text-xs text-white bg-[#141414] border border-[#333333] focus:border-[#985810] outline-none transition placeholder-[#666666] resize-none"
                     />
                   </div>
                 </div>
@@ -979,7 +979,7 @@ export default function AkwaProfilePage({ initialUserId = "" }: AkwaProfilePageP
                     type="submit"
                     disabled={channelSubmitting || !channelName.trim()}
                     className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white transition disabled:opacity-50 shadow-md"
-                    style={{ backgroundColor: "#f5821f" }}
+                    style={{ backgroundColor: "#985810" }}
                   >
                     {channelSubmitting ? (
                       <>

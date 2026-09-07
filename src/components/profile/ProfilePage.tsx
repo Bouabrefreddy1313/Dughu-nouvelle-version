@@ -868,7 +868,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                           />
                         )}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition">
-                          <div className="w-12 h-12 rounded-full bg-[#f5821f] flex items-center justify-center shadow-lg">
+                          <div className="w-12 h-12 rounded-full bg-[#985810] flex items-center justify-center shadow-lg">
                             <Play size={22} className="text-white fill-white ml-0.5" />
                           </div>
                         </div>

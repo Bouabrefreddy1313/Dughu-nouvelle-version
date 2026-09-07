@@ -133,12 +133,12 @@ export default function CanalCard({
   return (
     <div
       onClick={onClick}
-      className="group relative flex w-full flex-col rounded-3xl border border-gray-200/90 bg-white shadow-sm transition-all duration-300 hover:border-[#EA580C]/60 hover:shadow-lg cursor-pointer"
+      className="group relative flex w-full flex-col rounded-3xl border border-gray-200/90 bg-white shadow-sm transition-all duration-300 hover:border-[#985810]/60 hover:shadow-lg cursor-pointer"
     >
       {/* ========================================================================= */}
       {/* 1. Bannière Cover (Hauteur compacte h-28, large) */}
       {/* ========================================================================= */}
-      <div className="relative h-28 w-full overflow-hidden rounded-t-3xl bg-gradient-to-r from-orange-100 via-amber-50 to-orange-200">
+      <div className="relative h-28 w-full overflow-hidden rounded-t-3xl bg-gradient-to-r from-[#985810]/15 via-[#985810]/5 to-[#985810]/25">
         <Image
           src={coverSrc}
           alt=""
@@ -167,7 +167,7 @@ export default function CanalCard({
           </span>
 
           <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-md shadow-sm">
-            <Users size={13} className="text-orange-400" />
+            <Users size={13} className="text-[#d48937]" />
             <span>{canal.memberCount || 0}</span>
           </span>
         </div>
@@ -215,7 +215,7 @@ export default function CanalCard({
                     e.stopPropagation()
                     onClick?.()
                   }}
-                  className="flex items-center gap-1.5 rounded-xl bg-[#EA580C] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#C2410C] active:scale-[0.98]"
+                  className="flex items-center gap-1.5 rounded-xl bg-[#985810] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#7d480d] active:scale-[0.98]"
                 >
                   <MessageSquare size={14} />
                   Ouvrir le chat
@@ -255,7 +255,7 @@ export default function CanalCard({
                 type="button"
                 onClick={handleJoin}
                 disabled={joinMutation.isPending}
-                className="flex items-center gap-1.5 rounded-xl bg-[#EA580C] px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#C2410C] active:scale-[0.98]"
+                className="flex items-center gap-1.5 rounded-xl bg-[#985810] px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#7d480d] active:scale-[0.98]"
               >
                 {canal.type === "public" ? "Intégrer" : "Demander"}
               </button>
@@ -271,12 +271,12 @@ export default function CanalCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3
               title={canal.name}
-              className="text-base font-black text-gray-900 group-hover:text-[#EA580C] transition-colors truncate max-w-[280px]"
+              className="text-base font-black text-gray-900 group-hover:text-[#985810] transition-colors truncate max-w-[280px]"
             >
               {canal.name}
             </h3>
 
-            <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-bold text-[#EA580C] border border-orange-200/60">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#985810]/10 px-2 py-0.5 text-[11px] font-bold text-[#985810] border border-[#985810]/25">
               {canal.categoryName || "Général"}
             </span>
 
@@ -307,7 +307,7 @@ export default function CanalCard({
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 px-3 py-1.5 text-[11px] text-gray-600 border border-gray-100">
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1 font-semibold text-gray-800">
-                  <Users size={12} className="text-[#EA580C]" />
+                  <Users size={12} className="text-[#985810]" />
                   {canal.memberCount || 0} membres inscrits
                 </span>
 

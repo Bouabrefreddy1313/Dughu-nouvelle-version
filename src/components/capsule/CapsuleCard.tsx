@@ -42,7 +42,7 @@ export default function CapsuleCard({ capsule, onOpen, className }: CapsuleCardP
       onBlur={stopVideo}
       aria-label={`Voir la capsule de ${capsule.author?.name || "utilisateur"}`}
       className={cn(
-        "group relative w-full overflow-hidden rounded-2xl bg-gray-900 text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E08543]",
+        "group relative w-full overflow-hidden rounded-2xl bg-gray-900 text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#985810]",
         "aspect-[9/16]",
         className
       )}
@@ -77,7 +77,7 @@ export default function CapsuleCard({ capsule, onOpen, className }: CapsuleCardP
           loading="lazy"
         />
       ) : !capsule.video ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#E08543]/40 to-[#A35A2A]/60">
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#985810]/40 to-[#7d480d]/60">
           <Play className="h-10 w-10 text-white/80" aria-hidden />
         </div>
       ) : null}

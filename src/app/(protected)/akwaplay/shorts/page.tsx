@@ -187,8 +187,8 @@ function AkwaShortsContent() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-3">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md shadow-[#f5821f]/20"
-                  style={{ background: "linear-gradient(135deg, #f5821f, #e5530a)" }}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md shadow-[#985810]/20"
+                  style={{ background: "linear-gradient(135deg, #985810, #7d480d)" }}
                 >
                   <Clapperboard size={20} className="text-white" />
                 </div>
@@ -201,7 +201,7 @@ function AkwaShortsContent() {
               <button
                 onClick={() => setCreateModalOpen(true)}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-white shadow-lg transition hover:scale-102 shrink-0 self-start sm:self-auto"
-                style={{ backgroundColor: "#f5821f" }}
+                style={{ backgroundColor: "#985810" }}
               >
                 <Plus size={15} />
                 <span>Créer une capsule</span>
@@ -231,7 +231,7 @@ function AkwaShortsContent() {
                 <p className="text-[#9a9a9a] text-sm max-w-xs">{error}</p>
                 <button
                   onClick={() => loadShorts(1)}
-                  className="px-5 py-2 rounded-full text-sm font-semibold text-white transition hover:bg-[#f5821f]"
+                  className="px-5 py-2 rounded-full text-sm font-semibold text-white transition hover:bg-[#985810]"
                   style={{ backgroundColor: "#2a2a2a" }}
                 >
                   Réessayer
@@ -254,7 +254,7 @@ function AkwaShortsContent() {
                 <button
                   onClick={() => setCreateModalOpen(true)}
                   className="mt-2 px-5 py-2.5 rounded-full text-xs font-bold text-white transition hover:opacity-90"
-                  style={{ backgroundColor: "#f5821f" }}
+                  style={{ backgroundColor: "#985810" }}
                 >
                   Publier la première capsule
                 </button>
@@ -329,7 +329,7 @@ export default function AkwaShortsPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#141414] flex items-center justify-center">
-          <RefreshCw className="w-8 h-8 text-[#f5821f] animate-spin" />
+          <RefreshCw className="w-8 h-8 text-[#985810] animate-spin" />
         </div>
       }
     >

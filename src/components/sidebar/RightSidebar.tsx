@@ -11,6 +11,7 @@ import BoostedPostCard from "@/components/promotion/BoostedPostCard"
 import GroupCarousel from "@/components/sidebar/GroupCarousel"
 import { fetchSuggestions, fetchPointsToday } from "@/services/posts/feed.service"
 import { useProfile } from "@/hooks/profile/use-profile"
+import { useAuth } from "@/hooks/auth/use-auth"
 
 interface RightSidebarProps {
   user?: any
@@ -130,7 +131,10 @@ function getActivityMeta(type: string): { icon: React.ReactNode; action: string;
   }
 }
 
-export default function RightSidebar({ user, open = false, onClose, hideOnDesktop = false }: RightSidebarProps) {
+export default function RightSidebar({ user: propUser, open = false, onClose, hideOnDesktop = false }: RightSidebarProps) {
+  const { data: authUser, isLoading: authLoading } = useAuth()
+  const user = propUser ?? authUser
+
   const [activeDot, setActiveDot] = useState(0)
   const [boostedPosts, setBoostedPosts] = useState<BoostedPost[]>([])
   const [shuffledBoosted, setShuffledBoosted] = useState<BoostedPost[]>([])
@@ -138,7 +142,7 @@ export default function RightSidebar({ user, open = false, onClose, hideOnDeskto
   const [suggestedGroups, setSuggestedGroups] = useState<any[]>([])
   const [suggestedPages, setSuggestedPages] = useState<any[]>([])
   // Total de points de l'utilisateur (endpoint /pointsToday/{id} → `total`).
-  const [totalPoints, setTotalPoints] = useState(0)
+  const [totalPoints, setTotalPoints] = useState<number | undefined>(undefined)
   // `true` tant que les données distantes (suggestions + points) ne sont pas
   // arrivées : on affiche des squelettes au lieu des replis statiques (GROUPS,
   // SPACES, tendances…) pour ne pas « flasher » de fausses infos au chargement.
@@ -167,10 +171,14 @@ export default function RightSidebar({ user, open = false, onClose, hideOnDeskto
       // pour ne jamais afficher de repli statique pendant une attente réseau.
       setLoading(true)
       const userId = String(user?.id ?? "").trim()
-      const dughhuUserId = String(user?.dughhu?.userId ?? user?.dughhuUserId ?? "").trim()
+      const dughhuUserId = String(user?.dughu?.userId ?? user?.dughhuUserId ?? "").trim()
       // Session pas encore résolue (auth en cours) : on garde les squelettes,
       // l'effet se relancera quand `user` arrivera.
       if (!userId && !dughhuUserId) {
+        if (authLoading) {
+          if (!cancelled) setLoading(true)
+          return
+        }
         if (!cancelled) setLoading(false)
         return
       }
@@ -227,9 +235,9 @@ export default function RightSidebar({ user, open = false, onClose, hideOnDeskto
         if (!cancelled) setLoading(false)
       }
     }
-    loadData()
+    void loadData()
     return () => { cancelled = true }
-  }, [user])
+  }, [user, authLoading])
 
   const currentBoosted = useMemo(() => {
     if (shuffledBoosted.length === 0) return []
@@ -249,6 +257,8 @@ export default function RightSidebar({ user, open = false, onClose, hideOnDeskto
     { tag: "#Abidjan", count: 174 },
     { tag: "#Dughu", count: 224 },
   ])
+
+  const isAnyLoading = loading || authLoading
 
   return (
     // Rendu adaptatif d'une seule instance (un seul fetch de /api/suggestions) :
@@ -291,7 +301,7 @@ export default function RightSidebar({ user, open = false, onClose, hideOnDeskto
         user={user}
         points={totalPoints}
         stats={profileData?.stats}
-        loading={loading || profileLoading}
+        loading={isAnyLoading || profileLoading || !user}
       />
 
       {/* Posts boostés */}
@@ -302,7 +312,7 @@ export default function RightSidebar({ user, open = false, onClose, hideOnDeskto
         </div>
 
         <div className="flex flex-col gap-3">
-          {loading ? (
+          {isAnyLoading ? (
             <div className="flex flex-col gap-3" aria-busy="true">
               {[1, 2].map((i) => (
                 <div key={i} className="flex gap-3">
@@ -356,7 +366,7 @@ export default function RightSidebar({ user, open = false, onClose, hideOnDeskto
       {/* Groupes */}
       <GroupCarousel
         title="Groupe suggéré"
-        loading={loading}
+        loading={isAnyLoading}
         items={suggestedGroups.length > 0 ? suggestedGroups : GROUPS}
         defaultCover="/images/group/default-cover.jpg"
         defaultAvatar="/images/group/default-avatar.jpg"
@@ -368,7 +378,7 @@ export default function RightSidebar({ user, open = false, onClose, hideOnDeskto
       {/* Espaces */}
       <GroupCarousel
         title="Espace suggéré"
-        loading={loading}
+        loading={isAnyLoading}
         items={suggestedPages.length > 0 ? suggestedPages : SPACES}
         defaultCover="/images/page/default-cover.jpg"
         defaultAvatar="/images/page/default-avatar.jpg"
@@ -387,7 +397,7 @@ export default function RightSidebar({ user, open = false, onClose, hideOnDeskto
         </div>
 
         <div className="flex flex-col">
-          {loading ? (
+          {isAnyLoading ? (
             <div className="flex flex-col space-y-3" aria-busy="true">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-3 py-2">
@@ -441,7 +451,7 @@ export default function RightSidebar({ user, open = false, onClose, hideOnDeskto
       <Card className="p-5 rounded-[24px]">
         <h4 className="font-bold text-[16px] mb-3 text-[#2D2D2D]">On parle de ça</h4>
         <div className="space-y-1">
-          {loading ? (
+          {isAnyLoading ? (
             <div className="space-y-3" aria-busy="true">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-3 py-2">

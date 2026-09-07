@@ -114,8 +114,8 @@ export default function CreateCanalModal({ userId, isOpen, onClose, onSuccess }:
           <X size={20} />
         </button>
 
-        {/* Titre centré orange */}
-        <h2 className="text-center text-2xl font-black text-[#EA580C]">
+        {/* Titre centré */}
+        <h2 className="text-center text-2xl font-black text-[#985810]">
           Créer un canal
         </h2>
 
@@ -138,7 +138,7 @@ export default function CreateCanalModal({ userId, isOpen, onClose, onSuccess }:
               </div>
               <div
                 onClick={() => logoInputRef.current?.click()}
-                className="relative flex h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-[#EA580C] hover:bg-orange-50/20 overflow-hidden"
+                className="relative flex h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-[#985810] hover:bg-[#985810]/10 overflow-hidden"
               >
                 {logoPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -167,7 +167,7 @@ export default function CreateCanalModal({ userId, isOpen, onClose, onSuccess }:
               </div>
               <div
                 onClick={() => coverInputRef.current?.click()}
-                className="relative flex h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-[#EA580C] hover:bg-orange-50/20 overflow-hidden"
+                className="relative flex h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-[#985810] hover:bg-[#985810]/10 overflow-hidden"
               >
                 {coverPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -199,7 +199,7 @@ export default function CreateCanalModal({ userId, isOpen, onClose, onSuccess }:
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Passion Cinéma, Tech Afrique..."
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C]"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#985810] focus:ring-1 focus:ring-[#985810]"
               required
             />
           </div>
@@ -214,7 +214,7 @@ export default function CreateCanalModal({ userId, isOpen, onClose, onSuccess }:
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Décrivez l'objectif et les règles de votre canal..."
               rows={3}
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] resize-none"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#985810] focus:ring-1 focus:ring-[#985810] resize-none"
             />
           </div>
 
@@ -226,7 +226,7 @@ export default function CreateCanalModal({ userId, isOpen, onClose, onSuccess }:
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] bg-white"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#985810] focus:ring-1 focus:ring-[#985810] bg-white"
             >
               <option value="">Sélectionner une catégorie</option>
               {categories.map((cat) => (
@@ -302,11 +302,11 @@ export default function CreateCanalModal({ userId, isOpen, onClose, onSuccess }:
             </div>
           </div>
 
-          {/* Bouton Créer orange pleine largeur */}
+          {/* Bouton Créer pleine largeur */}
           <button
             type="submit"
             disabled={createMutation.isPending}
-            className="mt-6 w-full rounded-2xl bg-[#EA580C] py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#C2410C] active:scale-[0.99] disabled:opacity-50"
+            className="mt-6 w-full rounded-2xl bg-[#985810] py-3 text-sm font-bold text-white shadow-md transition hover:bg-[#7d480d] active:scale-[0.99] disabled:opacity-50"
           >
             {createMutation.isPending ? "Création en cours..." : "Créer le canal"}
           </button>

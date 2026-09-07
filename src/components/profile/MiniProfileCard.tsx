@@ -53,6 +53,12 @@ export default function MiniProfileCard({ user, points, stats, loading = false }
     )
   }
 
+  // Si aucun utilisateur n'est connecté et que le chargement est terminé,
+  // ne pas afficher de fausse carte de profil (« Utilisateur », « 0 Points »).
+  if (!user || (!user.id && !user.dughhuUserId && !user.dughu?.userId)) {
+    return null
+  }
+
   return (
     <div
       onClick={() => router.push(`/profile/${user?.username || user?.id || ""}`)}

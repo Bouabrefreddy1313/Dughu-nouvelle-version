@@ -34,7 +34,7 @@ export default function AkwaPromoCard({
         {tag && (
           <span
             className="self-start px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase"
-            style={{ backgroundColor: "#f5821f", color: "#ffffff" }}
+            style={{ backgroundColor: "#985810", color: "#ffffff" }}
           >
             {tag}
           </span>

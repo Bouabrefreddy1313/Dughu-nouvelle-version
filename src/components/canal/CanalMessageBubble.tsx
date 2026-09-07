@@ -72,7 +72,7 @@ export default function CanalMessageBubble({
         <div
           className={`relative rounded-2xl p-3 text-sm leading-relaxed shadow-sm ${
             isOwn
-              ? "rounded-tr-none bg-[#EA580C] text-white"
+              ? "rounded-tr-none bg-[#985810] text-white"
               : "rounded-tl-none bg-[#1E293B] text-gray-200 border border-gray-800"
           }`}
         >
@@ -129,7 +129,7 @@ export default function CanalMessageBubble({
                 onClick={() => handleReact(r.reaction)}
                 className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition ${
                   r.isOwn
-                    ? "bg-[#EA580C]/20 text-[#EA580C] border border-[#EA580C]/40"
+                    ? "bg-[#985810]/20 text-[#d48937] border border-[#985810]/40"
                     : "bg-[#1E293B] text-gray-300 border border-gray-700"
                 }`}
               >

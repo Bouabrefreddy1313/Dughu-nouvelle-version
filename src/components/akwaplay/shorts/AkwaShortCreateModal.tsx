@@ -102,7 +102,7 @@ export default function AkwaShortCreateModal({
         </button>
 
         <h3 className="text-base font-bold text-white mb-5 flex items-center gap-2">
-          <Clapperboard className="text-[#f5821f]" size={20} />
+          <Clapperboard className="text-[#985810]" size={20} />
           <span>Créer une capsule (Short)</span>
         </h3>
 
@@ -119,9 +119,9 @@ export default function AkwaShortCreateModal({
           {!videoPreview ? (
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="h-52 rounded-2xl border-2 border-dashed border-[#383838] hover:border-[#f5821f] bg-[#141414] hover:bg-[#181818] transition flex flex-col items-center justify-center gap-3 cursor-pointer group"
+              className="h-52 rounded-2xl border-2 border-dashed border-[#383838] hover:border-[#985810] bg-[#141414] hover:bg-[#181818] transition flex flex-col items-center justify-center gap-3 cursor-pointer group"
             >
-              <div className="w-12 h-12 rounded-full bg-[#242424] group-hover:bg-[#f5821f]/20 flex items-center justify-center text-[#888888] group-hover:text-[#f5821f] transition">
+              <div className="w-12 h-12 rounded-full bg-[#242424] group-hover:bg-[#985810]/20 flex items-center justify-center text-[#888888] group-hover:text-[#985810] transition">
                 <Upload size={22} />
               </div>
               <div className="text-center px-4">
@@ -159,7 +159,7 @@ export default function AkwaShortCreateModal({
               onChange={(e) => setCaption(e.target.value)}
               placeholder="Décrivez votre capsule, ajoutez des #hashtags..."
               disabled={submitting}
-              className="w-full px-3.5 py-2 rounded-xl text-xs text-white bg-[#141414] border border-[#333333] focus:border-[#f5821f] outline-none transition placeholder-[#666666] resize-none"
+              className="w-full px-3.5 py-2 rounded-xl text-xs text-white bg-[#141414] border border-[#333333] focus:border-[#985810] outline-none transition placeholder-[#666666] resize-none"
             />
           </div>
 
@@ -172,7 +172,7 @@ export default function AkwaShortCreateModal({
               </div>
               <div className="w-full h-2 rounded-full bg-[#242424] overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-[#f5821f] to-[#e5530a] transition-all duration-200"
+                  className="h-full bg-gradient-to-r from-[#985810] to-[#7d480d] transition-all duration-200"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
@@ -193,7 +193,7 @@ export default function AkwaShortCreateModal({
               type="submit"
               disabled={submitting || !videoFile}
               className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white transition disabled:opacity-40 shadow-md"
-              style={{ backgroundColor: "#f5821f" }}
+              style={{ backgroundColor: "#985810" }}
             >
               {submitting ? (
                 <>

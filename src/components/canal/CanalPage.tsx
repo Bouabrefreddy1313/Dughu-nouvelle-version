@@ -109,7 +109,7 @@ export default function CanalPage() {
         {/* ========================================================================= */}
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="flex size-11 items-center justify-center rounded-2xl bg-orange-50 border border-orange-100 shadow-sm">
+            <span className="flex size-11 items-center justify-center rounded-2xl bg-[#985810]/10 border border-[#985810]/20 shadow-sm">
               <Image
                 src="/images/canal.png"
                 alt=""
@@ -136,7 +136,7 @@ export default function CanalPage() {
             onClick={() => setCurrentTab("explorer")}
             className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold transition shadow-sm ${
               currentTab === "explorer"
-                ? "bg-[#EA580C] text-white"
+                ? "bg-[#985810] text-white"
                 : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
             }`}
           >
@@ -149,7 +149,7 @@ export default function CanalPage() {
             onClick={() => setCurrentTab("mine")}
             className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold transition shadow-sm ${
               currentTab === "mine"
-                ? "bg-[#EA580C] text-white"
+                ? "bg-[#985810] text-white"
                 : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
             }`}
           >
@@ -162,7 +162,7 @@ export default function CanalPage() {
             onClick={() => setCurrentTab("joined")}
             className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold transition shadow-sm ${
               currentTab === "joined"
-                ? "bg-[#EA580C] text-white"
+                ? "bg-[#985810] text-white"
                 : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
             }`}
           >
@@ -175,7 +175,7 @@ export default function CanalPage() {
             onClick={() => setCurrentTab("favorites")}
             className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold transition shadow-sm ${
               currentTab === "favorites"
-                ? "bg-[#EA580C] text-white"
+                ? "bg-[#985810] text-white"
                 : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
             }`}
           >
@@ -195,14 +195,14 @@ export default function CanalPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Rechercher un canal..."
-              className="w-full rounded-2xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs font-medium text-gray-900 outline-none transition focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] shadow-sm"
+              className="w-full rounded-2xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-xs font-medium text-gray-900 outline-none transition focus:border-[#985810] focus:ring-1 focus:ring-[#985810] shadow-sm"
             />
           </div>
 
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-[#EA580C] px-5 py-2.5 text-xs font-bold text-white shadow-md transition hover:bg-[#C2410C] active:scale-95"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-[#985810] px-5 py-2.5 text-xs font-bold text-white shadow-md transition hover:bg-[#7d480d] active:scale-95"
           >
             <Plus size={16} />
             Créer un canal

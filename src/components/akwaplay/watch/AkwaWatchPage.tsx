@@ -233,7 +233,7 @@ export default function AkwaWatchPage({
                 <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl ring-1 ring-white/10">
                   {videoLoading ? (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-[#1a1a1a] animate-pulse text-[#888888]">
-                      <Play size={48} className="text-[#f5821f] opacity-80 mb-2" />
+                      <Play size={48} className="text-[#985810] opacity-80 mb-2" />
                       <span className="text-sm">Chargement de la vidéo...</span>
                     </div>
                   ) : videoError ? (
@@ -244,7 +244,7 @@ export default function AkwaWatchPage({
                       <p className="text-sm max-w-sm mb-4">{videoError}</p>
                       <button
                         onClick={() => window.location.reload()}
-                        className="px-5 py-2 rounded-full text-sm font-semibold text-white bg-[#f5821f]"
+                        className="px-5 py-2 rounded-full text-sm font-semibold text-white bg-[#985810]"
                       >
                         Recharger la page
                       </button>
@@ -297,12 +297,12 @@ export default function AkwaWatchPage({
                               router.push(`/akwaplay/profile?userId=${video.author.id}`)
                             }
                           }}
-                          className="text-sm md:text-base font-bold text-white hover:text-[#f5821f] transition cursor-pointer truncate"
+                          className="text-sm md:text-base font-bold text-white hover:text-[#985810] transition cursor-pointer truncate"
                         >
                           {video?.author?.name || "Créateur Akwaplay"}
                         </span>
                         {video?.author?.verified && (
-                          <CheckCircle2 size={14} className="text-[#f5821f] shrink-0" />
+                          <CheckCircle2 size={14} className="text-[#985810] shrink-0" />
                         )}
                       </div>
                       <p className="text-xs text-[#888888]">
@@ -330,11 +330,11 @@ export default function AkwaWatchPage({
                       <button
                         onClick={toggleLike}
                         className={`flex items-center gap-1.5 px-3.5 py-2 hover:bg-white/10 transition ${
-                          isLiked ? "text-[#f5821f]" : "text-white"
+                          isLiked ? "text-[#985810]" : "text-white"
                         }`}
                         title="J'aime cette vidéo"
                       >
-                        <ThumbsUp size={15} className={isLiked ? "fill-[#f5821f]" : ""} />
+                        <ThumbsUp size={15} className={isLiked ? "fill-[#985810]" : ""} />
                         <span>{likesCount}</span>
                       </button>
                       <div className="w-[1px] h-4 bg-[#3a3a3a]" />
@@ -342,11 +342,11 @@ export default function AkwaWatchPage({
                       <button
                         onClick={toggleDislike}
                         className={`flex items-center gap-1.5 px-3.5 py-2 hover:bg-white/10 transition ${
-                          isDisliked ? "text-[#f5821f]" : "text-white"
+                          isDisliked ? "text-[#985810]" : "text-white"
                         }`}
                         title="Je n'aime pas cette vidéo"
                       >
-                        <ThumbsDown size={15} className={isDisliked ? "fill-[#f5821f]" : ""} />
+                        <ThumbsDown size={15} className={isDisliked ? "fill-[#985810]" : ""} />
                         <span>{dislikesCount}</span>
                       </button>
                     </div>
@@ -356,7 +356,7 @@ export default function AkwaWatchPage({
                       onClick={toggleFavorite}
                       className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition ${
                         isFavorite
-                          ? "bg-[#f5821f] text-white"
+                          ? "bg-[#985810] text-white"
                           : "bg-[#222222] text-white hover:bg-[#2a2a2a] border border-[#333333]"
                       }`}
                       title="Ajouter aux favoris"
@@ -393,7 +393,7 @@ export default function AkwaWatchPage({
                 >
                   <div className="flex items-center gap-4 text-xs font-semibold text-white mb-2">
                     <span className="flex items-center gap-1">
-                      <Eye size={13} className="text-[#f5821f]" />
+                      <Eye size={13} className="text-[#985810]" />
                       {viewsCount} vue{viewsCount > 1 ? "s" : ""}
                     </span>
                     <span className="flex items-center gap-1 text-[#9a9a9a]">
@@ -415,7 +415,7 @@ export default function AkwaWatchPage({
                     {video?.description || "Aucune description fournie pour cette vidéo."}
                   </p>
 
-                  <button className="mt-2 text-xs font-semibold text-[#f5821f] flex items-center gap-1">
+                  <button className="mt-2 text-xs font-semibold text-[#985810] flex items-center gap-1">
                     <span>{descriptionExpanded ? "Afficher moins" : "Afficher plus"}</span>
                     {descriptionExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                   </button>
@@ -489,7 +489,7 @@ export default function AkwaWatchPage({
 
                         {/* Infos vidéo compacte */}
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-xs md:text-sm font-semibold text-white line-clamp-2 leading-snug group-hover:text-[#f5821f] transition-colors">
+                          <h4 className="text-xs md:text-sm font-semibold text-white line-clamp-2 leading-snug group-hover:text-[#985810] transition-colors">
                             {sug.title}
                           </h4>
                           <p className="text-[11px] text-[#888888] mt-1 truncate">
@@ -517,7 +517,7 @@ export default function AkwaWatchPage({
               style={{ backgroundColor: "#1e1e1e", border: "1px solid #333333" }}
             >
               <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                <Flag className="text-[#f5821f]" size={18} />
+                <Flag className="text-[#985810]" size={18} />
                 <span>Signaler cette vidéo</span>
               </h3>
 
@@ -541,7 +541,7 @@ export default function AkwaWatchPage({
                             value={r.id}
                             checked={String(selectedReasonId) === String(r.id)}
                             onChange={() => setSelectedReasonId(r.id)}
-                            className="text-[#f5821f] focus:ring-[#f5821f]"
+                            className="text-[#985810] focus:ring-[#985810]"
                           />
                           <span>{r.reason}</span>
                         </label>
@@ -559,7 +559,7 @@ export default function AkwaWatchPage({
                     onChange={(e) => setReportDetails(e.target.value)}
                     placeholder="Précisez pourquoi vous signalez ce contenu..."
                     rows={3}
-                    className="w-full px-3.5 py-2 rounded-xl text-xs text-white placeholder-[#666666] bg-[#141414] border border-[#333333] focus:border-[#f5821f] outline-none resize-none"
+                    className="w-full px-3.5 py-2 rounded-xl text-xs text-white placeholder-[#666666] bg-[#141414] border border-[#333333] focus:border-[#985810] outline-none resize-none"
                   />
                 </div>
 
@@ -575,7 +575,7 @@ export default function AkwaWatchPage({
                     type="submit"
                     disabled={!selectedReasonId || reportSubmitting}
                     className="px-5 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-50"
-                    style={{ backgroundColor: "#f5821f" }}
+                    style={{ backgroundColor: "#985810" }}
                   >
                     {reportSubmitting ? "Envoi..." : "Envoyer le signalement"}
                   </button>

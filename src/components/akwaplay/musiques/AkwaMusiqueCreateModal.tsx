@@ -122,7 +122,7 @@ export default function AkwaMusiqueCreateModal({
         </button>
 
         <h3 className="text-base font-bold text-white mb-5 flex items-center gap-2">
-          <Music2 className="text-[#f5821f]" size={20} />
+          <Music2 className="text-[#985810]" size={20} />
           <span>Ajouter une musique libre</span>
         </h3>
 
@@ -149,9 +149,9 @@ export default function AkwaMusiqueCreateModal({
             </label>
             <div
               onClick={() => audioInputRef.current?.click()}
-              className="p-3.5 rounded-xl border border-dashed border-[#383838] hover:border-[#f5821f] bg-[#141414] hover:bg-[#181818] transition flex items-center gap-3 cursor-pointer"
+              className="p-3.5 rounded-xl border border-dashed border-[#383838] hover:border-[#985810] bg-[#141414] hover:bg-[#181818] transition flex items-center gap-3 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-lg bg-[#242424] flex items-center justify-center text-[#f5821f] shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-[#242424] flex items-center justify-center text-[#985810] shrink-0">
                 <Music2 size={18} />
               </div>
               <div className="min-w-0 flex-1">
@@ -174,7 +174,7 @@ export default function AkwaMusiqueCreateModal({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: Chill Summer Vibes"
               disabled={submitting}
-              className="w-full px-3.5 py-2 rounded-xl text-xs text-white bg-[#141414] border border-[#333333] focus:border-[#f5821f] outline-none transition placeholder-[#666666]"
+              className="w-full px-3.5 py-2 rounded-xl text-xs text-white bg-[#141414] border border-[#333333] focus:border-[#985810] outline-none transition placeholder-[#666666]"
             />
           </div>
 
@@ -186,7 +186,7 @@ export default function AkwaMusiqueCreateModal({
               onChange={(e) => setArtist(e.target.value)}
               placeholder="Ex: Dughu Studio"
               disabled={submitting}
-              className="w-full px-3.5 py-2 rounded-xl text-xs text-white bg-[#141414] border border-[#333333] focus:border-[#f5821f] outline-none transition placeholder-[#666666]"
+              className="w-full px-3.5 py-2 rounded-xl text-xs text-white bg-[#141414] border border-[#333333] focus:border-[#985810] outline-none transition placeholder-[#666666]"
             />
           </div>
 
@@ -195,7 +195,7 @@ export default function AkwaMusiqueCreateModal({
             <label className="block text-xs font-semibold text-[#a0a0a0] mb-1.5">Pochette (optionnel)</label>
             <div
               onClick={() => coverInputRef.current?.click()}
-              className="p-2.5 rounded-xl border border-dashed border-[#383838] hover:border-[#f5821f] bg-[#141414] flex items-center gap-3 cursor-pointer"
+              className="p-2.5 rounded-xl border border-dashed border-[#383838] hover:border-[#985810] bg-[#141414] flex items-center gap-3 cursor-pointer"
             >
               {coverPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -224,7 +224,7 @@ export default function AkwaMusiqueCreateModal({
               </div>
               <div className="w-full h-2 rounded-full bg-[#242424] overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-[#f5821f] to-[#e5530a] transition-all duration-200"
+                  className="h-full bg-gradient-to-r from-[#985810] to-[#7d480d] transition-all duration-200"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
@@ -245,7 +245,7 @@ export default function AkwaMusiqueCreateModal({
               type="submit"
               disabled={submitting || !title.trim() || !artist.trim() || !audioFile}
               className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white transition disabled:opacity-40 shadow-md"
-              style={{ backgroundColor: "#f5821f" }}
+              style={{ backgroundColor: "#985810" }}
             >
               {submitting ? (
                 <>

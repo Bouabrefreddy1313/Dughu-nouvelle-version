@@ -11,6 +11,50 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-09-07
+### Harmonisation des couleurs — Canal, Capsule et Akwaplay (`#985810`)
+* **Demande utilisateur** : remplacement des accents orange (`#f5821f`, `#e5530a`, `#EA580C`, etc.) par la couleur de marque `#985810` (avec ses variantes de survol `#7d480d` et teintes douces `#985810]/20`, `#985810]/10`) dans les modules **Canal**, **Capsule** et **Akwaplay**.
+* **Modifications effectuées** :
+  - **Module Canal (`src/components/canal/`)** :
+    - `CanalCard.tsx` : badge catégorie, bouton d'action principal et anneau d'avatar basculés vers `#985810`.
+    - `CanalPage.tsx` : onglet actif « Explorer », bouton « + Créer un canal », anneau et focus de recherche harmonisés vers `#985810`.
+    - `CreateCanalModal.tsx` : titre, bouton de soumission et focus des champs vers `#985810`.
+    - `CanalMessageBubble.tsx` : fond des bulles de messages envoyés et surbrillance vers `#985810`.
+    - `CanalPollCard.tsx` : barre de progression des sondages et bouton de vote vers `#985810`.
+    - `CanalSettingsModal.tsx` : onglet actif, bouton d'enregistrement et focus vers `#985810`.
+    - `CanalChatView.tsx` : bouton d'envoi et éléments d'accentuation vers `#985810`.
+  - **Module Capsule (`src/components/capsule/`)** :
+    - `CapsulesPage.tsx` : bouton « Créer », badges et états actifs basculés vers `#985810`.
+    - `CapsuleCard.tsx` : badge créateur, cœur like actif, icône play et bordure survol vers `#985810`.
+    - `CapsuleRail.tsx` : indicateurs du carrousel et boutons d'action vers `#985810`.
+    - `CapsuleCreator.tsx` : bouton de publication, zone de glisser-déposer au survol et barre de progression vers `#985810`.
+    - `CapsuleComments.tsx` : bouton commenter et likes de commentaires vers `#985810`.
+  - **Module Akwaplay (`src/components/akwaplay/` et `src/app/(protected)/akwaplay/`)** :
+    - `AkwaHeader.tsx` : logo `Akwa<span style={{ color: "#985810" }}>play</span>`, bouton publier, focus recherche et anneau avatar.
+    - `AkwaSidebar.tsx` : icône active et bouton publier mobile vers `#985810`.
+    - `AkwaVideoCard.tsx` : fallback play, badge de chaîne, survol du titre et anneau avatar vers `#985810`.
+    - `AkwaVideoGrid.tsx` & `AkwaPromoCard.tsx` : bouton d'action vide, bouton réessayer et étiquette promo vers `#985810`.
+    - `AkwaPublishModal.tsx` : icône d'en-tête, bordure d'upload, curseur de moment de capture, focus champs, barres de progression et bouton publier.
+    - `AkwaShortCard.tsx`, `AkwaShortCreateModal.tsx`, `AkwaShortViewerModal.tsx` : bouton play, gradient d'upload, boutons d'interaction (like, commentaires), anneaux et focus champs.
+    - `AkwaMusiqueCreateModal.tsx` : icône musique, zones d'upload, focus champs, progression et bouton de création.
+    - `AkwaProfilePage.tsx` : onglet actif, boutons de création de chaîne et publication, anneaux et modale de chaîne vers `#985810`.
+    - `AkwaWatchPage.tsx` & `AkwaCommentsSection.tsx` : icônes play, boutons like/dislike/favori, champ de saisie de commentaire, boutons répondre et modale de signalement.
+    - Pages Akwaplay (`/watch`, `/trending`, `/shorts`, `/profile`, `/points`, `/musiques`, `/favorites`) : bannières dégradées (`linear-gradient(135deg, #985810, #7d480d)`), spinners de chargement, boutons réessayer et boutons de création.
+    - `ProfilePage.tsx` : bouton play de la section des vidéos Akwaplay sur le profil utilisateur basculé vers `#985810`.
+* **Vérification** : `npx tsc --noEmit` validé avec succès (code de sortie 0, aucune erreur de type).
+
+### Sidebar droite — Flash de données statiques au rechargement (correction)
+* **Symptôme** : au rechargement de la page, avant que les informations ne chargent dans la sidebar droite, des données statiques par défaut (« Utilisateur », « 0 Points », « Startups Afrique », « Espace Tech », tendances par défaut, etc.) s'affichaient brièvement avant de basculer vers les squelettes ou les vraies données de l'API.
+* **Cause** : 
+  - Dans `RightSidebar.tsx`, lorsque `user` n'était pas encore résolu par l'authentification (`!userId && !dughhuUserId`), le hook déclenchait immédiatement `setLoading(false)` au lieu de maintenir l'état de chargement jusqu'à la résolution de l'auth.
+  - La carte `MiniProfileCard` affichait des replis statiques par défaut (« Utilisateur », `@utilisateur`, « 0 Points », stats à 0) dès que `loading` passait à `false`, même si `user` était `null`/`undefined`.
+  - `totalPoints` était initialisé à `0` (écrasant `user.points` en cas d'évaluation par coalescence nulle).
+* **Correctif** :
+  - `RightSidebar.tsx` : intègre `useAuth()` pour coordonner `authLoading` avec `loading`. Tant que l'authentification est en cours (`authLoading`), `loading` reste strictement à `true` et ne retombe plus prématurément à `false`.
+  - `isAnyLoading` (`loading || authLoading`) protège désormais l'ensemble des blocs asynchrones (MiniProfileCard, posts boostés, carrousels groupes et espaces, activité, tendances).
+  - `MiniProfileCard.tsx` : affiche le squelette pendant le chargement (`loading || isAnyLoading || profileLoading || !user`), et ne rend rien (`return null`) si aucun utilisateur n'est connecté au lieu d'afficher une carte fictive (« Utilisateur, 0 Points »). `totalPoints` dans `RightSidebar` est initialisé à `undefined` pour laisser la priorité au solde réel.
+* **Vérification** : validation TypeScript (`npx tsc --noEmit`) sans erreur.
+
 ## 2026-09-04
 ### Build — Limite Suspense globale pour `useSearchParams()` (correction)
 * **Symptôme** : `next build` échouait avec `useSearchParams() should be wrapped in a suspense boundary at page "/groups"`.

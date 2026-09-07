@@ -268,8 +268,8 @@ function AkwaMusiquesContent() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-3">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md shadow-[#f5821f]/20"
-                  style={{ background: "linear-gradient(135deg, #f5821f, #e5530a)" }}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md shadow-[#985810]/20"
+                  style={{ background: "linear-gradient(135deg, #985810, #7d480d)" }}
                 >
                   <Music2 size={20} className="text-white" />
                 </div>
@@ -284,7 +284,7 @@ function AkwaMusiquesContent() {
               <button
                 onClick={() => setCreateModalOpen(true)}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-white shadow-lg transition hover:scale-102 shrink-0 self-start sm:self-auto"
-                style={{ backgroundColor: "#f5821f" }}
+                style={{ backgroundColor: "#985810" }}
               >
                 <Plus size={15} />
                 <span>Ajouter une musique</span>
@@ -299,7 +299,7 @@ function AkwaMusiquesContent() {
                   onClick={() => setActiveTab("all")}
                   className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
                     activeTab === "all"
-                      ? "bg-[#f5821f] text-white shadow"
+                      ? "bg-[#985810] text-white shadow"
                       : "text-[#9a9a9a] hover:text-white"
                   }`}
                 >
@@ -309,7 +309,7 @@ function AkwaMusiquesContent() {
                   onClick={() => setActiveTab("favorites")}
                   className={`px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
                     activeTab === "favorites"
-                      ? "bg-[#f5821f] text-white shadow"
+                      ? "bg-[#985810] text-white shadow"
                       : "text-[#9a9a9a] hover:text-white"
                   }`}
                 >
@@ -330,7 +330,7 @@ function AkwaMusiquesContent() {
                     placeholder="Rechercher un titre ou un artiste…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 rounded-xl text-xs text-white placeholder-[#777777] bg-[#1c1c1c] border border-[#2a2a2a] focus:border-[#f5821f] outline-none transition"
+                    className="w-full pl-9 pr-4 py-2 rounded-xl text-xs text-white placeholder-[#777777] bg-[#1c1c1c] border border-[#2a2a2a] focus:border-[#985810] outline-none transition"
                   />
                 </div>
               )}
@@ -364,7 +364,7 @@ function AkwaMusiquesContent() {
                 <p className="text-[#9a9a9a] text-sm max-w-xs">{error}</p>
                 <button
                   onClick={() => load(search)}
-                  className="px-5 py-2 rounded-full text-xs font-semibold text-white transition bg-[#2a2a2a] hover:bg-[#f5821f]"
+                  className="px-5 py-2 rounded-full text-xs font-semibold text-white transition bg-[#2a2a2a] hover:bg-[#985810]"
                 >
                   Réessayer
                 </button>
@@ -390,7 +390,7 @@ function AkwaMusiquesContent() {
                   <button
                     onClick={() => setCreateModalOpen(true)}
                     className="mt-2 px-5 py-2.5 rounded-full text-xs font-bold text-white transition hover:opacity-90"
-                    style={{ backgroundColor: "#f5821f" }}
+                    style={{ backgroundColor: "#985810" }}
                   >
                     Ajouter le premier morceau
                   </button>
@@ -406,7 +406,7 @@ function AkwaMusiquesContent() {
                       onClick={() => handlePlayTrack(musique)}
                       className={`flex items-center gap-3.5 p-3 rounded-2xl transition duration-200 cursor-pointer group border ${
                         isCurrent
-                          ? "bg-[#222222] border-[#f5821f]/60 shadow-md"
+                          ? "bg-[#222222] border-[#985810]/60 shadow-md"
                           : "bg-[#181818] border-[#262626] hover:bg-[#202020] hover:border-[#383838]"
                       }`}
                     >
@@ -419,8 +419,8 @@ function AkwaMusiquesContent() {
                           }}
                           className={`w-8 h-8 rounded-full flex items-center justify-center transition ${
                             isCurrent && isPlaying
-                              ? "bg-[#f5821f] text-white"
-                              : "bg-[#252525] group-hover:bg-[#f5821f] text-white"
+                              ? "bg-[#985810] text-white"
+                              : "bg-[#252525] group-hover:bg-[#985810] text-white"
                           }`}
                         >
                           {isCurrent && isPlaying ? (
@@ -444,7 +444,7 @@ function AkwaMusiquesContent() {
                         ) : (
                           <Music2
                             size={20}
-                            className={isCurrent ? "text-[#f5821f]" : "text-[#777777]"}
+                            className={isCurrent ? "text-[#985810]" : "text-[#777777]"}
                           />
                         )}
                       </div>
@@ -453,7 +453,7 @@ function AkwaMusiquesContent() {
                       <div className="flex-1 min-w-0">
                         <p
                           className={`text-xs font-bold truncate leading-snug ${
-                            isCurrent ? "text-[#f5821f]" : "text-white"
+                            isCurrent ? "text-[#985810]" : "text-white"
                           }`}
                         >
                           {musique.title}
@@ -475,14 +475,14 @@ function AkwaMusiquesContent() {
                         onClick={(e) => handleToggleFavorite(e, musique)}
                         className={`p-2 rounded-lg transition shrink-0 ${
                           musique.isFavorite
-                            ? "text-[#f5821f]"
+                            ? "text-[#985810]"
                             : "text-[#666666] hover:text-white"
                         }`}
                         title={musique.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
                       >
                         <Heart
                           size={16}
-                          className={musique.isFavorite ? "fill-[#f5821f]" : ""}
+                          className={musique.isFavorite ? "fill-[#985810]" : ""}
                         />
                       </button>
 
@@ -517,7 +517,7 @@ function AkwaMusiquesContent() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <Music2 size={18} className="text-[#f5821f]" />
+                    <Music2 size={18} className="text-[#985810]" />
                   )}
                 </div>
                 <div className="min-w-0">
@@ -530,7 +530,7 @@ function AkwaMusiquesContent() {
               <div className="flex-1 max-w-md flex flex-col items-center gap-1.5">
                 <button
                   onClick={() => handlePlayTrack(currentTrack)}
-                  className="w-8 h-8 rounded-full bg-[#f5821f] text-white flex items-center justify-center shadow hover:scale-105 transition"
+                  className="w-8 h-8 rounded-full bg-[#985810] text-white flex items-center justify-center shadow hover:scale-105 transition"
                 >
                   {isPlaying ? (
                     <Pause size={14} className="fill-white" />
@@ -544,7 +544,7 @@ function AkwaMusiquesContent() {
                   </span>
                   <div className="flex-1 h-1 bg-[#282828] rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#f5821f] transition-all"
+                      className="h-full bg-[#985810] transition-all"
                       style={{ width: `${audioProgress}%` }}
                     />
                   </div>
@@ -591,7 +591,7 @@ export default function AkwaMusiquesPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#141414] flex items-center justify-center">
-          <RefreshCw className="w-8 h-8 text-[#f5821f] animate-spin" />
+          <RefreshCw className="w-8 h-8 text-[#985810] animate-spin" />
         </div>
       }
     >

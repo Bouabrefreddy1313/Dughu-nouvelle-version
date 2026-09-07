@@ -351,7 +351,7 @@ export default function AkwaShortViewerModal({
               <img
                 src={currentShort.author?.avatar || "/images/avatar.png"}
                 alt={currentShort.author?.name || "Créateur"}
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-[#f5821f]"
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-[#985810]"
               />
               <span className="text-sm font-bold text-white shadow-sm truncate">
                 {currentShort.author?.name || "Créateur"}
@@ -377,7 +377,7 @@ export default function AkwaShortViewerModal({
                 onClick={handleToggleLike}
                 className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
                   currentShort.isLiked
-                    ? "bg-[#f5821f] text-white scale-110 shadow-lg shadow-[#f5821f]/40"
+                    ? "bg-[#985810] text-white scale-110 shadow-lg shadow-[#985810]/40"
                     : "bg-black/60 backdrop-blur-sm text-white hover:bg-white/20"
                 }`}
                 title="J'aime"
@@ -395,7 +395,7 @@ export default function AkwaShortViewerModal({
                 onClick={() => setShowComments((prev) => !prev)}
                 className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
                   showComments
-                    ? "bg-[#f5821f] text-white"
+                    ? "bg-[#985810] text-white"
                     : "bg-black/60 backdrop-blur-sm text-white hover:bg-white/20"
                 }`}
                 title="Commentaires"
@@ -438,7 +438,7 @@ export default function AkwaShortViewerModal({
             {/* Header commentaires */}
             <div className="p-4 border-b border-[#282828] flex items-center justify-between">
               <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <MessageCircle size={16} className="text-[#f5821f]" />
+                <MessageCircle size={16} className="text-[#985810]" />
                 <span>Commentaires ({comments.length})</span>
               </h4>
               <button
@@ -453,7 +453,7 @@ export default function AkwaShortViewerModal({
             <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
               {commentsLoading ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-2 text-center text-[#777777]">
-                  <RefreshCw size={20} className="animate-spin text-[#f5821f]" />
+                  <RefreshCw size={20} className="animate-spin text-[#985810]" />
                   <span className="text-xs">Chargement des commentaires...</span>
                 </div>
               ) : comments.length === 0 ? (
@@ -509,12 +509,12 @@ export default function AkwaShortViewerModal({
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Ajouter un commentaire..."
                 disabled={commentSubmitting}
-                className="flex-1 px-3 py-2 rounded-xl text-xs text-white bg-[#101010] border border-[#333333] focus:border-[#f5821f] outline-none placeholder-[#666666]"
+                className="flex-1 px-3 py-2 rounded-xl text-xs text-white bg-[#101010] border border-[#333333] focus:border-[#985810] outline-none placeholder-[#666666]"
               />
               <button
                 type="submit"
                 disabled={commentSubmitting || !newComment.trim()}
-                className="px-3.5 py-2 rounded-xl bg-[#f5821f] text-white hover:bg-[#e57413] transition disabled:opacity-40 flex items-center justify-center"
+                className="px-3.5 py-2 rounded-xl bg-[#985810] text-white hover:bg-[#7d480d] transition disabled:opacity-40 flex items-center justify-center"
               >
                 {commentSubmitting ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
               </button>

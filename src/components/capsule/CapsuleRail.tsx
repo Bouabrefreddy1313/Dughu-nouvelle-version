@@ -59,10 +59,10 @@ export default function CapsuleRail({ capsules, loading, onOpen, count = 3 }: Ca
     <section aria-label="Capsules" className="mb-4 rounded-3xl bg-white p-4 shadow-sm border border-gray-100">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-[15px] font-semibold text-[#2D2D2D]">
-          <Clapperboard size={18} className="text-[#A35A2A]" aria-hidden />
+          <Clapperboard size={18} className="text-[#985810]" aria-hidden />
           Capsules
         </h3>
-        <Link href="/capsules" className="text-[13px] font-medium text-[#A35A2A] hover:underline">
+        <Link href="/capsules" className="text-[13px] font-medium text-[#985810] hover:underline">
           Voir tout
         </Link>
       </div>

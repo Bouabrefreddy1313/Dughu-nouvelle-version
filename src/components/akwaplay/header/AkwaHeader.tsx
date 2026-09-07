@@ -67,7 +67,7 @@ export default function AkwaHeader({
             className="w-8 h-8 object-contain shrink-0 transition-transform duration-200 group-hover:scale-105 drop-shadow-sm"
           />
           <span className="hidden sm:block text-white font-bold text-base tracking-tight">
-            Akwa<span style={{ color: "#f5821f" }}>play</span>
+            Akwa<span style={{ color: "#985810" }}>play</span>
           </span>
         </button>
       </div>
@@ -91,7 +91,7 @@ export default function AkwaHeader({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Rechercher une vidéo"
             aria-label="Rechercher une vidéo"
-            className="w-full pl-10 pr-10 py-2 text-sm text-white placeholder:text-[#9a9a9a] rounded-full outline-none transition focus:ring-2 focus:ring-[#f5821f]/40"
+            className="w-full pl-10 pr-10 py-2 text-sm text-white placeholder:text-[#9a9a9a] rounded-full outline-none transition focus:ring-2 focus:ring-[#985810]/40"
             style={{
               backgroundColor: "#2a2a2a",
               border: "1px solid #3a3a3a",
@@ -114,10 +114,10 @@ export default function AkwaHeader({
       <div className="flex items-center gap-3 shrink-0">
         <button
           onClick={onPublishClick}
-          className="hidden sm:flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold transition hover:bg-[#f5821f]/10"
+          className="hidden sm:flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold transition hover:bg-[#985810]/10"
           style={{
-            border: "1px solid #f5821f",
-            color: "#f5821f",
+            border: "1px solid #985810",
+            color: "#985810",
           }}
         >
           <Video size={15} />
@@ -128,7 +128,7 @@ export default function AkwaHeader({
         <button
           onClick={() => router.push("/profile")}
           aria-label="Mon profil"
-          className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-2 ring-transparent hover:ring-[#f5821f] transition"
+          className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-2 ring-transparent hover:ring-[#985810] transition"
         >
           {avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -140,7 +140,7 @@ export default function AkwaHeader({
           ) : (
             <div
               className="w-full h-full flex items-center justify-center text-white text-xs font-bold"
-              style={{ backgroundColor: "#f5821f" }}
+              style={{ backgroundColor: "#985810" }}
             >
               {(user?.firstName?.[0] || user?.name?.[0] || "A").toUpperCase()}
             </div>

@@ -523,6 +523,7 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
   ouvre la modale de création `CapsuleCreator`.
 * Au **survol** d'une vignette, la **vidéo de la capsule se joue
   automatiquement** (muet) ; au départ du survol, la miniature réapparaît.
+* L'identité visuelle et les accents interactifs du module Capsules (boutons, badges, états actifs, likes) utilisent la couleur `#985810`.
 
 #### Création d'une capsule (CapsuleCreator)
 
@@ -1127,13 +1128,13 @@ quand on s'y trouve, le clic ferme le drawer mobile).
 * Accessible directement depuis le bouton « Canal » de la barre latérale gauche (état actif `active="canal"`, route protégée `/canal`).
 * **Écran 1 — Découverte & Exploration** :
   - En-tête avec icône officielle et titre.
-  - Barre d'onglets (style pill) : Explorer (orange actif par défaut), Mes canaux, Canaux rejoints, Favoris.
-  - Barre de recherche en temps réel et bouton « + Créer un canal » (fond orange).
+  - Barre d'onglets (style pill) : Explorer (`#985810` actif par défaut), Mes canaux, Canaux rejoints, Favoris.
+  - Barre de recherche en temps réel et bouton « + Créer un canal » (fond `#985810`).
   - Sous-filtre catégories horizontalement scrollable avec style de tab actif bleu foncé.
   - Grille responsive de cartes de canaux au format large (2 colonnes sur desktop) : bannière cover panoramique, avatar médaillon superposé 100% visible sans masquage par le fond blanc de la carte, badges membres/visibilité, catégorie, étoile favori et bouton d'action aligné. Sur l'onglet « Canaux rejoints », affichage des informations étendues (statut membre/créateur, type d'accès, date d'adhésion) et bouton « Ouvrir le chat ».
   - Clic sur une carte : ouvre l'Écran 3 sans recharger la page.
 * **Écran 2 — Modale de création** :
-  - Titre orange centré, modale avec overlay sombre.
+  - Titre `#985810` centré, modale avec overlay sombre.
   - Zones d'upload côte à côte : logo (requis) et cover (optionnelle) avec prévisualisation.
   - Champs nom, description, catégorie (chargée dynamiquement).
   - Toggles côte à côte avec état actif bleu foncé : Type de canal (Privé par défaut / Public) et Canal actif (Oui par défaut / Non).
@@ -1290,7 +1291,7 @@ Il doit représenter l'état réel du projet et non une vision théorique décon
 ---
 ## Module Akwaplay — Plateforme Vidéo
 
-Le module Akwaplay (route `/akwaplay`) est découpé en 3 écrans, avec une
+Le module Akwaplay (route `/akwaplay`) est découpé en plusieurs écrans avec identité visuelle harmonisée (accent de marque `#985810` en remplacement de l'ancien orange sur les boutons, barres de progression, indicateurs actifs, compteurs et badges), avec une
 architecture **types → service frontend → routes BFF(`/api/akwa_*`) → endpoint Dughu**
 réutilisant l'instance Axios cliente (`apiClient`) et le proxy serveur
 (`X-AppApiToken` côté serveur uniquement, jamais exposé au navigateur).

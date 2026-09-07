@@ -204,7 +204,7 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {loading ? (
           <div className="flex items-center justify-center py-10" role="status" aria-label="Chargement des commentaires">
-            <Loader2 className="h-6 w-6 animate-spin text-[#A35A2A]" />
+            <Loader2 className="h-6 w-6 animate-spin text-[#985810]" />
             <span className="sr-only">Chargement des commentaires...</span>
           </div>
         ) : (
@@ -217,7 +217,7 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
                 <button
                   type="button"
                   onClick={() => void load(1, false)}
-                  className="mt-1 text-[12px] font-semibold text-[#A35A2A] hover:underline"
+                  className="mt-1 text-[12px] font-semibold text-[#985810] hover:underline"
                 >
                   Réessayer
                 </button>
@@ -249,7 +249,7 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
                             type="button"
                             onClick={() => likeComment(reply, comment.id)}
                             disabled={!userId}
-                            className={cn("font-medium disabled:opacity-50", reply.isLiked ? "text-[#A35A2A]" : "hover:underline")}
+                            className={cn("font-medium disabled:opacity-50", reply.isLiked ? "text-[#985810]" : "hover:underline")}
                           >
                             J&apos;aime{reply.likesCount > 0 ? ` · ${reply.likesCount}` : ""}
                           </button>
@@ -270,7 +270,7 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
                       type="button"
                       onClick={() => void load(page + 1, true)}
                       disabled={loadingMore}
-                      className="inline-flex items-center gap-1 rounded-full border border-[#E08543]/40 px-4 py-1.5 text-[12px] font-semibold text-[#A35A2A] transition hover:bg-[#A35A2A]/5 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-full border border-[#985810]/40 px-4 py-1.5 text-[12px] font-semibold text-[#985810] transition hover:bg-[#985810]/5 disabled:opacity-50"
                     >
                       {loadingMore ? <Loader2 size={14} className="animate-spin" /> : null}
                       Charger plus de commentaires
@@ -287,7 +287,7 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
         {replyTo && (
           <p className="mb-1 text-[11px] text-[#65676B]">
             Réponse à <span className="font-semibold">{replyTo.name}</span>
-            <button type="button" onClick={() => setReplyTo(null)} className="ml-2 text-[#A35A2A] hover:underline">
+            <button type="button" onClick={() => setReplyTo(null)} className="ml-2 text-[#985810] hover:underline">
               annuler
             </button>
           </p>
@@ -307,13 +307,13 @@ export default function CapsuleComments({ capsuleId, userId, onClose, onCommentA
             placeholder={replyTo ? `Répondre à ${replyTo.name}...` : "Ajouter un commentaire..."}
             aria-label="Votre commentaire"
             maxLength={1000}
-            className="flex-1 rounded-full bg-[#F0F2F5] px-4 py-2 text-[13px] text-[#2D2D2D] outline-none focus:ring-2 focus:ring-[#E08543]/40"
+            className="flex-1 rounded-full bg-[#F0F2F5] px-4 py-2 text-[13px] text-[#2D2D2D] outline-none focus:ring-2 focus:ring-[#985810]/40"
           />
           <Button
             type="submit"
             disabled={!draft.trim() || sending}
             aria-label="Envoyer"
-            className="!h-9 !w-9 !rounded-full !bg-[#A35A2A] !p-0 text-white disabled:opacity-50"
+            className="!h-9 !w-9 !rounded-full !bg-[#985810] !p-0 text-white disabled:opacity-50"
           >
             {sending ? <Loader2 size={16} className="animate-spin" /> : <SendHorizonal size={16} />}
           </Button>
@@ -350,7 +350,7 @@ function CapsuleCommentItem({ comment, userId, onLike, onReply, renderReply }: C
             type="button"
             onClick={() => onLike(comment)}
             disabled={!userId}
-            className={cn("font-medium disabled:opacity-50", comment.isLiked ? "text-[#A35A2A]" : "hover:underline")}
+            className={cn("font-medium disabled:opacity-50", comment.isLiked ? "text-[#985810]" : "hover:underline")}
           >
             J&apos;aime{comment.likesCount > 0 ? ` · ${comment.likesCount}` : ""}
           </button>

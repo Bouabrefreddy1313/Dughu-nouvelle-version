@@ -33,7 +33,7 @@ export default function AkwaShortCard({ short, onClick }: AkwaShortCardProps) {
       onClick={onClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-lg border border-[#2a2a2a] hover:border-[#f5821f]/50 transition-all duration-300 hover:-translate-y-1"
+      className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-lg border border-[#2a2a2a] hover:border-[#985810]/50 transition-all duration-300 hover:-translate-y-1"
       style={{ aspectRatio: "9/16", backgroundColor: "#181818" }}
     >
       {/* 1. Média de fond : Vidéo ou Thumbnail */}
@@ -69,7 +69,7 @@ export default function AkwaShortCard({ short, onClick }: AkwaShortCardProps) {
 
       {/* 4. Bouton Play au centre au survol */}
       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-        <div className="w-12 h-12 rounded-full bg-[#f5821f]/90 flex items-center justify-center text-white shadow-lg shadow-[#f5821f]/30 scale-90 group-hover:scale-100 transition-transform">
+        <div className="w-12 h-12 rounded-full bg-[#985810]/90 flex items-center justify-center text-white shadow-lg shadow-[#985810]/30 scale-90 group-hover:scale-100 transition-transform">
           <Play size={20} className="fill-white ml-0.5" />
         </div>
       </div>

@@ -39,7 +39,7 @@ export default function AkwaVideoCard({ video }: AkwaVideoCardProps) {
           <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-[#1e1e1e]">
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: "#f5821f" }}
+              style={{ backgroundColor: "#985810" }}
             >
               <Play className="fill-white text-white translate-x-px" size={18} />
             </div>
@@ -74,12 +74,12 @@ export default function AkwaVideoCard({ video }: AkwaVideoCardProps) {
             <img
               src={video.author.avatar}
               alt={video.author.name}
-              className="w-8 h-8 rounded-full object-cover hover:ring-2 hover:ring-[#f5821f] transition"
+              className="w-8 h-8 rounded-full object-cover hover:ring-2 hover:ring-[#985810] transition"
             />
           ) : (
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-              style={{ backgroundColor: "#f5821f" }}
+              style={{ backgroundColor: "#985810" }}
             >
               {video.author.name?.[0]?.toUpperCase() || "?"}
             </div>
@@ -88,7 +88,7 @@ export default function AkwaVideoCard({ video }: AkwaVideoCardProps) {
 
         {/* Titre, chaîne, stats */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-white line-clamp-2 leading-snug group-hover:text-[#f5821f] transition-colors">
+          <h3 className="text-sm font-semibold text-white line-clamp-2 leading-snug group-hover:text-[#985810] transition-colors">
             {video.title}
           </h3>
           <button

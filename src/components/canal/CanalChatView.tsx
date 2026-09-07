@@ -200,7 +200,7 @@ export default function CanalChatView({
         {/* Titre */}
         <h2 className="mt-3 text-sm font-black text-white flex items-center justify-between">
           <span>Mes canaux & rejoints</span>
-          <span className="text-xs font-bold text-orange-400 bg-orange-950/40 border border-orange-800/50 px-2 py-0.5 rounded-full">
+          <span className="text-xs font-bold text-[#d48937] bg-[#985810]/20 border border-[#985810]/40 px-2 py-0.5 rounded-full">
             {userCanals.length}
           </span>
         </h2>
@@ -213,7 +213,7 @@ export default function CanalChatView({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Rechercher parmi mes canaux..."
-            className="w-full rounded-2xl bg-gray-800/80 pl-10 pr-3 py-2.5 text-xs text-gray-200 placeholder-gray-500 outline-none border border-gray-700/60 focus:border-[#EA580C] shadow-inner"
+            className="w-full rounded-2xl bg-gray-800/80 pl-10 pr-3 py-2.5 text-xs text-gray-200 placeholder-gray-500 outline-none border border-gray-700/60 focus:border-[#985810] shadow-inner"
           />
         </div>
 
@@ -229,7 +229,7 @@ export default function CanalChatView({
                   onClick={() => setActiveCanalId(c.id)}
                   className={`flex w-full items-start gap-3 rounded-2xl p-3 text-left transition border ${
                     isActive
-                      ? "bg-gray-800/90 border-[#EA580C]/70 shadow-md text-white ring-1 ring-[#EA580C]/40"
+                      ? "bg-gray-800/90 border-[#985810]/70 shadow-md text-white ring-1 ring-[#985810]/40"
                       : "border-gray-800/60 bg-gray-900/40 text-gray-300 hover:bg-gray-800/60 hover:border-gray-700"
                   }`}
                 >
@@ -258,11 +258,11 @@ export default function CanalChatView({
                     </div>
 
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold text-orange-400 bg-orange-950/40 border border-orange-800/40 px-2 py-0.5 rounded-full truncate max-w-[130px]">
+                      <span className="text-[10px] font-bold text-[#d48937] bg-[#985810]/20 border border-[#985810]/40 px-2 py-0.5 rounded-full truncate max-w-[130px]">
                         {c.categoryName || "Général"}
                       </span>
                       <p className="flex items-center gap-1 text-[11px] font-semibold text-gray-400 shrink-0">
-                        <Users size={11} className="text-orange-400" /> {c.memberCount || 0}
+                        <Users size={11} className="text-[#d48937]" /> {c.memberCount || 0}
                       </p>
                     </div>
 
@@ -305,7 +305,7 @@ export default function CanalChatView({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
                       <p className="truncate text-xs font-bold text-gray-300">{c.name || "Canal"}</p>
-                      <span className="text-[10px] text-orange-400 font-semibold">{c.categoryName || "Général"}</span>
+                      <span className="text-[10px] text-[#d48937] font-semibold">{c.categoryName || "Général"}</span>
                     </div>
                     <p className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
                       <Users size={10} /> {c.memberCount || 0} membres
@@ -358,10 +358,10 @@ export default function CanalChatView({
                 }}
                 className="flex items-center gap-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 px-3 py-1.5 text-xs font-bold text-gray-200 border border-gray-700 transition shadow-sm"
               >
-                <Settings size={14} className="text-[#EA580C]" />
+                <Settings size={14} className="text-[#985810]" />
                 <span className="hidden sm:inline">Gérer le canal</span>
                 {pendingCount > 0 && (
-                  <span className="flex size-5 items-center justify-center rounded-full bg-[#EA580C] text-[10px] font-extrabold text-white animate-pulse">
+                  <span className="flex size-5 items-center justify-center rounded-full bg-[#985810] text-[10px] font-extrabold text-white animate-pulse">
                     {pendingCount}
                   </span>
                 )}
@@ -430,7 +430,7 @@ export default function CanalChatView({
         <footer className="border-t border-gray-800 bg-[#0F172A] p-4">
           {!canPost ? (
             <div className="flex items-center justify-center gap-2.5 rounded-2xl bg-gray-800/80 p-3.5 text-xs font-semibold text-gray-300 border border-gray-700/60 shadow-inner">
-              <Lock size={15} className="text-[#EA580C] shrink-0" />
+              <Lock size={15} className="text-[#985810] shrink-0" />
               <span>Seul l'administrateur de ce canal est autorisé à publier des messages.</span>
             </div>
           ) : (
@@ -456,14 +456,14 @@ export default function CanalChatView({
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
                 placeholder="Écrivez un message..."
-                className="flex-1 rounded-2xl bg-gray-800/80 px-4 py-2.5 text-sm text-gray-100 placeholder-gray-500 outline-none border border-gray-700/60 focus:border-[#EA580C]"
+                className="flex-1 rounded-2xl bg-gray-800/80 px-4 py-2.5 text-sm text-gray-100 placeholder-gray-500 outline-none border border-gray-700/60 focus:border-[#985810]"
               />
 
               <button
                 type="submit"
                 disabled={(!messageText.trim() && !mediaFile) || sendMutation.isPending}
                 aria-label="Envoyer"
-                className="flex size-10 items-center justify-center rounded-2xl bg-[#EA580C] text-white shadow-md transition hover:bg-[#C2410C] disabled:opacity-40"
+                className="flex size-10 items-center justify-center rounded-2xl bg-[#985810] text-white shadow-md transition hover:bg-[#7d480d] disabled:opacity-40"
               >
                 <Send size={16} />
               </button>
@@ -532,12 +532,12 @@ export default function CanalChatView({
                 setSettingsInitialTab("requests")
                 setIsSettingsOpen(true)
               }}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#EA580C]/15 border border-[#EA580C]/40 p-2.5 text-xs font-bold text-[#EA580C] hover:bg-[#EA580C]/25 transition shadow-sm"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#985810]/15 border border-[#985810]/40 p-2.5 text-xs font-bold text-[#d48937] hover:bg-[#985810]/25 transition shadow-sm"
             >
               <Settings size={15} />
               <span>Paramètres & Adhésions</span>
               {pendingCount > 0 && (
-                <span className="flex size-5 items-center justify-center rounded-full bg-[#EA580C] text-[10px] font-extrabold text-white animate-pulse">
+                <span className="flex size-5 items-center justify-center rounded-full bg-[#985810] text-[10px] font-extrabold text-white animate-pulse">
                   {pendingCount}
                 </span>
               )}
@@ -553,7 +553,7 @@ export default function CanalChatView({
               onClick={() => setRightTab("media")}
               className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition ${
                 rightTab === "media"
-                  ? "bg-[#EA580C] text-white"
+                  ? "bg-[#985810] text-white"
                   : "text-gray-400 hover:text-white"
               }`}
             >
@@ -564,7 +564,7 @@ export default function CanalChatView({
               onClick={() => setRightTab("docs")}
               className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition ${
                 rightTab === "docs"
-                  ? "bg-[#EA580C] text-white"
+                  ? "bg-[#985810] text-white"
                   : "text-gray-400 hover:text-white"
               }`}
             >
@@ -576,7 +576,7 @@ export default function CanalChatView({
                 onClick={() => setRightTab("requests")}
                 className={`flex-1 relative rounded-lg py-1.5 text-xs font-bold transition ${
                   rightTab === "requests"
-                    ? "bg-[#EA580C] text-white"
+                    ? "bg-[#985810] text-white"
                     : "text-gray-400 hover:text-white"
                 }`}
               >
@@ -618,7 +618,7 @@ export default function CanalChatView({
                       rel="noreferrer"
                       className="flex items-center gap-2 rounded-xl bg-gray-800/60 p-2 text-xs text-gray-300 hover:bg-gray-800 transition"
                     >
-                      <FileText size={16} className="text-[#EA580C] shrink-0" />
+                      <FileText size={16} className="text-[#985810] shrink-0" />
                       <span className="truncate flex-1">{d.name}</span>
                     </a>
                   ))}

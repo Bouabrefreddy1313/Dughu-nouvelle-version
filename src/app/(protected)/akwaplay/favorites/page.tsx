@@ -91,7 +91,7 @@ export default function AkwaFavoritesPage() {
             <div className="flex items-center gap-3 mb-6">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg, #f5821f, #e5530a)" }}
+                style={{ background: "linear-gradient(135deg, #985810, #7d480d)" }}
               >
                 <Star size={20} className="text-white" />
               </div>
@@ -116,7 +116,7 @@ export default function AkwaFavoritesPage() {
                 <p className="text-[#9a9a9a] text-sm max-w-xs">{error}</p>
                 <button
                   onClick={() => loadVideos(1)}
-                  className="px-5 py-2 rounded-full text-sm font-semibold text-white transition hover:bg-[#f5821f]"
+                  className="px-5 py-2 rounded-full text-sm font-semibold text-white transition hover:bg-[#985810]"
                   style={{ backgroundColor: "#2a2a2a" }}
                 >
                   Réessayer

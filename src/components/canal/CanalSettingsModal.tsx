@@ -214,7 +214,7 @@ export default function CanalSettingsModal({
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <span>{name || canal.name}</span>
-                <span className="rounded-full bg-orange-950/50 border border-orange-800/60 px-2 py-0.5 text-[11px] font-bold text-orange-400">
+                <span className="rounded-full bg-[#985810]/20 border border-[#985810]/40 px-2 py-0.5 text-[11px] font-bold text-[#d48937]">
                   {canal.categoryName || "Général"}
                 </span>
               </h2>
@@ -241,14 +241,14 @@ export default function CanalSettingsModal({
             onClick={() => setActiveTab("requests")}
             className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition ${
               activeTab === "requests"
-                ? "border-[#EA580C] text-[#EA580C]"
+                ? "border-[#985810] text-[#985810]"
                 : "border-transparent text-gray-400 hover:text-gray-200"
             }`}
           >
             <Bell size={15} />
             <span>Demandes d'adhésion</span>
             {pendingRequests.length > 0 && (
-              <span className="rounded-full bg-[#EA580C] px-2 py-0.5 text-[10px] font-extrabold text-white">
+              <span className="rounded-full bg-[#985810] px-2 py-0.5 text-[10px] font-extrabold text-white">
                 {pendingRequests.length}
               </span>
             )}
@@ -259,7 +259,7 @@ export default function CanalSettingsModal({
             onClick={() => setActiveTab("members")}
             className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition ${
               activeTab === "members"
-                ? "border-[#EA580C] text-[#EA580C]"
+                ? "border-[#985810] text-[#985810]"
                 : "border-transparent text-gray-400 hover:text-gray-200"
             }`}
           >
@@ -272,7 +272,7 @@ export default function CanalSettingsModal({
             onClick={() => setActiveTab("settings")}
             className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition ${
               activeTab === "settings"
-                ? "border-[#EA580C] text-[#EA580C]"
+                ? "border-[#985810] text-[#985810]"
                 : "border-transparent text-gray-400 hover:text-gray-200"
             }`}
           >
@@ -459,7 +459,7 @@ export default function CanalSettingsModal({
                   </label>
                   <div
                     onClick={() => logoInputRef.current?.click()}
-                    className="relative flex h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-700 bg-gray-900/50 transition hover:border-[#EA580C] hover:bg-gray-900 overflow-hidden"
+                    className="relative flex h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-700 bg-gray-900/50 transition hover:border-[#985810] hover:bg-gray-900 overflow-hidden"
                   >
                     {logoPreview ? (
                       <Image
@@ -499,7 +499,7 @@ export default function CanalSettingsModal({
                   </label>
                   <div
                     onClick={() => coverInputRef.current?.click()}
-                    className="relative flex h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-700 bg-gray-900/50 transition hover:border-[#EA580C] hover:bg-gray-900 overflow-hidden"
+                    className="relative flex h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-700 bg-gray-900/50 transition hover:border-[#985810] hover:bg-gray-900 overflow-hidden"
                   >
                     {coverPreview ? (
                       <Image
@@ -536,14 +536,14 @@ export default function CanalSettingsModal({
               {/* Nom */}
               <div>
                 <label className="block text-xs font-bold text-gray-300 mb-1.5">
-                  Nom du canal <span className="text-[#EA580C]">*</span>
+                  Nom du canal <span className="text-[#985810]">*</span>
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ex : Actualités Tech, Musique..."
-                  className="w-full rounded-2xl border border-gray-700 bg-gray-900 px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-[#EA580C]"
+                  className="w-full rounded-2xl border border-gray-700 bg-gray-900 px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-[#985810]"
                 />
               </div>
 
@@ -557,7 +557,7 @@ export default function CanalSettingsModal({
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
                   placeholder="Décrivez brièvement le thème de ce canal..."
-                  className="w-full rounded-2xl border border-gray-700 bg-gray-900 px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-[#EA580C] resize-none"
+                  className="w-full rounded-2xl border border-gray-700 bg-gray-900 px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-[#985810] resize-none"
                 />
               </div>
 
@@ -569,7 +569,7 @@ export default function CanalSettingsModal({
                 <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full rounded-2xl border border-gray-700 bg-gray-900 px-4 py-2.5 text-xs text-white outline-none focus:border-[#EA580C]"
+                  className="w-full rounded-2xl border border-gray-700 bg-gray-900 px-4 py-2.5 text-xs text-white outline-none focus:border-[#985810]"
                 >
                   {categories.map((c) => (
                     <option key={c.id} value={c.id} className="bg-gray-900 text-white">
@@ -653,7 +653,7 @@ export default function CanalSettingsModal({
                 <button
                   type="submit"
                   disabled={updateCanalMutation.isPending}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#EA580C] py-3 text-xs font-bold text-white shadow-md transition hover:bg-[#C2410C] disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#985810] py-3 text-xs font-bold text-white shadow-md transition hover:bg-[#7d480d] disabled:opacity-50"
                 >
                   <Save size={15} />
                   <span>

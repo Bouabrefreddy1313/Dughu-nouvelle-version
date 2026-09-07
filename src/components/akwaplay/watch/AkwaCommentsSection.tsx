@@ -108,7 +108,7 @@ export default function AkwaCommentsSection({
             onChange={(e) => setCommentInput(e.target.value)}
             placeholder="Ajoutez un commentaire public..."
             rows={2}
-            className="w-full px-3.5 py-2.5 rounded-xl text-sm text-white placeholder-[#777777] bg-[#1a1a1a] border border-[#2e2e2e] focus:border-[#f5821f] outline-none transition resize-none"
+            className="w-full px-3.5 py-2.5 rounded-xl text-sm text-white placeholder-[#777777] bg-[#1a1a1a] border border-[#2e2e2e] focus:border-[#985810] outline-none transition resize-none"
           />
           {commentInput.trim().length > 0 && (
             <div className="flex justify-end gap-2 mt-2">
@@ -123,7 +123,7 @@ export default function AkwaCommentsSection({
                 type="submit"
                 disabled={submitting}
                 className="px-4 py-1.5 rounded-full text-xs font-semibold text-white transition disabled:opacity-50 flex items-center gap-1.5"
-                style={{ backgroundColor: "#f5821f" }}
+                style={{ backgroundColor: "#985810" }}
               >
                 <Send size={13} />
                 <span>{submitting ? "Publication..." : "Commenter"}</span>
@@ -189,10 +189,10 @@ export default function AkwaCommentsSection({
                     <button
                       onClick={() => onToggleLikeComment(comment.id)}
                       className={`flex items-center gap-1.5 hover:text-white transition ${
-                        comment.isLiked ? "text-[#f5821f] font-semibold" : ""
+                        comment.isLiked ? "text-[#985810] font-semibold" : ""
                       }`}
                     >
-                      <ThumbsUp size={14} className={comment.isLiked ? "fill-[#f5821f]" : ""} />
+                      <ThumbsUp size={14} className={comment.isLiked ? "fill-[#985810]" : ""} />
                       <span>{comment.likesCount || 0}</span>
                     </button>
 
@@ -224,7 +224,7 @@ export default function AkwaCommentsSection({
                         value={replyInput}
                         onChange={(e) => setReplyInput(e.target.value)}
                         placeholder={`Répondre à ${comment.user?.name}...`}
-                        className="flex-1 px-3 py-1.5 rounded-xl text-xs text-white placeholder-[#777777] bg-[#1e1e1e] border border-[#333333] focus:border-[#f5821f] outline-none"
+                        className="flex-1 px-3 py-1.5 rounded-xl text-xs text-white placeholder-[#777777] bg-[#1e1e1e] border border-[#333333] focus:border-[#985810] outline-none"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") handleReplySubmit(comment.id)
                         }}
@@ -232,7 +232,7 @@ export default function AkwaCommentsSection({
                       <button
                         onClick={() => handleReplySubmit(comment.id)}
                         className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white"
-                        style={{ backgroundColor: "#f5821f" }}
+                        style={{ backgroundColor: "#985810" }}
                       >
                         Répondre
                       </button>
@@ -252,7 +252,7 @@ export default function AkwaCommentsSection({
                   {totalReplies > 0 && (
                     <button
                       onClick={() => toggleShowReplies(comment.id)}
-                      className="inline-flex items-center gap-1.5 mt-2.5 text-xs font-semibold text-[#f5821f] hover:underline cursor-pointer"
+                      className="inline-flex items-center gap-1.5 mt-2.5 text-xs font-semibold text-[#985810] hover:underline cursor-pointer"
                     >
                       <CornerDownRight size={13} />
                       <span>
@@ -291,10 +291,10 @@ export default function AkwaCommentsSection({
                                 <button
                                   onClick={() => onToggleLikeReply(comment.id, reply.id)}
                                   className={`flex items-center gap-1 hover:text-white transition ${
-                                    reply.isLiked ? "text-[#f5821f] font-semibold" : ""
+                                    reply.isLiked ? "text-[#985810] font-semibold" : ""
                                   }`}
                                 >
-                                  <ThumbsUp size={12} className={reply.isLiked ? "fill-[#f5821f]" : ""} />
+                                  <ThumbsUp size={12} className={reply.isLiked ? "fill-[#985810]" : ""} />
                                   <span>{reply.likesCount || 0}</span>
                                 </button>
                                 {isReplyAuthor && (

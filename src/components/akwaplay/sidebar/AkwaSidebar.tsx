@@ -90,7 +90,7 @@ export default function AkwaSidebar({ open, onClose, onPublishClick, drawer = fa
                   >
                     <Icon
                       size={18}
-                      className={active ? "text-[#f5821f]" : ""}
+                      className={active ? "text-[#985810]" : ""}
                     />
                     <span>{label}</span>
                   </button>
@@ -103,8 +103,8 @@ export default function AkwaSidebar({ open, onClose, onPublishClick, drawer = fa
           <div className="px-3 mt-4 sm:hidden">
             <button
               onClick={onPublishClick}
-              className="w-full flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition"
-              style={{ backgroundColor: "#f5821f", color: "#ffffff" }}
+              className="w-full flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition hover:brightness-110"
+              style={{ backgroundColor: "#985810", color: "#ffffff" }}
             >
               <Video size={15} />
               <span>Publier une vidéo</span>

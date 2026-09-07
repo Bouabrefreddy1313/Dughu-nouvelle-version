@@ -49,17 +49,17 @@ export default function CanalPollCard({ poll, currentUserId, canalId }: CanalPol
               type="button"
               disabled={poll.isClosed || voteMutation.isPending}
               onClick={() => handleVote(opt.id)}
-              className="relative flex w-full items-center justify-between overflow-hidden rounded-xl border border-gray-700/80 bg-gray-800/60 p-2.5 text-xs transition hover:border-[#EA580C]"
+              className="relative flex w-full items-center justify-between overflow-hidden rounded-xl border border-gray-700/80 bg-gray-800/60 p-2.5 text-xs transition hover:border-[#985810]"
             >
               {/* Barre de progression */}
               <div
-                className="absolute inset-y-0 left-0 bg-[#EA580C]/20 transition-all duration-300"
+                className="absolute inset-y-0 left-0 bg-[#985810]/20 transition-all duration-300"
                 style={{ width: `${percent}%` }}
               />
 
               <span className="relative z-10 flex items-center gap-2 font-medium">
                 {opt.isVoted ? (
-                  <CheckCircle2 size={15} className="text-[#EA580C]" />
+                  <CheckCircle2 size={15} className="text-[#985810]" />
                 ) : (
                   <Circle size={15} className="text-gray-400" />
                 )}

@@ -156,15 +156,15 @@ export default function CapsuleCreator({ user, open, onClose, onCreated }: Capsu
         {/* Étape 1 : sélection de la vidéo */}
         {step === "select" && (
           <div className="flex flex-col items-center gap-4 p-8">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#F5EDE4]">
-              <Video size={28} className="text-[#A35A2A]" aria-hidden />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#985810]/10">
+              <Video size={28} className="text-[#985810]" aria-hidden />
             </div>
             <p className="text-center text-sm text-[#65676B]">
               Choisissez une vidéo verticale pour votre capsule.
             </p>
             <Button
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-full bg-[#A35A2A] hover:bg-[#8a4d23] text-white"
+              className="rounded-full bg-[#985810] hover:bg-[#7d480d] text-white"
             >
               <Video size={16} />
               <span className="ml-1 text-sm">Choisir une vidéo</span>
@@ -209,7 +209,7 @@ export default function CapsuleCreator({ user, open, onClose, onCreated }: Capsu
                 placeholder="Ajouter une légende…"
                 rows={3}
                 maxLength={MAX_CAPTION_LENGTH}
-                className="mt-4 w-full resize-none rounded-xl bg-[#F0F2F5] p-3 text-sm outline-none placeholder-[#8A8A8A] focus-visible:ring-1 focus-visible:ring-[#A35A2A]"
+                className="mt-4 w-full resize-none rounded-xl bg-[#F0F2F5] p-3 text-sm outline-none placeholder-[#8A8A8A] focus-visible:ring-1 focus-visible:ring-[#985810]"
               />
               <p className="mt-1 text-right text-[11px] text-[#8A8A8A]">
                 {caption.length}/{MAX_CAPTION_LENGTH}
@@ -220,7 +220,7 @@ export default function CapsuleCreator({ user, open, onClose, onCreated }: Capsu
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="rounded-full bg-[#A35A2A] hover:bg-[#8a4d23] text-white"
+                className="rounded-full bg-[#985810] hover:bg-[#7d480d] text-white"
               >
                 {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 <span className="ml-1 text-sm">{isSubmitting ? "Publication…" : "Publier"}</span>
