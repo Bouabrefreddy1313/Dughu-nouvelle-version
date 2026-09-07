@@ -12,6 +12,43 @@ Chaque entrée doit contenir :
 * éventuelles corrections importantes.
 
 ## 2026-09-07
+### Page Capsules — Sidebar de navigation, filtres (Suivis, Mes capsules) et points Capsule (`/pointsHistory/{userId}/capsule`)
+* **Demande utilisateur** : ajout d'une sidebar sur la page des capsules avec des boutons pour voir les points de l'utilisateur obtenus dans capsule avec l'endpoint `/pointsHistory/{userId}/capsule`, voir ses propres capsules et voir les capsules des personnes dont il est abonné.
+* **Modifications effectuées** :
+  - **Composant Sidebar (`src/components/capsule/CapsuleSidebar.tsx`)** :
+    - Sidebar desktop dédiée (sticky, cartes modernes aux coins arrondis) avec identité visuelle `#985810`.
+    - Bouton principal « + Créer une capsule ».
+    - 4 boutons de navigation : « Pour vous » (toutes les capsules), « Suivi(e)s » (abonnements), « Mes capsules » (créations personnelles avec badge de nombre), et « Mes points Capsule » (historique et gains avec badge de solde).
+    - Mini-carte récapitulative des points Capsule en bas de sidebar avec accès direct à l'historique.
+  - **Vue Points Capsule (`src/components/capsule/CapsulePointsView.tsx`)** :
+    - Intégration de l'endpoint `/pointsHistory/{userId}/capsule` via `usePointsHistory({ userId, source: "capsule" })` et la route interne `/api/pointsHistory?source=capsule`.
+    - Cartes d'indicateurs (Solde de points Capsule, Nombre de récompenses, Date du dernier mouvement).
+    - Intégration du tableau dédié `CapsulePointsTable` avec 4 colonnes soignées : Date, Type (badge Gain/Perte), Description et Point (montant signé), avec barre de recherche et pagination.
+    - États de chargement (skeletons), gestion des erreurs avec bouton de nouvelle tentative et état vide bienveillant.
+  - **Gestion des capsules suivies (`fetchFollowingCapsules`)** :
+    - Ajout du filtrage et de la récupération des capsules des personnes suivies dans `src/lib/capsule-service.ts`, `src/app/api/capsules/route.ts`, et `src/services/capsules/capsules.service.ts` (`GET /api/capsules?filter=following`).
+  - **Page principale (`src/components/capsule/CapsulesPage.tsx`)** :
+    - Intégration du layout 2 colonnes avec `CapsuleSidebar` sur desktop.
+    - Barre de navigation défilante d'onglets pour mobile et tablette.
+    - Gestion fluide des 4 vues sans rechargement de page.
+    - Visionneuse `CapsuleViewer` synchronisée avec chacune des listes actives.
+* **Vérification** : validation TypeScript (`npx tsc --noEmit`) avec 0 erreur.
+
+### Capsules — Lecture avec son par défaut, double-clic Like et animation de pouce flottant
+* **Demande utilisateur** : les capsules jouaient sans son. Activation du son par défaut et ajout d'une interaction au double-clic/double-tap simultané sur la capsule qui équivaut à un Like avec une animation d'un pouce levé flottant.
+* **Modifications effectuées** :
+  - **Visionneuse de capsules (`src/components/capsule/CapsuleViewer.tsx`)** :
+    - Remplacement de l'attribut statique `muted` par l'état `isMuted` initialisé à `false` pour que le son se joue par défaut.
+    - Ajout d'un bouton de contrôle du son (`Volume2` / `VolumeX`) en haut à droite avec infobulle explicite.
+    - Mécanisme de rattrapage automatique si les règles d'autoplay du navigateur bloquent l'audio sans interaction préalable.
+    - Détection intelligente du double-clic (souris) et double-tap (tactile) avec seuil de 300-320 ms et déduplication touch/souris.
+    - Action de Like idempotent (aime la capsule si non aimée, sans la désaimer si déjà likée) avec pulsation d'agrandissement du bouton latéral (`likePulse`).
+    - Animation visuelle de pouce levé flottant (`@keyframes capsuleFloatThumb`) avec accentuation `#985810`, halo doux, badge `+1` et élévation avec fondu ascendant à l'emplacement exact du clic/tap.
+    - Simple clic réservé à la bascule play/pause avec indicateur visuel en superposition.
+  - **Visionneuse de shorts Akwaplay (`src/components/akwaplay/shorts/AkwaShortViewerModal.tsx`)** :
+    - Synchronisation du même comportement de double-clic/double-tap like avec animation de pouce flottant (`akwaFloatThumb`), pulsation du bouton like et gestion robuste du son/repli autoplay.
+* **Vérification** : `npx tsc --noEmit` validé avec 0 erreur.
+
 ### Harmonisation des couleurs — Canal, Capsule et Akwaplay (`#985810`)
 * **Demande utilisateur** : remplacement des accents orange (`#f5821f`, `#e5530a`, `#EA580C`, etc.) par la couleur de marque `#985810` (avec ses variantes de survol `#7d480d` et teintes douces `#985810]/20`, `#985810]/10`) dans les modules **Canal**, **Capsule** et **Akwaplay**.
 * **Modifications effectuées** :

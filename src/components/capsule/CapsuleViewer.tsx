@@ -9,11 +9,15 @@ import {
   Flag,
   MessageCircle,
   MoreVertical,
+  Pause,
+  Play,
   Sparkles,
   ThumbsDown,
   ThumbsUp,
   Trash2,
   UserCircle2,
+  Volume2,
+  VolumeX,
   X,
   Bookmark,
 } from "lucide-react"
@@ -88,6 +92,7 @@ interface ActionButtonsProps {
   isMine: boolean
   menuOpen: boolean
   compact?: boolean
+  likePulse?: boolean
   onToggleLike: () => void
   onToggleDislike: () => void
   onOpenComments: () => void
@@ -123,6 +128,7 @@ function ActionButtons({
   isMine,
   menuOpen,
   compact = false,
+  likePulse = false,
   onToggleLike,
   onToggleDislike,
   onOpenComments,
@@ -133,6 +139,8 @@ function ActionButtons({
   const buttonClass = compact
     ? "rounded-full p-2.5"
     : "rounded-full p-2 transition-colors hover:bg-white/10"
+
+  const isLikedActive = capsule.isLiked || likedIds.has(capsule.id)
 
   return (
     <div
@@ -151,12 +159,18 @@ function ActionButtons({
         <span
           className={cn(
             buttonClass,
-            capsule.isLiked || likedIds.has(capsule.id)
-              ? "bg-[#1877F2]"
-              : "bg-transparent"
+            "transition-transform duration-200",
+            likePulse && "scale-125",
+            isLikedActive
+              ? "bg-[#985810] text-white"
+              : "bg-transparent text-white"
           )}
         >
-          <ThumbsUp size={compact ? 22 : 24} strokeWidth={2} />
+          <ThumbsUp
+            size={compact ? 22 : 24}
+            strokeWidth={2}
+            className={isLikedActive ? "fill-white" : ""}
+          />
         </span>
 
         <span className="text-[11px] font-semibold text-white">{likesCount}</span>
@@ -294,8 +308,30 @@ export default function CapsuleViewer({
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Capsule | null>(null)
 
+  // ── Gestion du son et de la lecture ──
+  // Par défaut isMuted = false pour que les capsules jouent AVEC le son.
+  const [isMuted, setIsMuted] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+
+  // ── Double-clic / Double-tap et animations des likes flottants ──
+  interface FloatingLike {
+    id: number
+    x: number
+    y: number
+    rotation: number
+  }
+  const [floatingLikes, setFloatingLikes] = useState<FloatingLike[]>([])
+  const [likePulse, setLikePulse] = useState(false)
+
   const containerRef = useRef<HTMLDivElement>(null)
+  const videoContainerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  const lastTapRef = useRef<number>(0)
+  const singleTapTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastDoubleTapTriggeredRef = useRef<number>(0)
+  const lastTouchTimeRef = useRef<number>(0)
+  const containerTouchStart = useRef<{ x: number; y: number } | null>(null)
 
   // Point de départ du glissement tactile (mobile) pour la navigation verticale.
   const touchStartY = useRef<number | null>(null)
@@ -454,15 +490,58 @@ export default function CapsuleViewer({
 
   // À chaque changement de CAPSULE affichée (et non de simple position dans la
   // liste, qui peut bouger après un refetch) : fermeture menu/commentaires et
-  // reprise de la lecture.
+  // reprise de la lecture avec son.
   useEffect(() => {
     setMenuOpen(false)
     setCommentsOpen(false)
-    videoRef.current?.play().catch(() => undefined)
-  }, [currentId])
+    setIsPaused(false)
+    const vid = videoRef.current
+    if (vid) {
+      vid.muted = isMuted
+      const p = vid.play()
+      if (p !== undefined) {
+        p.catch(() => {
+          // Si la politique de lecture automatique du navigateur bloque le son
+          // sans geste préalable de l'utilisateur, basculer temporairement en muet
+          if (!isMuted) {
+            vid.muted = true
+            setIsMuted(true)
+            vid.play().catch(() => {})
+          }
+        })
+      }
+    }
+  }, [currentId, isMuted])
 
-  // Réactions en cours (anti double-clic) — refs manipulés uniquement dans les
-  // handlers, jamais pendant le rendu.
+  // Bascule du son (Mute / Unmute)
+  const toggleMute = () => {
+    setIsMuted((prev) => {
+      const next = !prev
+      if (videoRef.current) {
+        videoRef.current.muted = next
+        if (!next) {
+          videoRef.current.volume = 1.0
+          videoRef.current.play().catch(() => {})
+        }
+      }
+      return next
+    })
+  }
+
+  // Bascule lecture / pause
+  const togglePlayPause = () => {
+    const vid = videoRef.current
+    if (!vid) return
+    if (vid.paused) {
+      vid.play().catch(() => {})
+      setIsPaused(false)
+    } else {
+      vid.pause()
+      setIsPaused(true)
+    }
+  }
+
+  // Réactions en cours (anti double-clic sur le bouton classique)
   const reactingRef = useRef<Set<string>>(new Set())
 
   const toggleLike = async () => {
@@ -516,6 +595,122 @@ export default function CapsuleViewer({
       )
     } finally {
       reactingRef.current.delete(capsule.id)
+    }
+  }
+
+  // Déclenchement du LIKE via DOUBLE-CLIC / DOUBLE-TAP avec pouce flottant
+  const triggerDoubleTapLike = (clientX?: number, clientY?: number) => {
+    const now = Date.now()
+    if (now - lastDoubleTapTriggeredRef.current < 250) return
+    lastDoubleTapTriggeredRef.current = now
+
+    const container = videoContainerRef.current
+    const rect = container?.getBoundingClientRect()
+
+    let x = rect ? rect.width / 2 : 150
+    let y = rect ? rect.height / 2 : 250
+    if (clientX !== undefined && clientY !== undefined && rect) {
+      x = Math.max(50, Math.min(rect.width - 50, clientX - rect.left))
+      y = Math.max(70, Math.min(rect.height - 70, clientY - rect.top))
+    }
+
+    const id = Date.now() + Math.random()
+    const rotation = (Math.random() - 0.5) * 26
+    setFloatingLikes((prev) => [...prev, { id, x, y, rotation }])
+
+    setTimeout(() => {
+      setFloatingLikes((prev) => prev.filter((item) => item.id !== id))
+    }, 950)
+
+    setLikePulse(true)
+    setTimeout(() => setLikePulse(false), 500)
+
+    // Si la capsule n'est pas déjà likée, on enregistre le like
+    if (capsule) {
+      const alreadyLiked = likedIds.has(capsule.id) || capsule.isLiked
+      if (!alreadyLiked) {
+        void toggleLike()
+      }
+    }
+  }
+
+  // Clic sur le conteneur vidéo (gestion simple clic = pause, double clic = like)
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (Date.now() - lastTouchTimeRef.current < 500) return
+    const target = e.target as HTMLElement
+    if (target.closest("button") || target.closest("a") || target.closest("input") || target.closest("textarea")) {
+      return
+    }
+
+    const now = Date.now()
+    const DOUBLE_CLICK_THRESHOLD = 300
+
+    if (now - lastTapRef.current < DOUBLE_CLICK_THRESHOLD) {
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current)
+        singleTapTimerRef.current = null
+      }
+      lastTapRef.current = 0
+      triggerDoubleTapLike(e.clientX, e.clientY)
+    } else {
+      lastTapRef.current = now
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current)
+      singleTapTimerRef.current = setTimeout(() => {
+        togglePlayPause()
+        singleTapTimerRef.current = null
+      }, DOUBLE_CLICK_THRESHOLD)
+    }
+  }
+
+  const handleContainerDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    if (target.closest("button") || target.closest("a") || target.closest("input") || target.closest("textarea")) {
+      return
+    }
+    triggerDoubleTapLike(e.clientX, e.clientY)
+  }
+
+  // Événements tactiles mobiles
+  const handleContainerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0]
+    if (touch) {
+      containerTouchStart.current = { x: touch.clientX, y: touch.clientY }
+    }
+  }
+
+  const handleContainerTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    if (target.closest("button") || target.closest("a") || target.closest("input") || target.closest("textarea")) {
+      return
+    }
+    const touch = e.changedTouches[0]
+    if (!touch || !containerTouchStart.current) return
+
+    const dx = Math.abs(touch.clientX - containerTouchStart.current.x)
+    const dy = Math.abs(touch.clientY - containerTouchStart.current.y)
+    containerTouchStart.current = null
+
+    // Si glissement vertical (défilement de capsule), on ne déclenche pas de tap
+    if (dx > 20 || dy > 20) return
+
+    lastTouchTimeRef.current = Date.now()
+    const now = Date.now()
+    const DOUBLE_TAP_THRESHOLD = 320
+
+    if (now - lastTapRef.current < DOUBLE_TAP_THRESHOLD) {
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current)
+        singleTapTimerRef.current = null
+      }
+      lastTapRef.current = 0
+      triggerDoubleTapLike(touch.clientX, touch.clientY)
+    } else {
+      lastTapRef.current = now
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current)
+      singleTapTimerRef.current = setTimeout(() => {
+        togglePlayPause()
+        singleTapTimerRef.current = null
+      }, DOUBLE_TAP_THRESHOLD)
     }
   }
 
@@ -661,6 +856,7 @@ export default function CapsuleViewer({
     reportedIds,
     isMine,
     menuOpen,
+    likePulse,
     onToggleLike: toggleLike,
     onToggleDislike: toggleDislike,
     onOpenComments: () => setCommentsOpen(true),
@@ -720,7 +916,14 @@ export default function CapsuleViewer({
           <X size={21} />
         </button>
 
-        <div className="relative flex h-[calc(100dvh-28px)] max-h-[760px] w-[min(86vw,680px)] min-w-0 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-black">
+        <div
+          ref={videoContainerRef}
+          onClick={handleContainerClick}
+          onDoubleClick={handleContainerDoubleClick}
+          onTouchStart={handleContainerTouchStart}
+          onTouchEnd={handleContainerTouchEnd}
+          className="relative flex h-[calc(100dvh-28px)] max-h-[760px] w-[min(86vw,680px)] min-w-0 shrink-0 select-none items-center justify-center overflow-hidden rounded-xl bg-black cursor-pointer"
+        >
           {capsule.video ? (
             <video
               ref={videoRef}
@@ -728,16 +931,16 @@ export default function CapsuleViewer({
               src={capsule.video}
               poster={capsule.thumbnail || undefined}
               autoPlay
-              muted
+              muted={isMuted}
               loop
               playsInline
-              className="h-full w-full object-contain"
+              className="h-full w-full object-contain pointer-events-none"
             />
           ) : capsule.thumbnail ? (
             <img
               src={capsule.thumbnail}
               alt=""
-              className="h-full w-full object-contain"
+              className="h-full w-full object-contain pointer-events-none"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-[#151515]">
@@ -746,6 +949,90 @@ export default function CapsuleViewer({
               </p>
             </div>
           )}
+
+          {/* Bouton Contrôle du son (Mute / Unmute) */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleMute()
+            }}
+            aria-label={isMuted ? "Activer le son" : "Couper le son"}
+            title={isMuted ? "Activer le son" : "Couper le son"}
+            className="absolute right-4 top-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white shadow-lg backdrop-blur-sm transition hover:scale-105 hover:bg-black/80"
+          >
+            {isMuted ? (
+              <VolumeX size={20} className="text-red-400" />
+            ) : (
+              <Volume2 size={20} className="text-white" />
+            )}
+          </button>
+
+          {/* Indicateur pause en overlay */}
+          {isPaused && (
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white shadow-xl">
+                <Play size={28} className="ml-1 fill-white" />
+              </div>
+            </div>
+          )}
+
+          {/* Animation du pouce Like flottant au double-clic */}
+          {floatingLikes.map((item) => (
+            <div
+              key={item.id}
+              className="pointer-events-none absolute z-40 flex flex-col items-center select-none"
+              style={{
+                left: `${item.x}px`,
+                top: `${item.y}px`,
+                animation: "capsuleFloatThumb 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards",
+              }}
+            >
+              <div
+                className="flex h-18 w-18 sm:h-22 sm:w-22 items-center justify-center rounded-full bg-black/40 backdrop-blur-md border-2 border-white/40 shadow-2xl shadow-[#985810]/70"
+                style={{
+                  transform: `rotate(${item.rotation}deg)`,
+                }}
+              >
+                <ThumbsUp
+                  size={42}
+                  className="text-white fill-[#985810] drop-shadow-[0_4px_16px_rgba(152,88,16,0.9)] sm:size-12"
+                />
+              </div>
+              <div className="absolute -top-3 -right-2 opacity-80 animate-ping">
+                <ThumbsUp size={20} className="text-[#985810] fill-[#985810]" />
+              </div>
+              <div className="absolute -top-5 text-sm font-black text-white drop-shadow-md">
+                +1
+              </div>
+            </div>
+          ))}
+
+          {/* Styles CSS de l'animation de flottaison du pouce */}
+          <style>{`
+            @keyframes capsuleFloatThumb {
+              0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.2) translateY(30px);
+              }
+              15% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.3) translateY(0px);
+              }
+              30% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.05) translateY(-12px);
+              }
+              65% {
+                opacity: 0.95;
+                transform: translate(-50%, -50%) scale(1.08) translateY(-60px);
+              }
+              100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.7) translateY(-120px);
+              }
+            }
+          `}</style>
 
           <div
             className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black/90 via-black/20 to-transparent"

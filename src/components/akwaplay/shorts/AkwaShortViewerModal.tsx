@@ -15,6 +15,7 @@ import {
   Send,
   Trash2,
   RefreshCw,
+  ThumbsUp,
 } from "lucide-react"
 import { toast } from "sonner"
 import type { AkwaShort, AkwaShortComment } from "@/services/akwaplay/akwaplayShort.service"
@@ -36,6 +37,13 @@ interface AkwaShortViewerModalProps {
   onShortUpdated?: (short: AkwaShort) => void
 }
 
+interface FloatingLike {
+  id: number
+  x: number
+  y: number
+  rotation: number
+}
+
 export default function AkwaShortViewerModal({
   shorts,
   initialIndex = 0,
@@ -49,6 +57,10 @@ export default function AkwaShortViewerModal({
   const [isMuted, setIsMuted] = useState(false)
   const [showComments, setShowComments] = useState(false)
 
+  // Double-clic like flottant
+  const [floatingLikes, setFloatingLikes] = useState<FloatingLike[]>([])
+  const [likePulse, setLikePulse] = useState(false)
+
   // Commentaires
   const [comments, setComments] = useState<AkwaShortComment[]>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
@@ -58,8 +70,15 @@ export default function AkwaShortViewerModal({
   // États locaux des shorts (likes, compteurs)
   const [localShorts, setLocalShorts] = useState<AkwaShort[]>(shorts)
 
+  const videoContainerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const currentShort = localShorts[currentIndex]
+
+  const lastTapRef = useRef<number>(0)
+  const singleTapTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastDoubleTapTriggeredRef = useRef<number>(0)
+  const lastTouchTimeRef = useRef<number>(0)
+  const containerTouchStart = useRef<{ x: number; y: number } | null>(null)
 
   // Synchronisation avec les props
   useEffect(() => {
@@ -75,15 +94,25 @@ export default function AkwaShortViewerModal({
     }
   }, [currentIndex, currentShort, currentUserId])
 
-  // Gestion lecture vidéo
+  // Gestion lecture vidéo avec son & repli automatique si autoplay bloqué par le navigateur
   useEffect(() => {
     if (!videoRef.current) return
     if (isPlaying) {
-      videoRef.current.play().catch(() => {})
+      videoRef.current.muted = isMuted
+      const p = videoRef.current.play()
+      if (p !== undefined) {
+        p.catch(() => {
+          if (!isMuted && videoRef.current) {
+            videoRef.current.muted = true
+            setIsMuted(true)
+            videoRef.current.play().catch(() => {})
+          }
+        })
+      }
     } else {
       videoRef.current.pause()
     }
-  }, [isPlaying, currentIndex])
+  }, [isPlaying, currentIndex, isMuted])
 
   // Chargement des commentaires quand le tiroir s'ouvre
   const loadComments = useCallback(async () => {
@@ -197,6 +226,116 @@ export default function AkwaShortViewerModal({
     }
   }
 
+  // Déclenchement du LIKE au double-clic / double-tap avec animation du pouce flottant
+  const triggerDoubleTapLike = (clientX?: number, clientY?: number) => {
+    const now = Date.now()
+    if (now - lastDoubleTapTriggeredRef.current < 250) return
+    lastDoubleTapTriggeredRef.current = now
+
+    const container = videoContainerRef.current
+    const rect = container?.getBoundingClientRect()
+
+    let x = rect ? rect.width / 2 : 150
+    let y = rect ? rect.height / 2 : 250
+    if (clientX !== undefined && clientY !== undefined && rect) {
+      x = Math.max(50, Math.min(rect.width - 50, clientX - rect.left))
+      y = Math.max(70, Math.min(rect.height - 70, clientY - rect.top))
+    }
+
+    const id = Date.now() + Math.random()
+    const rotation = (Math.random() - 0.5) * 26
+    setFloatingLikes((prev) => [...prev, { id, x, y, rotation }])
+
+    setTimeout(() => {
+      setFloatingLikes((prev) => prev.filter((item) => item.id !== id))
+    }, 950)
+
+    setLikePulse(true)
+    setTimeout(() => setLikePulse(false), 500)
+
+    // Si non déjà aimé, on aime la capsule
+    if (currentShort && !currentShort.isLiked) {
+      void handleToggleLike()
+    }
+  }
+
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (Date.now() - lastTouchTimeRef.current < 500) return
+    const target = e.target as HTMLElement
+    if (target.closest("button") || target.closest("a") || target.closest("input") || target.closest("textarea")) {
+      return
+    }
+
+    const now = Date.now()
+    const DOUBLE_CLICK_THRESHOLD = 300
+
+    if (now - lastTapRef.current < DOUBLE_CLICK_THRESHOLD) {
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current)
+        singleTapTimerRef.current = null
+      }
+      lastTapRef.current = 0
+      triggerDoubleTapLike(e.clientX, e.clientY)
+    } else {
+      lastTapRef.current = now
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current)
+      singleTapTimerRef.current = setTimeout(() => {
+        setIsPlaying((p) => !p)
+        singleTapTimerRef.current = null
+      }, DOUBLE_CLICK_THRESHOLD)
+    }
+  }
+
+  const handleContainerDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    if (target.closest("button") || target.closest("a") || target.closest("input") || target.closest("textarea")) {
+      return
+    }
+    triggerDoubleTapLike(e.clientX, e.clientY)
+  }
+
+  const handleContainerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0]
+    if (touch) {
+      containerTouchStart.current = { x: touch.clientX, y: touch.clientY }
+    }
+  }
+
+  const handleContainerTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    if (target.closest("button") || target.closest("a") || target.closest("input") || target.closest("textarea")) {
+      return
+    }
+    const touch = e.changedTouches[0]
+    if (!touch || !containerTouchStart.current) return
+
+    const dx = Math.abs(touch.clientX - containerTouchStart.current.x)
+    const dy = Math.abs(touch.clientY - containerTouchStart.current.y)
+    containerTouchStart.current = null
+
+    if (dx > 20 || dy > 20) return
+
+    lastTouchTimeRef.current = Date.now()
+    const now = Date.now()
+    const DOUBLE_TAP_THRESHOLD = 320
+
+    if (now - lastTapRef.current < DOUBLE_TAP_THRESHOLD) {
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current)
+        singleTapTimerRef.current = null
+      }
+      lastTapRef.current = 0
+      triggerDoubleTapLike(touch.clientX, touch.clientY)
+    } else {
+      lastTapRef.current = now
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current)
+      singleTapTimerRef.current = setTimeout(() => {
+        setIsPlaying((p) => !p)
+        singleTapTimerRef.current = null
+      }, DOUBLE_TAP_THRESHOLD)
+    }
+  }
+
   const handleShare = () => {
     const url = `${window.location.origin}/akwaplay/shorts?shortId=${currentShort.id}`
     navigator.clipboard.writeText(url)
@@ -301,7 +440,14 @@ export default function AkwaShortViewerModal({
         </div>
 
         {/* ── CADRE LECTEUR CAPSULE (9:16) ── */}
-        <div className="relative h-full aspect-[9/16] max-h-[90vh] rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/10 flex items-center justify-center group">
+        <div
+          ref={videoContainerRef}
+          onClick={handleContainerClick}
+          onDoubleClick={handleContainerDoubleClick}
+          onTouchStart={handleContainerTouchStart}
+          onTouchEnd={handleContainerTouchEnd}
+          className="relative h-full aspect-[9/16] max-h-[90vh] rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/10 flex items-center justify-center group select-none cursor-pointer"
+        >
           {currentShort.videoUrl ? (
             <video
               ref={videoRef}
@@ -310,8 +456,7 @@ export default function AkwaShortViewerModal({
               playsInline
               loop
               muted={isMuted}
-              onClick={() => setIsPlaying((p) => !p)}
-              className="w-full h-full object-cover cursor-pointer"
+              className="w-full h-full object-cover pointer-events-none"
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-[#181818] p-6 text-center">
@@ -331,6 +476,63 @@ export default function AkwaShortViewerModal({
               </div>
             </div>
           )}
+
+          {/* Animation du pouce Like flottant au double-clic */}
+          {floatingLikes.map((item) => (
+            <div
+              key={item.id}
+              className="pointer-events-none absolute z-40 flex flex-col items-center select-none"
+              style={{
+                left: `${item.x}px`,
+                top: `${item.y}px`,
+                animation: "akwaFloatThumb 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards",
+              }}
+            >
+              <div
+                className="flex h-18 w-18 sm:h-22 sm:w-22 items-center justify-center rounded-full bg-black/40 backdrop-blur-md border-2 border-white/40 shadow-2xl shadow-[#985810]/70"
+                style={{
+                  transform: `rotate(${item.rotation}deg)`,
+                }}
+              >
+                <ThumbsUp
+                  size={42}
+                  className="text-white fill-[#985810] drop-shadow-[0_4px_16px_rgba(152,88,16,0.9)] sm:size-12"
+                />
+              </div>
+              <div className="absolute -top-3 -right-2 opacity-80 animate-ping">
+                <ThumbsUp size={20} className="text-[#985810] fill-[#985810]" />
+              </div>
+              <div className="absolute -top-5 text-sm font-black text-white drop-shadow-md">
+                +1
+              </div>
+            </div>
+          ))}
+
+          {/* Styles CSS de l'animation de flottaison du pouce */}
+          <style>{`
+            @keyframes akwaFloatThumb {
+              0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.2) translateY(30px);
+              }
+              15% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.3) translateY(0px);
+              }
+              30% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.05) translateY(-12px);
+              }
+              65% {
+                opacity: 0.95;
+                transform: translate(-50%, -50%) scale(1.08) translateY(-60px);
+              }
+              100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.7) translateY(-120px);
+              }
+            }
+          `}</style>
 
           {/* Contrôle Mute / Unmute en haut à gauche */}
           <button
@@ -376,6 +578,8 @@ export default function AkwaShortViewerModal({
               <button
                 onClick={handleToggleLike}
                 className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
+                  likePulse ? "scale-125 " : ""
+                }${
                   currentShort.isLiked
                     ? "bg-[#985810] text-white scale-110 shadow-lg shadow-[#985810]/40"
                     : "bg-black/60 backdrop-blur-sm text-white hover:bg-white/20"

@@ -511,19 +511,14 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
 
 #### Page Capsules (`/capsules`)
 
-* Page dédiée (`CapsulesPage`) présentant le feed complet des capsules en
-  grille 9:16 (chargement infini au scroll). États gérés : **squeletons** pendant
-  la résolution de l'auth et le premier fetch (aucune fausse liste vide au
-  rechargement), erreur réessayable, liste réellement vide, et grille.
-  Entrées de navigation « Capsules » dans la barre
-  de navigation mobile **et la sidebar gauche** (élément
-  « Capsule », qui redirige vers `/capsules` et s'active quand la page est
-  courante). L'en-tête desktop ne contient pas d'entrée Capsules.
-* Un bouton **« Créer »** dans l'en-tête de la page (utilisateur connecté)
-  ouvre la modale de création `CapsuleCreator`.
-* Au **survol** d'une vignette, la **vidéo de la capsule se joue
-  automatiquement** (muet) ; au départ du survol, la miniature réapparaît.
-* L'identité visuelle et les accents interactifs du module Capsules (boutons, badges, états actifs, likes) utilisent la couleur `#985810`.
+* Page dédiée (`CapsulesPage`) organisée avec une **sidebar interactive** (`CapsuleSidebar`) sur desktop et des onglets défilants tactiles sur mobile :
+  - **Pour vous** : flux global de toutes les capsules de la communauté (`fetchCapsulesFeed`), pagination infinie au scroll, lecture automatique au survol de vignette.
+  - **Suivi(e)s** : capsules publiées exclusivement par les personnes / créateurs auxquels l'utilisateur est abonné (filtrage des créateurs suivis via `listFollowing/{userId}/{userId}` et `POST /fetchShorts` ou `shortsUser/{userId}`), avec état vide invitant à découvrir du contenu.
+  - **Mes capsules** : capsules publiées par l'utilisateur connecté (`GET /shortsUser/{userId}`), compteur personnel en badge et action rapide de création si aucune capsule n'est encore publiée.
+  - **Mes points Capsule** (`/pointsHistory/{userId}/capsule`) : affichage dédié (`CapsulePointsView`) des points accumulés spécifiquement dans la section Capsule via la route BFF `/api/pointsHistory?source=capsule` (Axios serveur vers `GET /pointsHistory/{userId}/capsule`), avec synthèse des gains, solde de points et tableau soigné `CapsulePointsTable` affichant 4 colonnes claires : **Date**, **Type** (badge Gain / Perte), **Description** et **Point** (montant signé).
+* Bouton d'action **« Créer une capsule »** (`+ Créer`) présent dans la sidebar et en en-tête mobile, ouvrant la modale `CapsuleCreator`.
+* Navigation fluide entre les vues sans rechargement de page, avec intégration continue de la visionneuse plein écran (`CapsuleViewer`) pour chaque liste.
+* L'identité visuelle et les accents interactifs du module Capsules (boutons, badges, états actifs, likes, points) utilisent la couleur `#985810`.
 
 #### Création d'une capsule (CapsuleCreator)
 
@@ -543,9 +538,18 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
 * Défilement vertical d'une capsule à l'autre (type Reels) : **molette et flèches
   clavier sur desktop**, **glissement vertical tactile sur mobile / tablette**
   (vers le haut = capsule suivante, vers le bas = capsule précédente — seuil
-  60 px, les gestes démarrant sur un bouton, lien ou champ sont ignorés) ;
-  vidéo en lecture automatique muette. La carte vidéo occupe l'essentiel de
-  l'écran en mobile (`w-[min(86vw,680px)]`).
+  60 px, les gestes démarrant sur un bouton, lien ou champ sont ignorés).
+  La carte vidéo occupe l'essentiel de l'écran en mobile (`w-[min(86vw,680px)]`).
+* **Lecture audio et son** :
+  - La vidéo se lit **avec le son activé par défaut** (`isMuted: false`).
+  - Un bouton de contrôle du son dédié (`Volume2` / `VolumeX`) situé en haut à droite permet de couper ou réactiver le son à tout moment.
+  - En cas de politique de lecture automatique stricte du navigateur bloquant la lecture avec son sans geste préalable, un repli silencieux automatique évite tout blocage de lecture.
+* **Double-clic / Double-tap pour aimer (Like)** :
+  - Un **double-clic** (sur ordinateur) ou un **double-tap simultané** (sur mobile) sur la zone vidéo déclenche instantanément la réaction **J'aime** si la capsule n'est pas encore aimée.
+  - Si la capsule est déjà aimée, le double-clic n'annule pas le like (idempotent, évite les dislikes accidentels).
+  - Une **animation visuelle de pouce levé flottant** (accent de marque `#985810`, halo lumineux, badge `+1` et effet d'élévation progressive) apparaît précisément à l'endroit du double-clic/tap avant de s'estomper vers le haut.
+  - Le bouton J'aime de la barre latérale effectue une pulsation d'agrandissement (`likePulse`).
+* **Simple clic / tap** : bascule entre pause et reprise de lecture avec affichage d'un indicateur `Play` en surimpression translucide.
 * Actions : **like / dislike** (mise à jour optimiste), **commentaires**
   (liste, ajout, réponses imbriquées, like de commentaire), **vue**
   enregistrée une seule fois par capsule (`POST /trackView` via la route

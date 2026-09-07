@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { capsuleEnabled, fetchCapsuleFeed, createCapsule, CAPSULE_PAGE_SIZE } from "@/lib/capsule-service"
+import { capsuleEnabled, fetchCapsuleFeed, fetchFollowingCapsules, createCapsule, CAPSULE_PAGE_SIZE } from "@/lib/capsule-service"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 export const dynamic = "force-dynamic"
 
 /**
  * GET /api/capsules — feed des capsules (POST /fetchShorts Dughu).
- * Query : userId, page, perPage.
+ * Query : userId, page, perPage, filter ("all" | "following").
  */
 export async function GET(req: NextRequest) {
   try {
@@ -15,10 +15,15 @@ export async function GET(req: NextRequest) {
     }
     const { searchParams } = new URL(req.url)
     const userId = searchParams.get("userId") || (await getDughuUserIdFromCookies())
+    const filter = searchParams.get("filter") || "all"
     const page = Math.max(parseInt(searchParams.get("page") || "1", 10) || 1, 1)
     const perPage = Math.max(parseInt(searchParams.get("perPage") || String(CAPSULE_PAGE_SIZE), 10) || CAPSULE_PAGE_SIZE, 1)
     if (!userId) {
       return NextResponse.json({ success: true, capsules: [], pagination: { page, perPage, total: 0, hasMore: false } })
+    }
+    if (filter === "following") {
+      const data = await fetchFollowingCapsules(userId, { page, perPage })
+      return NextResponse.json({ success: true, ...data })
     }
     const data = await fetchCapsuleFeed(userId, { page, perPage })
     return NextResponse.json({ success: true, ...data })

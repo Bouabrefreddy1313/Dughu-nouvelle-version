@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 // â”€â”€ Hook client Capsules (React Query) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Les hooks appellent le service frontend capsules.service.ts (aucun fetch
@@ -23,10 +23,10 @@ import {
   createCapsule,
 } from "@/services/capsules/capsules.service"
 
-/** Feed des capsules (utilisÃ© par la page /capsules et le rail du fil). */
-export function useCapsulesFeed(params: { userId?: string; page?: number; perPage?: number }) {
+/** Feed des capsules (utilisé par la page /capsules et le rail du fil). */
+export function useCapsulesFeed(params: { userId?: string; page?: number; perPage?: number; filter?: string }) {
   return useQuery({
-    queryKey: ["capsules", "feed", params.userId ?? "", params.page ?? 1, params.perPage ?? ""],
+    queryKey: ["capsules", "feed", params.userId ?? "", params.filter ?? "all", params.page ?? 1, params.perPage ?? ""],
     queryFn: ({ signal }) => fetchCapsulesFeed(params, signal),
     enabled: !!params.userId,
     staleTime: 60_000,

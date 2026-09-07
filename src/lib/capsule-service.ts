@@ -360,6 +360,83 @@ export async function fetchUserCapsules(
   return normalizeCapsuleList(raw)
 }
 
+/** Capsules des créateurs suivis par l'utilisateur connecté. */
+export async function fetchFollowingCapsules(
+  userId: string,
+  { page = 1, perPage = CAPSULE_PAGE_SIZE }: { page?: number; perPage?: number } = {}
+): Promise<CapsuleFeedResult> {
+  try {
+    // 1. Récupération de la liste des abonnements (créateurs suivis)
+    const rawFollowing = await dughu.get(
+      `listFollowing/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(userId))}`
+    ).catch(() => null)
+
+    const followingList = findArray(rawFollowing, ["data", "following", "result", "users", "items"])
+    const followedIds: string[] = followingList
+      .map((item: any) => String(item?.id || item?.user_id || item?.following_id || item?.user?.id || ""))
+      .filter((id: string) => id && id !== String(userId))
+
+    const followedSet = new Set(followedIds)
+
+    // 2. Récupération du feed avec paramètre following éventuel
+    const rawFeed = await dughu.form("fetchShorts", {
+      user_id: String(userId),
+      page,
+      per_page: perPage,
+      filter: "following",
+      type: "following",
+    }).catch(() => null)
+
+    const feedCapsules = rawFeed ? normalizeCapsuleList(rawFeed) : []
+
+    const capsules: Capsule[] = []
+    if (followedSet.size > 0) {
+      // Filtrer les capsules du feed dont l'auteur fait partie des suivis
+      const matched = feedCapsules.filter((c) => c.author?.id && followedSet.has(String(c.author.id)))
+      capsules.push(...matched)
+
+      // Si le feed général n'en contient pas assez, interroger les créateurs suivis
+      if (capsules.length < perPage) {
+        const topFollowed = followedIds.slice(0, 6)
+        const userShortsResults = await Promise.allSettled(
+          topFollowed.map((fId) => fetchUserCapsules(fId, userId))
+        )
+        for (const res of userShortsResults) {
+          if (res.status === "fulfilled" && Array.isArray(res.value)) {
+            capsules.push(...res.value)
+          }
+        }
+      }
+    } else {
+      capsules.push(...feedCapsules)
+    }
+
+    // Dédoublonnage par identifiant unique
+    const seen = new Set<string>()
+    const uniqueCapsules = capsules.filter((c) => {
+      if (!c.id || seen.has(c.id)) return false
+      seen.add(c.id)
+      return true
+    })
+
+    return {
+      capsules: uniqueCapsules,
+      pagination: {
+        page,
+        perPage,
+        total: uniqueCapsules.length,
+        hasMore: false,
+      },
+    }
+  } catch (error) {
+    console.error("FETCH FOLLOWING CAPSULES ERROR:", error)
+    return {
+      capsules: [],
+      pagination: { page, perPage, total: 0, hasMore: false },
+    }
+  }
+}
+
 /* ── Réactions & vues ──────────────────────────────────────────────────────── */
 
 /** Like / unlike une capsule (GET /toggleLikeShort/{id}/{user_id}). */

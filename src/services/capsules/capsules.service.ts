@@ -42,12 +42,13 @@ async function postJson<T = Record<string, unknown>>(url: string, body: Record<s
 
 /** Feed des capsules (page /capsules + rail du fil). */
 export async function fetchCapsulesFeed(
-  { userId, page = 1, perPage }: { userId?: string; page?: number; perPage?: number },
+  { userId, page = 1, perPage, filter }: { userId?: string; page?: number; perPage?: number; filter?: string },
   signal?: AbortSignal
 ): Promise<CapsuleFeedResult> {
   try {
     const qs = new URLSearchParams()
     if (userId) qs.set("userId", userId)
+    if (filter) qs.set("filter", filter)
     qs.set("page", String(page))
     if (perPage) qs.set("perPage", String(perPage))
     const res = await apiClient.get<CapsuleFeedResult & { success: boolean; message?: string }>(`/capsules?${qs}`, { signal })
