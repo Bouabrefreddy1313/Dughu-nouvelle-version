@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Loader2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
-import { REACTIONS, REACTION_TYPE_TO_ID } from "@/lib/constants"
+import { REACTIONS, REACTION_TYPE_TO_ID, getReactionMeta } from "@/lib/constants"
 import type { ReactionUserItem } from "@/types/posts/post.types"
 
 export type { ReactionUserItem }
@@ -85,13 +85,12 @@ export function ReactionUsersModal({
     ...summary
       .filter((r) => r.count > 0)
       .map((r) => {
-        const idNum = REACTION_TYPE_TO_ID[r.type]
-        const def = REACTIONS.find((item) => item.id === idNum)
+        const meta = getReactionMeta(r.type)
         return {
-          id: r.type,
-          label: def?.name || r.type,
+          id: meta?.type || r.type,
+          label: meta?.name || r.type,
           count: r.count,
-          icon: def?.icon || "👍",
+          icon: meta?.icon || "👍",
         }
       }),
   ]
@@ -180,10 +179,8 @@ export function ReactionUsersModal({
             </div>
           ) : (
             displayedUsers.map((user, idx) => {
-              const reactionDef = REACTIONS.find(
-                (r) => r.id === REACTION_TYPE_TO_ID[user.reactionType]
-              )
-              const reactionIcon = reactionDef?.icon || "👍"
+              const meta = getReactionMeta(user.reactionType)
+              const reactionIcon = meta?.icon || "👍"
 
               return (
                 <div

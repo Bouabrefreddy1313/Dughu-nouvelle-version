@@ -212,12 +212,18 @@ export async function updateSocialLinks(pageId: string, links: PageSocialLinks, 
     throw toServiceApiError(error, "Impossible de mettre à jour les liens sociaux.")
   }
 }
-export async function likePage(pageId: string, signal?: AbortSignal): Promise<{ success: boolean; message?: string; isLike?: boolean }> {
+export async function likePage(
+  pageId: string,
+  userIdOrSignal?: string | AbortSignal,
+  signal?: AbortSignal
+): Promise<{ success: boolean; message?: string; isLike?: boolean }> {
+  const userId = typeof userIdOrSignal === "string" ? userIdOrSignal : undefined
+  const finalSignal = userIdOrSignal instanceof AbortSignal ? userIdOrSignal : signal
   try {
     const res = await apiClient.post<{ success: boolean; message?: string; isLike?: boolean }>(
       `/pages/${encodeURIComponent(pageId)}/like`,
-      {},
-      { signal }
+      userId ? { userId } : {},
+      { signal: finalSignal }
     )
     return res.data
   } catch (error) {

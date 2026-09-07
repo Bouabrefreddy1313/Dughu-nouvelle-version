@@ -471,6 +471,7 @@ export default function SavedPage() {
             likesCount={post._count.likes}
             commentsCount={post._count.comments}
             sharesCount={post._count.reposts}
+            viewsCount={Number((post as any).views_count ?? (post as any).viewsCount ?? post._count?.views ?? 0)}
             reacted={post.reacted}
             reactions={post.reactions}
             users={(post as any).reactionUsers}

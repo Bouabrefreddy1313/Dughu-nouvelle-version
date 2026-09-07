@@ -291,10 +291,12 @@ export async function getAdherents(canalId: string): Promise<CanalMember[]> {
 export async function handleJoinRequest(
   requestId: string,
   userId: string,
-  accept: boolean
+  accept: boolean,
+  canalId?: string
 ): Promise<CanalMutationResponse> {
   const raw = await requestForm<any>(`/handleJoinRequest/${encodeURIComponent(requestId)}`, {
     user_id: userId,
+    canal_id: canalId || undefined,
     accept: accept ? 1 : 0,
   })
   return { success: raw?.success ?? true, message: raw?.message, result: raw }
@@ -443,10 +445,11 @@ export async function getReceivedNotifications(
 /** GET /processedNotifications — notifications traitées. */
 export async function getProcessedNotifications(
   userId: string,
-  canalId: string
+  canalId: string,
+  page = 1
 ): Promise<CanalNotificationsResponse> {
-  const raw = await requestGet<any>("/processedNotifications", { user_id: userId, canal_id: canalId })
-  return mapCanalNotifications(raw) as CanalNotificationsResponse
+  const raw = await requestGet<any>("/processedNotifications", { user_id: userId, canal_id: canalId, page })
+  return mapCanalNotifications(raw, page) as CanalNotificationsResponse
 }
 
 /**

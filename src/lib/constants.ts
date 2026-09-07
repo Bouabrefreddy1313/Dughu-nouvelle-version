@@ -55,6 +55,7 @@ export const POST_PRIVACY_OPTIONS: PostPrivacyOption[] = [
 // ── Reactions ─────────────────────────────────────────────────────────────────
 
 /** Mapping ID de reaction → type API (utilise pour les appels API) */
+// Mapping étendu d'IDs de réaction retournés par l'API Dughu vers les types canoniques
 export const REACTION_ID_TO_TYPE: Record<number, string> = {
   1: "like",
   2: "love",
@@ -62,6 +63,12 @@ export const REACTION_ID_TO_TYPE: Record<number, string> = {
   4: "wow",
   5: "sad",
   6: "angry",
+  // IDs alternatifs parfois retournés par l'API Dughu
+  11: "haha",
+  12: "love",
+  13: "wow",
+  14: "sad",
+  15: "angry",
 }
 
 /** Mapping type API → ID de reaction */
@@ -83,6 +90,85 @@ export const REACTIONS = [
   { id: 5, name: "Triste", icon: "😢" },
   { id: 6, name: "Grrr", icon: "😡" },
 ] as const
+
+/** Aliases connus pour normaliser toute variante issue de l'API Dughu ou de la base */
+const REACTION_ALIASES: Record<string, string> = {
+  like: "like",
+  jaime: "like",
+  "j'aime": "like",
+  pouce: "like",
+  thumb: "like",
+  thumbs_up: "like",
+  love: "love",
+  jadore: "love",
+  "j'adore": "love",
+  coeur: "love",
+  heart: "love",
+  aimer: "love",
+  haha: "haha",
+  rire: "haha",
+  laugh: "haha",
+  lol: "haha",
+  mdr: "haha",
+  wow: "wow",
+  ouah: "wow",
+  surpris: "wow",
+  surprise: "wow",
+  sad: "sad",
+  triste: "sad",
+  pleure: "sad",
+  cry: "sad",
+  angry: "angry",
+  grrr: "angry",
+  colere: "angry",
+  colère: "angry",
+  enerve: "angry",
+  enervé: "angry",
+  énervé: "angry",
+  rage: "angry",
+}
+
+/**
+ * Normalise toute valeur de réaction (id numérique, chaîne "1", nom "love", alias "heart" / "grrr" ou objet `{ id, name }`)
+ * vers le type canonique ("like" | "love" | "haha" | "wow" | "sad" | "angry").
+ */
+export function normalizeReactionType(raw: unknown): string | null {
+  if (raw === null || raw === undefined || raw === "") return null
+  if (typeof raw === "object" && raw !== null) {
+    const obj = raw as Record<string, unknown>
+    const fromId = normalizeReactionType(obj.id ?? obj.reaction_id ?? obj.reactionId ?? obj.reaction)
+    if (fromId) return fromId
+    const fromName = normalizeReactionType(obj.name ?? obj.type ?? obj.reaction_type)
+    if (fromName) return fromName
+    return null
+  }
+  if (typeof raw === "number") {
+    return REACTION_ID_TO_TYPE[raw] || null
+  }
+  const s = String(raw).toLowerCase().trim()
+  if (!s) return null
+  if (/^\d+$/.test(s)) {
+    const num = Number(s)
+    return REACTION_ID_TO_TYPE[num] || null
+  }
+  return REACTION_ALIASES[s] || (["like", "love", "haha", "wow", "sad", "angry"].includes(s) ? s : null)
+}
+
+/**
+ * Récupère les métadonnées (icône/emoji et nom lisible) d'un type de réaction.
+ */
+export function getReactionMeta(typeOrId: unknown): { id: number; name: string; icon: string; type: string } | null {
+  const normType = normalizeReactionType(typeOrId)
+  if (!normType) return null
+  const id = REACTION_TYPE_TO_ID[normType] || 1
+  const def = REACTIONS.find((r) => r.id === id) || REACTIONS[0]
+  return {
+    id: def.id,
+    name: def.name,
+    icon: def.icon,
+    type: normType,
+  }
+}
 
 // ── Couleurs de fond pour les publications ────────────────────────────────────
 

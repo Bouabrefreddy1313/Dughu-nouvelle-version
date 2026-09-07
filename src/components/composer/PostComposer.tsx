@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { fetchComposerColors, searchHashtags } from "@/services/posts/composer.service"
 import {
@@ -50,6 +50,12 @@ const DECORATIVE_COLORS: BackgroundColor[] = [
 
 const isGradient = (bg: string) => bg.includes("gradient")
 
+export interface ComposerSpace {
+  id: string
+  name: string
+  avatar?: string | null
+}
+
 interface PostComposerProps {
   user?: {
     id: string
@@ -65,8 +71,14 @@ interface PostComposerProps {
     audios?: File[]
     privacy?: PostPrivacy
     location?: string | null
+    pageId?: string
   }) => void | Promise<void>
   className?: string
+  spaces?: ComposerSpace[]
+  selectedSpaceId?: string
+  defaultSpaceId?: string
+  onSpaceSelect?: (spaceId: string | undefined) => void
+  placeholder?: string
 }
 
 /**
@@ -83,7 +95,35 @@ const QUICK_EMOJIS = ["😀", "😍", "😂", "🔥", "🙏", "🎉", "❤️", 
 const MAX_CHARS = 2000
 const BG_CHAR_LIMIT = 240 // background posts stay punchy, like a headline
 
-export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
+export function PostComposer({
+  user,
+  onSubmit,
+  className,
+  spaces,
+  selectedSpaceId,
+  defaultSpaceId,
+  onSpaceSelect,
+  placeholder,
+}: PostComposerProps) {
+  const [activeSpaceId, setActiveSpaceId] = useState<string>(selectedSpaceId || defaultSpaceId || "")
+  const [spaceDropdownOpen, setSpaceDropdownOpen] = useState(false)
+  const spaceSelectRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (selectedSpaceId !== undefined) {
+      setActiveSpaceId(selectedSpaceId)
+    }
+  }, [selectedSpaceId])
+
+  const activeSpace = useMemo(() => {
+    if (!spaces || !spaces.length || !activeSpaceId) return null
+    return spaces.find((s) => String(s.id) === String(activeSpaceId)) || null
+  }, [spaces, activeSpaceId])
+
+  const displayName = user?.name || "Utilisateur"
+  const effectiveAvatar = activeSpace ? activeSpace.avatar || null : user?.avatar || user?.image || null
+  const effectiveName = activeSpace ? activeSpace.name : displayName
+
   const [text, setText] = useState("")
   const [selectedColor, setSelectedColor] = useState<BackgroundColor | null>(null)
   const [images, setImages] = useState<File[]>([])
@@ -136,8 +176,6 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
   const hasContent = text.trim().length > 0 || hasMedia
   const overLimit = text.length > charLimit
 
-  const displayName = user?.name || "Utilisateur"
-
   useEffect(() => setMounted(true), [])
 
   // ---------- helpers ----------
@@ -183,6 +221,9 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
     const onClickOutside = (e: MouseEvent) => {
       if (privacyRef.current && !privacyRef.current.contains(e.target as Node)) {
         setPrivacyOpen(false)
+      }
+      if (spaceSelectRef.current && !spaceSelectRef.current.contains(e.target as Node)) {
+        setSpaceDropdownOpen(false)
       }
     }
     document.addEventListener("mousedown", onClickOutside)
@@ -419,6 +460,7 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
         audios,
         privacy,
         location: location || null,
+        pageId: activeSpace ? String(activeSpace.id) : undefined,
       })
       resetAll()
       closeModal()
@@ -709,9 +751,62 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
     <>
       {/* identity + privacy row */}
       <div className="flex items-center gap-2.5 mb-3">
-        <Avatar src={user?.avatar || user?.image || null} name={displayName} size="md" />
+        <Avatar src={effectiveAvatar} name={effectiveName} size="md" />
         <div className="flex flex-col">
-          <span className="text-[15px] font-semibold text-[#050505] leading-tight">{displayName}</span>
+          {spaces && spaces.length > 0 ? (
+            <div className="relative" ref={spaceSelectRef}>
+              <button
+                type="button"
+                onClick={() => setSpaceDropdownOpen((v) => !v)}
+                className="flex items-center gap-1.5 text-[15px] font-semibold text-[#050505] leading-tight hover:text-[#A35A2A] transition"
+              >
+                <span>{effectiveName}</span>
+                <ChevronDown size={14} className="text-[#65676B]" />
+              </button>
+              {spaceDropdownOpen && (
+                <div className="absolute z-30 top-full mt-1 left-0 w-64 bg-white rounded-xl shadow-xl border border-gray-100 p-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <p className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#65676B]">Publier en tant que</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSpaceId("")
+                      onSpaceSelect?.(undefined)
+                      setSpaceDropdownOpen(false)
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left hover:bg-gray-50 transition",
+                      !activeSpaceId && "bg-[#A35A2A]/5 text-[#A35A2A]"
+                    )}
+                  >
+                    <Avatar src={user?.avatar || user?.image || null} name={displayName} size="sm" />
+                    <span className="text-[13px] font-medium flex-1 truncate">{displayName} (Profil)</span>
+                    {!activeSpaceId && <Check size={16} className="text-[#A35A2A]" />}
+                  </button>
+                  {spaces.map((sp) => (
+                    <button
+                      key={sp.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveSpaceId(String(sp.id))
+                        onSpaceSelect?.(String(sp.id))
+                        setSpaceDropdownOpen(false)
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left hover:bg-gray-50 transition",
+                        String(activeSpaceId) === String(sp.id) && "bg-[#A35A2A]/5 text-[#A35A2A]"
+                      )}
+                    >
+                      <Avatar src={sp.avatar || null} name={sp.name} size="sm" />
+                      <span className="text-[13px] font-medium flex-1 truncate">{sp.name}</span>
+                      {String(activeSpaceId) === String(sp.id) && <Check size={16} className="text-[#A35A2A]" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <span className="text-[15px] font-semibold text-[#050505] leading-tight">{effectiveName}</span>
+          )}
           <div className="relative" ref={privacyRef}>
             <button
               onClick={() => setPrivacyOpen((v) => !v)}
@@ -1072,12 +1167,12 @@ export function PostComposer({ user, onSubmit, className }: PostComposerProps) {
       {/* collapsed trigger card */}
       <div className={cn("bg-white rounded-3xl p-4 shadow-sm border border-gray-100", className)}>
         <div className="flex items-center gap-3 mb-3">
-          <Avatar src={user?.avatar || user?.image || null} name={displayName} size="md" />
+          <Avatar src={effectiveAvatar} name={effectiveName} size="md" />
           <button
             onClick={openModal}
-            className="flex-1 text-left bg-gray-100 hover:bg-gray-200 transition rounded-full px-4 py-2.5 text-[15px] text-[#65676B]"
+            className="flex-1 text-left bg-gray-100 hover:bg-gray-200 transition rounded-full px-4 py-2.5 text-[15px] text-[#65676B] truncate"
           >
-            Quoi de neuf, {displayName.split(" ")[0]} ?
+            {placeholder || (activeSpace ? `Publier pour ${activeSpace.name}...` : `Quoi de neuf, ${displayName.split(" ")[0]} ?`)}
           </button>
         </div>
         <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 -mx-1">

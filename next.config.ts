@@ -40,6 +40,15 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**" },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/historique-points",
+        destination: "/points",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

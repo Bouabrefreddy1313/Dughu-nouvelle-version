@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic"
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
+    const page = Math.max(1, Number(searchParams.get("page")) || 1)
     const canalId = String(searchParams.get("canalId") || "")
     const userId = String(searchParams.get("userId") || "") || (await getDughuUserIdFromCookies())
 
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const result = await getProcessedNotifications(userId, canalId)
+    const result = await getProcessedNotifications(userId, canalId, page)
     return NextResponse.json(result)
   } catch (error) {
     console.error("CANAL PROCESSED NOTIFICATIONS ERROR:", error)

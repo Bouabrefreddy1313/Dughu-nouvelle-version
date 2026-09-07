@@ -424,6 +424,7 @@ return (
           likesCount={post._count.likes}
           commentsCount={post._count.comments}
           sharesCount={post._count.reposts}
+          viewsCount={post.viewsCount ?? post.views_count ?? post._count?.views ?? 0}
           reacted={post.reacted}
           reactions={post.reactions}
           users={(post as any).reactionUsers}

@@ -12,6 +12,300 @@ Chaque entrée doit contenir :
 * éventuelles corrections importantes.
 
 ## 2026-09-07
+### Espaces — Création et publication de posts d'espaces dans le fil et intégration dans le fil d'accueil
+* **Demande utilisateur** :
+  - Pouvoir ajouter / créer des posts d'espaces directement depuis le fil (`ok dans le feed je veux pouvoir ajouter les pots des espace`).
+* **Modifications effectuées** :
+  - **Compositeur de publication (`src/components/composer/PostComposer.tsx`)** :
+    - Prise en charge des espaces administrés (`spaces: ComposerSpace[]`, `selectedSpaceId`, `onSpaceSelect`).
+    - Sélecteur d'identité déroulant dans le compositeur permettant de basculer entre le profil personnel et chacun des espaces administrés (avec avatar et nom d'espace).
+    - Mise à jour du déclencheur compact affichant l'identité et le placeholder de l'espace sélectionné.
+    - Transmission du champ `pageId` lors de la soumission (`onSubmit`).
+  - **Onglet Actualité des espaces (`src/components/pages/PagesFeedTab.tsx`)** :
+    - Récupération des espaces possédés et administrés via `usePagesList("administered")` et `usePagesList("mine")`.
+    - Intégration du `PostComposer` en tête de fil avec sélecteur d'espace pour les administrateurs/propriétaires d'espace.
+    - Gestion de la publication avec transmission de `page_id` vers l'API `POST /post` et rafraîchissement immédiat du flux.
+    - Rendu du compositeur même si le fil ne contient encore aucun post (permettant la première publication).
+  - **Détail d'espace (`src/components/pages/SpaceDetailPage.tsx`)** :
+    - Ajout du compositeur `PostComposer` dans l'onglet « Posts » pour les administrateurs de l'espace (`isAdmin`), permettant de publier directement sous l'identité de l'espace.
+  - **Fil d'accueil principal (`src/app/(protected)/home/page.tsx`)** :
+    - Chargement des espaces administrés de l'utilisateur et transmission au `PostComposer` d'accueil.
+    - Prise en charge de `pageId` dans `handlePostSubmit` pour publier en tant qu'espace depuis le fil d'accueil.
+    - Prise en charge des publications d'espaces sur les cartes `PostCard` du fil d'accueil (bouton J'aime d'espace interactif).
+  - **Route API posts (`src/app/api/posts/route.ts`)** :
+    - Fusion chronologique des publications des espaces (`getPostPageUser`) avec les publications d'utilisateurs (`getPostAll` / `getPostAllRepost`) via `mergeFeedPosts`, garantissant que les posts des espaces apparaissent aussi dans le fil d'accueil.
+* **Vérification** :
+  - TypeScript vérifié (`npx tsc --noEmit`) sans aucune erreur.
+  - Cahier des charges vivant (`docs/CAHIER_DES_CHARGES.md`) mis à jour.
+
+### Espaces — Correction du Like d'un espace (état du bouton J'aime et message de toast)
+* **Demande utilisateur** :
+  - Lors du clic sur le bouton « J'aime » d'un espace, le message « Like retiré » s'affichait au lieu de confirmer l'ajout du like (« Espace aimé ! ❤️ »).
+  - Le bouton restait sur l'état « J'aime » au lieu de passer à « Aimé », permettant de réappuyer indéfiniment sans mise à jour visible.
+* **Cause identifiée** :
+  - L'API backend Dughu renvoie `{ success: true, message: "...", active: true|false }` pour `POST /likePage`.
+  - Le service serveur `pages.server.ts` ne testait que `raw?.is_like`, qui était `undefined`. `isLike` était donc évalué à `false` à chaque like, provoquant l'affichage du toast « Like retiré. » et la réinitialisation de l'état du bouton à non-aimé (`isLiked = false`).
+  - Dans le flux des publications (`PagesFeedTab`), l'état initial `initialPageLiked` n'était pas extrait depuis le champ `p.page.is_like` dans `mapPost`.
+* **Modifications effectuées** :
+  - **Service serveur (`src/services/pages/pages.server.ts`)** : extraction robuste du statut de like lisant `active` (retourné par l'API), ainsi que `is_like`, `isLike`, `liked` (valeurs booléennes, numériques 1/0 et textuelles).
+  - **Service client (`src/services/pages/pages.service.ts`)** : support du passage optionnel de `userId` tout en préservant `signal`.
+  - **Mappeur de publication (`src/lib/dughu.ts`)** : mappage de `isLiked` sur `pageAuthor` et `page` depuis `p.page.is_like` pour que les cartes du flux d'actualité démarrent avec le bon statut.
+  - **Hook (`src/hooks/pages/use-pages.ts`)** : synchronisation optimiste et confirmation de l'état `isLiked` dans le cache de détail TanStack Query (`onSuccess`).
+  - **Composants UI (`SpaceDetailPage.tsx`, `PagesFeedTab.tsx`, `PostCard.tsx`, `PageLikeButton.tsx`)** : transmission de `userId`, affichage du toast approprié (« Espace aimé ! ❤️ ») et disparition automatique du bouton « J'aime » dès que l'espace est aimé (`!isPageLiked`), aligné sur le comportement du bouton « Suivre ».
+* **Vérification** :
+  - TypeScript vérifié (`npx tsc --noEmit`) sans aucune erreur.
+  - Test en direct sur l'API backend validant la bascule `active: true` puis `active: false`.
+  - Documentation mise à jour (`CAHIER_DES_CHARGES.md`).
+
+### Canaux — Intégration complète des endpoints de notifications de canal (reçues, traitées, suppression et adhésion)
+* **Demande utilisateur** :
+  - Intégrer les endpoints spécifiques aux notifications de canal :
+    - Réception des notifications : `GET /receivedNotifications?user_id={user_id}&canal_id={canal_id}&page={page}`.
+    - Suppression d'une notification : `DELETE /delecteNotifications/{id}` avec `user_id` et `canal_id`.
+    - Notifications de demandes d'adhésion traitées : `GET /processedNotifications?user_id={user_id}&canal_id={canal_id}`.
+    - Transmission systématique des paramètres `user_id` et `canal_id`.
+* **Modifications effectuées** :
+  - **Mappeur (`src/services/canal/canal.mapper.ts`)** :
+    - Déballage défensif des conteneurs `raw.receivedNotifications` et `raw.processedNotifications` dans `mapCanalNotifications` (`data`, pagination, `has_more`).
+    - Normalisation enrichie dans `mapCanalNotification` (`senderAvatar` résolu via `normalizeCanalMediaUrl`, support de `text`/`body`/`content`, etc.).
+  - **Services Serveur & Route Handlers (`src/services/canal/canal.server.ts`, `src/app/api/canal/**`)** :
+    - `getReceivedNotifications` et `getProcessedNotifications` : support de la pagination (`page`) et passage de `user_id` et `canal_id`.
+    - `deleteNotification` : appel vers `/delecteNotifications/{id}` avec `user_id` et `canal_id` en query params.
+    - `handleJoinRequest` : transmission de `canal_id` avec `user_id` et `accept` (1 ou 0).
+  - **Hooks & Composants UI (`use-canal-notifications.ts`, `CanalSettingsModal.tsx`)** :
+    - Dans la modale de gestion du canal (`CanalSettingsModal`), onglet « Notifications & Adhésions » enrichi de deux sous-onglets : « En attente » (`useReceivedNotifications`) et « Traitées » (`useProcessedNotifications`).
+    - Ajout du bouton de suppression d'une notification branché sur `useDeleteNotification(canal.id)`.
+    - Invalidation réactive du cache `["canal", "notifications"]` lors des actions d'acceptation/refus/suppression.
+  - **Documentation** :
+    - Mise à jour de `docs/CAHIER_DES_CHARGES.md` et `docs/CHANGELOG.md`.
+* **Vérification** :
+  - `npx tsc --noEmit` validé avec 0 erreur.
+  - Tests des endpoints en direct sur l'API backend (`DELETE /delecteNotifications/{id}`, `GET /receivedNotifications`, `GET /processedNotifications`).
+* **Demande utilisateur** :
+  - Corriger le bug de catégorisation où certaines catégories affichaient un contenu vide en raison d'un mapping incomplet/incorrect entre les types API et les catégories du front.
+  - Créer une table de correspondance centralisée type (+ type2 optionnel) -> catégorie d'affichage pour les 15 catégories du front.
+  - Intégrer les correspondances confirmées : `join_group` -> Groupe, `reaction_post` -> Réactions, `invite_page` (`type2: notification`) -> Espaces, `points_bonus_inc` -> Points, `gain` (`type2: points_gain`) -> Points.
+  - Structure extensible pour toutes les autres catégories, sans correspondance devinée par texte arbitraire.
+  - L'onglet « Tout » affiche toutes les notifications sans distinction.
+  - Règle Satrivium : regrouper toutes les notifications issues de Satrivium dans l'onglet « Satrivium IA ».
+  - Exploitation des champs de pagination renvoyés par l'API (`total`, `current_page`, `per_page`, `last_page`, `has_more`) et accumulation progressive sans écrasement.
+  - Affichage informatif de `unread_count` côté back (« • X non lues ») sans modifier la règle des 24h glissantes du badge du header.
+* **Modifications effectuées** :
+  - **Mappeur (`src/services/notifications/notifications.mapper.ts`)** :
+    - Définition et exportation de `NOTIF_TYPE_TO_CATEGORY` répertoriant les correspondances confirmées et les types réels identifiés en base.
+    - Création de `resolveNotificationCategory(type, type2, notifierName, text)` et de `BACKEND_SUPPORTED_FILTERS`.
+    - Refactorisation de `filterNotificationItemByCategory` pour baser le filtrage strictement sur la table de correspondance sans déduction textuelle parasite.
+    - Inclusion de toutes les notifications de Satrivium dans la catégorie « Satrivium IA ».
+  - **Hooks (`src/hooks/queries/use-notifications.ts`)** :
+    - Exposition de `apiUnreadCount` (valeur brute retournée par l'API).
+  - **Page Notifications (`src/components/notifications/NotificationsPage.tsx`)** :
+    - Délégation automatique au backend pour les filtres nativement supportés (`points`, `poke`, `capsules`, `event`, `akwaplay`, `group`) et requête `all` avec filtrage front strict pour les autres.
+    - Accumulation des notifications au fil des pages (`loadedNotifications`), réinitialisée au changement de catégorie.
+    - Affichage de `apiUnreadCount` dans l'en-tête.
+  - **Documentation** :
+    - Mise à jour de `docs/CAHIER_DES_CHARGES.md` et `docs/CHANGELOG.md`.
+* **Vérification** :
+  - `npx tsc --noEmit` validé avec 0 erreur.
+  - Script de test unitaire validé sur les 5 exemples réels : `join_group` (Groupe), `reaction_post` (Réactions), `invite_page` (Espaces), `points_bonus_inc` (Points + Satrivium), `gain` (Points + Satrivium), aucune fuite dans Commentaires.
+
+### Notifications — Titre « Satrivium » obligatoire pour toutes les notifications d'attribution et de retrait de points
+* **Demande utilisateur** :
+  - Pour toute notification relative à une attribution ou un retrait de points, le titre affiché doit impérativement être « Satrivium ».
+* **Modifications effectuées** :
+  - **Mappeur (`src/services/notifications/notifications.mapper.ts`)** :
+    - Élargissement de la fonction de détection `isPointNotification` pour couvrir l'ensemble des attributions et retraits de points (`gain`, `retrait`, déductions, bonus).
+    - Normalisation systématique du champ `title` et de `notifier.fullName` à `"Satrivium"` pour toute notification de points ou relative à l'IA Satrivium.
+    - Conservation de l'icône fixe `/images/logoSat/souriire.png`.
+  - **Types (`src/types/notifications/notification.types.ts`)** :
+    - Ajout de la propriété `title?: string` sur l'interface `NotificationItem`.
+  - **Composant UI (`src/components/notifications/NotificationCard.tsx`)** :
+    - Affichage du titre en gras (`displayTitle`) au-dessus du message de la notification pour toutes les notifications de points et Satrivium.
+  - **Documentation** :
+    - Mise à jour de `docs/CAHIER_DES_CHARGES.md` et `docs/CHANGELOG.md`.
+* **Vérification** :
+  - `npx tsc --noEmit` validé avec 0 erreur.
+  - Test de l'endpoint local `/api/notifications?filter=points` vérifié : `title` et `notifierName` valent tous deux `"Satrivium"`.
+
+### Akwaplay — Carte spéciale vidéo AkwaplayPostCard dans le fil d'actualité et le profil utilisateur
+* **Demande utilisateur** :
+  - Affichage automatique des vidéos publiées sur Akwaplay sous forme de carte spéciale dans deux endroits :
+    1. Le fil d'actualité général (`/home`).
+    2. Le profil de l'utilisateur qui a posté (onglet des publications).
+  - Design de la carte adapté aux couleurs de Dughu :
+    - En-tête : logo `akp.png` circulaire, texte contextuel (« Akwaplay · Suggestion pour vous » ou « Akwaplay · Nouvelle publication »), bouton « ✕ » pour masquer/fermer la carte.
+    - Zone vidéo : miniature en grand format (coins arrondis), bouton Play circulaire centré en superposition, badge de durée en bas à droite (ex. « 00:05 »).
+    - Zone infos : titre de la vidéo en gras, description en texte gris, ligne de statistiques (icône pouce + likes, icône œil + vues).
+    - Bouton CTA en bas : pleine largeur, icône play + « Regarder sur Akwaplay », couleur principale Dughu (`#A35A2A`), redirection vers `/akwaplay/watch?v={id}`.
+  - Détection automatique basée sur le type de post ou la présence de données Akwaplay.
+  - Statistiques réelles (likes, vues) synchronisées.
+* **Modifications effectuées** :
+  - **Composant UI (`src/components/feed/AkwaplayPostCard.tsx`)** :
+    - Composant réutilisable `AkwaplayPostCard` conforme aux maquettes et à la charte Dughu.
+    - Format 16:9 élégant avec Play circulaire au hover, badge de durée, statistiques en direct et bouton CTA `#A35A2A`.
+  - **Normalisation des données (`src/lib/dughu.ts`)** :
+    - Extension de `mapPost` pour détecter les posts Akwaplay (`postType === "akwaplay"`, `postType === "akwaplay_video"`, `p.akwaplay`).
+    - Extraction et formatage de `akwaplayData` (`videoId`, `title`, `description`, `thumbnail`, `duration`, `likesCount`, `viewsCount`).
+  - **Fil d'actualité (`src/app/(protected)/home/page.tsx`)** :
+    - Rendu conditionnel de `AkwaplayPostCard` lors de la présence d'une vidéo Akwaplay.
+    - Gestion du masquage de la carte au clic sur « ✕ » via mise à jour du state local.
+  - **Page de profil (`src/components/profile/ProfilePage.tsx`)** :
+    - Rendu des cartes `AkwaplayPostCard` dans l'onglet des publications (« Mes posts »).
+    - Fusion réactive avec `userAkwaVideos` pour que toute vidéo Akwaplay publiée apparaisse immédiatement sans attendre la création différée de post.
+  - **Documentation** :
+    - Mise à jour de `docs/CAHIER_DES_CHARGES.md` et `docs/CHANGELOG.md`.
+* **Vérification** :
+  - `npx tsc --noEmit` exécuté avec 0 erreur.
+  - Test de l'API locale vérifié : détection réussie de `isAkwaplayVideo: true` et extraction correcte de `akwaplayData`.
+
+### Notifications — Page dédiée « Toutes les notifications » et compteur de badge 24h glissant
+* **Demande utilisateur** :
+  - **Page « Toutes les notifications » (`/notifications`)** : accessible depuis le nouveau lien « Voir plus de notifications » du dropdown de notifications du header.
+  - Système d'onglets de catégories horizontaux (15 catégories : Tout, Relation, Points, Badges, Pokes, Commentaire, Réactions, Capsules, Événement, Akwaplay, Finances, Groupe, Espaces, Canaux, Satrivium IA) avec « Tout » actif par défaut.
+  - Appel dynamique à `GET /getNotifications/{user_id}?filter={valeur}` selon la catégorie cliquée.
+  - Règle spéciale Satrivium IA : affichage obligatoire de l'icône fixe `/images/logoSat/souriire.png` à la place de l'avatar pour toute notification relative à Satrivium.
+  - Pagination / défilement par catégorie et redirection vers l'URL cible (avec redirection sécurisée vers `/points` pour les notifications de points) en marquant la notification comme lue.
+  - **Badge du Header (fenêtre glissante 24h)** :
+    - Le badge sur l'icône de cloche du header affiche le nombre de notifications dont `created_at > now() - 24h`, indépendamment du statut `seen`.
+    - Réinitialisation dynamique sans intervention utilisateur et mise à jour périodique via polling 30s.
+* **Modifications effectuées** :
+  - **Types (`src/types/notifications/notification.types.ts`)** :
+    - Définition de `NotificationCategory` et de la constante `NOTIFICATION_CATEGORIES` (15 catégories).
+    - Extension du type `NotificationFilter` pour supporter l'ensemble des filtres de catégories.
+  - **Mappeur (`src/services/notifications/notifications.mapper.ts`)** :
+    - Fonction `parseNotificationDate` pour l'analyse cross-browser des horodatages MySQL et ISO.
+    - Règle Satrivium IA intégrée (`isSatriviumNotification`) : affectation automatique de l'avatar `/images/logoSat/souriire.png`.
+  - **Hooks (`src/hooks/queries/use-notifications.ts`)** :
+    - Calcul de `badgeCount24h` dans `useNotificationUnreadCount` basé sur `created_at > now() - 24h`.
+  - **Composants UI** :
+    - Nouveau composant partagé `NotificationCard` (`src/components/notifications/NotificationCard.tsx`) gérant l'icône fixe pour Satrivium et pour toutes les notifications d'attribution de points (`/images/logoSat/souriire.png`), les badges d'icônes thématiques, le texte, la date relative et la puce d'état.
+    - Filtrage strict des catégories (`filterNotificationItemByCategory`) : exclusion catégorique des attributions de points (ex. bonus de points pour premier commentaire/flash) de la catégorie « Commentaire », « Réactions » et des autres catégories pour éviter toute pollution des flux thématiques.
+    - Mise à jour de `NotificationDropdown.tsx` : utilisation de `NotificationCard` et ajout du bouton « Voir plus de notifications » menant à `/notifications`.
+    - Mise à jour de `Header.tsx` : badge branché sur `badgeCount24h`.
+    - Nouvelle page `NotificationsPage.tsx` (`src/components/notifications/NotificationsPage.tsx`) avec barre d'onglets défilable, rafraîchissement, marquage global, états vides par catégorie et pagination.
+    - Route Next.js protégée `src/app/(protected)/notifications/page.tsx`.
+* **Vérification** : `npx tsc --noEmit` validé avec 0 erreur. Route protégée vérifiée via curl (HTTP 307 vers /login si non connecté).
+
+### Notifications — Module complet d'affichage et d'envoi de notifications
+* **Demande utilisateur** :
+  - **Affichage (icône cloche du header)** :
+    - Appel à `GET /getNotifications/{user_id}?filter={filter}` avec filtre dynamique (`all`, `poke`, `unread`).
+    - Panneau déroulant / popover responsive listant les notifications avec avatar, nom de l'expéditeur (`notifier.fullName`), texte explicatif, date relative (`timeAgo`) et distinction visuelle lu / non lu (`seen === 0` vs `seen === 1`).
+    - Badge dynamique sur la cloche du header affichant le nombre de notifications non lues.
+    - Clic sur une notification : redirection vers la ressource ciblée (`url` ou `full_link`) et marquage comme lu (synchronisé en localStorage et route API prête).
+    - Icône distincte par type de notification (pokes, réactions de post, commentaires de post, likes de page, adhésions de groupe, demandes d'amitié, bonus de points).
+    - Pagination (« Charger plus »), squelettes de chargement, état vide et rafraîchissement automatique toutes les 30 secondes.
+  - **Envoi (suite à une action)** :
+    - Endpoint `POST /sendCustomNotification` avec payload `{ receiver_user_id, title, description, typeNotif, url }`.
+    - Service réutilisable centralisé (`sendNotification`) et fonctions spécialisées pour les actions déclenchantes (réaction sur un post, commentaire, poke, demande de relation, etc.).
+* **Modifications effectuées** :
+  - **Types (`src/types/notifications/notification.types.ts`)** :
+    - Définition de `NotificationNotifier`, `NotificationItem`, `NotificationsResponse`, `NotificationFilter`, `SendNotificationPayload`, `SendNotificationResponse`.
+  - **Mappeur (`src/services/notifications/notifications.mapper.ts`)** :
+    - Normalisation des réponses du backend Dughu (`result.data` et `result.unread_count`).
+    - Résolution sécurisée des avatars via `resolveMediaUrl`.
+    - Normalisation des URLs (`normalizeNotificationUrl`) pour transformer les identifiants numériques de posts en `/post/{id}`, les URLs de profils API en `/profile/{username}`, etc.
+  - **Service Serveur (`src/services/notifications/notifications.server.ts`)** :
+    - `getNotificationsServer` : appel à `GET /getNotifications/{userId}?filter={filter}&page={page}` via l'instance Axios serveur `dughuServerGet`.
+    - `sendCustomNotificationServer` : appel à `POST /sendCustomNotification` via `dughuServerJson` avec transmission du token Bearer de session utilisateur.
+  - **Routes BFF internes (`/api/notifications`)** :
+    - `GET /api/notifications` : résolution de la session utilisateur via `dughu-user`, validation des query params `filter` et `page`.
+    - `POST /api/notifications/send` : envoi sécurisé de notification avec payload validé.
+    - `POST /api/notifications/read` : route de marquage comme lu.
+  - **Service Frontend & Hooks TanStack Query (`src/services/notifications/notifications.service.ts` & `src/hooks/queries/use-notifications.ts`)** :
+    - Service frontend utilisant l'instance Axios cliente `apiClient`.
+    - Fonctions spécialisées : `notifyPostReaction`, `notifyPostComment`, `notifyPoke`, `notifyRelationRequest`, `notifyGroupJoin`, `notifyPageLike`.
+    - Hook `useNotifications` avec suivi local des notifications lues (`localStorage`), filtre par onglet (« Toutes », « Pokes », « Non lues »), pagination « Charger plus ».
+    - Hook `useNotificationUnreadCount` avec polling automatique toutes les 30 secondes.
+    - Mutations `useMarkNotificationRead` et `useSendNotification`.
+  - **Composants UI (`src/components/notifications/NotificationDropdown.tsx` & `src/components/layout/Header.tsx`)** :
+    - `NotificationDropdown` : popover moderne avec en-tête, onglets de filtre, liste avec badge de type coloré, bouton « Tout marquer comme lu », pagination, état vide et squelettes.
+    - `Header` : badge dynamique relié à `unreadCount`, ouverture/fermeture au clic sur la cloche, fermeture au clic extérieur et lors d'une navigation.
+  - **Intégration des déclencheurs d'actions** :
+    - Publications dans le fil d'accueil (`home/page.tsx`) et tendances (`TrendingPage.tsx`) : envoi automatique de notification lors de l'ajout d'une réaction (`notifyPostReaction`) et lors de l'ajout d'un commentaire (`notifyPostComment`).
+    - Pokes (`use-pokes.ts`) : envoi automatique de notification lors d'un poke initial ou en retour (`notifyPoke`).
+* **Vérification** : `npx tsc --noEmit` validé avec 0 erreur. Route `/api/notifications` testée et sécurisée.
+
+### Publications — Affichage du nombre de vues (`views_count`) à côté des commentaires et partages
+* **Demande utilisateur** : afficher les vues de chaque post avec le champ `views_count`, placé à côté des icônes du nombre de commentaires et de partages.
+* **Modifications effectuées** :
+  - **Normalisation des données (`src/lib/dughu.ts`)** :
+    - Extraction de `views_count` (avec replis défensifs sur `viewsCount`, `views`, `view_count`, `count_views`) dans la fonction `mapPost`.
+    - Exposition de `views_count`, `viewsCount` et `_count.views` dans l'objet post normalisé.
+  - **Composant UI (`src/components/feed/PostCard.tsx`)** :
+    - Prise en charge des props `viewsCount` et `views_count`.
+    - Affichage de l'icône d'œil (`Eye` de `lucide-react`) avec le nombre de vues formaté via `formatNumber` (notation compacte `1.4k`, `2.5M` ou décompte exact) et info-bulle détaillée au survol (« X vue(s) »).
+    - Positionnement élégant dans la rangée de compteurs à côté des boutons de commentaires et de partages.
+  - **Intégration dans les flux applicatifs** :
+    - `src/app/(protected)/home/page.tsx` (fil d'actualité principal)
+    - `src/components/trending/TrendingPage.tsx` (page des tendances)
+    - `src/components/saved/SavedPage.tsx` (page des sauvegardes)
+    - `src/components/profile/ProfilePage.tsx` (profil utilisateur)
+    - `src/components/pages/PagesFeedTab.tsx` & `SpaceDetailPage.tsx` (espaces / pages)
+    - `src/components/hashtags/HashtagPage.tsx` (hashtags)
+    - `src/components/groups/GroupsPage.tsx` (groupes)
+* **Vérification** : `npx tsc --noEmit` validé avec 0 erreur.
+
+### Tendances — Page dédiée `/tendances` liée au bouton de la sidebar gauche
+* **Demande utilisateur** : création de la page « Tendances » liée au bouton « Tendances » dans la sidebar gauche, affichant les publications avec le plus d'interactions (J'aime, commentaires et partages).
+* **Modifications effectuées** :
+  - **Sidebar gauche (`src/components/sidebar/LeftSidebar.tsx`)** :
+    - Activation de l'élément « Tendances » avec `onClick={() => { router.push("/tendances"); onCloseMobile?.() }}`, état actif `active={active === "tendances"}`.
+  - **Page Tendances (`src/app/(protected)/tendances/page.tsx` & `src/components/trending/TrendingPage.tsx`)** :
+    - Calcul du score d'interaction global : `score = likes + commentaires + partages`.
+    - Tri dynamique des publications par ordre décroissant de popularité.
+    - Filtres de classement : « Toutes les interactions » (par défaut), « Plus aimées », « Plus commentées », « Plus partagées ».
+    - Badges visuels de classement pour chaque publication (#1 Tendance Dughu avec flamme animée et dégradé doré, #2 et #3 Tendance avec trophées, #4+).
+    - Affichage du détail chiffré des interactions pour chaque publication.
+    - Utilisation complète du composant `PostCard` avec gestion optimiste des likes/réactions, ajout de commentaires, republications (directes et avec texte), sauvegardes, menu 3 points et modale de confirmation de suppression.
+    - Squelettes de chargement, état vide avec redirection vers le fil d'actualité, et bouton de rafraîchissement manuel.
+* **Vérification** : `npx tsc --noEmit` validé avec 0 erreur. Route HTTP testée avec succès (200 OK).
+
+### Affiliation & Parrainage — Page dédiée `/affiliation` connectée à la sidebar gauche
+* **Demande utilisateur** : création de la page « Affiliation » connectée au bouton « Affiliation » de la sidebar gauche, reprenant fidèlement le design avec l'en-tête utilisateur, le bloc promotionnel jaune « Gagnez 100 Points », le champ de lien avec bouton copier, le bloc de partage multi-réseaux et la liste paginée des utilisateurs inscrits avec gestion des états (chargement, erreur, vide).
+* **Modifications effectuées** :
+  - **Types du domaine (`src/types/affiliate/affiliate.types.ts`)** :
+    - Définition de `AffiliateUser`, `AffiliatePagination`, `AffiliateDetails`, `AffiliateInfoResponse` et `AffiliateUsersResponse`.
+  - **Mappeur de données (`src/services/affiliate/affiliate.mapper.ts`)** :
+    - Extraction défensive du lien de promotion `shareLink` et des données utilisateur depuis `GET /getSpecificUser/{userId}/{userId}`.
+    - Normalisation des utilisateurs inscrits et pagination Laravel depuis `GET /getAffiliateUsers/{userId}?page={page}` (avec formatage des dates en français).
+  - **Services Serveur & Client (`src/services/affiliate/`)** :
+    - Service serveur (`affiliate.server.ts`) utilisant l'instance Axios serveur `dughuServerGet` (token `X-AppApiToken` protégé).
+    - Service client (`affiliate.service.ts`) utilisant l'instance Axios cliente `apiClient` (/api/affiliate et /api/affiliate/users).
+  - **Route Handlers (`src/app/api/affiliate/`)** :
+    - `GET /api/affiliate` : résolution de l'utilisateur connecté via cookie/paramètre et renvoi des détails de parrainage.
+    - `GET /api/affiliate/users` : récupération paginée des personnes référées.
+  - **Hook TanStack Query (`src/hooks/queries/use-affiliate.ts`)** :
+    - `useAffiliateInfo` et `useAffiliateUsers` avec gestion du cache, du rafraîchissement et des états de chargement.
+  - **Composant UI (`src/components/affiliate/AffiliatePage.tsx`)** :
+    - En-tête avec avatar de l'utilisateur, nom et sous-titre « Lien de promotion ».
+    - Bloc promotionnel jaune vif `#F5C33B` : accroche « Gagnez 100 Points », champ avec sélection automatique au clic, bouton de copie interactif avec retour visuel (toast, fond vert `#25D366`, icône coche) et illustration mégaphone avec badge `+100 pts`.
+    - Bloc « Partager sur » avec icônes officielles Facebook, X (Twitter), WhatsApp, Pinterest et LinkedIn ouvrant les fenêtres de partage.
+    - Section « Utilisateurs inscrits via votre lien » : état vide soigné, liste avec avatars, noms et dates d'inscription, et pagination Précédent/Suivant.
+  - **Navigation (`src/components/sidebar/LeftSidebar.tsx`)** :
+    - Liaison du bouton « Affiliation » avec `router.push('/affiliation')`, état actif `active === 'affiliation'`, et fermeture automatique sur mobile.
+* **Vérification** : `npx tsc --noEmit` validé avec 0 erreur.
+
+### Publications — Affichage dynamique des icônes de réactions par type distinct sous chaque post
+* **Demande utilisateur** : correction du bug où quelle que soit la réaction choisie (cœur ❤️, grrr 😠, pouce 👍, etc.), l'icône affichée sous le post était toujours un pouce codé en dur. Afficher désormais une icône par type distinct présent côte à côte avant le nombre total de réactions (ex. `❤️ 😠 👍 12`), de façon dynamique et réactive.
+* **Modifications effectuées** :
+  - **Constantes et mapping de réactions (`src/lib/constants.ts`)** :
+    - Ajout des fonctions utilitaires exportées `normalizeReactionType` et `getReactionMeta`.
+    - Prise en charge exhaustive des variantes (IDs numériques `1` à `6` et extensions Dughu `11`..`15`, noms anglais/français `love`/`jadore`/`heart`/`coeur`, `angry`/`grrr`/`colere`, `haha`/`rire`, `sad`/`triste`, `wow`, `like`/`pouce`, et objets `{ reaction, name }`).
+  - **Extraction des réactions dans l'API Dughu (`src/lib/dughu.ts`)** :
+    - Amélioration de `extractReactionSummary` pour lire la structure Dughu native `p.reaction = [{ post_id, reaction, count }]`, ainsi que `p.reactions`, `p.likes`, et `p.reaction_counts`.
+    - Détection et normalisation automatique des types de réactions avec `toReactionTypeName`.
+    - Calcul du nombre de likes basé sur la somme des réactions détaillées si `p.likes` est absent ou nul.
+    - Normalisation de `myReaction` avec `toReactionTypeName`.
+  - **Composant d'affichage des réactions (`src/components/feed/ReactionSummary.tsx`)** :
+    - Élimination du fallback forcé vers `[{ type: "like" }]`.
+    - Déduplication et regroupement par type distinct de réaction (`normalizeReactionType`).
+    - Tri par fréquence décroissante et affichage des icônes distinctes côte à côte (jusqu'à la totalité des types distincts présents), suivies du nombre total de réactions.
+    - Info-bulle détaillée affichant la répartition par emoji et décompte (`❤️ 4 • 😠 2 • 👍 6`).
+  - **Composants PostCard, PostMediaLightbox et ReactionUsersModal** :
+    - Utilisation cohérente de `normalizeReactionType` et `getReactionMeta` pour garantir la mise à jour optimiste immédiate dès qu'un utilisateur ajoute ou change de réaction.
+    - Les onglets et les rangées d'utilisateurs de `ReactionUsersModal` affichent l'emoji exact correspondant à leur réaction enregistrée.
+* **Vérification** : `npx tsc --noEmit` validé avec 0 erreur.
+
 ### Page Capsules — Sidebar de navigation, filtres (Suivis, Mes capsules) et points Capsule (`/pointsHistory/{userId}/capsule`)
 * **Demande utilisateur** : ajout d'une sidebar sur la page des capsules avec des boutons pour voir les points de l'utilisateur obtenus dans capsule avec l'endpoint `/pointsHistory/{userId}/capsule`, voir ses propres capsules et voir les capsules des personnes dont il est abonné.
 * **Modifications effectuées** :

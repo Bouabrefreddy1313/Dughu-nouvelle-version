@@ -305,6 +305,7 @@ export default function GroupsPage() {
                         likesCount={post.likesCount}
                         commentsCount={post.commentsCount}
                         sharesCount={post.sharesCount + post.repostsCount}
+                        viewsCount={post.viewsCount ?? (post as any).views_count ?? 0}
                         reacted={post.reactionType}
                         reactions={post.reactions}
                         users={(post as any).reactionUsers}

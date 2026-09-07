@@ -318,12 +318,13 @@ export async function handleJoinRequest(
   requestId: string,
   userId: string,
   accept: boolean,
+  canalId?: string,
   signal?: AbortSignal
 ): Promise<CanalMutationResponse> {
   try {
     const res = await apiClient.post<CanalMutationResponse>(
       `/canal/members/${encodeURIComponent(requestId)}`,
-      { userId, accept },
+      { userId, accept, canalId },
       { signal }
     )
     return res.data
@@ -548,11 +549,12 @@ export async function fetchReceivedNotifications(
 export async function fetchProcessedNotifications(
   userId: string,
   canalId: string,
+  page = 1,
   signal?: AbortSignal
 ): Promise<CanalNotificationsResponse> {
   try {
     const res = await apiClient.get<CanalNotificationsResponse>("/canal/notifications/processed", {
-      params: { userId, canalId },
+      params: { userId, canalId, page: page > 1 ? page : undefined },
       signal,
     })
     return res.data

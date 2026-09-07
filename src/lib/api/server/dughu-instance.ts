@@ -56,9 +56,11 @@ function isRetryable(error: ApiError): boolean {
   return error.code === "ECONNABORTED" || error.code === "ETIMEDOUT" || error.status === undefined
 }
 
-interface ExecuteOptions {
+export interface ExecuteOptions {
   /** Active un retry limité. À n'utiliser QUE pour des lectures idempotentes. */
   retry?: boolean
+  /** En-têtes HTTP supplémentaires (ex. Authorization: Bearer <token>) */
+  headers?: Record<string, string>
 }
 
 async function execute<T>(config: Parameters<typeof dughuServer.request<T>>[0], options: ExecuteOptions = {}): Promise<T> {
@@ -71,7 +73,13 @@ async function execute<T>(config: Parameters<typeof dughuServer.request<T>>[0], 
 
   while (true) {
     try {
-      const res = await dughuServer.request<T>(config)
+      const res = await dughuServer.request<T>({
+        ...config,
+        headers: {
+          ...(config.headers || {}),
+          ...(options.headers || {}),
+        },
+      })
       return res.data
     } catch (error) {
       const apiError = toServerApiError(error)

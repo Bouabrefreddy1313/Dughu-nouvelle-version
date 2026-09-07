@@ -245,10 +245,22 @@ export function useUpdateCanalStatus() {
 export function useHandleJoinRequest() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ requestId, userId, accept }: { requestId: string; userId: string; accept: boolean }) =>
-      handleJoinRequest(requestId, userId, accept),
+    mutationFn: ({
+      requestId,
+      userId,
+      accept,
+      canalId,
+    }: {
+      requestId: string
+      userId: string
+      accept: boolean
+      canalId?: string
+    }) => handleJoinRequest(requestId, userId, accept, canalId),
     retry: 0,
-    onSettled: () => invalidateCanals(queryClient),
+    onSettled: () => {
+      invalidateCanals(queryClient)
+      void queryClient.invalidateQueries({ queryKey: ["canal", "notifications"] })
+    },
   })
 }
 

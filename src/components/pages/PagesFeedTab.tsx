@@ -36,12 +36,29 @@ import {
   storeSave,
 } from "@/services/posts/posts.service"
 import { addComment } from "@/services/posts/comments.service"
-import { fetchPagesPostsFeed } from "@/services/pages/pages.service"
+import { fetchPagesPostsFeed, likePage } from "@/services/pages/pages.service"
+import { usePagesList } from "@/hooks/pages/use-pages"
+import type { DughuPage } from "@/types/pages/pages.types"
 import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import { REACTION_ID_TO_TYPE } from "@/lib/constants"
 import { timeAgo } from "@/lib/helpers"
 import { userMessage } from "@/lib/api/api-error"
 import { ConfirmDialog } from "@/components/common/ConfirmDialog"
+
+const PostComposer = dynamic(
+  () => import("@/components/composer/PostComposer").then((mod) => ({ default: mod.PostComposer })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mb-6 animate-pulse rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="flex gap-3">
+          <div className="size-10 rounded-full bg-gray-200" />
+          <div className="h-10 flex-1 rounded-full bg-gray-200" />
+        </div>
+      </div>
+    ),
+  }
+)
 
 const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })), {
   loading: () => (
@@ -132,8 +149,93 @@ export default function PagesFeedTab() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [blockedAuthors, setBlockedAuthors] = useState<Set<string>>(new Set())
   const [followingAuthorIds, setFollowingAuthorIds] = useState<Set<string>>(() => new Set())
+  const [pageLikedMap, setPageLikedMap] = useState<Record<string, boolean>>({})
+  const [pageLikeLoadingMap, setPageLikeLoadingMap] = useState<Record<string, boolean>>({})
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const loadingMoreRef = useRef(false)
+
+  // ── Espaces administrés / possédés pour composer un post ───────────────────
+  const adminPagesQuery = usePagesList("administered", { userId: dughuUserId })
+  const myPagesQuery = usePagesList("mine", { userId: dughuUserId })
+
+  const userSpaces: DughuPage[] = useMemo(() => {
+    const list: DughuPage[] = []
+    const seen = new Set<string>()
+    for (const p of [...(adminPagesQuery.data?.pages || []), ...(myPagesQuery.data?.pages || [])]) {
+      if (p?.pageId && !seen.has(String(p.pageId))) {
+        seen.add(String(p.pageId))
+        list.push(p)
+      }
+    }
+    return list
+  }, [adminPagesQuery.data?.pages, myPagesQuery.data?.pages])
+
+  const composerSpaces = useMemo(() => {
+    return userSpaces.map((s) => ({
+      id: String(s.pageId),
+      name: s.pageTitle || s.pageName,
+      avatar: s.avatar || null,
+    }))
+  }, [userSpaces])
+
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string>("")
+
+  useEffect(() => {
+    if (!selectedSpaceId && composerSpaces.length > 0) {
+      setSelectedSpaceId(composerSpaces[0].id)
+    }
+  }, [composerSpaces, selectedSpaceId])
+
+  const activeComposerSpace = useMemo(() => {
+    return composerSpaces.find((s) => s.id === selectedSpaceId) || composerSpaces[0] || null
+  }, [composerSpaces, selectedSpaceId])
+
+  const handleCreatePagePost = async (data: {
+    content: string
+    color?: any
+    images?: File[]
+    videos?: File[]
+    audios?: File[]
+    privacy?: number
+    pageId?: string
+  }) => {
+    const targetPageId = data.pageId || selectedSpaceId || activeComposerSpace?.id
+    if (!targetPageId) {
+      toast.error("Veuillez sélectionner un espace pour publier.")
+      return
+    }
+
+    const formData = new FormData()
+    formData.append("content", data.content)
+    formData.append("userId", String(user?.id || ""))
+    formData.append("dughuUserId", String(user?.dughu?.userId || dughuUserId || ""))
+    formData.append("page_id", targetPageId)
+    formData.append("pageId", targetPageId)
+
+    if (data.privacy != null) formData.append("privacy", String(data.privacy))
+    if (data.color) {
+      formData.append("color", JSON.stringify(data.color))
+      if (data.color.id != null) formData.append("color_id", String(data.color.id))
+      if (data.color.color_1) formData.append("color_1", data.color.color_1)
+      if (data.color.color_2) formData.append("color_2", data.color.color_2)
+      if (data.color.text) formData.append("text_color", data.color.text)
+    }
+    if (data.images) data.images.forEach((img) => formData.append("images", img))
+    if (data.videos) data.videos.forEach((vid) => formData.append("videos", vid))
+    if (data.audios) data.audios.forEach((aud) => formData.append("audios", aud))
+
+    try {
+      const res = await createPost(formData)
+      if (res?.success) {
+        toast.success("Publication de l'espace créée avec succès !")
+        void loadPosts(1, true)
+      } else {
+        toast.error(res?.message || "Impossible de publier.")
+      }
+    } catch (error) {
+      toast.error(userMessage(error, "Erreur lors de la publication."))
+    }
+  }
 
   const loadPosts = useCallback(
     async (page: number, reset = false) => {
@@ -423,6 +525,31 @@ export default function PagesFeedTab() {
     [user]
   )
 
+  const handleTogglePageLike = async (targetPageId: string, initialLiked: boolean) => {
+    if (!targetPageId || pageLikeLoadingMap[targetPageId]) return
+    const currentLiked = pageLikedMap[targetPageId] !== undefined ? pageLikedMap[targetPageId] : initialLiked
+    const nextLiked = !currentLiked
+    setPageLikeLoadingMap((prev) => ({ ...prev, [targetPageId]: true }))
+    setPageLikedMap((prev) => ({ ...prev, [targetPageId]: nextLiked }))
+
+    try {
+      const res = await likePage(targetPageId, dughuUserId)
+      if (res.success === false && res.isLike === undefined) {
+        toast.error(res.message || "Impossible de liker cet espace.")
+        setPageLikedMap((prev) => ({ ...prev, [targetPageId]: currentLiked }))
+      } else {
+        const confirmedLiked = res.isLike !== undefined ? res.isLike : nextLiked
+        setPageLikedMap((prev) => ({ ...prev, [targetPageId]: confirmedLiked }))
+        toast.success(confirmedLiked ? "Espace aimé ! ❤️" : "Like retiré.")
+      }
+    } catch {
+      setPageLikedMap((prev) => ({ ...prev, [targetPageId]: currentLiked }))
+      toast.error("Impossible de liker cet espace.")
+    } finally {
+      setPageLikeLoadingMap((prev) => ({ ...prev, [targetPageId]: false }))
+    }
+  }
+
   // ── Menu « 3 points » : enregistrer / masquer / bloquer / supprimer ─────────
   const handleSave = async (postId: string) => {
     try {
@@ -527,24 +654,49 @@ export default function PagesFeedTab() {
     )
   }
 
-  if (posts.length === 0) {
-    return (
-      <div className="rounded-3xl border border-gray-100 bg-white p-10 text-center shadow-sm">
-        <span className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-[#F5EFE8] text-[#A35A2A]">
-          <Newspaper size={28} aria-hidden />
-        </span>
-        <h3 className="text-base font-bold text-[#2D2D2D]">Aucune publication pour l&apos;instant</h3>
-        <p className="mt-1 text-sm text-[#65676B]">Les publications des espaces apparaîtront ici.</p>
-      </div>
-    )
-  }
-
   return (
     <>
-      <div className="space-y-6 sm:space-y-8">
-        {posts.map((post) => {
+      {composerSpaces.length > 0 && (
+        <div className="mb-6">
+          <PostComposer
+            user={{
+              id: activeComposerSpace ? activeComposerSpace.id : String(user?.id || ""),
+              name: activeComposerSpace ? activeComposerSpace.name : (user?.name || ""),
+              avatar: activeComposerSpace ? (activeComposerSpace.avatar || null) : (user?.avatar || null),
+            }}
+            spaces={composerSpaces}
+            selectedSpaceId={selectedSpaceId}
+            onSpaceSelect={(spId) => setSelectedSpaceId(spId || composerSpaces[0]?.id || "")}
+            onSubmit={handleCreatePagePost}
+            placeholder={`Publier pour ${activeComposerSpace?.name || "votre espace"}...`}
+            className="shadow-sm"
+          />
+        </div>
+      )}
+
+      {posts.length === 0 ? (
+        <div className="rounded-3xl border border-gray-100 bg-white p-10 text-center shadow-sm">
+          <span className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-[#F5EFE8] text-[#A35A2A]">
+            <Newspaper size={28} aria-hidden />
+          </span>
+          <h3 className="text-base font-bold text-[#2D2D2D]">Aucune publication pour l&apos;instant</h3>
+          <p className="mt-1 text-sm text-[#65676B]">Les publications des espaces apparaîtront ici.</p>
+        </div>
+      ) : (
+        <div className="space-y-6 sm:space-y-8">
+          {posts.map((post) => {
           const pageAuthor = post.page as Author | null | undefined
           const isPageAuthor = !!pageAuthor?.id && String(pageAuthor.id) === String(post.author?.id)
+          const targetPageId = String(pageAuthor?.id || (post.author as any)?.pageId || (post as any)?.page_id || "")
+          const initialPageLiked = Boolean(
+            (pageAuthor as any)?.isLiked ??
+            (post.author as any)?.isLiked ??
+            (post as any)?.page?.is_like ??
+            (post as any)?.page_is_liked ??
+            false
+          )
+          const isPageLiked = targetPageId ? (pageLikedMap[targetPageId] !== undefined ? pageLikedMap[targetPageId] : initialPageLiked) : false
+          const isPageLikeLoading = targetPageId ? Boolean(pageLikeLoadingMap[targetPageId]) : false
           return (
             <div key={post.id} className="mb-6 sm:mb-8">
               <PostCard
@@ -569,6 +721,7 @@ export default function PagesFeedTab() {
                 likesCount={post._count.likes}
                 commentsCount={post._count.comments}
                 sharesCount={post._count.reposts}
+                viewsCount={Number((post as any).views_count ?? (post as any).viewsCount ?? post._count?.views ?? 0)}
                 reacted={post.reacted}
                 reactions={post.reactions}
                 users={(post as any).reactionUsers}
@@ -578,14 +731,20 @@ export default function PagesFeedTab() {
                 onComment={(text, files) => handleComment(post.id, text, files)}
                 onRepost={() => handleRepost(post.id)}
                 onRepostWithText={(text) => handleRepostWithText(post.id, text)}
-                // L'auteur d'une publication d'espace est une Page : pas
-                // d'abonnement « profil » (le like de l'espace se fait depuis
-                // la page de l'espace).
+                // L'auteur d'une publication d'espace est une Page : bouton J'aime de l'espace
+                // à côté des 3 points, et pas d'abonnement « profil ».
                 {...(!isPageAuthor
                   ? {
                       isFollowing: !!post.author.isFollowing,
                       isFollowLoading: followingAuthorIds.has(String(post.author.id)),
                       onToggleFollow: () => handleToggleFollow(post.author),
+                    }
+                  : {})}
+                {...(targetPageId
+                  ? {
+                      isPageLiked,
+                      isPageLikeLoading,
+                      onTogglePageLike: () => void handleTogglePageLike(targetPageId, initialPageLiked),
                     }
                   : {})}
                 onDelete={() => setDeleteTarget(post.id)}
@@ -601,6 +760,7 @@ export default function PagesFeedTab() {
           )
         })}
       </div>
+      )}
 
       {/* Sentinelle du chargement automatique (page suivante) */}
       {hasMore && (

@@ -1032,19 +1032,30 @@ const KNOWN_REACTION_TYPES = ["like", "love", "haha", "wow", "sad", "angry"]
 
 // Convertit une valeur de réaction (id numérique "1" ou type "like") en type
 function toReactionTypeName(v: any): string | null {
-  if (typeof v === "number") return REACTION_ID_TO_TYPE_NAME[v] || null
+  if (v === null || v === undefined || v === "") return null
+  if (typeof v === "number") return REACTION_ID_TO_TYPE_NAME[v] || (v === 11 ? "haha" : null)
   const s = String(v || "").toLowerCase().trim()
-  if (/^\d+$/.test(s)) return REACTION_ID_TO_TYPE_NAME[Number(s)] || null
+  if (/^\d+$/.test(s)) {
+    const n = Number(s)
+    return REACTION_ID_TO_TYPE_NAME[n] || (n === 11 ? "haha" : null)
+  }
   if (KNOWN_REACTION_TYPES.includes(s)) return s
+  if (s === "heart" || s === "coeur" || s === "j'adore" || s === "jadore") return "love"
+  if (s === "grrr" || s === "colere" || s === "colère") return "angry"
+  if (s === "rire" || s === "laugh") return "haha"
+  if (s === "pouce" || s === "j'aime" || s === "jaime") return "like"
+  if (s === "pleure" || s === "triste") return "sad"
   return null
 }
 
 /**
  * Extrait la répartition des réactions d'un post renvoyé par l'API Dughu,
  * sous la forme [{ type, count }]. Gère plusieurs formes possibles :
+ *  - p.reaction = [{ reaction: '1', count: 2 }, { reaction: '2', count: 1 }]  (réponse fréquente getPostAllRepost / getPostAll)
  *  - p.reactions = [{ reaction: 1, ... }, ...]  (liste de réactions utilisateurs)
  *  - p.reactions = { like: 3, love: 1 } ou { 1: 3, 2: 1 }  (compteur par type)
  *  - p.reaction_counts / p.reactionStats / p.reactions_count  (objet compteur)
+ *  - p.likes = [{ user_id, typeLike, ... }]  (liste brute des likes)
  * Retourne null si aucune répartition n'est disponible.
  */
 function extractReactionSummary(p: any): { type: string; count: number }[] | null {
@@ -1052,6 +1063,21 @@ function extractReactionSummary(p: any): { type: string; count: number }[] | nul
 
   const counts: Record<string, number> = {}
 
+  // 1. Structure de regroupement par type très commune dans l'API Dughu :
+  // p.reaction = [{ post_id: 123, reaction: '1', count: 2 }, { post_id: 123, reaction: '2', count: 1 }]
+  const reactionGroup = pick(p, "reaction", "reactionsGroup", "reactions_group")
+  if (Array.isArray(reactionGroup)) {
+    for (const item of reactionGroup) {
+      if (!item || typeof item !== "object") continue
+      const rawType = pick(item, "reaction", "reaction_id", "reactionId", "type", "typeLike", "type_like", "reaction_type")
+      const type = toReactionTypeName(rawType)
+      const countVal = Number(pick(item, "count", "total", "nombre", "nbr"))
+      const n = Number.isFinite(countVal) && countVal > 0 ? countVal : 1
+      if (type) counts[type] = (counts[type] || 0) + n
+    }
+  }
+
+  // 2. Liste de réactions ou compteurs
   const rawList = pick(p, "reactions", "reactionList", "reaction_list")
   if (Array.isArray(rawList)) {
     for (const item of rawList) {
@@ -1059,16 +1085,31 @@ function extractReactionSummary(p: any): { type: string; count: number }[] | nul
       const type = toReactionTypeName(
         pick(item, "reaction", "reaction_id", "reactionId", "type", "typeLike", "type_like", "reaction_type")
       )
-      if (type) counts[type] = (counts[type] || 0) + 1
+      const countVal = Number(pick(item, "count", "total"))
+      const n = Number.isFinite(countVal) && countVal > 0 ? countVal : 1
+      if (type) counts[type] = (counts[type] || 0) + n
     }
   } else if (rawList && typeof rawList === "object") {
     for (const [k, v] of Object.entries(rawList)) {
       const type = toReactionTypeName(k)
       const n = Number(v)
-      if (type && Number.isFinite(n) && n > 0) counts[type] = n
+      if (type && Number.isFinite(n) && n > 0) counts[type] = (counts[type] || 0) + n
     }
   }
 
+  // 3. Tableau likes avec typeLike éventuel par élément
+  const rawLikes = pick(p, "likes")
+  if (Array.isArray(rawLikes)) {
+    for (const item of rawLikes) {
+      if (!item || typeof item !== "object") continue
+      const type = toReactionTypeName(
+        pick(item, "reaction", "reaction_id", "reactionId", "type", "typeLike", "type_like", "reaction_type")
+      )
+      if (type) counts[type] = (counts[type] || 0) + 1
+    }
+  }
+
+  // 4. Objet de compteurs directs
   const rawCounts = pick(p, "reaction_counts", "reactionCounts", "reactionStats", "reaction_stats", "reactions_count", "reactionsCount")
   if (rawCounts && typeof rawCounts === "object") {
     for (const [k, v] of Object.entries(rawCounts)) {
@@ -1229,7 +1270,35 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     pick(p, "postFile", "postFileLink", "file", "postVideoURL", "postYoutube", "postVimeo", "video", "videoLink", "video_url", "videoUrl")
   )
   const hlsPlaylist = toUrl(pick(p, "hls_playlist"))
-  const thumb = toUrl(pick(p, "postFileThumb", "fileThumb", "thumbnail_url", "thumb", "thumbnail"))
+  const akwaMediaRaw = p?.akwaplay || p?.akwaplay_video || p?.akwaplayVideo
+  const thumb = toUrl(
+    pick(
+      p,
+      "signed_thumbnail_path",
+      "thumbnail_path",
+      "postFileThumb",
+      "fileThumb",
+      "thumbnail_url",
+      "thumbnailUrl",
+      "thumb",
+      "thumbnail",
+      "video_thumb",
+      "videoThumb",
+      "poster",
+      "cover"
+    ) ||
+    pick(
+      akwaMediaRaw,
+      "signed_thumbnail_path",
+      "thumbnail_path",
+      "thumbnail_url",
+      "thumbnailUrl",
+      "thumbnail",
+      "thumb",
+      "poster",
+      "cover"
+    )
+  )
 
   const mediaFileName = String(
     pick(p, "postFileName", "post_file_name", "fileName", "filename") || ""
@@ -1273,6 +1342,15 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
         username: p.page.page_title || p.page.username || "",
         avatar: toUrl(p.page.avatar) || "/images/avatar.png",
         isFollowing: false,
+        isLiked: Boolean(
+          p.page.is_like === true ||
+          p.page.is_like === 1 ||
+          p.page.is_like === "1" ||
+          p.page.is_liked === true ||
+          p.page.is_liked === 1 ||
+          p.page.isLiked === true ||
+          p.page.active === true
+        ),
       }
     : null
   const author =
@@ -1296,11 +1374,25 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
   const reposts = Number(
     pick(p, "shares", "shares_count", "share_count", "reposts", "reposted", "total_shares", "repost_count")
   ) || 0
+  const views = Number(
+    pick(p, "views_count", "viewsCount", "views", "view_count", "viewCount", "count_views", "total_views")
+  ) || 0
 
-  const myReaction = pick(p, "typeLike", "type_like", "user_reaction", "my_reaction") || null
+  const myReactionRaw = pick(p, "typeLike", "type_like", "user_reaction", "my_reaction")
+  const myReaction = myReactionRaw !== null && myReactionRaw !== undefined && myReactionRaw !== ""
+    ? toReactionTypeName(myReactionRaw)
+    : null
   const isLiked = pick(p, "is_like", "isLike", "liked") === true ||
     pick(p, "is_like", "isLike", "liked") === "1" ||
     pick(p, "is_like", "isLike") === 1
+
+  const reactionSummary = extractReactionSummary(p)
+  // Si le nombre de likes n'a pas été fourni ou vaut 0 alors qu'une répartition de réactions existe,
+  // on utilise la somme des compteurs de réactions
+  const reactionSummaryTotal = reactionSummary
+    ? reactionSummary.reduce((acc, r) => acc + (r.count || 0), 0)
+    : 0
+  const finalLikesCount = likes > 0 ? likes : reactionSummaryTotal
 
   // Post d'origine d'une republication (repost). L'API Dughu renvoie le post
   // d'origine imbriqué dans `post_base` (ex. postType="repost" + parent_id=X).
@@ -1328,10 +1420,97 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
   const parentPost =
     parentRaw && typeof parentRaw === "object" ? mapPost(parentRaw) : null
 
+  // ── Publications Akwaplay (vidéos publiées sur Akwaplay) ──
+  const rawPostType = String(pick(p, "postType", "post_type", "type", "media_type") || "").toLowerCase()
+  const akwaRaw = p?.akwaplay || p?.akwaplay_video || p?.akwaplayVideo || null
+  const isAkwaplayVideo =
+    rawPostType === "akwaplay" ||
+    rawPostType === "akwaplay_video" ||
+    rawPostType === "akwa_video" ||
+    rawPostType === "akwa" ||
+    Boolean(p?.is_akwaplay || p?.isAkwaplay) ||
+    Boolean(akwaRaw)
+
+  let akwaplayData: {
+    videoId: string | number
+    title: string
+    description: string
+    thumbnail: string
+    duration: string
+    likesCount: number
+    viewsCount: number
+  } | null = null
+
+  if (isAkwaplayVideo) {
+    const videoId = akwaRaw?.id ?? akwaRaw?.video_id ?? pick(p, "video_id", "videoId") ?? id
+    const akwaTitle = String(
+      akwaRaw?.title ??
+      akwaRaw?.video_title ??
+      pick(p, "video_title", "title", "name") ??
+      pick(p, "content", "text", "body", "postText") ??
+      "Vidéo Akwaplay"
+    )
+    const akwaDesc = String(
+      akwaRaw?.description ??
+      akwaRaw?.video_description ??
+      pick(p, "video_description", "description", "caption", "postText", "text") ??
+      ""
+    )
+    const candidateThumbs = [
+      akwaRaw?.signed_thumbnail_path,
+      akwaRaw?.thumbnail_path,
+      akwaRaw?.thumbnail,
+      akwaRaw?.thumb,
+      p?.signed_thumbnail_path,
+      p?.thumbnail_path,
+      thumb,
+      p?.postFileThumb,
+      p?.fileThumb,
+      p?.thumbnail_url,
+      p?.thumbnailUrl,
+      p?.thumbnail,
+      p?.thumb,
+    ]
+    const validThumb = candidateThumbs.find((u) => typeof u === "string" && u.trim() && !isVideoUrl(u) && !isAudioUrl(u))
+    const akwaThumbRaw = validThumb || "/images/default-thumbnail.jpg"
+
+    const rawDur = akwaRaw?.duration ?? pick(p, "video_duration", "duration", "time") ?? "00:00"
+    let formattedDur = "00:00"
+    if (typeof rawDur === "string" && rawDur.includes(":")) {
+      formattedDur = rawDur
+    } else {
+      const durSecs = Math.max(0, Math.floor(Number(rawDur) || 0))
+      const m = Math.floor(durSecs / 60)
+      const s = durSecs % 60
+      formattedDur = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    }
+
+    const akwaViews = Number(akwaRaw?.views_count ?? akwaRaw?.views ?? views ?? 0)
+    const akwaLikes = Number(akwaRaw?.likes_count ?? akwaRaw?.likes ?? finalLikesCount ?? 0)
+
+    akwaplayData = {
+      videoId: String(videoId),
+      title: akwaTitle,
+      description: akwaDesc,
+      thumbnail: resolveMediaUrl(toUrl(akwaThumbRaw) || akwaThumbRaw),
+      duration: formattedDur,
+      likesCount: akwaLikes,
+      viewsCount: akwaViews,
+    }
+  }
+
   return {
     id: String(id),
     content: pick(p, "content", "text", "body", "description", "caption", "post_text", "postText", "message") || "",
-    image: rawImages[0] ? resolveMediaUrl(rawImages[0]) : (video ? (thumb ? resolveMediaUrl(thumb) : null) : null),
+    image: rawImages[0]
+      ? resolveMediaUrl(rawImages[0])
+      : video
+        ? thumb && !isVideoUrl(thumb)
+          ? resolveMediaUrl(thumb)
+          : akwaplayData?.thumbnail
+            ? akwaplayData.thumbnail
+            : null
+        : null,
     images: rawImages.map((u) => ({ url: resolveMediaUrl(u) })),
     video: video ? resolveMediaUrl(video) : null,
     thumb: video ? (thumb ? resolveMediaUrl(thumb) : null) : null,
@@ -1351,7 +1530,13 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       ...(pageAuthor ? { pageId: pageAuthor.id } : {}),
     },
     page: pageAuthor
-      ? { id: pageAuthor.id, name: pageAuthor.name, username: pageAuthor.username, avatar: pageAuthor.avatar }
+      ? {
+          id: pageAuthor.id,
+          name: pageAuthor.name,
+          username: pageAuthor.username,
+          avatar: pageAuthor.avatar,
+          isLiked: pageAuthor.isLiked,
+        }
       : null,
     color: (() => {
       const direct = pick(p, "color", "background_color", "bg_color", "color_id")
@@ -1369,8 +1554,13 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     isLiked,
     isFollowing: !!author.isFollowing,
     parentPost,
-    reactions: extractReactionSummary(p),
+    reactions: reactionSummary,
     reactionUsers: extractReactionUsers(p) ?? [],
+    viewsCount: views,
+    views_count: views,
+    postType: isAkwaplayVideo ? "akwaplay_video" : (rawPostType || "post"),
+    isAkwaplayVideo,
+    akwaplayData,
     // Confidentialité renvoyée par l'API Dughu (entier 0-3) :
     //   0 = Public, 1 = Followers/Abonnés, 2 = Réseau, 3 = Amis stricts
     postPrivacy: (() => {
@@ -1381,8 +1571,9 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
     })(),
     _count: {
       comments,
-      likes,
+      likes: finalLikesCount,
       reposts,
+      views,
     },
   }
 }

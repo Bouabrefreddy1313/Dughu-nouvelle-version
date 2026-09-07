@@ -196,6 +196,23 @@ export function useLikePage(pageId: string) {
       const previous = context?.previous as { page?: DughuPage } | undefined
       if (previous?.page) queryClient.setQueryData(PAGE_DETAIL_KEY(pageId), previous)
     },
+    onSuccess: (data) => {
+      if (data?.isLike !== undefined) {
+        const confirmedLiked = Boolean(data.isLike)
+        queryClient.setQueryData<{ page?: DughuPage }>(PAGE_DETAIL_KEY(pageId), (old) => {
+          if (!old?.page) return old
+          const diff = confirmedLiked ? (old.page.isLiked ? 0 : 1) : (old.page.isLiked ? -1 : 0)
+          return {
+            ...old,
+            page: {
+              ...old.page,
+              isLiked: confirmedLiked,
+              likeCount: Math.max(0, old.page.likeCount + diff),
+            },
+          }
+        })
+      }
+    },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: PAGE_DETAIL_KEY(pageId) })
       void queryClient.invalidateQueries({ queryKey: ["pages-list"] })

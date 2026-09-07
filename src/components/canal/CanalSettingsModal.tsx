@@ -31,6 +31,7 @@ import {
   Save,
   AlertCircle,
   CheckCircle2,
+  Trash2,
 } from "lucide-react"
 import type { Canal, CanalType } from "@/types/canal/canal.types"
 import {
@@ -40,7 +41,11 @@ import {
   useCreateOrUpdateCanal,
   usePossibleCategories,
 } from "@/hooks/canal/use-canals"
-import { useReceivedNotifications } from "@/hooks/canal/use-canal-notifications"
+import {
+  useReceivedNotifications,
+  useProcessedNotifications,
+  useDeleteNotification,
+} from "@/hooks/canal/use-canal-notifications"
 
 interface CanalSettingsModalProps {
   canal: Canal
@@ -66,15 +71,24 @@ export default function CanalSettingsModal({
     }
   }, [isOpen, initialTab])
 
-  // Requêtes : Demandes d'adhésion, Membres & Catégories
+  const [notifsSubTab, setNotifsSubTab] = useState<"pending" | "processed">("pending")
+
+  // Requêtes : Demandes d'adhésion (reçues & traitées), Membres & Catégories
   const { data: notifsData, isLoading: notifsLoading } = useReceivedNotifications(
     currentUserId,
     canal.id
   )
+  const { data: processedNotifsData, isLoading: processedLoading } = useProcessedNotifications(
+    currentUserId,
+    canal.id
+  )
+  const deleteNotifMutation = useDeleteNotification(canal.id)
+
   const notifications = notifsData?.notifications ?? []
   const pendingRequests = notifications.filter(
     (n) => n.status === null || n.status === "" || n.status === "pending"
   )
+  const processedRequests = processedNotifsData?.notifications ?? []
 
   const { data: members = [], isLoading: membersLoading } = useCanalMembers(canal.id)
   const { data: categories = [] } = usePossibleCategories()
@@ -124,7 +138,15 @@ export default function CanalSettingsModal({
     handleJoinMutation.mutate({
       requestId,
       userId: currentUserId,
+      canalId: canal.id,
       accept,
+    })
+  }
+
+  const handleDeleteNotif = (notificationId: string) => {
+    deleteNotifMutation.mutate({
+      notificationId,
+      userId: currentUserId,
     })
   }
 
@@ -285,42 +307,77 @@ export default function CanalSettingsModal({
         {/* Contenu de l'onglet actif */}
         {/* ===================================================================== */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* 1. DEMANDES D'ADHÉSION */}
+          {/* 1. DEMANDES D'ADHÉSION & NOTIFICATIONS */}
           {activeTab === "requests" && (
             <div>
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-bold text-white">
-                  Demandes d'adhésion en attente ({pendingRequests.length})
-                </h3>
-                <span className="text-xs text-gray-400">
-                  Validez les utilisateurs souhaitant rejoindre votre canal
-                </span>
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    Notifications & Adhésions
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    Gérez les demandes d'adhésion et les notifications relatives à votre canal
+                  </p>
+                </div>
+
+                {/* Sélecteur de sous-onglets : En attente / Traitées */}
+                <div className="flex items-center gap-1.5 rounded-xl bg-gray-900 border border-gray-800 p-1 self-start">
+                  <button
+                    type="button"
+                    onClick={() => setNotifsSubTab("pending")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      notifsSubTab === "pending"
+                        ? "bg-[#985810] text-white shadow-sm"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    En attente ({pendingRequests.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNotifsSubTab("processed")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      notifsSubTab === "processed"
+                        ? "bg-[#985810] text-white shadow-sm"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    Traitées ({processedRequests.length})
+                  </button>
+                </div>
               </div>
 
-              {notifsLoading ? (
+              {(notifsSubTab === "pending" ? notifsLoading : processedLoading) ? (
                 <div className="flex h-48 items-center justify-center text-xs text-gray-500">
-                  Chargement des demandes...
+                  Chargement des notifications...
                 </div>
-              ) : pendingRequests.length === 0 ? (
+              ) : (notifsSubTab === "pending" ? pendingRequests : processedRequests).length === 0 ? (
                 <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-800 bg-gray-900/30 p-8 text-center">
                   <UserCheck size={36} className="text-gray-600" />
                   <p className="mt-3 text-sm font-bold text-gray-300">
-                    Aucune demande d'adhésion en attente
+                    {notifsSubTab === "pending"
+                      ? "Aucune demande d'adhésion en attente"
+                      : "Aucune notification traitée pour le moment"}
                   </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Les nouvelles personnes qui demandent à intégrer votre canal privé apparaîtront ici.
+                  <p className="mt-1 text-xs text-gray-500 max-w-sm">
+                    {notifsSubTab === "pending"
+                      ? "Les nouvelles personnes qui demandent à intégrer votre canal privé apparaîtront ici."
+                      : "L'historique de vos demandes acceptées ou refusées apparaîtra ici."}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {pendingRequests.map((notif) => {
+                  {(notifsSubTab === "pending" ? pendingRequests : processedRequests).map((notif) => {
                     const reqId = notif.requestId || notif.id
+                    const isAccepted = notif.status?.toLowerCase().includes("accept")
+                    const isRejected = notif.status?.toLowerCase().includes("rejet") || notif.status?.toLowerCase().includes("refus")
+
                     return (
                       <div
                         key={notif.id}
                         className="flex items-center justify-between gap-4 rounded-2xl border border-gray-800 bg-gray-900/60 p-4 transition hover:border-gray-700"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div className="relative size-11 shrink-0 overflow-hidden rounded-full bg-gray-800 border border-gray-700">
                             <Image
                               src={notif.senderAvatar || "/images/avatar.png"}
@@ -331,12 +388,16 @@ export default function CanalSettingsModal({
                               unoptimized={notif.senderAvatar?.startsWith("http")}
                             />
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-white">
-                              {notif.senderName || notif.content || "Nouvel utilisateur"}
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-white truncate">
+                              {notif.senderName || notif.content || "Utilisateur"}
                             </p>
-                            <p className="text-xs text-gray-400">
-                              Demande envoyée{" "}
+                            {notif.content && notif.senderName && notif.content !== notif.senderName && (
+                              <p className="text-xs text-gray-300 truncate">
+                                {notif.content}
+                              </p>
+                            )}
+                            <p className="text-[11px] text-gray-400 mt-0.5">
                               {notif.createdAt
                                 ? new Date(notif.createdAt).toLocaleDateString("fr-FR", {
                                     day: "numeric",
@@ -349,26 +410,53 @@ export default function CanalSettingsModal({
                           </div>
                         </div>
 
-                        {/* Boutons d'action Accepter / Refuser */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleAction(reqId, true)}
-                            disabled={handleJoinMutation.isPending}
-                            className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50"
-                          >
-                            <Check size={14} />
-                            Accepter
-                          </button>
+                        {/* Actions selon sous-onglet */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {notifsSubTab === "pending" ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleAction(reqId, true)}
+                                disabled={handleJoinMutation.isPending}
+                                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50 cursor-pointer"
+                              >
+                                <Check size={14} />
+                                <span className="hidden sm:inline">Accepter</span>
+                              </button>
 
+                              <button
+                                type="button"
+                                onClick={() => handleAction(reqId, false)}
+                                disabled={handleJoinMutation.isPending}
+                                className="flex items-center gap-1.5 rounded-xl bg-red-950/60 border border-red-800/80 px-3.5 py-2 text-xs font-bold text-red-300 transition hover:bg-red-900/80 disabled:opacity-50 cursor-pointer"
+                              >
+                                <UserX size={14} />
+                                <span className="hidden sm:inline">Refuser</span>
+                              </button>
+                            </>
+                          ) : (
+                            <span
+                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                                isAccepted
+                                  ? "bg-emerald-950/70 border border-emerald-800 text-emerald-300"
+                                  : isRejected
+                                  ? "bg-red-950/70 border border-red-800 text-red-300"
+                                  : "bg-gray-800 border border-gray-700 text-gray-300"
+                              }`}
+                            >
+                              {notif.status || "Traitée"}
+                            </span>
+                          )}
+
+                          {/* Bouton de suppression de la notification */}
                           <button
                             type="button"
-                            onClick={() => handleAction(reqId, false)}
-                            disabled={handleJoinMutation.isPending}
-                            className="flex items-center gap-1.5 rounded-xl bg-red-950/60 border border-red-800/80 px-4 py-2 text-xs font-bold text-red-300 transition hover:bg-red-900/80 disabled:opacity-50"
+                            onClick={() => handleDeleteNotif(notif.id)}
+                            disabled={deleteNotifMutation.isPending}
+                            title="Supprimer la notification"
+                            className="p-2 rounded-xl text-gray-500 hover:text-red-400 hover:bg-red-950/30 transition disabled:opacity-50 cursor-pointer"
                           >
-                            <UserX size={14} />
-                            Refuser
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </div>

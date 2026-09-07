@@ -28,6 +28,7 @@ import {
   Gift,
   Link2,
   Loader2,
+  Eye,
   EyeOff,
   Smile,
   MessageCircle,
@@ -37,8 +38,10 @@ import {
 import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { formatNumber } from "@/lib/helpers"
 import Avatar from "@/components/common/Avatar"
 import FollowButton from "@/components/common/FollowButton"
+import PageLikeButton from "@/components/common/PageLikeButton"
 import { EntityPreviewCard } from "@/components/feed/EntityPreviewCard"
 import { CommentBody } from "@/components/feed/CommentBody"
 import { PostMediaLightbox, type LightboxImageItem } from "@/components/feed/PostMediaLightbox"
@@ -48,7 +51,7 @@ import { ReactionUsersModal } from "@/components/feed/ReactionUsersModal"
 import type { ReactionUserItem } from "@/types/posts/post.types"
 import { usePostReactions } from "@/hooks/queries/use-post-reactions"
 import { toast } from "sonner"
-import { REACTIONS, REACTION_ID_TO_TYPE, REACTION_TYPE_TO_ID, POST_PRIVACY_OPTIONS, resolvePostColorCss } from "@/lib/constants"
+import { REACTIONS, REACTION_ID_TO_TYPE, REACTION_TYPE_TO_ID, POST_PRIVACY_OPTIONS, resolvePostColorCss, normalizeReactionType } from "@/lib/constants"
 import { givePoints } from "@/services/posts/feed.service"
 import {
   fetchComments,
@@ -111,6 +114,9 @@ interface PostCardProps {
   isFollowing?: boolean;
   isFollowLoading?: boolean;
   onToggleFollow?: () => void;
+  isPageLiked?: boolean;
+  isPageLikeLoading?: boolean;
+  onTogglePageLike?: () => void;
   postId?: string
   author: Author
   group?: {
@@ -140,6 +146,8 @@ interface PostCardProps {
   likesCount?: number
   commentsCount?: number
   sharesCount?: number
+  viewsCount?: number
+  views_count?: number
   reacted?: string | null
   /**
    * Confidentialité du post :
@@ -920,6 +928,8 @@ export function PostCard({
   likesCount = 0,
   commentsCount = 0,
   sharesCount = 0,
+  viewsCount,
+  views_count,
   reacted,
   reactions,
   users,
@@ -933,6 +943,9 @@ export function PostCard({
   isFollowing = false,
   isFollowLoading = false,
   onToggleFollow,
+  isPageLiked = false,
+  isPageLikeLoading = false,
+  onTogglePageLike,
   onDelete,
   onSave,
   onHide,
@@ -947,6 +960,7 @@ export function PostCard({
   onOpenAuthorFlash,
   className,
 }: PostCardProps) {
+  const finalViewsCount = viewsCount ?? views_count
   const [commentText, setCommentText] = useState("")
   const [commentFiles, setCommentFiles] = useState<File[]>([])
   const [commentPreviews, setCommentPreviews] = useState<string[]>([])
@@ -967,9 +981,10 @@ export function PostCard({
   const [showCommentReactions, setShowCommentReactions] =
     useState<string | null>(null)
   const [localLikesCount, setLocalLikesCount] = useState(likesCount)
-  const [localSelectedReaction, setLocalSelectedReaction] = useState<number | null>(
-    reacted ? REACTION_TYPE_TO_ID[reacted] || null : null
-  )
+  const [localSelectedReaction, setLocalSelectedReaction] = useState<number | null>(() => {
+    const norm = normalizeReactionType(reacted)
+    return norm ? REACTION_TYPE_TO_ID[norm] || null : null
+  })
   // `reactions` peut être null quand l'API ne fournit pas de répartition : on garde
   // toujours un tableau pour éviter `is not iterable` / `.filter of null` dans les composants.
 
@@ -1027,7 +1042,8 @@ export function PostCard({
   }, [likesCount])
 
   useEffect(() => {
-    setLocalSelectedReaction(reacted ? REACTION_TYPE_TO_ID[reacted] || null : null)
+    const norm = normalizeReactionType(reacted)
+    setLocalSelectedReaction(norm ? REACTION_TYPE_TO_ID[norm] || null : null)
   }, [reacted])
 
   const [prevReactionsProp, setPrevReactionsProp] = useState(reactions)
@@ -2251,6 +2267,15 @@ export function PostCard({
             />
           )}
 
+        {onTogglePageLike && !isPageLiked && (
+          <PageLikeButton
+            isLiked={isPageLiked}
+            isLoading={isPageLikeLoading}
+            onClick={() => onTogglePageLike()}
+            className="mr-1"
+          />
+        )}
+
         <div className="relative shrink-0" ref={postMenuRef}>
           <button
             type="button"
@@ -2573,6 +2598,15 @@ export function PostCard({
         />
 
         <div className="flex items-center gap-4 ml-auto">
+          {finalViewsCount !== undefined && finalViewsCount !== null && (
+            <div
+              className="flex items-center gap-1.5 text-[#65676B]"
+              title={`${finalViewsCount} vue${Number(finalViewsCount) > 1 ? "s" : ""}`}
+            >
+              <Eye size={16} className="text-[#65676B]" />
+              <span>{formatNumber(Number(finalViewsCount) || 0)}</span>
+            </div>
+          )}
 
           {commentsCount > 0 && (
             <button

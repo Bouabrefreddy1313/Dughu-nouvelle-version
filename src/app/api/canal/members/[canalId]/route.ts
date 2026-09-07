@@ -27,12 +27,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ can
     const body = await req.json().catch(() => ({}))
     const accept = Boolean(body?.accept)
     const userId = String(body?.userId || body?.user_id || "") || (await getDughuUserIdFromCookies())
+    const targetCanalId = String(body?.canalId || body?.canal_id || "")
 
     if (!userId) {
       return NextResponse.json({ success: false, message: "Session requise." }, { status: 401 })
     }
 
-    const result = await handleJoinRequest(requestId, userId, accept)
+    const result = await handleJoinRequest(requestId, userId, accept, targetCanalId)
     return NextResponse.json(result)
   } catch (error) {
     console.error("CANAL HANDLE JOIN REQUEST ERROR:", error)

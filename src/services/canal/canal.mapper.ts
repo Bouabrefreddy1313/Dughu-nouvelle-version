@@ -351,16 +351,17 @@ export function mapCanalDocumentList(raw: any): CanalDocument[] {
 
 /** Normalise une notification de canal. */
 export function mapCanalNotification(raw: any): CanalNotification {
-  const senderName = str(raw?.sender_name ?? raw?.user_name ?? raw?.user?.name ?? raw?.name ?? "")
-  const senderAvatar = str(raw?.sender_avatar ?? raw?.user_avatar ?? raw?.user?.avatar ?? raw?.avatar ?? "")
-  const requestId = str(pick(raw, ["request_id", "requestId", "id"]))
+  const senderName = str(raw?.sender_name ?? raw?.user_name ?? raw?.user?.name ?? raw?.name ?? raw?.fullName ?? "")
+  const rawAvatar = str(raw?.sender_avatar ?? raw?.user_avatar ?? raw?.user?.avatar ?? raw?.avatar ?? raw?.photo ?? "")
+  const senderAvatar = rawAvatar ? normalizeCanalMediaUrl(rawAvatar) : undefined
+  const requestId = str(pick(raw, ["request_id", "requestId", "id", "notification_id"]))
 
   return {
     id: str(pick(raw, ["id", "notification_id"])),
     userId: str(pick(raw, ["user_id", "userId"])),
     canalId: str(pick(raw, ["canal_id", "canalId"])),
     type: str(raw?.type ?? raw?.notification_type),
-    content: str(raw?.content ?? raw?.message ?? raw?.body),
+    content: str(raw?.content ?? raw?.message ?? raw?.body ?? raw?.text),
     status: raw?.status !== undefined && raw?.status !== null ? str(raw.status) : null,
     createdAt: toIso(raw?.created_at ?? raw?.createdAt),
     senderName: senderName || undefined,
@@ -370,7 +371,14 @@ export function mapCanalNotification(raw: any): CanalNotification {
 }
 
 export function mapCanalNotifications(raw: any, page = 1) {
-  const container = raw?.result ?? raw
+  const container =
+    raw?.receivedNotifications ??
+    raw?.processedNotifications ??
+    raw?.result?.receivedNotifications ??
+    raw?.result?.processedNotifications ??
+    raw?.result ??
+    raw
+
   const items: any[] = Array.isArray(container?.data)
     ? container.data
     : Array.isArray(container)
@@ -379,17 +387,24 @@ export function mapCanalNotifications(raw: any, page = 1) {
     ? raw.notifications
     : Array.isArray(raw?.data)
     ? raw.data
-    : Array.isArray(raw)
-    ? raw
+    : Array.isArray(raw?.receivedNotifications)
+    ? raw.receivedNotifications
+    : Array.isArray(raw?.processedNotifications)
+    ? raw.processedNotifications
     : []
+
   const hasMore =
+    (typeof container?.current_page === "number" &&
+      typeof container?.last_page === "number" &&
+      container.current_page < container.last_page) ||
     bool(container?.has_more ?? container?.hasMore ?? raw?.has_more ?? raw?.hasMore) ||
     (typeof container?.next_page_url === "string" && !!container.next_page_url) ||
     (typeof raw?.next_page_url === "string" && !!raw.next_page_url)
+
   return {
     success: bool(raw?.success, true),
     notifications: items.map(mapCanalNotification),
     hasMore,
-    page,
+    page: Number(container?.current_page ?? page),
   }
 }

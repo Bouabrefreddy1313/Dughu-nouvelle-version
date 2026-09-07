@@ -31,6 +31,7 @@ import {
   REACTION_ID_TO_TYPE,
   POST_PRIVACY_OPTIONS,
   resolvePostColorCss,
+  normalizeReactionType,
 } from "@/lib/constants"
 import { toast } from "sonner"
 import { givePoints } from "@/services/posts/feed.service"

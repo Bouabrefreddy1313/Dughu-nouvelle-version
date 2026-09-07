@@ -11,6 +11,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { fetchPokes, pokeBack, sendPoke } from "@/services/pokes/pokes.service"
+import { notifyPoke } from "@/services/notifications/notifications.service"
 import type { Poke } from "@/types/pokes/pokes.types"
 
 export type PokesBox = "received" | "sent"
@@ -44,7 +45,13 @@ export function usePokes(box: PokesBox, dughuUserId: string | undefined) {
 export function useSendPoke(dughuUserId: string | undefined) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (receivedUserId: string) => sendPoke(receivedUserId),
+    mutationFn: async (receivedUserId: string) => {
+      const res = await sendPoke(receivedUserId)
+      if (res.success) {
+        void notifyPoke({ targetUserId: receivedUserId, senderName: "Un utilisateur" })
+      }
+      return res
+    },
     retry: 0,
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["pokes"] })
@@ -59,8 +66,13 @@ export function useSendPoke(dughuUserId: string | undefined) {
 export function usePokeBack(dughuUserId: string | undefined) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ pokeId, receivedUserId }: { pokeId: string; receivedUserId: string }) =>
-      pokeBack(pokeId, receivedUserId),
+    mutationFn: async ({ pokeId, receivedUserId }: { pokeId: string; receivedUserId: string }) => {
+      const res = await pokeBack(pokeId, receivedUserId)
+      if (res.success) {
+        void notifyPoke({ targetUserId: receivedUserId, senderName: "Un utilisateur" })
+      }
+      return res
+    },
     retry: 0,
     onMutate: async ({ pokeId }) => {
       await queryClient.cancelQueries({ queryKey: pokesKey("received", dughuUserId) })

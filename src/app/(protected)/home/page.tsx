@@ -35,6 +35,8 @@ import {
   isAbortError,
 } from "@/services/posts/posts.service"
 import { addComment } from "@/services/posts/comments.service"
+import { notifyPostReaction, notifyPostComment } from "@/services/notifications/notifications.service"
+// Notifications trigger support
 import { userMessage } from "@/lib/api/api-error"
 import { REACTION_ID_TO_TYPE, POST_COLORS } from "@/lib/constants"
 import type { ReactionUserItem } from "@/types/posts/post.types"
@@ -56,6 +58,8 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog"
 import { isDefaultDughuMedia } from "@/lib/dughu"
 
 import { useFlashFeed } from "@/hooks/queries/use-flash"
+import { usePagesList } from "@/hooks/pages/use-pages"
+import { likePage } from "@/services/pages/pages.service"
 
 const PostComposer = dynamic(() => import("@/components/composer/PostComposer").then((mod) => ({ default: mod.PostComposer })), {
   loading: () => null,
@@ -76,6 +80,11 @@ const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) =
   ),
 })
 
+const AkwaplayPostCard = dynamic(
+  () => import("@/components/feed/AkwaplayPostCard").then((mod) => ({ default: mod.AkwaplayPostCard })),
+  { loading: () => null }
+)
+
 /* ============================================================
    TYPES
    ============================================================ */
@@ -90,6 +99,7 @@ interface Author {
   isAdmin?: boolean
   isModerator?: boolean
   isFollowing?: boolean
+  pageId?: string | null
 }
 
 interface Reaction {
@@ -151,6 +161,8 @@ interface Post {
   reactions?: { type: string; count: number }[]
   _count: { comments: number; likes: number; reposts: number; views: number }
   timeLabel?: string
+  viewsCount?: number
+  views_count?: number
   isBoosted?: boolean
   isPinned?: boolean
   isHidden?: boolean
@@ -166,6 +178,17 @@ interface Post {
     timeAgo?: string
   } | null
   akwaplay?: any | null
+  postType?: string
+  isAkwaplayVideo?: boolean
+  akwaplayData?: {
+    videoId: string | number
+    title: string
+    description?: string | null
+    thumbnail: string
+    duration?: string | null
+    likesCount: number
+    viewsCount: number
+  } | null
   isLiked?: boolean
   reacted?: string | null
   reactionUsers?: ReactionUserItem[]
@@ -228,6 +251,9 @@ export default function HomePage() {
   const [followingAuthorIds, setFollowingAuthorIds] = useState<Set<string>>(
     () => new Set()
   )
+  const [pageLikedMap, setPageLikedMap] = useState<Record<string, boolean>>({})
+  const [pageLikeLoadingMap, setPageLikeLoadingMap] = useState<Record<string, boolean>>({})
+
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const loadingMoreRef = useRef(false)
   const feedReqRef = useRef(0)
@@ -266,6 +292,50 @@ export default function HomePage() {
     cover: rawUser.cover || '/images/group/default-cover.jpg',
     _count: rawUser._count || { posts: 0, followers: 0, following: 0 },
   } : null, [rawUser])
+
+  const adminPagesQuery = usePagesList("administered", { userId: user?.dughu?.userId })
+  const myPagesQuery = usePagesList("mine", { userId: user?.dughu?.userId })
+
+  const composerSpaces = useMemo(() => {
+    const list: Array<{ id: string; name: string; avatar?: string | null }> = []
+    const seen = new Set<string>()
+    for (const p of [...(adminPagesQuery.data?.pages || []), ...(myPagesQuery.data?.pages || [])]) {
+      if (p?.pageId && !seen.has(String(p.pageId))) {
+        seen.add(String(p.pageId))
+        list.push({
+          id: String(p.pageId),
+          name: p.pageTitle || p.pageName,
+          avatar: p.avatar || null,
+        })
+      }
+    }
+    return list
+  }, [adminPagesQuery.data?.pages, myPagesQuery.data?.pages])
+
+  const handleTogglePageLike = async (targetPageId: string, initialLiked: boolean) => {
+    if (!targetPageId || pageLikeLoadingMap[targetPageId]) return
+    const currentLiked = pageLikedMap[targetPageId] !== undefined ? pageLikedMap[targetPageId] : initialLiked
+    const nextLiked = !currentLiked
+    setPageLikeLoadingMap((prev) => ({ ...prev, [targetPageId]: true }))
+    setPageLikedMap((prev) => ({ ...prev, [targetPageId]: nextLiked }))
+
+    try {
+      const res = await likePage(targetPageId, user?.dughu?.userId)
+      if (res.success === false && res.isLike === undefined) {
+        toast.error(res.message || "Impossible de liker cet espace.")
+        setPageLikedMap((prev) => ({ ...prev, [targetPageId]: currentLiked }))
+      } else {
+        const confirmedLiked = res.isLike !== undefined ? res.isLike : nextLiked
+        setPageLikedMap((prev) => ({ ...prev, [targetPageId]: confirmedLiked }))
+        toast.success(confirmedLiked ? "Espace aimé ! ❤️" : "Like retiré.")
+      }
+    } catch {
+      setPageLikedMap((prev) => ({ ...prev, [targetPageId]: currentLiked }))
+      toast.error("Impossible de liker cet espace.")
+    } finally {
+      setPageLikeLoadingMap((prev) => ({ ...prev, [targetPageId]: false }))
+    }
+  }
 
   // Flash des amis / contacts : permet de détecter les auteurs de posts ayant un
   // Flash actif (anneau marron sur l'avatar) et d'ouvrir leur Flash au clic.
@@ -322,8 +392,14 @@ export default function HomePage() {
           ...p,
           timeLabel: timeAgo(p.createdAt),
           reacted: reactionsCache[p.id] || p.reacted || null,
-          color: p.color || colorCache[p.id] || null,
-          _count: p._count || { comments: 0, likes: 0, reposts: 0, views: 0 },
+          views_count: Number(p.views_count ?? p.viewsCount ?? p._count?.views ?? 0),
+          viewsCount: Number(p.views_count ?? p.viewsCount ?? p._count?.views ?? 0),
+          _count: {
+            comments: p._count?.comments || 0,
+            likes: p._count?.likes || 0,
+            reposts: p._count?.reposts || 0,
+            views: Number(p.views_count ?? p.viewsCount ?? p._count?.views ?? 0),
+          },
           parentPost: p.parentPost
             ? { ...p.parentPost, timeAgo: timeAgo(p.parentPost?.createdAt) }
             : null,
@@ -596,6 +672,14 @@ export default function HomePage() {
         }
         if (newReacted) {
           toast.success(`Réaction ${newReacted} ajoutée`)
+          const targetPost = posts.find((p) => p.id === postId)
+          if (targetPost?.author?.id && String(targetPost.author.id) !== String(user.id)) {
+            void notifyPostReaction({
+              authorUserId: targetPost.author.id,
+              senderName: user.name || "Un utilisateur",
+              postId,
+            })
+          }
         }
       } else {
         toast.error(data.message || "Impossible de réagir à cette publication")
@@ -644,6 +728,14 @@ export default function HomePage() {
             : p
         ))
         toast.success("Commentaire publié !")
+        const targetPost = posts.find((p) => p.id === postId)
+        if (targetPost?.author?.id && String(targetPost.author.id) !== String(user.id)) {
+          void notifyPostComment({
+            authorUserId: targetPost.author.id,
+            senderName: user.name || "Un utilisateur",
+            postId,
+          })
+        }
       } else {
         toast.error(data.message || "Erreur commentaire")
         console.error("COMMENT API ERROR:", data)
@@ -835,11 +927,23 @@ export default function HomePage() {
     router.push(`/searchPosts?searchTerm=${encodeURIComponent(q)}`)
   }
 
-  const handlePostSubmit = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[]; privacy?: number }) => {
+  const handlePostSubmit = async (data: {
+    content: string
+    color?: any
+    images?: File[]
+    videos?: File[]
+    audios?: File[]
+    privacy?: number
+    pageId?: string
+  }) => {
     const formData = new FormData()
     formData.append("content", data.content)
     formData.append("userId", user?.id)
     formData.append("dughuUserId", user?.dughu?.userId || "")
+    if (data.pageId) {
+      formData.append("page_id", data.pageId)
+      formData.append("pageId", data.pageId)
+    }
     if (data.privacy != null) formData.append("privacy", String(data.privacy))
     if (data.color) {
       formData.append("color", JSON.stringify(data.color))
@@ -935,59 +1039,105 @@ export default function HomePage() {
 
       {/* Create Post — padding horizontal sur mobile car le main est edge-to-edge */}
       <div className="px-3 sm:px-0">
-        <PostComposer user={user} onSubmit={handlePostSubmit} className="mb-4" />
+        <PostComposer user={user} spaces={composerSpaces} onSubmit={handlePostSubmit} className="mb-4" />
       </div>
 
       {/* Posts Feed */}
       {posts.map((post, postIndex) => (
         <Fragment key={`feed-frag-${post.id}-${postIndex}`}>
-        <PostCard
-          key={`feed-card-${post.id}-${postIndex}`}
-          postId={post.id}
-          author={post.author}
-          currentUser={user}
-          timeAgo={timeAgo(post.createdAt)}
-          content={post.content}
-          image={post.image || post.images?.[0]?.url}
-          images={(post.images || []).map((img) => ({ url: img.url }))}
-          video={post.video?.url || (post as any).video}
-          audio={(post as any).audio || null}
-          color={(post.color as any) ? (typeof post.color === "string" ? post.color : JSON.stringify(post.color)) : null}
-          likesCount={post._count.likes}
-          commentsCount={post._count.comments}
-          sharesCount={post._count.reposts}
-          reacted={post.reacted}
-          reactions={post.reactions}
-          users={post.reactionUsers}
-          parentPost={post.parentPost}
-          onLike={(reactionId) => handleReaction(post.id, reactionId)}
-          postPrivacy={post.postPrivacy}
-          onComment={(text, files) => handleComment(post.id, text, files)}
-          onRepost={() => handleRepost(post.id)}
-          onShare={() => toast.info("Partage")}
-          isFollowing={!!post.author.isFollowing}
-          isFollowLoading={followingAuthorIds.has(String(post.author.id))}
-          onToggleFollow={() => handleToggleFollow(post.author)}
-          onDelete={() => setDeleteTarget(post.id)}
-          canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
-          onBoost={() => handleBoost(post.id)}
-          canBoost={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
-          onSave={() => handleSave(post.id)}
-          onHide={() => handleHide(post.id)}
-          onBlock={() => handleBlock(post.author?.id)}
-          isBlocked={blockedAuthors.has(String(post.author?.id))}
-          isSaved={post.isSaved}
-          hasActiveFlash={activeFlashIds.has(String(post.author?.id))}
-          flashViewed={viewedFlashIds.has(String(post.author?.id))}
-          onOpenAuthorFlash={(author) =>
-            setFlashTarget({
-              userId: author.id,
-              userName: author.name,
-              userAvatar: author.avatar,
-            })
-          }
-          className="mb-4"
-        />
+        {post.isAkwaplayVideo && post.akwaplayData ? (
+          <AkwaplayPostCard
+            key={`feed-card-${post.id}-${postIndex}`}
+            id={post.id}
+            videoId={post.akwaplayData.videoId}
+            title={post.akwaplayData.title}
+            description={post.akwaplayData.description}
+            thumbnail={post.akwaplayData.thumbnail}
+            duration={post.akwaplayData.duration}
+            likesCount={post.akwaplayData.likesCount}
+            viewsCount={post.akwaplayData.viewsCount}
+            avatar={post.author?.avatar}
+            headerText="Akwaplay · Suggestion pour vous"
+            onDismiss={() => {
+              setPosts((prev) => prev.filter((p) => p.id !== post.id))
+              toast.info("Publication masquée")
+            }}
+            className="mb-4"
+          />
+        ) : (() => {
+          const pageAuthor = (post as any).page as Author | null | undefined
+          const isPageAuthor = !!pageAuthor?.id || !!post.author?.pageId || !!(post as any).page_id
+          const targetPageId = String(post.author?.pageId || pageAuthor?.id || (post as any)?.page_id || (post as any)?.page?.page_id || "")
+          const initialPageLiked = Boolean(
+            (pageAuthor as any)?.isLiked ??
+            (post.author as any)?.isLiked ??
+            (post as any)?.page?.is_like ??
+            (post as any)?.page_is_liked ??
+            false
+          )
+          const isPageLiked = targetPageId ? (pageLikedMap[targetPageId] !== undefined ? pageLikedMap[targetPageId] : initialPageLiked) : false
+          const isPageLikeLoading = targetPageId ? Boolean(pageLikeLoadingMap[targetPageId]) : false
+          return (
+          <PostCard
+            key={`feed-card-${post.id}-${postIndex}`}
+            postId={post.id}
+            author={post.author}
+            currentUser={user}
+            timeAgo={timeAgo(post.createdAt)}
+            content={post.content}
+            image={post.image || post.images?.[0]?.url}
+            images={(post.images || []).map((img) => ({ url: img.url }))}
+            video={post.video?.url || (post as any).video}
+            audio={(post as any).audio || null}
+            color={(post.color as any) ? (typeof post.color === "string" ? post.color : JSON.stringify(post.color)) : null}
+            likesCount={post._count.likes}
+            commentsCount={post._count.comments}
+            sharesCount={post._count.reposts}
+            viewsCount={post.viewsCount ?? post.views_count ?? post._count?.views ?? 0}
+            reacted={post.reacted}
+            reactions={post.reactions}
+            users={post.reactionUsers}
+            parentPost={post.parentPost}
+            onLike={(reactionId) => handleReaction(post.id, reactionId)}
+            postPrivacy={post.postPrivacy}
+            onComment={(text, files) => handleComment(post.id, text, files)}
+            onRepost={() => handleRepost(post.id)}
+            onShare={() => toast.info("Partage")}
+            {...(!isPageAuthor
+              ? {
+                  isFollowing: !!post.author.isFollowing,
+                  isFollowLoading: followingAuthorIds.has(String(post.author.id)),
+                  onToggleFollow: () => handleToggleFollow(post.author),
+                }
+              : {})}
+            {...(targetPageId
+              ? {
+                  isPageLiked,
+                  isPageLikeLoading,
+                  onTogglePageLike: () => void handleTogglePageLike(targetPageId, initialPageLiked),
+                }
+              : {})}
+            onDelete={() => setDeleteTarget(post.id)}
+            canDelete={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
+            onBoost={() => handleBoost(post.id)}
+            canBoost={!!user && String(post.author?.id) === String(user?.dughu?.userId)}
+            onSave={() => handleSave(post.id)}
+            onHide={() => handleHide(post.id)}
+            onBlock={() => handleBlock(post.author?.id)}
+            isBlocked={blockedAuthors.has(String(post.author?.id))}
+            isSaved={post.isSaved}
+            hasActiveFlash={activeFlashIds.has(String(post.author?.id))}
+            flashViewed={viewedFlashIds.has(String(post.author?.id))}
+            onOpenAuthorFlash={(author) =>
+              setFlashTarget({
+                userId: author.id,
+                userName: author.name,
+                userAvatar: author.avatar,
+              })
+            }
+            className="mb-4"
+          />
+        )})()}
         {/* Rail Capsules : 3 capsules aléatoires après les 4 premiers posts */}
         {postIndex === 3 && (
           <CapsuleRail

@@ -287,10 +287,25 @@ export async function createOrUpdatePage(userId: string, values: PageFormValues 
   return { success: raw?.success !== false, message: raw?.message, result: raw?.result }
 }
 
-/** Like / unlike d'une page (POST /likePage) → is_like. */
+/** Like / unlike d'une page (POST /likePage) → active / is_like. */
 export async function likePage(pageId: string, userId: string): Promise<{ success: boolean; message?: string; isLike?: boolean }> {
   const raw = await requestForm<any>("likePage", { page_id: pageId, user_id: userId })
-  const isLike = raw?.is_like === true || raw?.is_like === 1 || raw?.is_like === "1"
+  const unwrapped = raw?.result && typeof raw.result === "object" ? raw.result : raw
+  const flag =
+    raw?.active ??
+    unwrapped?.active ??
+    raw?.is_like ??
+    unwrapped?.is_like ??
+    raw?.isLike ??
+    unwrapped?.isLike ??
+    raw?.liked ??
+    unwrapped?.liked ??
+    raw?.is_liked ??
+    unwrapped?.is_liked
+  const isLike =
+    flag !== undefined && flag !== null
+      ? Boolean(flag === true || flag === 1 || flag === "1" || flag === "true")
+      : undefined
   return { success: raw?.success !== false, message: raw?.message, isLike: raw?.success === false ? undefined : isLike }
 }
 

@@ -56,6 +56,11 @@ const PostCard = dynamic(() => import("@/components/feed/PostCard").then((mod) =
   ),
 })
 
+const AkwaplayPostCard = dynamic(
+  () => import("@/components/feed/AkwaplayPostCard").then((mod) => ({ default: mod.AkwaplayPostCard })),
+  { loading: () => null }
+)
+
 function PhotoImage({ src, width, height }: { src: string; width: number; height: number }) {
   const [failed, setFailed] = useState(false)
   if (!src || failed) {
@@ -265,6 +270,43 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
       .catch(() => {})
       .finally(() => setAkwaVideosLoading(false))
   }, [profileDughuId, profileId, myDughuId, currentUser?.id])
+
+  const [dismissedPostIds, setDismissedPostIds] = useState<Set<string>>(new Set())
+
+  // Publications enrichies avec les vidéos Akwaplay publiées par l'utilisateur
+  const displayPosts = useMemo(() => {
+    const existingVideoIds = new Set<string>()
+    for (const p of posts) {
+      if ((p as any).isAkwaplayVideo && (p as any).akwaplayData?.videoId) {
+        existingVideoIds.add(String((p as any).akwaplayData.videoId))
+      }
+    }
+    const extraAkwaPosts = userAkwaVideos
+      .filter((v) => !existingVideoIds.has(String(v.id)))
+      .map((v) => ({
+        id: `akwa-video-${v.id}`,
+        isAkwaplayVideo: true,
+        akwaplayData: {
+          videoId: v.id,
+          title: v.title,
+          description: v.description,
+          thumbnail: v.thumbnail,
+          duration: v.durationFormatted || String(v.duration),
+          likesCount: v.likesCount,
+          viewsCount: v.viewsCount,
+        },
+        author: {
+          id: String(v.author?.id || profile?.user?.id || profileId),
+          name: v.author?.name || profile?.user?.name || "Auteur",
+          username: v.author?.username || profile?.user?.username || "",
+          avatar: v.author?.avatar || profile?.user?.avatar || "/images/avatar.png",
+        },
+        createdAt: v.createdAt || new Date().toISOString(),
+        _count: { likes: v.likesCount, comments: v.commentsCount || 0, reposts: 0, views: v.viewsCount },
+      }))
+
+    return [...extraAkwaPosts, ...posts].filter((p) => !dismissedPostIds.has(String(p.id)))
+  }, [posts, userAkwaVideos, profile?.user, profileId, dismissedPostIds])
 
   const handleCreatePost = async (data: { content: string; color?: any; images?: File[]; videos?: File[]; audios?: File[]; privacy?: number }) => {
     if (!currentUser) {
@@ -729,51 +771,76 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
                 </div>
               )}
 
-              {posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  postId={post.id}
-                  author={post.author}
-                  currentUser={currentUser}
-                  timeAgo={timeAgo(post.createdAt)}
-                  content={post.content}
-                  image={post.image || post.images?.[0]?.url}
-                  images={(post.images || []).map((img) => ({ url: img.url }))}
-                  video={(post as any).video}
-                  audio={(post as any).audio || null}
-                  color={post.color && typeof post.color === "string" ? post.color : post.color ? JSON.stringify(post.color) : null}
-                  likesCount={post._count.likes}
-                  commentsCount={post._count.comments}
-                  sharesCount={post._count.reposts}
-                  reacted={post.reacted}
-                  reactions={post.reactions}
-                  users={(post as any).reactionUsers}
-                  parentPost={post.parentPost}
-                  onLike={(r) => handleReaction(post.id, r)}
-                  postPrivacy={post.postPrivacy}
-                  onComment={(text) => handleComment(post.id, text)}
-                                    onRepost={() => handleRepost(post.id)}
-                  onRepostWithText={(text) => handleRepostWithText(post.id, text)}
-                  shareUrl={post.shareUrl || null}
-                  onDelete={() => setDeleteTarget(post.id)}
-                  canDelete={!!currentUser && String(post.author?.id) === String(currentUser?.dughu?.userId)}
-                  onSave={() => handleSave(post.id)}
-                  onHide={() => handleHide(post.id)}
-                  onBlock={() => handleBlock(post.author?.id)}
-                  isBlocked={blockedAuthors.has(String(post.author?.id))}
-                  isSaved={post.isSaved}
-                  hasActiveFlash={activeFlashIds.has(String(post.author?.id))}
-                  flashViewed={viewedFlashIds.has(String(post.author?.id))}
-                  onOpenAuthorFlash={(author) =>
-                    setFlashTarget({
-                      userId: author.id,
-                      userName: author.name,
-                      userAvatar: author.avatar,
-                    })
-                  }
-                  className="mb-4"
-                />
-              ))}
+              {displayPosts.map((post: any) => {
+                if (post.isAkwaplayVideo && post.akwaplayData) {
+                  return (
+                    <AkwaplayPostCard
+                      key={post.id}
+                      id={post.id}
+                      videoId={post.akwaplayData.videoId}
+                      title={post.akwaplayData.title}
+                      description={post.akwaplayData.description}
+                      thumbnail={post.akwaplayData.thumbnail}
+                      duration={post.akwaplayData.duration}
+                      likesCount={post.akwaplayData.likesCount}
+                      viewsCount={post.akwaplayData.viewsCount}
+                      avatar={post.author?.avatar}
+                      headerText="Akwaplay · Nouvelle publication"
+                      onDismiss={() => {
+                        setDismissedPostIds((prev) => new Set([...prev, String(post.id)]))
+                      }}
+                      className="mb-4"
+                    />
+                  )
+                }
+
+                return (
+                  <PostCard
+                    key={post.id}
+                    postId={post.id}
+                    author={post.author}
+                    currentUser={currentUser}
+                    timeAgo={timeAgo(post.createdAt)}
+                    content={post.content}
+                    image={post.image || post.images?.[0]?.url}
+                    images={(post.images || []).map((img: any) => ({ url: img.url }))}
+                    video={(post as any).video}
+                    audio={(post as any).audio || null}
+                    color={post.color && typeof post.color === "string" ? post.color : post.color ? JSON.stringify(post.color) : null}
+                    likesCount={post._count.likes}
+                    commentsCount={post._count.comments}
+                    sharesCount={post._count.reposts}
+                    viewsCount={Number((post as any).views_count ?? (post as any).viewsCount ?? (post._count as any)?.views ?? 0)}
+                    reacted={post.reacted}
+                    reactions={post.reactions}
+                    users={(post as any).reactionUsers}
+                    parentPost={post.parentPost}
+                    onLike={(r) => handleReaction(post.id, r)}
+                    postPrivacy={post.postPrivacy}
+                    onComment={(text) => handleComment(post.id, text)}
+                    onRepost={() => handleRepost(post.id)}
+                    onRepostWithText={(text) => handleRepostWithText(post.id, text)}
+                    shareUrl={post.shareUrl || null}
+                    onDelete={() => setDeleteTarget(post.id)}
+                    canDelete={!!currentUser && String(post.author?.id) === String(currentUser?.dughu?.userId)}
+                    onSave={() => handleSave(post.id)}
+                    onHide={() => handleHide(post.id)}
+                    onBlock={() => handleBlock(post.author?.id)}
+                    isBlocked={blockedAuthors.has(String(post.author?.id))}
+                    isSaved={post.isSaved}
+                    hasActiveFlash={activeFlashIds.has(String(post.author?.id))}
+                    flashViewed={viewedFlashIds.has(String(post.author?.id))}
+                    onOpenAuthorFlash={(author) =>
+                      setFlashTarget({
+                        userId: author.id,
+                        userName: author.name,
+                        userAvatar: author.avatar,
+                      })
+                    }
+                    className="mb-4"
+                  />
+                )
+              })}
 
               {postsLoading && (
                 <div className="space-y-4">

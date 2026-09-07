@@ -6,14 +6,19 @@ import { cn } from "@/lib/utils"
 import Badge from "@/components/common/Badge"
 import ProfileMenu from "@/components/layout/ProfileMenu"
 import GlobalSearch from "@/components/common/GlobalSearch"
+import NotificationDropdown from "@/components/notifications/NotificationDropdown"
+import { useNotificationUnreadCount } from "@/hooks/queries/use-notifications"
 import { useScrollDirection } from "@/hooks/useScrollDirection"
 
 interface HeaderProps {
   user?: {
+    id?: string | number
     name?: string | null
     username?: string | null
     avatar?: string | null
     image?: string | null
+    dughu?: { userId?: string }
+    [key: string]: unknown
   } | null
   onLogout?: () => void
   onSearch?: (q: string) => void
@@ -34,8 +39,12 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
   const [q, setQ] = useState("")
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [desktopQuery, setDesktopQuery] = useState("")
   const [mobileQuery, setMobileQuery] = useState("")
+
+  const userId = String(user?.id || user?.dughu?.userId || "")
+  const { badgeCount24h } = useNotificationUnreadCount(userId)
 
 
   const navItems = [
@@ -183,12 +192,30 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
         </button>
 
         {/* Notifications */}
-        <button className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#050505] transition">
-          <img src="/images/notif.png" alt="Notifications" className="w-6 h-6 object-contain" />
-          <Badge className="absolute -top-1 -right-1 bg-[#FF4444] text-white text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white">
-            3
-          </Badge>
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setNotificationsOpen((prev) => !prev)}
+            aria-label={badgeCount24h > 0 ? `Notifications (${badgeCount24h} notification${badgeCount24h > 1 ? "s" : ""} récentes)` : "Notifications"}
+            aria-expanded={notificationsOpen}
+            className={cn(
+              "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#050505] transition cursor-pointer",
+              notificationsOpen ? "bg-[#DBEAFE]/70" : "hover:bg-[#F0F2F5]"
+            )}
+          >
+            <img src="/images/notif.png" alt="Notifications" className="w-6 h-6 object-contain" />
+            {badgeCount24h > 0 && (
+              <Badge className="absolute -top-1 -right-1 bg-[#FF4444] text-white text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white font-bold">
+                {badgeCount24h > 99 ? "99+" : badgeCount24h}
+              </Badge>
+            )}
+          </button>
+
+          <NotificationDropdown
+            open={notificationsOpen}
+            onClose={() => setNotificationsOpen(false)}
+            userId={userId}
+          />
+        </div>
 
         {/* Profil */}
         <ProfileMenu user={user} onLogout={onLogout} open={profileMenuOpen} onOpenChange={setProfileMenuOpen} />

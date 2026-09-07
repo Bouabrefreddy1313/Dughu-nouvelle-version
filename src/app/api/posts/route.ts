@@ -183,24 +183,34 @@ export async function GET(req: NextRequest) {
         return []
       })
 
-    const raw = await Promise.race([
-      dughuApi.getPostAllRepost(dughuUserId, page).catch((e: unknown) => {
-        console.error("FEED getPostAllRepost ERROR:", e)
-        return null
-      }),
-      dughuApi.getPostAll(dughuUserId, page).catch((e: unknown) => {
-        console.error("FEED getPostAll ERROR:", e)
-        return null
-      }),
+    const pagePostsPromise = dughuApi
+      .getPostPageUser(dughuUserId, page)
+      .then((rawPages: any) => mapPosts(rawPages, undefined) as any[])
+      .catch((e: unknown) => {
+        console.error("FEED getPostPageUser ERROR:", e)
+        return []
+      })
+
+    const [raw, pagePosts, albums] = await Promise.all([
+      Promise.race([
+        dughuApi.getPostAllRepost(dughuUserId, page).catch((e: unknown) => {
+          console.error("FEED getPostAllRepost ERROR:", e)
+          return null
+        }),
+        dughuApi.getPostAll(dughuUserId, page).catch((e: unknown) => {
+          console.error("FEED getPostAll ERROR:", e)
+          return null
+        }),
+      ]),
+      pagePostsPromise,
+      albumsPromise,
     ])
-    if (!raw) {
+
+    if (!raw && pagePosts.length === 0) {
       throw new Error("Le fil Dughu est injoignable.")
     }
-    const posts = mapPosts(raw, undefined) as any[]
-
-    // Enrichit les posts multi-images avec les médias de l'album du viewer
-    // lorsque le fil ne les a pas inclus.
-    const albums = await albumsPromise
+    const userPosts = raw ? (mapPosts(raw, undefined) as any[]) : []
+    const posts = mergeFeedPosts(pagePosts, userPosts)
     if (albums.length) {
       const mediaByPostId = new Map<string, { url: string }[]>()
       for (const album of albums) {
@@ -293,6 +303,29 @@ export async function POST(req: NextRequest) {
     // L'app utilise une base 0 (0=Public, 1=Abonnés, 2=Réseau, 3=Amis).
     // On envoie donc privacyInt + 1.
     dForm.append("postPrivacy", String(privacyInt + 1))
+
+    // Publication pour un espace (page) ou un groupe
+    const pageId = String(
+      formData?.get("page_id") ||
+      formData?.get("pageId") ||
+      jsonBody?.page_id ||
+      jsonBody?.pageId ||
+      ""
+    )
+    if (pageId) {
+      dForm.append("page_id", pageId)
+    }
+
+    const groupId = String(
+      formData?.get("group_id") ||
+      formData?.get("groupId") ||
+      jsonBody?.group_id ||
+      jsonBody?.groupId ||
+      ""
+    )
+    if (groupId) {
+      dForm.append("group_id", groupId)
+    }
 
     if (formData) {
       const content = (formData.get("content") as string) || ""

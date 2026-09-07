@@ -312,9 +312,14 @@ La normalisation technique de ces états est documentée dans
   * Sélecteur de réactions (`ReactionPicker`) : accessible au survol sur desktop, ou par appui long tactile (~350ms) sur mobile, ainsi qu'au clic.
   * Le bouton affiche clairement la réaction active de l'utilisateur (icône et libellé en marron `#A35A2A`) ou « J'aime » neutre en l'absence de réaction.
   * Un clic sur la même réaction annule la réaction (unlike). Choisir une autre réaction remplace immédiatement la réaction précédente.
-  * Agrégation (`ReactionSummary`) : affiche les principales réactions réellement présentes (au maximum 3 sous forme d'icônes empilées `[👍 ❤️ 😮]`) suivies du nombre total de réactions. Aucune réaction fictive n'est inventée.
+  * Agrégation dynamique des réactions (`ReactionSummary`) : affiche une icône par type distinct de réaction présent sur la publication (côte à côte dans l'ordre des types les plus fréquents, sans coder d'icône par défaut en dur, ex. `❤️ 😠 👍`), suivie du nombre total de réactions (`12`). Si un nouvel utilisateur ajoute un type de réaction qui n'était pas encore présent, la nouvelle icône apparaît immédiatement de manière réactive. Aucune réaction fictive n'est inventée.
   * Clic sur le résumé des réactions : ouvre une interface responsive (`ReactionUsersModal` / Bottom Sheet mobile) avec onglets par type (« Toutes », « 👍 », « ❤️ », etc.) et liste des personnes ayant réagi.
   * **Optimistic UI** : mise à jour immédiate des compteurs, du bouton et de l'affichage local sans attendre la réponse serveur, avec synchronisation continue et cohérence absolue entre la carte du fil et la Lightbox.
+* **Affichage du nombre de vues (`views_count`)** :
+  * Dans la ligne des compteurs de chaque publication (`PostCard`), le nombre de vues est affiché à côté des icônes de commentaires et de partages.
+  * Il est matérialisé par l'icône d'œil (`Eye` de `lucide-react`) suivi du compteur formaté de manière compacte via `formatNumber` (ex. `42`, `1.4k`, `2.5M`).
+  * Une info-bulle (`title`) affiche le libellé précis au survol (« X vue(s) »).
+  * Le champ est extrait défensivement par le service de normalisation (`mapPost`) et propagé depuis `views_count` (ou `viewsCount` / `_count.views`).
 * **Barre d'actions complète dans la vue détail** (page `/post/[id]` et lightbox du post d'origine) : **J'aime** (+ palette de réactions) · **Gratifier** (100 points, modale de confirmation) · **Republier** (simple ou avec commentaire) · **Partager** (modale interne `SharePostModal` vers WhatsApp, X, Facebook, LinkedIn, Instagram/copie de lien). Ces actions sont centralisées dans `PostMediaLightbox` et fonctionnent directement depuis la page de détail.
 * Gratifier : bouton d’action rapide qui envoie **100 points** à l’auteur du post
   en un clic (endpoint `points/give`). Une modale de confirmation (« Voulez-vous
@@ -343,6 +348,20 @@ La normalisation technique de ces états est documentée dans
     * Les clics sur les éléments internes du post d'origine (nom d'auteur ouvrant la preview card, hashtags, contrôles vidéo) conservent leur comportement propre sans déclencher intempestivement l'ouverture de la vue complète.
 * **Unicité des publications dans le flux (Feed)** :
   * Le flux d'actualité (`HomePage`) intègre une déduplication systématique des publications par leur identifiant unique (`deduplicatePosts`), éliminant tout doublon lors du défilement infini ou de la création de nouvelles publications, garantissant ainsi des clés de rendu stables (`key={`feed-card-${post.id}-${postIndex}`}`).
+* **Cartes spéciales Vidéos Akwaplay (`AkwaplayPostCard`)** :
+  * Lorsqu'un utilisateur publie une vidéo sur Akwaplay, cette vidéo apparaît sous forme de carte spéciale à deux emplacements clés :
+    1. **Fil d'actualité général** (`/home`) : insérée au même titre qu'une publication classique, avec le header « Akwaplay · Suggestion pour vous ».
+    2. **Profil de l'utilisateur** (`/profile/[username]` ou `/profile/[id]`) : dans l'onglet des publications (« Mes posts »), avec le header « Akwaplay · Nouvelle publication ».
+  * **Design adapté à la charte Dughu** :
+    * **En-tête** : logo circulaire officiel `akp.png` (`/images/akp.png`), libellé contextuel et bouton « ✕ » permettant de masquer la carte du fil sans rechargement.
+    * **Zone vidéo** : grande miniature au ratio 16:9 avec coins arrondis, bouton circulaire Play translucide centré avec effet d'agrandissement au survol, et badge de durée formaté en bas à droite (ex. « 00:05 »).
+    * **Zone d'informations** : titre de la vidéo en gras (cliquable), description secondaire en gris, et ligne de statistiques réelles (pouce avec nombre de likes, œil avec nombre de vues).
+    * **Bouton d'appel à l'action (CTA)** : bouton pleine largeur arborant la couleur primaire officielle de Dughu (`#A35A2A`, survol `#8C4B20`), avec icône play et libellé « Regarder sur Akwaplay ».
+    * **Redirection** : un clic sur la miniature ou le bouton CTA redirige directement vers l'écran de lecture Akwaplay `/akwaplay/watch?v={videoId}`.
+  * **Synchronisation des données** :
+    * Détection automatique via `mapPost` (types `akwaplay`, `akwaplay_video` ou présence du bloc `akwaplay`).
+    * Les statistiques de likes et de vues restent synchronisées avec les données réelles issues d'Akwaplay.
+    * Sur la page de profil, les vidéos publiées sur Akwaplay sont également synchronisées avec les vidéos du créateur pour une visibilité immédiate.
 
 #### Mini-profil (sidebar droite)
 
@@ -403,6 +422,37 @@ La normalisation technique de ces états est documentée dans
   publications ; à l'inverse, « Supprimer » et « Booster » ne sont visibles que sur
   ses propres publications (garde côté affichage, la vérification d'autorisation
   reste côté serveur).
+
+### Tendances (Publications populaires avec le plus d'interactions)
+
+* **Page dédiée `/tendances`** : accessible depuis le bouton « Tendances » de la barre latérale gauche (`LeftSidebar`), avec surbrillance active (`active === "tendances"`) et fermeture automatique du tiroir de navigation sur mobile.
+* **Classement et score d'interaction** :
+  * La page analyse et agrège les publications issues du fil d'actualité pour identifier celles générant le plus fort engagement.
+  * Le score global d'interaction correspond à la somme : `J'aime + Commentaires + Partages/Republications` (`likes + comments + reposts`).
+  * Les publications sont triées par ordre décroissant de score d'interaction, avec en cas d'égalité priorité aux publications les plus récentes.
+* **Filtres interactifs** :
+  * « Toutes les interactions » : classement global combiné (par défaut).
+  * « Plus aimées » : classement selon le nombre de J'aime / réactions.
+  * « Plus commentées » : classement selon le nombre de commentaires.
+  * « Plus partagées » : classement selon le nombre de republications.
+* **Badges et visuels de classement** :
+  * Chaque publication porte un badge distinctif indiquant sa position dans les tendances :
+    * `#1 Tendance Dughu` : badge doré en dégradé ambre/jaune avec flamme animée ;
+    * `#2 Tendance` : badge argenté avec trophée ;
+    * `#3 Tendance` : badge bronze avec trophée ;
+    * `#4+ en tendance` : badge épuré.
+  * Un récapitulatif chiffré affiche le total des interactions et le détail : `X interactions (❤️ likes · 💬 comments · 🔁 reposts)`.
+* **Interactions complètes** :
+  * Intégration complète du composant `PostCard` :
+    * Réactions / J'aime optimistes et persistance immédiate du cache local ;
+    * Ajout de commentaires textuels et fichiers joints ;
+    * Republication directe ou avec commentaire ;
+    * Sauvegarde / mise en favoris ;
+    * Actions du menu 3 points (suppression avec confirmation pour l'auteur, masquage, blocage, boost, copie du lien).
+* **États de chargement et vide** :
+  * Squelettes animés pendant le chargement initial ;
+  * Bouton de rafraîchissement manuel avec animation de rotation ;
+  * État vide invitant à explorer le fil d'actualité si aucune publication n'a d'interaction.
 
 ### Stories
 
@@ -760,6 +810,32 @@ retombent sur le cookie de session.
 * États de chargement (squelettes) et d'erreur (message + réessayer) gérés
   pour les appels API ; aucun `fetch` natif côté frontend.
 
+### Affiliation & Parrainage
+
+La page `/affiliation` (« Affiliation & Parrainage ») est protégée (groupe `(protected)`) et directement accessible depuis l'élément **« Affiliation » de la sidebar gauche** (`LeftSidebar`, actif avec l'icône `UserPlus` et fond vert `#42B72A`).
+
+* **Structure de la page** :
+  1. **En-tête de section** : carte supérieure avec photo de profil de l'utilisateur, son nom complet, et le sous-titre « Lien de promotion » accompagné de l'icône de partage.
+  2. **Bloc principal (fond jaune doré éclatant)** :
+     - Badge « Programme de parrainage ».
+     - Titre d'accroche : « Gagnez 100 Points pour chaque utilisateur que vous nous référez ! ».
+     - Label « Votre lien de promo est ».
+     - Champ en lecture seule affichant le lien de parrainage complet avec sélection automatique et bouton « Copier » (avec retour visuel : icône coche, fond vert `#25D366`, libellé « Copié » et toast de confirmation).
+     - Illustration visuelle à droite avec mégaphone et badge de gratification `+100 pts`.
+  3. **Bloc « Partager sur »** :
+     - 5 boutons réseaux sociaux cliquables et stylisés aux couleurs officielles : Facebook, X (Twitter), WhatsApp, Pinterest et LinkedIn.
+     - Chaque bouton ouvre la fenêtre de partage native avec le lien de parrainage et un message d'invitation personnalisé.
+  4. **Section « Utilisateurs inscrits via votre lien »** :
+     - En-tête avec compteur d'utilisateurs référés.
+     - **État vide** : icône d'utilisateurs épurée, titre « Aucun utilisateur inscrit pour le moment », sous-texte « Partagez votre lien pour commencer à gagner des points » et bouton d'action rapide pour copier le lien de parrainage.
+     - **Liste d'utilisateurs** : avatar, nom complet, identifiant `@username`, et date d'inscription formatée en français (« Inscrit le ... »).
+     - **Pagination intégrée** : navigation de page fluide avec boutons « Précédent » et « Suivant » et indicateur « Page X sur Y ».
+* **Architecture et intégration API** :
+  - `GET /getSpecificUser/{userId}/{userId}` : extraction du champ `shareLink` côté serveur via `getAffiliateDetails` dans `src/services/affiliate/affiliate.server.ts`, relayé par la route interne `/api/affiliate`.
+  - `GET /getAffiliateUsers/{userId}?page={page}` : récupération paginée des utilisateurs référés via `getAffiliateUsers`, relayée par la route interne `/api/affiliate/users`.
+  - Système HTTP 100 % conforme : services frontend Axios cliente (`src/services/affiliate/affiliate.service.ts`), hooks TanStack Query dédiés (`src/hooks/queries/use-affiliate.ts`) et services serveur Axios (`affiliate.server.ts`).
+  - Gestion complète des états de chargement (`Loader2` animé), d'erreur (avec bouton « Réessayer ») et état vide.
+
 ### Mes sauvegardes
 
 La page `/sauvegardes` (« Mes sauvegardes ») est protégée (groupe `(protected)`)
@@ -907,7 +983,7 @@ quand on s'y trouve, le clic ferme le drawer mobile).
   * `GET /getPageOffers/{page_id}/{user_id}?page=` → offres ;
     `GET /offers/show/{id}` → détail d'offre ; `POST /offers` → création ;
   * `POST /page` → création **et** édition (avec `page_id`) ;
-  * `POST /likePage {page_id, user_id}` → like/unlike ;
+  * `POST /likePage {page_id, user_id}` → like/unlike (renvoie `active: boolean` ou `is_like: boolean|number`) ; normalisé en `isLike` pour afficher le toast approprié (« Espace aimé ! ❤️ » ou « Like retiré. ») et masquer automatiquement le bouton sur la carte de publication une fois l'espace aimé (même comportement que le bouton « Suivre ») ;
   * `POST /boostPrice {days}` → prix (`{points, fcfa}`) **avant**
     `POST /boostPage {days, page_id, user_id}` ;
   * `POST /destroyPage/{id} {password}` → suppression (**mot de passe
@@ -942,7 +1018,9 @@ quand on s'y trouve, le clic ferme le drawer mobile).
 * **Onglet « Actualité »** (première position, `PagesFeedTab.tsx`) : fil global
   des publications des espaces via `GET /api/pages/feed` (service serveur
   `fetchPagesPostsFeed` → `getPostPageUser/{user_id}`, mapper du fil principal
-  `mapPosts`). Chaque publication est rendue avec la **carte `PostCard` du fil**
+  `mapPosts`).
+  * **Création de publications d'espace** : un compositeur `PostComposer` est affiché en tête de l'onglet Actualité pour tout utilisateur possédant ou administrant des espaces (requêtes `usePagesList("administered")` et `usePagesList("mine")`). Un sélecteur permet de choisir l'espace émetteur, et la soumission transmet `page_id` à `POST /post`.
+  * Chaque publication est rendue avec la **carte `PostCard` du fil**
   et sa barre d'actions complète : **J'aime + palette de 6 réactions**,
   **Commenter** (liste + ajout + fichiers), **Republier** (simple ou avec
   texte), **Partager** (modale interne, lien `shareLink`), menu « 3 points »
@@ -952,6 +1030,8 @@ quand on s'y trouve, le clic ferme le drawer mobile).
   à l'auteur pour les publications personnelles (pas de bouton « Suivre » sur
   les publications de Page), chargement automatique au scroll (5 publications
   par page) avec bouton « Charger plus » en cas d'échec de pagination.
+* **Publication d'espace depuis le fil d'accueil (`/home`)** : le compositeur de publication principal (`PostComposer`) intègre également les espaces administrés de l'utilisateur, lui permettant de choisir entre publier avec son profil personnel ou au nom de l'un de ses espaces. En parallèle, `GET /api/posts` fusionne chronologiquement les publications d'espaces (`getPostPageUser`) avec les publications d'utilisateurs (`getPostAll`/`getPostAllRepost`).
+* **Publication depuis la page de détail d'un espace (`SpaceDetailPage.tsx`)** : l'onglet « Posts » intègre un compositeur pour les administrateurs de l'espace (`isAdmin`), publiant directement sous l'identité de l'espace.
   ⚠️ L'API Dughu ne fournit pas de « Je n'aime pas » pour les publications
   (seules les capsules en ont un) ; la palette de réactions (J'aime, J'adore,
   Haha, Wouah, Triste, Énervé) couvre l'ensemble des réactions disponibles.
@@ -1150,15 +1230,22 @@ quand on s'y trouve, le clic ferme le drawer mobile).
   - Colonne droite : grande cover, avatar centré, détails du canal (catégorie, description, visibilité, nombre de membres), bouton « Paramètres & Adhésions » pour l'administrateur, et onglets Médias / Documents / Demandes (liste directe des adhésions avec boutons Accepter/Refuser).
 * **Écran 4 — Modale de gestion et paramètres du canal (`CanalSettingsModal`)** :
   - Accessible depuis l'en-tête du chat, la colonne latérale droite et le bouton « Gérer » sur les cartes de l'onglet « Mes canaux ».
-  - Onglet « Demandes d'adhésion » : liste des utilisateurs en attente avec avatar, nom, date et boutons en 1 clic « Accepter » (vert) et « Refuser » (rouge) branchés sur `handleJoinRequest`.
+  - Onglet « Demandes d'adhésion & Notifications » :
+    - Sous-onglets intégrés : « En attente » (`GET /receivedNotifications?user_id={uid}&canal_id={cid}&page={p}`) et « Traitées » (`GET /processedNotifications?user_id={uid}&canal_id={cid}&page={p}`).
+    - Actions en 1 clic pour chaque demande : « Accepter » (vert) et « Refuser » (rouge) branchées sur `POST /handleJoinRequest/{requestId}` avec `user_id`, `canal_id` et `accept` (1 ou 0).
+    - Suppression d'une notification via bouton corbeille branché sur `DELETE /delecteNotifications/{notificationId}?user_id={uid}&canal_id={cid}` (typo backend `delecte` respectée).
   - Onglet « Membres » : liste complète des adhérents du canal avec rôle (Admin / Membre).
   - Onglet « Modifier le canal » : formulaire d'édition complet (nom, description, catégorie, type public/privé, statut actif/inactif, changement interactif du logo et de la couverture avec prévisualisation) branché sur `useCreateOrUpdateCanal` via POST `/canal`.
-* **Architecture technique** :
-  - Respect strict des deux instances Axios (`dughuServer` côté serveur pour les 32 endpoints Dughu, `apiClient` côté client pour les routes internes `/api/canal/**`).
-  - Découverte globale des canaux branchée en `GET /api/canal?scope=all` (avec filtrage catégorie et recherche textuelle `research`).
-  - Normalisation défensive dans `canal.mapper.ts` prenant en charge l'enveloppe `result.data` de l'API Dughu, la résolution directe des médias vers le stockage public S3 (`dughuprod.s3.amazonaws.com/storage/...`), l'identifiant auteur `autor_id`, le flag `isRejoind` et le compteur `user_count`. Fallback défensif `onError` sur les cartes.
+* **Architecture technique des notifications de canal** :
+  - Respect strict des deux instances Axios (`dughuServer` côté serveur, `apiClient` côté client pour les routes internes `/api/canal/**`).
+  - Transmission systématique des paramètres `user_id` et `canal_id` sur tous les endpoints de notifications de canal :
+    - Réception des notifications : `GET /receivedNotifications?user_id={uid}&canal_id={cid}&page={page}`
+    - Notifications traitées : `GET /processedNotifications?user_id={uid}&canal_id={cid}&page={page}`
+    - Suppression de notification : `DELETE /delecteNotifications/{id}?user_id={uid}&canal_id={cid}`
+    - Traitement d'adhésion : `POST /handleJoinRequest/{id}` avec `{ user_id, canal_id, accept }`
+  - Normalisation défensive dans `canal.mapper.ts` déballant les conteneurs `raw.receivedNotifications` et `raw.processedNotifications` (`data`, `current_page`, `last_page`, `total`, `has_more`).
   - Aucun `fetch` natif côté frontend.
-  - Hooks TanStack Query dédiés (`useCanals`, `useMyCanals`, `useJoinedCanals`, `useCanalDetail`, `useCanalMessages`, `useCanalFavorites`, `useCanalPolls`, `useCanalMembers`, `useReceivedNotifications`, `useHandleJoinRequest`, `useCreateOrUpdateCanal`, etc.).
+  - Hooks TanStack Query dédiés (`useCanals`, `useMyCanals`, `useJoinedCanals`, `useCanalDetail`, `useCanalMessages`, `useCanalFavorites`, `useCanalPolls`, `useCanalMembers`, `useReceivedNotifications`, `useProcessedNotifications`, `useDeleteNotification`, `useHandleJoinRequest`, `useCreateOrUpdateCanal`, etc.).
 
 ## 4. Fonctionnalités futures
 
@@ -1468,6 +1555,108 @@ routes BFF dans `src/app/api/` via `createAkwaProxyRoute` :
 Le hook `useAkwaHomeVideos` bloquait le chargement quand `userId` était une
 chaîne vide (`""`). La garde a été renforcée pour attendre que l'userId soit
 non-vide avant de déclencher les requêtes API.
+
+---
+
+## Notifications
+
+Le module Notifications de Dughu assure deux aspects fondamentaux de la plateforme sociale : l'affichage réactif des notifications reçues par l'utilisateur connecté, et la diffusion ciblée de notifications suite aux interactions clés (réactions, commentaires, pokes, abonnements/relations, etc.).
+
+### 1. Affichage des notifications (Header & Dropdown)
+
+* **Déclenchement & Intégration Header** :
+  - L'icône de cloche située dans le header de l'application (`Header.tsx`) intègre un badge dynamique basé sur une **fenêtre glissante de 24 heures** (`badgeCount24h`).
+  - Le badge comptabilise le nombre de notifications dont la date de réception (`created_at`) est postérieure à `now() - 24h`, indépendamment du statut `seen` (lu ou non lu).
+  - Si l'utilisateur reçoit 30 notifications dans une journée, le badge affiche 30. Le lendemain, même si ces notifications sont toujours présentes dans l'historique, le badge revient automatiquement à 0 tant qu'aucune nouvelle notification n'est reçue dans les dernières 24 heures.
+  - Le badge n'apparaît que si `badgeCount24h > 0` (avec affichage plafonné à `99+` en cas de volume supérieur).
+  - Un polling automatique toutes les 30 secondes (`useNotificationUnreadCount`, `refetchInterval: 30000`) maintient le compteur à jour sans rechargement de page.
+  - Le clic sur la cloche bascule l'affichage du panneau déroulant responsive `NotificationDropdown`. Le panneau se referme automatiquement lors d'un clic extérieur ou de la sélection d'une notification menant à une navigation.
+
+* **Panneau Déroulant (`NotificationDropdown`)** :
+  - **En-tête** : titre « Notifications », compteur de non lues et bouton d'action globale « Tout marquer comme lu ».
+  - **Onglets de filtrage rapide** : « Toutes » (`filter=all`), « Pokes » (`filter=poke`), « Non lues » (`filter=unread`).
+  - **Composant unifié `NotificationCard`** : carte réutilisable affichant l'avatar, les badges d'icône thématiques, le titre/expéditeur, le texte, le temps relatif et la puce d'état.
+  - **Règle Satrivium IA & Attribution/Retrait de points** :
+    - Pour toute notification liée à l'IA Satrivium (`satrivium`) ainsi que pour toute notification d'attribution ou de retrait de points (`points_bonus_inc`, `gain`, `retrait`, déductions, etc.) :
+      - Le **titre** de la notification est obligatoirement **« Satrivium »** (affiché en gras au-dessus du message).
+      - Le nom de l'expéditeur (`notifier.fullName`) est normalisé à **« Satrivium »**.
+      - L'**avatar** affiché est obligatoirement l'icône fixe `/images/logoSat/souriire.png`.
+  - **Pied de panneau** : lien **« Voir plus de notifications »** permettant d'accéder directement à la page dédiée `/notifications`.
+
+### 2. Page dédiée « Toutes les notifications » (`/notifications`)
+
+* **Accès** : lien au pied du dropdown du header ou navigation directe via `/notifications`.
+* **Système d'onglets de catégories horizontaux** :
+  - Barre défilable horizontalement avec boutons de défilement gauche/droite pour un confort tactile et bureau.
+  - 15 catégories supportées :
+    1. **Tout** (`filter=all`, actif par défaut, affiche toutes les notifications sans distinction)
+    2. **Relation** (`filter=relation`, abonnements, follow et demandes d'amis)
+    3. **Points** (`filter=points`, attribution et suivi des points)
+    4. **Badges** (`filter=badges`, récompenses débloquées)
+    5. **Pokes** (`filter=poke`, pokes et signes reçus)
+    6. **Commentaire** (`filter=comment`, commentaires sous les posts)
+    7. **Réactions** (`filter=reaction`, mentions J'aime et réactions)
+    8. **Capsules** (`filter=capsules`, activités sur les capsules vidéo)
+    9. **Événement** (`filter=event`, rappels et invitations)
+    10. **Akwaplay** (`filter=akwaplay`, vidéos et contenus Akwaplay)
+    11. **Finances** (`filter=finance`, transactions et informations financières)
+    12. **Groupe** (`filter=group`, activités au sein des groupes)
+    13. **Espaces** (`filter=space`, interactions sur les espaces/pages)
+    14. **Canaux** (`filter=channel`, diffusions de chaînes)
+    15. **Satrivium IA** (`filter=satrivium`, alertes, réponses et attributions de points de l'IA avec logo fixe `/images/logoSat/souriire.png`)
+* **Table de correspondance centralisée et extensible (`NOTIF_TYPE_TO_CATEGORY`)** :
+  - Centralisation dans `src/services/notifications/notifications.mapper.ts` du mapping entre `type` (+ `type2` via format `type:type2`) renvoyé par l'API Dughu et la catégorie du frontend.
+  - Correspondances confirmées :
+    - `join_group`, `group_join_request` -> `group` (Groupe)
+    - `reaction_post`, `reaction` -> `reaction` (Réactions)
+    - `invite_page` (avec `type2: notification`), `like_page` -> `space` (Espaces)
+    - `points_bonus_inc`, `points_bonus_dec`, `gain` (avec `type2: points_gain`), `opportunite:points_opportunity` -> `points` (Points)
+    - `pokes`, `poke` -> `pokes` (Pokes)
+    - `follow`, `follow_request`, `follow_accept` -> `relation` (Relation)
+    - `comment`, `comment_post` -> `comment` (Commentaire)
+    - `report_capsule`, `new_capsule` -> `capsules` (Capsules)
+    - `reaction_akwaplay` -> `akwaplay` (Akwaplay)
+    - `report_canal` -> `channel` (Canaux)
+  - Règle Satrivium : toute notification issue de l'IA Satrivium ou attribuant des points par Satrivium est automatiquement incluse dans la catégorie « Satrivium IA ».
+  - Structure extensible permettant d'ajouter facilement tout nouveau type réel fourni sans deviner ni utiliser de correspondances textuelles arbitraires.
+* **Comportement réseau et délégation backend (`BACKEND_SUPPORTED_FILTERS`)** :
+  - L'API Dughu ne supporte nativement que les filtres `["all", "points", "poke", "capsules", "event", "akwaplay", "group"]`.
+  - Pour les catégories non supportées côté backend (ex. `space`, `satrivium`, `badges`), le front interroge `filter=all` et applique le filtrage strict via `NOTIF_TYPE_TO_CATEGORY` pour éviter de recevoir des listes vides dues à une clause SQL restrictive côté backend.
+  - Aucune notification de points ne fuit dans les catégories commentaires ou réactions.
+* **Pagination & Compteur de non-lues** :
+  - La pagination de la page « Toutes les notifications » exploite directement les champs renvoyés par l'API (`total`, `current_page`, `per_page`, `last_page`, `has_more`).
+  - Le clic sur « Charger plus de notifications » accumule les éléments de la page suivante sans écraser les précédents.
+  - Le champ `unread_count` renvoyé par l'API (compteur global côté base de données) est affiché à titre informatif dans l'en-tête de la page (« • X non lues »), tandis que le badge du header conserve strictement sa logique des 24 heures glissantes.
+* **Navigation et redirection** :
+  - Clic sur une notification : redirection instantanée vers la ressource ciblée (`url` ou `full_link`), avec redirection systématique vers `/points` pour toutes les notifications de points, et marquage immédiat comme lu.
+  - Actions : bouton d'actualisation manuelle et bouton « Tout marquer comme lu ».
+  - États de chargement (squelettes animés) et états vides personnalisés par catégorie.
+
+### 3. Envoi de notifications (`POST /sendCustomNotification`)
+
+* **Endpoint & Payload** :
+  - Route backend : `POST /sendCustomNotification`.
+  - Format de requête standardisé :
+    ```json
+    {
+      "receiver_user_id": "123",
+      "title": "Nouvelle réaction",
+      "description": "Jean a réagi à votre publication.",
+      "typeNotif": "reaction_post",
+      "url": "/post/1905"
+    }
+    ```
+* **BFF & Architecture Réseau** :
+  - Client frontend : appel via `notifications.service.ts` -> instance Axios cliente (`apiClient.post("/notifications/send", payload)`).
+  - Route Handler Next.js : `POST /api/notifications/send` vérifie la session utilisateur active et transmet l'appel via `dughuServerJson` avec le token d'authentification Bearer.
+  - Sécurité : l'expéditeur ne peut pas forger d'identité arbitraire ; le serveur gère les autorisations et ne divulgue aucun secret d'infrastructure.
+
+* **Déclencheurs d'actions intégrés** :
+  - **Réactions sur une publication** : `notifyPostReaction(postAuthorId, currentUserName, postId)` appelé lors d'un like/réaction sur le fil d'accueil ou les tendances (si l'auteur est différent de l'utilisateur actuel).
+  - **Commentaires sur une publication** : `notifyPostComment(postAuthorId, currentUserName, postId, commentText)` déclenché à la publication d'un nouveau commentaire.
+  - **Pokes** : `notifyPoke(targetUserId, currentUserName)` déclenché lors d'un poke initial ou d'un poke en retour.
+  - **Relations & Groupes & Pages** : helpers prêts à l'emploi `notifyRelationRequest`, `notifyGroupJoin`, `notifyPageLike` disponibles dans `notifications.service.ts`.
+
 
 
 

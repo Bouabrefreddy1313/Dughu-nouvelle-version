@@ -183,15 +183,25 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<UserPlus size={20} />}
             label="Affiliation"
+            active={active === "affiliation"}
             iconBg="bg-[#42B72A]"
             iconColor="text-white"
+            onClick={() => {
+              router.push("/affiliation")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
             icon={<BarChart3 size={20} />}
             label="Tendances"
+            active={active === "tendances"}
             iconBg="bg-[#F5C33B]"
             iconColor="text-[#5C3D00]"
+            onClick={() => {
+              router.push("/tendances")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem

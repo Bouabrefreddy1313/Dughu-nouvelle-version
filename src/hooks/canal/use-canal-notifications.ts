@@ -26,11 +26,12 @@ export function useReceivedNotifications(
 
 export function useProcessedNotifications(
   userId: string | undefined,
-  canalId: string | undefined
+  canalId: string | undefined,
+  page = 1
 ) {
   return useQuery({
-    queryKey: ["canal", "notifications", "processed", userId, canalId],
-    queryFn: ({ signal }) => fetchProcessedNotifications(userId!, canalId!, signal),
+    queryKey: ["canal", "notifications", "processed", userId, canalId, page],
+    queryFn: ({ signal }) => fetchProcessedNotifications(userId!, canalId!, page, signal),
     enabled: !!userId && !!canalId,
     staleTime: 15_000,
   })

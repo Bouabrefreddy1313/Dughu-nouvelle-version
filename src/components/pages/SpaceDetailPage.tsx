@@ -53,6 +53,14 @@ import AboutPanel from "./AboutPanel"
 import { InvitePanel, StatsPanel } from "./InviteAndStatsPanels"
 import { PageEmpty, PageError, PageSkeleton } from "./PageStates"
 
+import { createPost } from "@/services/posts/posts.service"
+import { userMessage } from "@/lib/api/api-error"
+
+const PostComposer = dynamic(
+  () => import("@/components/composer/PostComposer").then((mod) => ({ default: mod.PostComposer })),
+  { ssr: false }
+)
+
 const PostCard = dynamic(
   () => import("@/components/feed/PostCard").then((mod) => ({ default: mod.PostCard })),
   {
@@ -108,11 +116,55 @@ export default function SpaceDetailPage() {
   // Les onglets de gestion ne concernent que les administrateurs de l'espace.
   const tabs = isAdmin ? TABS : TABS.filter((item) => !["admins", "stats", "invite"].includes(item.key))
 
+  const handleCreatePost = async (data: {
+    content: string
+    color?: any
+    images?: File[]
+    videos?: File[]
+    audios?: File[]
+    privacy?: number
+  }) => {
+    const formData = new FormData()
+    formData.append("content", data.content)
+    formData.append("userId", String(rawUser?.id || ""))
+    formData.append("dughuUserId", String(rawUser?.dughu?.userId || dughuUserId || ""))
+    formData.append("page_id", String(pageId))
+    formData.append("pageId", String(pageId))
+
+    if (data.privacy != null) formData.append("privacy", String(data.privacy))
+    if (data.color) {
+      formData.append("color", JSON.stringify(data.color))
+      if (data.color.id != null) formData.append("color_id", String(data.color.id))
+      if (data.color.color_1) formData.append("color_1", data.color.color_1)
+      if (data.color.color_2) formData.append("color_2", data.color.color_2)
+      if (data.color.text) formData.append("text_color", data.color.text)
+    }
+    if (data.images) data.images.forEach((img) => formData.append("images", img))
+    if (data.videos) data.videos.forEach((vid) => formData.append("videos", vid))
+    if (data.audios) data.audios.forEach((aud) => formData.append("audios", aud))
+
+    try {
+      const res = await createPost(formData)
+      if (res?.success) {
+        toast.success("Publication créée avec succès !")
+        void postsQuery.refetch()
+      } else {
+        toast.error(res?.message || "Impossible de publier.")
+      }
+    } catch (error) {
+      toast.error(userMessage(error, "Erreur lors de la publication."))
+    }
+  }
+
   const handleLike = async () => {
     try {
       const result = await likeMutation.mutateAsync()
-      if (result.success === false && result.isLike === undefined) toast.error(result.message || "Impossible de liker cet espace.")
-      else toast.success(result.isLike === false ? "Like retiré." : "Espace aimé ! ❤️")
+      if (result.success === false && result.isLike === undefined) {
+        toast.error(result.message || "Impossible de liker cet espace.")
+      } else {
+        const isNowLiked = result.isLike !== undefined ? result.isLike : !page?.isLiked
+        toast.success(isNowLiked ? "Espace aimé ! ❤️" : "Like retiré.")
+      }
     } catch {
       toast.error("Impossible de liker cet espace.")
     }
@@ -408,6 +460,20 @@ export default function SpaceDetailPage() {
 
                 {tab === "posts" && (
                   <div role="tabpanel" aria-label="Publications de l'espace">
+                    {isAdmin && (
+                      <div className="mb-6">
+                        <PostComposer
+                          user={{
+                            id: String(page?.pageId || pageId),
+                            name: page?.pageTitle || page?.pageName || "Espace",
+                            avatar: page?.avatar || null,
+                          }}
+                          onSubmit={handleCreatePost}
+                          placeholder={`Publier pour ${page?.pageTitle || page?.pageName || "cet espace"}...`}
+                          className="shadow-sm"
+                        />
+                      </div>
+                    )}
                     {postsQuery.isLoading ? (
                       <div className="space-y-6">
                         {[1, 2, 3].map((i) => (
@@ -456,11 +522,15 @@ export default function SpaceDetailPage() {
                                 likesCount={p._count?.likes ?? 0}
                                 commentsCount={p._count?.comments ?? 0}
                                 sharesCount={p._count?.reposts ?? 0}
+                                viewsCount={p.viewsCount ?? p.views_count ?? p._count?.views ?? 0}
                                 reacted={p.reacted}
                                 reactions={p.reactions}
                                 users={p.reactionUsers}
                                 parentPost={p.parentPost}
                                 postPrivacy={p.postPrivacy}
+                                isPageLiked={!!page?.isLiked}
+                                isPageLikeLoading={likeMutation.isPending}
+                                onTogglePageLike={() => void handleLike()}
                                 className="shadow-sm"
                               />
                             </div>
