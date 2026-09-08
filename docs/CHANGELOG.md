@@ -11,8 +11,167 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-09-08
+### Événements — Implémentation complète du module Événements
+* **Demande utilisateur** :
+  - Créer le module Événements accessible depuis le bouton « Événements » de la barre latérale gauche avec 4 écrans/modales : liste, création/édition, détail (structuré en 3 zones), modale d'invitation.
+  - Intégrer les endpoints backend `GET /events`, `GET /show/event/{event_id}/{user_id}`, `POST /events` (multipart/form-data), `DELETE /destroyEvent/{event_id}/{user_id}`, `POST /event_inscription`, `POST /event_interest`, `GET /getPostEvents/{event_id}/{user_id}`, `POST /userInvitedRegisteredEvents`, `POST /listInvitedEvents`.
+* **Modifications effectuées** :
+  - `src/components/sidebar/LeftSidebar.tsx` : activation du bouton « Événements » avec redirection vers `/events` et état actif (`active === "events"`).
+  - `src/types/events/events.types.ts` : modèles complets (`DughuEvent`, `EventOrganizer`, `CreateEventInput`, `EventInviteInput`, `EventsListResponse`, `EventDetailResponse`, `EventToggleResponse`, `EventInvitedListResponse`).
+  - `src/services/events/events.mapper.ts` : mappers défensifs normalisant les structures d'événements, dates, organisateurs, statuts (`isPassed`, `isGoing`, `isInterested`) et listes d'invités ; résolution complète des chemins relatifs d'images vers les URLs S3 absolues (`https://dughuprod.s3.amazonaws.com/...`) pour `cover` et `coverPath`.
+  - `src/components/events/EventCard.tsx` & `EventDetailPage.tsx` : fiabilisation de l'affichage des images de couverture avec priorité à `coverPath`, mode `unoptimized` et gestion d'erreur `onError` avec repli propre.
+  - `src/services/events/events.server.ts` : service serveur sécurisé avec instances Axios serveur (`dughuServerGet`, `dughuServerMultipart`, `dughuServerJson`, `dughuServerDelete`).
+  - `src/app/api/events/route.ts` & sous-routes : Route Handlers Next.js pour `/api/events`, `/api/events/[id]`, `/api/events/[id]/inscription`, `/api/events/[id]/interest`, `/api/events/[id]/posts`, `/api/events/[id]/invite`, `/api/events/[id]/invited`.
+  - `src/services/events/events.service.ts` : service client utilisant `apiClient` sans `fetch` natif conformément à `AGENTS.md`.
+  - `src/hooks/queries/use-events.ts` : hooks TanStack Query avec gestion de cache (`useEventsList`, `useEventDetail`, `useCreateEventMutation`, `useUpdateEventMutation`, `useDeleteEventMutation`, `useToggleEventInscriptionMutation`, `useToggleEventInterestMutation`, `useEventPosts`, `useInviteUserToEventMutation`, `useInvitedUsers`).
+  - `src/components/events/EventCountdown.tsx` : compte à rebours en 4 pastilles arrondies (Jours, Heures, Min, Sec) mis à jour chaque seconde côté client avec indicateurs clairs.
+  - `src/components/events/EventShareDropdown.tsx` : menu de partage social multi-plateformes et copie de lien avec bouton vert « PARTAGER ».
+  - `src/components/events/EventInviteModal.tsx` : modale d'invitation avec recherche debouncée (~400ms), liste d'amis, pré-cochage des invités via `POST /listInvitedEvents`, envoi d'invitation optimiste via `POST /userInvitedRegisteredEvents` et bouton fermer.
+  - `src/components/events/EventCard.tsx` : carte d'événement responsive avec ratio 16:9, badge date flottant, localisation, organisateur, compteurs, et badge distinctif vert « À venir » avec puce pulsante (ou « Passé »).
+  - `src/components/events/EventListPage.tsx` & `events.mapper.ts` : tri prioritaire systématique positionnant tous les événements à venir en tête de liste (par date croissante), suivis des événements passés ; messages et actions adaptés pour l'onglet « À venir ».
+  - `src/components/events/EventFormPage.tsx` : formulaire de création et modification avec upload de couverture 16:9, validation stricte, sélecteurs date/heure et intégration du composant `LocationAutocomplete`.
+  - `src/components/events/LocationAutocomplete.tsx` & `src/app/api/places/autocomplete/route.ts` : autocomplétion intelligente des adresses et lieux Google Maps avec recherche en temps réel (debounce ~300ms), support Google Places API si configurée et fallback haute précision OSM/Photon mondial, navigation au clavier et sélection instantanée.
+  - `src/components/events/EventDetailPage.tsx` : page détail structurée en 3 zones (bandeau du haut avec couverture et countdown + actions, colonne gauche avec infos/maps interactive/description, colonne droite avec PostComposer et publications de l'événement).
+  - `src/app/(protected)/events/page.tsx`, `src/app/(protected)/events/create/page.tsx`, `src/app/(protected)/events/[id]/page.tsx`, `src/app/(protected)/events/[id]/edit/page.tsx` : routes Next.js avec métadonnées SEO.
+  - `docs/CAHIER_DES_CHARGES.md` : mise à jour du cahier des charges avec les spécifications du module Événements.
+
+### Finances — Implémentation complète du module de financement participatif
+* **Demande utilisateur** :
+  - Créer le module Finances complet connecté au bouton « Finance » de la barre latérale gauche.
+  - Implémenter les 3 écrans (Liste `/finance`, Création/Édition `/finance/create` et `/finance/[id]/edit`, Détail `/finance/[id]`) identiques aux spécifications et maquettes.
+  - Intégrer les endpoints backend `GET /finance`, `GET /financeUser/{user_id}`, `GET /showFinance/{id}`, `POST /finance` (multipart), `DELETE /finance/{id}`, `POST /finance/don`.
+* **Modifications effectuées** :
+  - `src/components/sidebar/LeftSidebar.tsx` : activation de l'entrée « Finance » avec redirection `/finance` et gestion de l'état actif ; connexion du bouton « Dealtoo » vers `https://dealtoo.co/` (ouverture sécurisée dans un nouvel onglet).
+  - `src/lib/api/server/dughu-instance.ts` : ajout de l'utilitaire `dughuServerDelete` pour les suppressions idempotentes protégées côté serveur.
+  - `src/types/finance/finance.types.ts` : typage complet des modèles du domaine Finances (`FinanceCampaign`, `FinanceAuthor`, `FinanceQueryParams`, `CreateFinanceInput`, `FinanceDonationInput`, réponses API).
+  - `src/services/finance/finance.mapper.ts` : mappers défensifs avec gestion de tous les formats numériques, des dates, des avatars et du calcul du pourcentage de progression.
+  - `src/services/finance/finance.server.ts` : service serveur avec instances Axios protégées appelant les routes backend Dughu.
+  - `src/services/finance/finance.service.ts` : service frontend centralisé appelant les Route Handlers `/api/finance`.
+  - `src/hooks/queries/use-finance.ts` : hooks TanStack Query pour les listes (globale et utilisateur), le détail, et les mutations (création/édition, suppression, don).
+  - `src/app/api/finance/route.ts`, `src/app/api/finance/user/[userId]/route.ts`, `src/app/api/finance/[id]/route.ts`, `src/app/api/finance/don/route.ts` : Route Handlers Next.js avec validation stricte et sécurité de session.
+  - `src/components/finance/FinanceCard.tsx` : carte de financement avec image 16:9, menu contextuel ⋮ (Modifier/Supprimer) pour le créateur, ligne auteur, montant en orange et barre de progression.
+  - `src/components/finance/FinanceListPage.tsx` : page principale avec barre de recherche rapide (debounce ~400ms), onglets « Parcourir » et « Mes demandes », bouton pill « + CRÉER » (#8B5E34) et grille responsive 2 colonnes.
+  - `src/components/finance/FinanceFormPage.tsx` : écran de création et d'édition avec bandeau marron en dégradé, champs requis, zone de dépôt d'image avec aperçu et bouton « 🖼 Choisir une image ».
+  - `src/components/finance/FinanceDetailPage.tsx` : écran détail en 2 colonnes avec image plein format, bloc auteur, description complète, carte de progression avec indicateurs colorés, bandeau vert « ✓ Objectif atteint ! », modal de don et menu déroulant de partage.
+  - `src/components/finance/FinanceDonationModal.tsx` & `FinanceShareDropdown.tsx` : modal de don en points et menu déroulant de partage multi-plateformes (WhatsApp, Facebook, Twitter/X, Telegram, LinkedIn, copie de lien).
+  - `src/app/(protected)/finance/page.tsx`, `src/app/(protected)/finance/create/page.tsx`, `src/app/(protected)/finance/[id]/page.tsx`, `src/app/(protected)/finance/[id]/edit/page.tsx` : routes protégées Next.js avec métadonnées SEO.
+  - `docs/CAHIER_DES_CHARGES.md` : mise à jour avec la documentation complète du module Finances.
+
+### Notifications — Implémentation du système complet In-App & Web Push
+* **Demande utilisateur** :
+  - Mettre en place un système complet de notifications In-App (bannières interactives en direct) et Push (notifications système / arrière-plan).
+* **Modifications effectuées** :
+  - `public/sw.js` : création du Service Worker pour la gestion des événements Web Push et du clic sur notification (`notificationclick` focalisant la fenêtre Dughu ou ouvrant l'URL de l'interaction).
+  - `src/lib/audio/notification-sound.ts` : synthétiseur Web Audio API émettant un carillon discret et harmonique (C5 -> E5) lors de l'arrivée d'une notification In-App sans ressource externe.
+  - `src/lib/notifications/notification-preferences.ts` : gestionnaire de préférences locales (`inAppEnabled`, `pushEnabled`, `soundEnabled`, `promptDismissed`).
+  - `src/hooks/notifications/use-push-notifications.ts` : hook gérant l'enregistrement du Service Worker, la demande de permission `Notification.requestPermission()` et l'envoi de notifications système quand l'onglet est masqué.
+  - `src/hooks/notifications/use-in-app-notifications.ts` : hook surveillant les nouvelles notifications non lues en continu (polling 15s) avec queue de bannières in-app au premier plan et bascule vers les notifications push système en arrière-plan (`document.hidden`).
+  - `src/components/notifications/InAppNotificationBanner.tsx` : composant de bannière flottante interactive avec avatar, icône de type, titre, texte, minuteur visuel de 6s avec barre de progression, bouton fermer et redirection directe au clic.
+  - `src/components/notifications/PushPermissionPrompt.tsx` : bandeau non-bloquant invitant à activer les notifications push avec bénéfices clairs.
+  - `src/components/notifications/NotificationManager.tsx` : composant coordinateur global monté dans `MainLayout.tsx` pour couvrir l'ensemble des pages connectées.
+  - `src/components/profile/NotificationSettingsPanel.tsx` & `ProfilePreferencesPage.tsx` : intégration des interrupteurs de contrôle des notifications In-App, Push et Sonores dans les paramètres du profil.
+  - `src/app/api/notifications/push-subscription/route.ts` : Route Handler BFF pour synchroniser les souscriptions Web Push avec la session utilisateur.
+  - `src/app/globals.css` : ajout de l'animation `@keyframes inapp-progress` pour la barre de temporisation de la bannière In-App.
+  - `docs/CAHIER_DES_CHARGES.md` : documentation complète de la section Notifications In-App & Push.
+
+### Notifications — Synchronisation exacte du compteur de la cloche (non lues du jour et réinitialisation à 00h00) & Masquage du mode sombre
+* **Demande utilisateur** :
+  - Masquer la fonctionnalité de mode sombre dans l'interface.
+  - Corriger le compteur de notifications affiché sur la cloche du Header : il doit correspondre au nombre réel de notifications non lues reçues durant la journée en cours et se réinitialiser automatiquement à 0 chaque jour à minuit (00h00:00).
+* **Modifications effectuées** :
+  - `src/components/layout/Header.tsx` : utilisation de `unreadCount` sur le badge rouge de l'icône cloche et l'attribut `aria-label` ; retrait du bouton de bascule `<ThemeToggle variant="icon" />`.
+  - `src/hooks/queries/use-notifications.ts` :
+    - Filtrage strict des notifications non lues (`seen === 0` et non masquées localement) reçues depuis 00h00 aujourd'hui (`ts >= startOfToday`).
+    - Programmation d'un timer précis ciblant minuit (00h00:00) pour provoquer une réévaluation et un refetch instantané, garantissant un passage automatique à 0 chaque jour sans nécessiter de rechargement manuel.
+  - `src/components/layout/ProfileMenu.tsx` : masquage de `<ThemeToggle variant="menu" />` et de son séparateur dans le menu déroulant du profil.
+  - `src/components/profile/ProfilePreferencesPage.tsx` : retrait de l'élément « Affichage et thème » de la liste des paramètres généraux et du panneau de sélection segmenté.
+  - `src/app/layout.tsx` & `src/components/theme/ThemeProvider.tsx` : neutralisation de l'activation automatique du mode sombre afin d'initialiser l'application en mode clair standard.
+  - `docs/CAHIER_DES_CHARGES.md` : mise à jour des sections Notifications et Mode Sombre.
+
+### Mode Sombre — Inversion des textes noirs/sombres et conteneurs des capsules
+* **Demande utilisateur** :
+  - En mode sombre, tous les textes écrits en noir doivent devenir blancs.
+  - La carte/conteneur des 3 capsules du fil d'actualité est blanche en mode sombre, la rendre sombre/noire.
+* **Modifications effectuées** :
+  - `src/app/globals.css` : ajout d'une règle globale CSS sous `.dark` ciblant les classes de couleur de texte noir/sombre (`text-[#050505]`, `text-[#1C1E21]`, `text-[#1F1F1F]`, `text-[#2D2D2D]`, `text-[#212121]`, `text-[#111827]`, `text-[#0f1419]`, `text-black`, `text-gray-900`, `text-zinc-900`, `text-neutral-900`, etc.) qui ne disposent pas d'une classe `dark:text-` explicite (`:not([class*="dark:text-"])`) afin de les convertir en `#F3F4F6`.
+  - `src/components/capsule/CapsuleRail.tsx` : passage du conteneur des 3 capsules du fil d'actualité (squelette et carte principale) en `bg-white dark:bg-[#1E1E1E] border-gray-100 dark:border-white/10` avec titre `text-[#2D2D2D] dark:text-white`.
+  - `src/components/feed/PostCard.tsx` : ajout explicite de `dark:text-[#F3F4F6]` sur le texte principal de la publication et le bloc de publication parente repartagée (`dark:bg-[#252525] dark:border-white/10`).
+  - `src/components/feed/CommentBody.tsx`, `FeedBody.tsx`, `FeedCard.tsx` : conversion des textes noirs et pills de fichiers joints en mode sombre (`dark:text-[#F3F4F6]`, `dark:bg-[#2A2A2A]`).
+  - `src/components/capsule/CapsuleSidebar.tsx`, `CapsulesPage.tsx`, `CapsulePointsView.tsx`, `CapsulePointsTable.tsx` : uniformisation complète des arrière-plans (`dark:bg-[#1E1E1E]`), bordures (`dark:border-white/10`) et typographies (`dark:text-white`, `dark:text-zinc-400`).
+  - `docs/CAHIER_DES_CHARGES.md` : mise à jour de la documentation du mode sombre.
+
+### Tendances — Épuration de la page (suppression du conteneur d'en-tête, filtres et badges de classement)
+* **Demande utilisateur** :
+  - Supprimer le conteneur en haut de la page `/tendances` (titre « Tendances », badge « En direct », sous-titre explicatif et filtres).
+  - Supprimer également les badges de classement au-dessus de chaque publication (« #1 Tendance Dughu », « #2 Tendance », compteur d'interactions).
+  - Présenter directement les cartes de publications de façon fluide et épurée.
+* **Modifications effectuées** :
+  - `src/components/trending/TrendingPage.tsx` : suppression du conteneur d'en-tête et des badges de rang/interactions (`#1 Tendance Dughu`, `#2 Tendance`, etc.) situés au-dessus des cartes ; tri direct par score d'engagement ; nettoyage des imports et fonctions devenus superflus (`getInteractionScore`, `Flame`, `Trophy`, `activeFilter`, `refreshing`).
+  - `docs/CAHIER_DES_CHARGES.md` : mise à jour de la documentation de la section Tendances.
+
+### Capsules — Retrait de l'indicateur de vues sur les vignettes (feed et page /capsules)
+* **Demande utilisateur** :
+  - Supprimer le badge de nombre de vues affiché en haut à droite des 3 capsules dans le fil d'actualité ainsi que sur les cartes de la page `/capsules`.
+  - Conserver l'affichage des vues exclusivement au moment où l'utilisateur visionne/lit la capsule dans la visionneuse.
+* **Modifications effectuées** :
+  - `src/components/capsule/CapsuleCard.tsx` : retrait de l'icône `Eye` et du badge de vues superposé en haut à droite (`capsule.viewsCount`), composant partagé par `CapsuleRail` (bloc des 3 capsules du feed) et `CapsulesPage` (grille de la page dédiée).
+  - `src/components/capsule/CapsuleViewer.tsx` : l'affichage des vues lors de la lecture dans la visionneuse plein écran reste actif sur la barre d'actions latérale.
+  - `docs/CAHIER_DES_CHARGES.md` : mise à jour de la documentation du module Capsules.
+
+### Fil d'actualité — Distribution aléatoire des publications d'espaces (pages / groupes)
+* **Demande utilisateur** :
+  - Éviter que les publications provenant des espaces (pages / groupes) ne s'accumulent systématiquement tout en haut du fil d'actualité.
+  - Distribuer ces publications à des positions aléatoires réparties à travers le flux de posts classiques.
+* **Modifications effectuées** :
+  - `src/app/api/posts/route.ts` :
+    - Détection unifiée des publications d'espaces via `isSpacePost` (tag `isSpacePost`, `post.page`, `post.author.pageId`, `post.group`).
+    - Marquage explicite des publications issues de `dughuApi.getPostPageUser` avec `isSpacePost: true`.
+    - Réécriture de `mergeFeedPosts` : séparation des publications classiques (triées chronologiquement) et des publications d'espaces (mélangées via Fisher-Yates), puis insertion à des positions aléatoires évitant le monopole du tout premier élément lorsque d'autres publications sont disponibles.
+  - `docs/CAHIER_DES_CHARGES.md` : mise à jour de la section Publications avec la règle de distribution aléatoire des publications d'espaces.
+
 ## 2026-09-07
-### Espaces — Création et publication de posts d'espaces dans le fil et intégration dans le fil d'accueil
+### Mode Sombre (Dark Mode) — Implémentation complète de la plateforme avec bascule manuelle et automatique
+* **Demande utilisateur** :
+  - Implémenter un mode sombre (dark mode) complet sur toute la plateforme Dughu avec possibilité de bascule manuelle par l'utilisateur.
+  - Système de thème : `ThemeProvider` gérant 3 états (`light`, `dark`, `system`), persistance `localStorage` (`dughu-theme`), classe `dark` sur `<html>`, script inline anti-FOUC dans `<head>`.
+  - Boutons de bascule : Header (icône animée soleil/lune), Menu utilisateur du profil, Paramètres généraux (`/profile/preferences`).
+  - Transition douce, palette soignée adaptée à l'identité visuelle Dughu (préservation de l'accent marron `#985810`).
+* **Modifications effectuées** :
+  - **Gestionnaire de thème (`src/components/theme/ThemeProvider.tsx`)** :
+    - Contexte `ThemeProvider` et hook `useTheme` avec typages `Theme` (`light` | `dark` | `system`) et `ResolvedTheme` (`light` | `dark`).
+    - Initialisation résiliente depuis `localStorage` (`dughu-theme`) et synchronisation réactive avec `window.matchMedia("(prefers-color-scheme: dark)")`.
+    - Bascule instantanée de la classe `.dark` sur `document.documentElement`.
+  - **Bouton et sélecteur de thème (`src/components/theme/ThemeToggle.tsx`)** :
+    - 3 variantes : `icon` (pour le header avec animation de rotation), `menu` (pour le dropdown de profil) et `segmented` (pour les paramètres de préférences).
+  - **Configuration globale Tailwind CSS v4 & Variables (`src/app/globals.css`)** :
+    - Définition de `@custom-variant dark (&:where(.dark, .dark *));`.
+    - Définition des variables de couleurs `:root` et `.dark` (`--background`, `--foreground`, `--card`, `--card-foreground`, `--border`, etc.).
+    - Transitions douces de couleurs `transition-colors duration-200`.
+  - **Disposition racine & Anti-FOUC (`src/app/layout.tsx`)** :
+    - Injection du script JavaScript inline synchrone dans `<head>` pour appliquer `.dark` avant le premier rendu visuel.
+    - Ajout de `suppressHydrationWarning` sur `<html>`.
+    - Enveloppement de l'arbre applicatif dans `<ThemeProvider>`.
+  - **Composants de base et de mise en page** :
+    - `Card.tsx` : arrière-plan surélevé `dark:bg-[#1E1E1E]` et bordures `dark:border-white/10`.
+    - `MainLayout.tsx` : fond principal `dark:bg-[#121212]`.
+    - `Header.tsx` : intégration du `ThemeToggle` (variante icône), barres de recherche, notifications et boutons adaptés en mode sombre.
+    - `ProfileMenu.tsx` : intégration du sélecteur de thème `menu` et adaptation des liens/modale de déconnexion.
+    - `GlobalSearch.tsx` : champ de saisie, popover de résultats, filtres et historique en mode sombre.
+    - `LeftSidebar.tsx` & `RightSidebar.tsx` : navigation, cartes de tendances, suggestions de groupes et activités récentes.
+    - `MobileBottomNav.tsx` : barre de navigation mobile `dark:bg-[#1A1A1A]/95` avec icônes contrastées.
+  - **Fil d'actualité & Compositeur** :
+    - `PostComposer.tsx` : champ replié, fenêtre modale, zone de texte, sélecteurs d'espaces et de confidentialité, et palette de couleurs en mode sombre.
+    - `PostCard.tsx` : carte de publication, menu à 3 points, actions de réaction/partage, liste et formulaire de commentaires, bulles de réponses.
+  - **Messagerie & Notifications** :
+    - `NotificationDropdown.tsx` & `NotificationCard.tsx` : onglets, squelettes, badges et cartes de notifications.
+    - `ConversationSidebar.tsx` & `ConversationPopup.tsx` : liste de conversations, bulles de messages et champ d'envoi.
+  - **Paramètres de préférences (`src/components/profile/ProfilePreferencesPage.tsx`)** :
+    - Ajout de l'entrée « Thème de l'application » avec le sélecteur `ThemeToggle` en variante segmentée.
+* **Vérification** :
+  - Compilation TypeScript (`npx tsc --noEmit`) : 0 erreur.
+  - Cahier des charges (`docs/CAHIER_DES_CHARGES.md`) mis à jour.
+
 * **Demande utilisateur** :
   - Pouvoir ajouter / créer des posts d'espaces directement depuis le fil (`ok dans le feed je veux pouvoir ajouter les pots des espace`).
 * **Modifications effectuées** :

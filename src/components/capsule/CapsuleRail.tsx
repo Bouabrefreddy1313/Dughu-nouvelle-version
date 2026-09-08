@@ -39,7 +39,7 @@ export default function CapsuleRail({ capsules, loading, onOpen, count = 3 }: Ca
 
   if (loading) {
     return (
-      <div className="mb-4 rounded-3xl bg-white p-4 shadow-sm border border-gray-100">
+      <div className="mb-4 rounded-3xl bg-white dark:bg-[#1E1E1E] p-4 shadow-sm border border-gray-100 dark:border-white/10">
         <div className="mb-3 flex items-center gap-2">
           <Skeleton className="h-5 w-5 rounded-full" />
           <Skeleton className="h-4 w-24" />
@@ -56,9 +56,9 @@ export default function CapsuleRail({ capsules, loading, onOpen, count = 3 }: Ca
   if (picks.length === 0) return null
 
   return (
-    <section aria-label="Capsules" className="mb-4 rounded-3xl bg-white p-4 shadow-sm border border-gray-100">
+    <section aria-label="Capsules" className="mb-4 rounded-3xl bg-white dark:bg-[#1E1E1E] p-4 shadow-sm border border-gray-100 dark:border-white/10">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-[15px] font-semibold text-[#2D2D2D]">
+        <h3 className="flex items-center gap-2 text-[15px] font-semibold text-[#2D2D2D] dark:text-white">
           <Clapperboard size={18} className="text-[#985810]" aria-hidden />
           Capsules
         </h3>

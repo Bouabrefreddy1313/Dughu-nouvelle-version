@@ -44,7 +44,7 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
   const [mobileQuery, setMobileQuery] = useState("")
 
   const userId = String(user?.id || user?.dughu?.userId || "")
-  const { badgeCount24h } = useNotificationUnreadCount(userId)
+  const { unreadCount } = useNotificationUnreadCount(userId)
 
 
   const navItems = [
@@ -65,7 +65,7 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
     <header
       className={cn(
         // Structure de base
-        "fixed top-0 left-0 right-0 h-[56px] bg-white shadow-sm z-50 flex items-center justify-between gap-1 px-2 sm:gap-2 sm:px-4",
+        "fixed top-0 left-0 right-0 h-[56px] bg-white dark:bg-[#1A1A1A] border-b border-gray-100 dark:border-white/10 shadow-sm z-50 flex items-center justify-between gap-1 px-2 sm:gap-2 sm:px-4",
         // Safe-area iOS (encoche / Dynamic Island)
         "[padding-top:max(0px,env(safe-area-inset-top))]",
         // Scroll-aware : masquage fluide sur mobile uniquement
@@ -80,7 +80,7 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
         <button
           onClick={onMenuClick}
           aria-label="Menu"
-          className="lg:hidden -ml-1 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex shrink-0 items-center justify-center text-[#050505] hover:bg-[#F0F2F5]"
+          className="lg:hidden -ml-1 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex shrink-0 items-center justify-center text-[#050505] dark:text-[#E4E6EB] hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A]"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <line x1="3" y1="6" x2="21" y2="6" />
@@ -132,13 +132,13 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
             type="button"
             aria-label={item.label}
             aria-describedby={item.tooltipId}
-            className="group relative flex h-10 items-center justify-center rounded-lg px-3 text-[#65676B] transition-colors duration-200 hover:bg-[#F0F2F5] hover:text-[#050505] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A35A2A]"
+            className="group relative flex h-10 items-center justify-center rounded-lg px-3 text-[#65676B] dark:text-[#A1A1AA] transition-colors duration-200 hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] hover:text-[#050505] dark:hover:text-[#F3F4F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A35A2A]"
           >
             {item.icon}
             <span
               id={item.tooltipId}
               role="tooltip"
-              className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#2D2D2D] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+              className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#2D2D2D] dark:bg-[#383838] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
             >
               {item.label}
             </span>
@@ -152,7 +152,7 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
         <button
           onClick={() => setMobileSearchOpen((v) => !v)}
           aria-label={mobileSearchOpen ? "Fermer la recherche" : "Ouvrir la recherche"}
-          className="lg:hidden w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#F0F2F5] flex items-center justify-center text-[#65676B] hover:bg-[#E4E6EB]"
+          className="lg:hidden w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#F0F2F5] dark:bg-[#2A2A2A] flex items-center justify-center text-[#65676B] dark:text-[#E4E6EB] hover:bg-[#E4E6EB] dark:hover:bg-[#333333]"
         >
           {mobileSearchOpen ? <X size={18} /> : <Search size={18} />}
         </button>
@@ -165,8 +165,8 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
           className={cn(
             "lg:hidden w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition",
             rightSidebarOpen
-              ? "bg-[#DBEAFE] text-[#A35A2A]"
-              : "text-[#050505] hover:bg-[#F0F2F5]"
+              ? "bg-[#DBEAFE] dark:bg-[#985810]/30 text-[#A35A2A] dark:text-[#C07520]"
+              : "text-[#050505] dark:text-[#E4E6EB] hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A]"
           )}
         >
           <LayoutGrid size={20} />
@@ -178,14 +178,14 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
           className={cn(
             "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition",
             chatOpen
-              ? "bg-[#DBEAFE] text-[#A35A2A]"
-              : "text-[#050505] hover:bg-[#F0F2F5]"
+              ? "bg-[#DBEAFE] dark:bg-[#985810]/30 text-[#A35A2A] dark:text-[#C07520]"
+              : "text-[#050505] dark:text-[#E4E6EB] hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A]"
           )}
           aria-label={messageUnreadCount > 0 ? `Messagerie (${messageUnreadCount} message(s) non lu(s))` : "Messagerie"}
         >
           <img src="/images/msg.png" alt="Messagerie" className="w-8 h-8 object-contain" />
           {messageUnreadCount > 0 && (
-            <Badge className="absolute -top-1 -right-1 bg-[#A35A2A] text-white text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white">
+            <Badge className="absolute -top-1 -right-1 bg-[#A35A2A] text-white text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white dark:border-[#1A1A1A]">
               {messageUnreadCount > 99 ? "99+" : messageUnreadCount}
             </Badge>
           )}
@@ -195,17 +195,17 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
         <div className="relative">
           <button
             onClick={() => setNotificationsOpen((prev) => !prev)}
-            aria-label={badgeCount24h > 0 ? `Notifications (${badgeCount24h} notification${badgeCount24h > 1 ? "s" : ""} récentes)` : "Notifications"}
+            aria-label={unreadCount > 0 ? `Notifications (${unreadCount} notification${unreadCount > 1 ? "s" : ""} non lue${unreadCount > 1 ? "s" : ""})` : "Notifications"}
             aria-expanded={notificationsOpen}
             className={cn(
-              "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#050505] transition cursor-pointer",
-              notificationsOpen ? "bg-[#DBEAFE]/70" : "hover:bg-[#F0F2F5]"
+              "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#050505] dark:text-[#E4E6EB] transition cursor-pointer",
+              notificationsOpen ? "bg-[#DBEAFE]/70 dark:bg-[#985810]/30" : "hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A]"
             )}
           >
             <img src="/images/notif.png" alt="Notifications" className="w-6 h-6 object-contain" />
-            {badgeCount24h > 0 && (
-              <Badge className="absolute -top-1 -right-1 bg-[#FF4444] text-white text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white font-bold">
-                {badgeCount24h > 99 ? "99+" : badgeCount24h}
+            {unreadCount > 0 && (
+              <Badge className="absolute -top-1 -right-1 bg-[#FF4444] text-white text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white dark:border-[#1A1A1A] font-bold">
+                {unreadCount > 99 ? "99+" : unreadCount}
               </Badge>
             )}
           </button>
@@ -223,7 +223,7 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
 
       {/* ═════ MOBILE/TABLETTE : Barre de recherche overlay ═════ */}
       {mobileSearchOpen && (
-        <div className="absolute top-full left-0 right-0 bg-white shadow-md p-3 lg:hidden z-50">
+        <div className="absolute top-full left-0 right-0 bg-white dark:bg-[#1E1E1E] shadow-md border-b border-gray-100 dark:border-white/10 p-3 lg:hidden z-50">
           <GlobalSearch
             value={mobileQuery}
             onChange={setMobileQuery}

@@ -30,7 +30,7 @@ export default function MiniProfileCard({ user, points, stats, loading = false }
   // (« 0 Points », couverture/avatar par défaut, « Utilisateur », stats à 0).
   if (loading) {
     return (
-      <div className="w-full overflow-hidden rounded-[20px] bg-white shadow-sm" aria-busy="true">
+      <div className="w-full overflow-hidden rounded-[20px] bg-white dark:bg-[#1E1E1E] shadow-sm dark:border dark:border-white/10" aria-busy="true">
         <Skeleton className="h-9 w-full rounded-none border-0" />
         <Skeleton className="h-[90px] w-full rounded-none border-0" />
         <div className="-mt-6 mb-1 flex justify-center">
@@ -62,10 +62,10 @@ export default function MiniProfileCard({ user, points, stats, loading = false }
   return (
     <div
       onClick={() => router.push(`/profile/${user?.username || user?.id || ""}`)}
-      className="w-full bg-white rounded-[20px] overflow-visible shadow-sm hover:shadow-md cursor-pointer transition"
+      className="w-full bg-white dark:bg-[#1E1E1E] dark:border dark:border-white/10 rounded-[20px] overflow-visible shadow-sm hover:shadow-md dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] cursor-pointer transition"
     >
       {/* Badge points */}
-      <div className="bg-[#B87333] text-white text-center py-1.5 rounded-t-[20px]">
+      <div className="bg-[#B87333] dark:bg-[#A35A2A] text-white text-center py-1.5 rounded-t-[20px]">
         <p className="font-bold text-sm tracking-wide">
           {totalPoints.toLocaleString("fr-FR")} Points
         </p>
@@ -84,7 +84,7 @@ export default function MiniProfileCard({ user, points, stats, loading = false }
 
       {/* Avatar chevauchant */}
       <div className="relative -mt-6 flex justify-center z-10">
-        <div className="w-[64px] h-[64px] rounded-full border-2 border-white overflow-hidden shadow-md relative">
+        <div className="w-[64px] h-[64px] rounded-full border-2 border-white dark:border-[#1E1E1E] overflow-hidden shadow-md relative">
           <Image
             src={user?.avatar ? resolveMediaUrl(user.avatar) : (user?.image ? resolveMediaUrl(user.image) : "/images/avatar.png")}
             alt="Photo de profil"
@@ -97,12 +97,12 @@ export default function MiniProfileCard({ user, points, stats, loading = false }
 
       {/* Zone identité */}
       <div className="text-center px-4 mt-1">
-        <p className="font-bold text-[14px] text-[#2D2D2D] truncate">
+        <p className="font-bold text-[14px] text-[#2D2D2D] dark:text-[#F3F4F6] truncate">
           {user?.firstName && user?.lastName 
             ? `${user.firstName} ${user.lastName}` 
             : user?.name || "Utilisateur"}
         </p>
-        <p className="text-[11px] text-[#65676B]">
+        <p className="text-[11px] text-[#65676B] dark:text-[#A1A1AA]">
           @{user?.username || user?.email?.split('@')[0] || 'utilisateur'}
         </p>
       </div>
@@ -111,17 +111,17 @@ export default function MiniProfileCard({ user, points, stats, loading = false }
           « Posts » est affiché sous le libellé « Interactions » (même convention
           que la page profil) : c'est le NbrPostsTotal de l'API Dughu. */}
       <div className="flex justify-around mt-2 pb-2">
-        <div className="flex-1 text-center border-r border-[#E4E6EB]">
-          <p className="font-bold text-[13px] text-[#2D2D2D]">{stats?.posts ?? user?._count?.posts ?? 0}</p>
-          <p className="text-[10px] text-[#65676B]">Interactions</p>
+        <div className="flex-1 text-center border-r border-[#E4E6EB] dark:border-white/10">
+          <p className="font-bold text-[13px] text-[#2D2D2D] dark:text-[#F3F4F6]">{stats?.posts ?? user?._count?.posts ?? 0}</p>
+          <p className="text-[10px] text-[#65676B] dark:text-[#A1A1AA]">Interactions</p>
         </div>
-        <div className="flex-1 text-center border-r border-[#E4E6EB]">
-          <p className="font-bold text-[13px] text-[#2D2D2D]">{stats?.following ?? user?._count?.following ?? 0}</p>
-          <p className="text-[10px] text-[#65676B]">Suivis</p>
+        <div className="flex-1 text-center border-r border-[#E4E6EB] dark:border-white/10">
+          <p className="font-bold text-[13px] text-[#2D2D2D] dark:text-[#F3F4F6]">{stats?.following ?? user?._count?.following ?? 0}</p>
+          <p className="text-[10px] text-[#65676B] dark:text-[#A1A1AA]">Suivis</p>
         </div>
         <div className="flex-1 text-center">
-          <p className="font-bold text-[13px] text-[#2D2D2D]">{stats?.followers ?? user?._count?.followers ?? 0}</p>
-          <p className="text-[10px] text-[#65676B]">Abonnés</p>
+          <p className="font-bold text-[13px] text-[#2D2D2D] dark:text-[#F3F4F6]">{stats?.followers ?? user?._count?.followers ?? 0}</p>
+          <p className="text-[10px] text-[#65676B] dark:text-[#A1A1AA]">Abonnés</p>
         </div>
       </div>
     </div>

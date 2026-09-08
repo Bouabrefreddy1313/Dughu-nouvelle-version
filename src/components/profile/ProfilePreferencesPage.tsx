@@ -30,6 +30,7 @@ import { toast } from "sonner"
 import MainLayout from "@/components/layout/MainLayout"
 import { ChangePasswordPanel } from "@/components/profile/ChangePasswordPanel"
 import { PrivacySettingsPanel } from "@/components/profile/PrivacySettingsPanel"
+import { NotificationSettingsPanel } from "@/components/profile/NotificationSettingsPanel"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { cn } from "@/lib/utils"
 
@@ -224,7 +225,7 @@ function SettingsNavigation({ activeKey, onSelect }: { activeKey: SettingKey; on
     <nav aria-label="Liste des paramètres" className="space-y-5 p-3 sm:p-4">
       {GROUPS.map((group) => (
         <section key={group} aria-labelledby={GROUP_IDS[group]}>
-          <h2 id={GROUP_IDS[group]} className="mb-2 px-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A8D91]">
+          <h2 id={GROUP_IDS[group]} className="mb-2 px-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A8D91] dark:text-[#A1A1AA]">
             {group}
           </h2>
           <div className="space-y-1">
@@ -240,15 +241,26 @@ function SettingsNavigation({ activeKey, onSelect }: { activeKey: SettingKey; on
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "group flex min-h-14 w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2",
-                    active ? "bg-[#F5EFE8] text-[#6B3F1D]" : item.sensitive ? "text-red-600 hover:bg-red-50" : "text-[#2D2D2D] hover:bg-[#F7F8FA]"
+                    active
+                      ? "bg-[#F5EFE8] dark:bg-[#985810]/20 text-[#6B3F1D] dark:text-[#E4E6EB]"
+                      : item.sensitive
+                      ? "text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                      : "text-[#2D2D2D] dark:text-[#E4E6EB] hover:bg-[#F7F8FA] dark:hover:bg-[#2A2A2A]"
                   )}
                 >
-                  <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", active ? "bg-white text-[#A35A2A]" : item.sensitive ? "bg-red-50 text-red-600" : "bg-[#F0F2F5] text-[#65676B]")}>
+                  <span className={cn(
+                    "grid size-9 shrink-0 place-items-center rounded-lg",
+                    active
+                      ? "bg-white dark:bg-[#1E1E1E] text-[#A35A2A] dark:text-[#B46D1C]"
+                      : item.sensitive
+                      ? "bg-red-50 dark:bg-red-500/15 text-red-600"
+                      : "bg-[#F0F2F5] dark:bg-[#2A2A2A] text-[#65676B] dark:text-[#A1A1AA]"
+                  )}>
                     <Icon size={18} aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block break-words text-sm font-semibold leading-5">{item.title}</span>
-                    <span className={cn("mt-0.5 block line-clamp-1 text-xs font-normal", active ? "text-[#8B5A2B]" : "text-[#8A8D91]")}>{item.summary}</span>
+                    <span className={cn("mt-0.5 block line-clamp-1 text-xs font-normal", active ? "text-[#8B5A2B] dark:text-[#B46D1C]" : "text-[#8A8D91] dark:text-[#A1A1AA]")}>{item.summary}</span>
                   </span>
                   <ChevronRight size={17} className="shrink-0 opacity-60" aria-hidden="true" />
                 </button>
@@ -265,9 +277,9 @@ function SpeedPreview() {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Aperçu des informations de vitesse internet">
       {["Débit descendant", "Débit montant", "Latence"].map((label) => (
-        <div key={label} className="rounded-xl border border-gray-200 bg-[#FAFAFA] p-4 text-center">
-          <p className="text-2xl font-bold text-[#A35A2A]">—</p>
-          <p className="mt-1 text-xs font-medium text-[#65676B]">{label}</p>
+        <div key={label} className="rounded-xl border border-gray-200 dark:border-white/10 bg-[#FAFAFA] dark:bg-[#252525] p-4 text-center">
+          <p className="text-2xl font-bold text-[#A35A2A] dark:text-[#B46D1C]">—</p>
+          <p className="mt-1 text-xs font-medium text-[#65676B] dark:text-[#A1A1AA]">{label}</p>
         </div>
       ))}
     </div>
@@ -278,12 +290,12 @@ function AccountSettingsList({ onChangePassword, onPrivacySettings }: { onChange
   const router = useRouter()
 
   return (
-    <div className="mt-7 overflow-hidden rounded-2xl border border-gray-200 bg-white">
-      <div className="border-b border-gray-100 px-4 py-4 sm:px-5">
-        <h3 className="font-bold text-[#2D2D2D]">Gestion du compte</h3>
-        <p className="mt-1 text-xs leading-5 text-[#8A8D91]">Sélectionnez une option pour poursuivre.</p>
+    <div className="mt-7 overflow-hidden rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1E1E1E]">
+      <div className="border-b border-gray-100 dark:border-white/10 px-4 py-4 sm:px-5">
+        <h3 className="font-bold text-[#2D2D2D] dark:text-[#F3F4F6]">Gestion du compte</h3>
+        <p className="mt-1 text-xs leading-5 text-[#8A8D91] dark:text-[#A1A1AA]">Sélectionnez une option pour poursuivre.</p>
       </div>
-      <div className="divide-y divide-gray-100 p-2 sm:p-3">
+      <div className="divide-y divide-gray-100 dark:divide-white/10 p-2 sm:p-3">
         {ACCOUNT_SETTINGS.map((item) => {
           const Icon = item.icon
 
@@ -309,20 +321,17 @@ function AccountSettingsList({ onChangePassword, onPrivacySettings }: { onChange
               className={cn(
                 "group flex min-h-16 w-full min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:px-4",
                 item.destructive
-                  ? "text-red-700 hover:bg-red-50 focus-visible:ring-red-500"
-                  : "text-[#2D2D2D] hover:bg-[#F7F1EB] focus-visible:ring-[#A35A2A]"
+                  ? "text-red-700 hover:bg-red-50 dark:hover:bg-red-500/10 focus-visible:ring-red-500"
+                  : "text-[#2D2D2D] dark:text-[#F3F4F6] hover:bg-[#F7F1EB] dark:hover:bg-[#2A2A2A] focus-visible:ring-[#A35A2A]"
               )}
             >
-              <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", item.destructive ? "bg-red-50 text-red-600" : "bg-[#F5EFE8] text-[#A35A2A]")}>
+              <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", item.destructive ? "bg-red-50 dark:bg-red-500/15 text-red-600" : "bg-[#F5EFE8] dark:bg-[#985810]/20 text-[#A35A2A] dark:text-[#B46D1C]")}>
                 <Icon size={19} aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block break-words text-sm font-semibold">{item.title}</span>
-                <span className={cn("mt-1 block text-xs leading-5", item.destructive ? "text-red-600" : "text-[#65676B]")}>{item.description}</span>
+                <span className={cn("mt-1 block text-xs leading-5", item.destructive ? "text-red-600" : "text-[#65676B] dark:text-[#A1A1AA]")}>{item.description}</span>
               </span>
-              {/* {item.key !== "social-links" && item.key !== "privacy-settings" && (
-                <span className={cn("hidden shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold sm:inline-flex", item.destructive ? "bg-red-100 text-red-700" : "bg-[#F0F2F5] text-[#65676B]")}>Bientôt</span>
-              )} */}
               <ChevronRight size={18} className="shrink-0 opacity-60 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
             </button>
           )
@@ -345,30 +354,31 @@ function SettingDetails({ setting, onBack, passwordOpen, onPasswordOpenChange, p
 
   return (
     <article className="min-w-0 p-4 sm:p-6 lg:p-8" aria-labelledby="setting-detail-title">
-      <button type="button" onClick={onBack} className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[#65676B] transition-colors hover:bg-[#F0F2F5] hover:text-[#A35A2A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] md:hidden">
+      <button type="button" onClick={onBack} className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[#65676B] dark:text-[#A1A1AA] transition-colors hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] hover:text-[#A35A2A] dark:hover:text-[#B46D1C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] md:hidden">
         <ArrowLeft size={18} aria-hidden="true" /> Retour aux paramètres
       </button>
 
       <div className="flex min-w-0 items-start gap-4">
-        <span className={cn("grid size-12 shrink-0 place-items-center rounded-2xl", setting.sensitive ? "bg-red-50 text-red-600" : "bg-[#F5EFE8] text-[#A35A2A]")}>
+        <span className={cn("grid size-12 shrink-0 place-items-center rounded-2xl", setting.sensitive ? "bg-red-50 dark:bg-red-500/15 text-red-600" : "bg-[#F5EFE8] dark:bg-[#985810]/20 text-[#A35A2A] dark:text-[#B46D1C]")}>
           <Icon size={24} aria-hidden="true" />
         </span>
         <div className="min-w-0">
-         
-          <h2 id="setting-detail-title" className="mt-2 break-words text-xl font-bold text-[#2D2D2D] sm:text-2xl">{setting.title}</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#65676B]">{setting.description}</p>
+          <h2 id="setting-detail-title" className="mt-2 break-words text-xl font-bold text-[#2D2D2D] dark:text-[#F3F4F6] sm:text-2xl">{setting.title}</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#65676B] dark:text-[#A1A1AA]">{setting.description}</p>
         </div>
       </div>
 
       {setting.key === "account" ? (
         <AccountSettingsList onChangePassword={() => onPasswordOpenChange(true)} onPrivacySettings={() => onPrivacyOpenChange(true)} />
+      ) : setting.key === "notifications" ? (
+        <NotificationSettingsPanel />
       ) : (
-        <div className="mt-7 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
-          <h3 className="font-bold text-[#2D2D2D]">Ce que vous pourrez gérer</h3>
+        <div className="mt-7 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1E1E1E] p-4 sm:p-5">
+          <h3 className="font-bold text-[#2D2D2D] dark:text-[#F3F4F6]">Ce que vous pourrez gérer</h3>
           <ul className="mt-4 space-y-3">
             {setting.points.map((point) => (
-              <li key={point} className="flex items-start gap-3 text-sm text-[#4A4A4A]">
-                <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-[#A35A2A]" aria-hidden="true" />
+              <li key={point} className="flex items-start gap-3 text-sm text-[#4A4A4A] dark:text-[#D1D5DB]">
+                <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-[#A35A2A] dark:text-[#B46D1C]" aria-hidden="true" />
                 <span>{point}</span>
               </li>
             ))}
@@ -377,8 +387,6 @@ function SettingDetails({ setting, onBack, passwordOpen, onPasswordOpenChange, p
       )}
 
       {setting.key === "internet-speed" && <div className="mt-5"><SpeedPreview /></div>}
-
-     
     </article>
   )
 }
@@ -400,25 +408,25 @@ export function ProfilePreferencesPage() {
     <MainLayout user={currentUser} wide noRightSidebar active="profile" reserveLeftSidebar>
       <div className="min-w-0 max-w-full overflow-x-hidden pb-8">
         <header className="mb-5 flex min-w-0 items-start gap-3 px-1 sm:items-center">
-          <button type="button" onClick={() => router.push("/profile")} aria-label="Retour au profil" className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-[#65676B] shadow-sm transition-colors hover:text-[#A35A2A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2">
+          <button type="button" onClick={() => router.push("/profile")} aria-label="Retour au profil" className="grid size-10 shrink-0 place-items-center rounded-full bg-white dark:bg-[#1E1E1E] text-[#65676B] dark:text-[#A1A1AA] border border-transparent dark:border-white/10 shadow-sm transition-colors hover:text-[#A35A2A] dark:hover:text-[#B46D1C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A] focus-visible:ring-offset-2">
             <ArrowLeft size={20} aria-hidden="true" />
           </button>
           <div className="min-w-0">
-            <h1 className="break-words text-2xl font-bold tracking-tight text-[#2D2D2D] sm:text-3xl">Paramètres</h1>
-            <p className="mt-1 text-sm text-[#65676B]">Personnalisez votre expérience et gérez votre compte Dughu.</p>
+            <h1 className="break-words text-2xl font-bold tracking-tight text-[#2D2D2D] dark:text-[#F3F4F6] sm:text-3xl">Paramètres</h1>
+            <p className="mt-1 text-sm text-[#65676B] dark:text-[#A1A1AA]">Personnalisez votre expérience et gérez votre compte Dughu.</p>
           </div>
         </header>
 
-        <div className="grid min-h-[620px] min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] md:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]">
-          <aside className={cn("min-w-0 border-gray-200 md:block md:border-r", selectedKey ? "hidden" : "block")}>
-            <div className="border-b border-gray-100 px-5 py-4">
-              <div className="flex items-center gap-2 text-[#2D2D2D]"><Settings size={19} className="text-[#A35A2A]" aria-hidden="true" /><h2 className="font-bold">Tous les paramètres</h2></div>
-              <p className="mt-1 text-xs text-[#8A8D91]">Sélectionnez une rubrique pour afficher son aperçu.</p>
+        <div className="grid min-h-[620px] min-w-0 overflow-hidden rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1E1E1E] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] md:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]">
+          <aside className={cn("min-w-0 border-gray-200 dark:border-white/10 md:block md:border-r", selectedKey ? "hidden" : "block")}>
+            <div className="border-b border-gray-100 dark:border-white/10 px-5 py-4">
+              <div className="flex items-center gap-2 text-[#2D2D2D] dark:text-[#F3F4F6]"><Settings size={19} className="text-[#A35A2A] dark:text-[#B46D1C]" aria-hidden="true" /><h2 className="font-bold">Tous les paramètres</h2></div>
+              <p className="mt-1 text-xs text-[#8A8D91] dark:text-[#A1A1AA]">Sélectionnez une rubrique pour afficher son aperçu.</p>
             </div>
             <SettingsNavigation activeKey={activeSetting.key} onSelect={selectSetting} />
           </aside>
 
-          <section className={cn("min-w-0 bg-[#FCFCFC] md:block", selectedKey ? "block" : "hidden")}>
+          <section className={cn("min-w-0 bg-[#FCFCFC] dark:bg-[#181818] md:block", selectedKey ? "block" : "hidden")}>
             <SettingDetails setting={activeSetting} onBack={() => { setPasswordOpen(false); setPrivacyOpen(false); setSelectedKey(null) }} passwordOpen={passwordOpen} onPasswordOpenChange={setPasswordOpen} privacyOpen={privacyOpen} onPrivacyOpenChange={setPrivacyOpen} />
           </section>
         </div>

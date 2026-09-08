@@ -117,26 +117,51 @@ export function useNotificationUnreadCount(userId?: string) {
     staleTime: 10_000,
   })
 
-  const rawUnread = query.data?.unreadCount ?? 0
-  // On déduit les notifications qui ont été marquées lues en local récemment
-  const seenCount = (query.data?.notifications || []).filter(
-    (n) => n.seen === 0 && localSeen.has(String(n.id))
-  ).length
+  // Réinitialisation automatique en direct à minuit (00h00:00)
+  const [, setMidnightTick] = useState(0)
+  useEffect(() => {
+    const now = new Date()
+    const tomorrowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 500)
+    const msUntilMidnight = tomorrowMidnight.getTime() - now.getTime()
 
-  const computedCount = Math.max(0, rawUnread - seenCount)
+    const timer = setTimeout(() => {
+      setMidnightTick((v) => v + 1)
+      void query.refetch()
+    }, Math.max(1000, msUntilMidnight))
 
-  // Calcul du nombre de notifications reçues dans les dernières 24 heures glissantes
-  // (indépendamment du statut 'seen', avec réinitialisation dynamique continue)
-  const now = Date.now()
-  const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000
-  const badgeCount24h = (query.data?.notifications || []).filter((n) => {
-    const timestamp = parseNotificationDate(n.createdAt)
-    return timestamp > twentyFourHoursAgo
+    return () => clearTimeout(timer)
+  }, [query])
+
+  const items = query.data?.notifications || []
+
+  // Début du jour actuel (00h00:00)
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const startOfTodayMs = startOfToday.getTime()
+
+  // Règle produit Dughu :
+  // 1. Ne compte que les notifications NON LUES (seen === 0 et non marquées lues localement)
+  // 2. Se réinitialise chaque jour à 00h00 : ne compte que les notifications du jour en cours (>= 00h00)
+  const todayUnreadCount = items.filter((n) => {
+    if (n.seen !== 0 || localSeen.has(String(n.id))) return false
+
+    const ts =
+      typeof n.time === "number" && n.time > 0
+        ? n.time < 10_000_000_000
+          ? n.time * 1000
+          : n.time
+        : parseNotificationDate(n.createdAt)
+
+    return ts >= startOfTodayMs
   }).length
 
+  // Total de toutes les notifications non lues toutes dates confondues
+  const totalUnreadCount = items.filter((n) => n.seen === 0 && !localSeen.has(String(n.id))).length
+
   return {
-    badgeCount24h,
-    unreadCount: computedCount,
+    badgeCount24h: todayUnreadCount,
+    unreadCount: todayUnreadCount,
+    totalUnreadCount,
     isLoading: query.isLoading,
     refetch: query.refetch,
   }

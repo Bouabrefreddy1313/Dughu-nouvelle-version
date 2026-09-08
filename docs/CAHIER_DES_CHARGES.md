@@ -348,6 +348,9 @@ La normalisation technique de ces états est documentée dans
     * Les clics sur les éléments internes du post d'origine (nom d'auteur ouvrant la preview card, hashtags, contrôles vidéo) conservent leur comportement propre sans déclencher intempestivement l'ouverture de la vue complète.
 * **Unicité des publications dans le flux (Feed)** :
   * Le flux d'actualité (`HomePage`) intègre une déduplication systématique des publications par leur identifiant unique (`deduplicatePosts`), éliminant tout doublon lors du défilement infini ou de la création de nouvelles publications, garantissant ainsi des clés de rendu stables (`key={`feed-card-${post.id}-${postIndex}`}`).
+* **Distribution des publications d'espaces (pages/groupes) dans le flux** :
+  * Les publications provenant des espaces ou pages suivis par l'utilisateur ne sont plus regroupées systématiquement au sommet du fil d'actualité.
+  * Elles sont dispersées de façon aléatoire et équilibrée à l'intérieur du flux de publications classiques, garantissant une expérience fluide où les actualités personnelles/amis restent visibles dès le haut du fil.
 * **Cartes spéciales Vidéos Akwaplay (`AkwaplayPostCard`)** :
   * Lorsqu'un utilisateur publie une vidéo sur Akwaplay, cette vidéo apparaît sous forme de carte spéciale à deux emplacements clés :
     1. **Fil d'actualité général** (`/home`) : insérée au même titre qu'une publication classique, avec le header « Akwaplay · Suggestion pour vous ».
@@ -430,18 +433,8 @@ La normalisation technique de ces états est documentée dans
   * La page analyse et agrège les publications issues du fil d'actualité pour identifier celles générant le plus fort engagement.
   * Le score global d'interaction correspond à la somme : `J'aime + Commentaires + Partages/Republications` (`likes + comments + reposts`).
   * Les publications sont triées par ordre décroissant de score d'interaction, avec en cas d'égalité priorité aux publications les plus récentes.
-* **Filtres interactifs** :
-  * « Toutes les interactions » : classement global combiné (par défaut).
-  * « Plus aimées » : classement selon le nombre de J'aime / réactions.
-  * « Plus commentées » : classement selon le nombre de commentaires.
-  * « Plus partagées » : classement selon le nombre de republications.
-* **Badges et visuels de classement** :
-  * Chaque publication porte un badge distinctif indiquant sa position dans les tendances :
-    * `#1 Tendance Dughu` : badge doré en dégradé ambre/jaune avec flamme animée ;
-    * `#2 Tendance` : badge argenté avec trophée ;
-    * `#3 Tendance` : badge bronze avec trophée ;
-    * `#4+ en tendance` : badge épuré.
-  * Un récapitulatif chiffré affiche le total des interactions et le détail : `X interactions (❤️ likes · 💬 comments · 🔁 reposts)`.
+* **Affichage épuré du flux de tendances** :
+  * Le flux présente directement la liste des publications classées par score d'interaction sans conteneur d'en-tête ni badge de classement au-dessus des cartes, offrant un affichage épuré et continu identique au fil principal.
 * **Interactions complètes** :
   * Intégration complète du composant `PostCard` :
     * Réactions / J'aime optimistes et persistance immédiate du cache local ;
@@ -551,10 +544,12 @@ internes `/api/capsules/*` + le hook `useCapsulesFeed`
   insère **3 capsules choisies aléatoirement** (tirage stable par liste, sans
   scintillement au re-render), sous forme de vignettes verticales 9:16
   (`CapsuleRail` + `CapsuleCard`).
-* Chaque vignette affiche la miniature, le nombre de vues, l'avatar et le nom
-  de l'auteur, et la légende. Au **survol** (ou au focus clavier), la **vidéo
-  se joue automatiquement en muet** ; au départ du survol, elle est remplacée
-  par la miniature.
+* Chaque vignette affiche la miniature, l'avatar et le nom de l'auteur, et la légende.
+  Le nombre de vues n'est pas affiché sur les vignettes (ni dans le rail du fil d'actualité,
+  ni dans la grille de la page `/capsules`) : il est affiché exclusivement dans la
+  visionneuse plein écran lors de la lecture de la capsule.
+  Au **survol** (ou au focus clavier), la **vidéo se joue automatiquement en muet** ;
+  au départ du survol, elle est remplacée par la miniature.
 * Un lien « Voir tout » mène à la page `/capsules`.
 * Un clic sur une vignette ouvre la **visionneuse plein écran** (`CapsuleViewer`)
   positionnée sur la capsule cliquée.
@@ -1655,8 +1650,131 @@ Le module Notifications de Dughu assure deux aspects fondamentaux de la platefor
   - **Réactions sur une publication** : `notifyPostReaction(postAuthorId, currentUserName, postId)` appelé lors d'un like/réaction sur le fil d'accueil ou les tendances (si l'auteur est différent de l'utilisateur actuel).
   - **Commentaires sur une publication** : `notifyPostComment(postAuthorId, currentUserName, postId, commentText)` déclenché à la publication d'un nouveau commentaire.
   - **Pokes** : `notifyPoke(targetUserId, currentUserName)` déclenché lors d'un poke initial ou d'un poke en retour.
-  - **Relations & Groupes & Pages** : helpers prêts à l'emploi `notifyRelationRequest`, `notifyGroupJoin`, `notifyPageLike` disponibles dans `notifications.service.ts`.
+  - **Indicateur de la cloche (Badge Header)** : le badge rouge sur l'icône cloche affiche strictement le **nombre réel de notifications non lues reçues durant la journée en cours** (`seen === 0`, déduites des consultations locales, et horodatées depuis `00h00` de la journée). Chaque jour à minuit (**00h00:00**), le compteur se réinitialise automatiquement à **0** afin d'indiquer le volume quotidien exact et sans distorsion.
 
+* **Système de Notifications In-App & Push (Système)** :
+  - **Bannières In-App en direct (`InAppNotificationBanner`)** : lorsqu'un utilisateur est actif sur Dughu (`!document.hidden`), les nouvelles notifications non lues déclenchent instantanément une bannière flottante interactive au premier plan (avatar de l'émetteur, badge du type d'interaction, texte, minuteur visuel de 6 secondes avec barre de progression, bouton fermer et redirection directe au clic).
+  - **Notifications Push & Système (`sw.js` & `usePushNotifications`)** : lorsque l'onglet est en arrière-plan ou que l'écran est en veille, le Service Worker `public/sw.js` relaie l'événement via les notifications natives du système d'exploitation / navigateur. Le clic sur la notification système focalise ou ouvre Dughu directement sur l'URL de l'interaction.
+  - **Sonnerie discrète (`notificationSound`)** : synthé  - Textes secondaires / atténués : `#9CA3AF` / `#A1A1AA`
+  - Identité visuelle Dughu : le marron signature `#985810` est préservé et sublimé sur fond sombre avec une déclinaison à fort contraste (`#B46D1C` / `#C07520`) pour les boutons d'action et états actifs.
+
+* **Surfaces adaptées** :
+  - Navigation : `Header`, `ProfileMenu`, `LeftSidebar`, `RightSidebar`, `MobileBottomNav`.
+  - Recherche : `GlobalSearch` (champ, icônes, panneau de résultats, historique).
+  - Fil d'actualité : `PostComposer` (déclencheur, modale, sélecteurs d'espaces/confidentialité, palette d'arrière-plans colorés), `PostCard` (en-tête, menu à 3 points, barre d'actions de réaction/partage, corps de post, publication parente repartagée, bulles de commentaires et fils de réponses) et `FeedBody` / `FeedCard`.
+  - Module Capsules : conteneur des 3 capsules du fil d'actualité (`CapsuleRail`) en fond sombre (`dark:bg-[#1E1E1E]`, bordure `dark:border-white/10`), barre latérale (`CapsuleSidebar`), vues de la page capsules (`CapsulesPage`), tableau et indicateurs de points (`CapsulePointsView`, `CapsulePointsTable`).
+  - Règle globale d'inversion des textes noirs : les classes de texte sombre/noir (`text-[#050505]`, `text-[#1C1E21]`, `text-[#1F1F1F]`, `text-[#2D2D2D]`, `text-[#212121]`, `text-[#111827]`, `text-[#0f1419]`, `text-black`, `text-gray-900`, `text-zinc-900`, etc.) s'inversent automatiquement vers un blanc cassé (`#F3F4F6`) en mode sombre via `src/app/globals.css` lorsqu'aucune couleur sombre spécifique n'est définie (`:not([class*="dark:text-"])`).
+  - Interactions sociales : `NotificationDropdown`, `NotificationCard`, `ConversationSidebar`, `ConversationPopup` (tiroir et fenêtres flottantes de messagerie).
+  - Profil et paramètres : `MiniProfileCard`, `ProfilePreferencesPage`.
+  - Module Finances : `FinanceListPage`, `FinanceCard`, `FinanceFormPage`, `FinanceDetailPage`, `FinanceDonationModal`, `FinanceShareDropdown`.
+
+## 5. Module Finances (Financement participatif)
+
+Le module Finances permet aux membres de la communauté Dughu de solliciter des financements participatifs en points pour leurs projets, de consulter les demandes existantes, d'effectuer des dons de points et de partager les campagnes sur les réseaux sociaux.
+
+### Accès et navigation
+* Accessible via l'entrée « Finance » de la barre latérale gauche (`LeftSidebar.tsx`), avec état actif visuel et redirection vers `/finance`.
+* Intégré au `MainLayout` en configuration large (`wide`, `noRightSidebar`, `active="finance"`).
+
+### 1. Page liste (`/finance`)
+* **En-tête** : icône dollar (`$`), titre « Finances » et barre de recherche rapide (« Cherchez ici ») avec debounce de ~400ms sur le paramètre `q`.
+* **Barre d'onglets** :
+  - **« Parcourir »** (actif par défaut) : interroge l'API `GET /finance` avec paramètres `category`, `q`, `sort_by`.
+  - **« Mes demandes »** : interroge l'API `GET /financeUser/{user_id}` pour afficher uniquement les campagnes de l'utilisateur connecté.
+  - **Bouton « + CRÉER »** : bouton style pill à fond marron `#8B5E34` et texte blanc, redirigeant vers `/finance/create`.
+* **Grille de cartes (`FinanceCard`)** :
+  - Disposition responsive sur 2 colonnes desktop (`grid grid-cols-1 md:grid-cols-2 gap-5`).
+  - Image au ratio 16:9 (`aspect-video`) avec placeholder si manquante.
+  - Menu contextuel « ⋮ » flottant en haut à droite (visible exclusivement sur les cartes de l'utilisateur connecté) :
+    - « Modifier » : ouvre le formulaire pré-rempli via `/finance/{id}/edit`.
+    - « Supprimer » : dialogue de confirmation, suppression via `DELETE /finance/{id}`, toast de confirmation et retrait de la carte.
+  - Titre de la campagne en gras.
+  - Ligne Auteur : avatar rond + nom complet + date de création.
+  - Ligne points en orange : `Élevé de X points`.
+  - Barre de progression grise remplie proportionnellement aux points collectés.
+  - Clic sur la carte : navigation vers l'écran détail `/finance/{id}`.
+
+### 2. Écran de création & édition (`/finance/create` et `/finance/[id]/edit`)
+* **En-tête** : bandeau marron en dégradé (`from-[#8B5E34] to-[#6D4621]`), flèche retour (`←`) et titre blanc.
+* **Formulaire sur fond blanc** :
+  - Champ « Titre » (obligatoire).
+  - Champ « Combien de points aimeriez-vous recevoir ? » (montant numérique en points, obligatoire).
+  - Champ « La description » (textarea redimensionnable, obligatoire).
+  - Champ « Image » : zone de dépôt avec pattern illustré et bouton centré « 🖼 Choisir une image » (`#8B5E34`). Aperçu de l'image sélectionnée en fond de zone avec possibilité de remplacement ou retrait.
+* **Bas de page** : lien « ← Retour » à gauche et bouton d'action « Publier » (ou « Enregistrer » en mode édition) à droite.
+* **Soumission** : envoi en `multipart/form-data` vers `POST /finance` avec les champs `title`, `description`, `amount`, `image`, `user_id`, et `finance_id` (en mode édition uniquement).
+* **Comportement après succès** : redirection, toast de confirmation et réactualisation des requêtes TanStack Query.
+
+### 3. Écran détail d'une demande (`/finance/[id]`)
+* **En-tête** : bandeau marron en dégradé, flèche retour (`←`) et titre du financement en blanc.
+* **Disposition en 2 colonnes (desktop)** :
+  - **Colonne gauche** :
+    - Grande image de la demande en pleine largeur de colonne.
+    - Bloc auteur : avatar rond + nom de l'utilisateur + date de publication.
+    - Texte complet de la description.
+  - **Colonne droite (Carte « Progression du financement »)** :
+    - Titre en gras « Progression du financement ».
+    - Barre de progression calculée selon `collecté / objectif * 100` (état neutre si objectif = 0).
+    - Lignes d'indicateurs alignées à droite :
+      - « Collecté : » → points (orange)
+      - « Objectif : » → points (rouge si non atteint / à 0)
+      - « Total des dons : » → nombre de dons
+    - Séparateur horizontal.
+    - Bandeau vert « ✓ Objectif atteint ! » affiché conditionnellement si le collecté est supérieur ou égal à l'objectif (> 0).
+    - Bouton « Faire un don » : ouvre le modal `FinanceDonationModal` permettant de choisir un montant en points (appel `POST /finance/don` en `multipart/form-data`) avec rafraîchissement immédiat de la progression.
+    - Bouton « ⇧ Partager » avec menu déroulant (`FinanceShareDropdown`) : partage direct vers WhatsApp, Facebook, Twitter / X, Telegram, LinkedIn et copie du lien dans le presse-papiers.
+
+## Événements (Events)
+
+Le module **Événements** est accessible depuis le bouton « Événements » de la barre latérale gauche (`LeftSidebar`, actif sur `active="events"`) et est structuré autour de 4 écrans et modales :
+
+### 1. Page liste des événements (`/events`)
+* **En-tête** : icône Calendrier, titre « Événements » et barre de recherche rapide avec debounce de ~400ms.
+* **Barre d'onglets & Actions** :
+  - Onglets « Tous », « À venir », « Mes événements » (filtré par `posterId` / créateur) et « Passés ».
+  - Bouton « + CRÉER UN ÉVÉNEMENT » : bouton pill à fond marron `#8B5E34` et texte blanc, redirigeant vers `/events/create`.
+* **Grille de cartes (`EventCard`)** :
+  - Disposition responsive (1 col mobile, 2 cols tablette, 3 cols grand écran).
+  - Couverture au ratio 16:9 (`aspect-video`) avec fallback illustration si manquante.
+  - Badge de date flottant en haut à gauche (mois abrégé en haut, jour en gras).
+  - Badge « Passé » en surimpression si l'événement est terminé.
+  - Date & heure, titre en gras (tronqué à 2 lignes), lieu avec icône géolocalisation.
+  - Ligne de pied de carte : organisateur (avatar rond + nom) et compteurs de participation (nombre d'intéressés et de participants).
+  - Clic : navigation vers l'écran détail `/events/{id}`.
+
+### 2. Page de création & modification (`/events/create` et `/events/[id]/edit`)
+* **En-tête** : dégradé Dughu marron élégant, flèche retour (`←`) et titre contextuel.
+* **Formulaire complet** :
+  - `event-name` : Nom de l'événement (obligatoire).
+  - `event-locat` : Lieu ou adresse complète avec autocomplétion Google Maps (`LocationAutocomplete`) proposant des suggestions en temps réel (établissements, villes, rues) dès la saisie avec debounce de ~300ms et sélection au clic ou au clavier (obligatoire).
+  - `event-description` : Description détaillée (obligatoire).
+  - `event-start-date` & `event-start-time` : Date et heure de début (obligatoires).
+  - `event-end-date` & `event-end-time` : Date et heure de fin (obligatoires).
+  - `cover` : Image de couverture (upload avec aperçu 16:9 et option de suppression).
+* **Soumission** : envoi en `multipart/form-data` vers `POST /events` (avec `user_id` et `event_id` en cas d'édition).
+
+### 3. Page détail d'un événement (`/events/[id]`)
+Structurée fidèlement selon la maquette en 3 zones :
+* **Bandeau supérieur (Zone A)** :
+  - Image de couverture pleine largeur avec logos/nom organisateur, badge « PARTICIPATION » et accroche « VENEZ PROFITER 🔥🔥 ».
+  - Sous la couverture : bloc « Début dans : » avec compte à rebours dynamique en 4 pastilles arrondies (Jours, Heures, Minutes, Secondes) calculé côté client et actualisé chaque seconde.
+  - À droite : boutons « Adhérer » (bascule via `POST /event_inscription`) et « Intéressé » (bascule via `POST /event_interest`), remplacés par un menu contextuel « ⋮ » si l'utilisateur est le créateur de l'événement (options « Modifier » et « Supprimer »).
+* **Colonne gauche (Zone B)** :
+  - Carte récapitulative : titre, organisateur, statut, dates de début et de fin présentées en 2 colonnes claires (« Commence » / « Prend fin »), boutons verts « PARTAGER » (dropdown social et copie de lien) et « INVITER » (ouvre la modale d'invitation).
+  - Carte « Intéressé(e)s » : avatars empilés et compteur de personnes intéressées.
+  - Carte localisation : adresse en texte, iframe Google Maps interactive et lien externe « Maps ↗ ».
+  - Carte description : texte complet de la description.
+* **Colonne centrale / droite (Zone C)** :
+  - Zone de publication : intégration du composant standard `PostComposer` de Dughu permettant de partager du contenu dans le cadre de l'événement.
+  - Fil de publications : affichage des posts de l'événement (`GET /getPostEvents/{event_id}/{user_id}`) sous forme de `PostCard`, avec état vide si aucune publication.
+
+### 4. Modale d'invitation (`EventInviteModal`)
+* Déclenchée au clic sur le bouton vert « INVITER ».
+* Champ de recherche d'amis avec debounce de ~400ms.
+* Liste des amis invitables avec avatar, nom complet et identifiant `@username`.
+* Synchronisation avec `POST /listInvitedEvents` : les amis déjà invités sont pré-cochés / désactivés avec badge « Invité ✓ ».
+* Au clic sur « Inviter » : appel direct de `POST /userInvitedRegisteredEvents` avec passage instantané du bouton à l'état désactivé « Invité » (UI optimiste) et toast de confirmation.
+* Bouton gris « Fermer » en bas à droite.
 
 
 

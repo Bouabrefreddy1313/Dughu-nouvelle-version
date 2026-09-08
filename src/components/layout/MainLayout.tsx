@@ -11,6 +11,7 @@ import ConversationPopup from "@/components/sidebar/ConversationPopup"
 import MobileBottomNav from "@/components/layout/MobileBottomNav"
 import type { ChatSummary } from "@/lib/messages"
 import { logout } from "@/services/auth/auth.service"
+import NotificationManager from "@/components/notifications/NotificationManager"
 
 /** Nombre maximal de fenêtres de conversation ouvertes simultanément. */
 const MAX_CONVERSATION_POPUPS = 3
@@ -106,8 +107,13 @@ export default function MainLayout({
     }
   }, [mobileMenuOpen])
 
+  const currentUserId = String(user?.id || user?.dughu?.userId || "")
+
   return (
-    <div className="min-h-screen bg-[#f7f8fa]">
+    <div className="min-h-screen bg-[#f7f8fa] dark:bg-[#121212] text-foreground transition-colors duration-200">
+      {/* Gestionnaire global de notifications In-App et Push */}
+      <NotificationManager userId={currentUserId} />
+
       <Header
         user={user}
         onLogout={handleLogout}

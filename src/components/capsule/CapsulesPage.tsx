@@ -301,13 +301,13 @@ export default function CapsulesPage() {
               <div className="space-y-4">
                 <div className="hidden lg:flex items-center justify-between px-1">
                   <div>
-                    <h1 className="text-xl font-bold text-[#2D2D2D]">Pour vous</h1>
-                    <p className="text-xs text-[#65676B]">Découvrez les dernières capsules vidéo de la communauté</p>
+                    <h1 className="text-xl font-bold text-[#2D2D2D] dark:text-white">Pour vous</h1>
+                    <p className="text-xs text-[#65676B] dark:text-zinc-400">Découvrez les dernières capsules vidéo de la communauté</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => void refetchFeed()}
-                    className="inline-flex items-center gap-1.5 text-xs text-[#65676B] hover:text-[#985810] transition"
+                    className="inline-flex items-center gap-1.5 text-xs text-[#65676B] dark:text-zinc-400 hover:text-[#985810] dark:hover:text-[#985810] transition"
                   >
                     <RefreshCw size={13} />
                     <span>Actualiser</span>
@@ -315,7 +315,7 @@ export default function CapsulesPage() {
                 </div>
 
                 {feedIsError ? (
-                  <div className="rounded-3xl bg-white p-8 text-center shadow-sm border border-gray-100">
+                  <div className="rounded-3xl bg-white dark:bg-[#1E1E1E] p-8 text-center shadow-sm border border-gray-100 dark:border-white/10">
                     <p className="text-sm text-red-600">
                       {feedError instanceof Error ? feedError.message : "Impossible de charger les capsules."}
                     </p>
@@ -334,12 +334,12 @@ export default function CapsulesPage() {
                     <span className="sr-only">Chargement des capsules...</span>
                   </div>
                 ) : displayCapsules.length === 0 ? (
-                  <div className="rounded-3xl bg-white p-12 text-center shadow-sm border border-gray-100">
+                  <div className="rounded-3xl bg-white dark:bg-[#1E1E1E] p-12 text-center shadow-sm border border-gray-100 dark:border-white/10">
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#985810]/10 text-[#985810] mb-3">
                       <Film size={28} />
                     </div>
-                    <h3 className="text-base font-bold text-[#2D2D2D]">Aucune capsule pour l&apos;instant</h3>
-                    <p className="text-sm text-[#65676B] max-w-sm mx-auto mt-1">
+                    <h3 className="text-base font-bold text-[#2D2D2D] dark:text-white">Aucune capsule pour l&apos;instant</h3>
+                    <p className="text-sm text-[#65676B] dark:text-zinc-400 max-w-sm mx-auto mt-1">
                       Soyez le premier à partager une capsule vidéo avec la communauté Dughu !
                     </p>
                     {userId && (
@@ -381,13 +381,13 @@ export default function CapsulesPage() {
               <div className="space-y-4">
                 <div className="hidden lg:flex items-center justify-between px-1">
                   <div>
-                    <h1 className="text-xl font-bold text-[#2D2D2D]">Suivi(e)s</h1>
-                    <p className="text-xs text-[#65676B]">Capsules publiées par les créateurs dont vous êtes abonné</p>
+                    <h1 className="text-xl font-bold text-[#2D2D2D] dark:text-white">Suivi(e)s</h1>
+                    <p className="text-xs text-[#65676B] dark:text-zinc-400">Capsules publiées par les créateurs dont vous êtes abonné</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => void refetchFollowing()}
-                    className="inline-flex items-center gap-1.5 text-xs text-[#65676B] hover:text-[#985810] transition"
+                    className="inline-flex items-center gap-1.5 text-xs text-[#65676B] dark:text-zinc-400 hover:text-[#985810] dark:hover:text-[#985810] transition"
                   >
                     <RefreshCw size={13} />
                     <span>Actualiser</span>
@@ -395,7 +395,7 @@ export default function CapsulesPage() {
                 </div>
 
                 {followingIsError ? (
-                  <div className="rounded-3xl bg-white p-8 text-center shadow-sm border border-gray-100">
+                  <div className="rounded-3xl bg-white dark:bg-[#1E1E1E] p-8 text-center shadow-sm border border-gray-100 dark:border-white/10">
                     <p className="text-sm text-red-600">
                       {followingError instanceof Error ? followingError.message : "Impossible de charger les capsules de vos abonnements."}
                     </p>
@@ -414,12 +414,12 @@ export default function CapsulesPage() {
                     <span className="sr-only">Chargement des capsules suivies...</span>
                   </div>
                 ) : followingCapsules.length === 0 ? (
-                  <div className="rounded-3xl bg-white p-12 text-center shadow-sm border border-gray-100">
+                  <div className="rounded-3xl bg-white dark:bg-[#1E1E1E] p-12 text-center shadow-sm border border-gray-100 dark:border-white/10">
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#985810]/10 text-[#985810] mb-3">
                       <Users size={28} />
                     </div>
-                    <h3 className="text-base font-bold text-[#2D2D2D]">Aucune capsule de vos abonnements</h3>
-                    <p className="text-sm text-[#65676B] max-w-sm mx-auto mt-1">
+                    <h3 className="text-base font-bold text-[#2D2D2D] dark:text-white">Aucune capsule de vos abonnements</h3>
+                    <p className="text-sm text-[#65676B] dark:text-zinc-400 max-w-sm mx-auto mt-1">
                       Les personnes auxquelles vous êtes abonné n&apos;ont pas encore publié de capsule ou vous ne suivez aucun créateur.
                     </p>
                     <button
@@ -452,8 +452,8 @@ export default function CapsulesPage() {
               <div className="space-y-4">
                 <div className="hidden lg:flex items-center justify-between px-1">
                   <div>
-                    <h1 className="text-xl font-bold text-[#2D2D2D]">Mes capsules</h1>
-                    <p className="text-xs text-[#65676B]">
+                    <h1 className="text-xl font-bold text-[#2D2D2D] dark:text-white">Mes capsules</h1>
+                    <p className="text-xs text-[#65676B] dark:text-zinc-400">
                       {myCapsules.length} capsule{myCapsules.length > 1 ? "s" : ""} publiée{myCapsules.length > 1 ? "s" : ""} par vous
                     </p>
                   </div>
@@ -470,7 +470,7 @@ export default function CapsulesPage() {
                 </div>
 
                 {myCapsulesIsError ? (
-                  <div className="rounded-3xl bg-white p-8 text-center shadow-sm border border-gray-100">
+                  <div className="rounded-3xl bg-white dark:bg-[#1E1E1E] p-8 text-center shadow-sm border border-gray-100 dark:border-white/10">
                     <p className="text-sm text-red-600">
                       {myCapsulesError instanceof Error ? myCapsulesError.message : "Impossible de charger vos capsules."}
                     </p>
@@ -489,12 +489,12 @@ export default function CapsulesPage() {
                     <span className="sr-only">Chargement de vos capsules...</span>
                   </div>
                 ) : myCapsules.length === 0 ? (
-                  <div className="rounded-3xl bg-white p-12 text-center shadow-sm border border-gray-100">
+                  <div className="rounded-3xl bg-white dark:bg-[#1E1E1E] p-12 text-center shadow-sm border border-gray-100 dark:border-white/10">
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#985810]/10 text-[#985810] mb-3">
                       <Film size={28} />
                     </div>
-                    <h3 className="text-base font-bold text-[#2D2D2D]">Vous n&apos;avez pas encore publié de capsule</h3>
-                    <p className="text-sm text-[#65676B] max-w-sm mx-auto mt-1">
+                    <h3 className="text-base font-bold text-[#2D2D2D] dark:text-white">Vous n&apos;avez pas encore publié de capsule</h3>
+                    <p className="text-sm text-[#65676B] dark:text-zinc-400 max-w-sm mx-auto mt-1">
                       Partagez des vidéos verticales courtes pour faire grandir votre audience et accumuler des points Dughu.
                     </p>
                     {userId && (

@@ -57,9 +57,9 @@ export default function GroupCarousel({
   }
 
   return (
-    <div className="bg-white rounded-[20px] p-3 shadow-sm group">
+    <div className="bg-white dark:bg-[#1E1E1E] dark:border dark:border-white/10 rounded-[20px] p-3 shadow-sm group">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="font-bold text-[14px] text-[#2D2D2D] flex items-center gap-1.5">
+        <h4 className="font-bold text-[14px] text-[#2D2D2D] dark:text-[#F3F4F6] flex items-center gap-1.5">
           {icon}
           {title}
         </h4>
@@ -70,7 +70,7 @@ export default function GroupCarousel({
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="shrink-0 w-[160px] rounded-[14px] overflow-hidden border border-[#E4E6EB] bg-white"
+              className="shrink-0 w-[160px] rounded-[14px] overflow-hidden border border-[#E4E6EB] dark:border-white/10 bg-white dark:bg-[#252525]"
             >
               <Skeleton className="h-[70px] w-full rounded-none border-0" />
               <div className="flex justify-center -mt-5 mb-1">
@@ -96,7 +96,7 @@ export default function GroupCarousel({
             <div
               key={item.id}
               data-card
-              className="snap-start shrink-0 w-[160px] rounded-[14px] overflow-hidden border border-[#E4E6EB] bg-white"
+              className="snap-start shrink-0 w-[160px] rounded-[14px] overflow-hidden border border-[#E4E6EB] dark:border-white/10 bg-white dark:bg-[#252525]"
             >
               {/* Cover */}
               <div className="h-[70px] relative">
@@ -111,7 +111,7 @@ export default function GroupCarousel({
 
               {/* Avatar au centre - chevauche la cover */}
               <div className="relative flex justify-center -mt-5 mb-1">
-                <div className="w-[52px] h-[52px] rounded-full border-3 border-white overflow-hidden shadow-md relative">
+                <div className="w-[52px] h-[52px] rounded-full border-3 border-white dark:border-[#252525] overflow-hidden shadow-md relative">
                   <Image
                     src={item.avatar || defaultAvatar}
                     alt={item.name}
@@ -124,13 +124,13 @@ export default function GroupCarousel({
 
               {/* Info */}
               <div className="px-3 text-center">
-                <p className="font-bold text-[13px] text-[#2D2D2D] truncate">{item.name}</p>
+                <p className="font-bold text-[13px] text-[#2D2D2D] dark:text-[#F3F4F6] truncate">{item.name}</p>
                 {item.description && (
-                  <p className="text-[10px] text-[#65676B] mt-0.5 truncate">{item.description}</p>
+                  <p className="text-[10px] text-[#65676B] dark:text-[#A1A1AA] mt-0.5 truncate">{item.description}</p>
                 )}
                 <div className="flex items-center justify-center gap-1 mt-1">
-                  <Users size={11} className="text-[#65676B]" />
-                  <p className="text-[10px] text-[#65676B]">{item.members || "0 membres"}</p>
+                  <Users size={11} className="text-[#65676B] dark:text-[#A1A1AA]" />
+                  <p className="text-[10px] text-[#65676B] dark:text-[#A1A1AA]">{item.members || "0 membres"}</p>
                 </div>
                 {buttonLabel && (
                   <button

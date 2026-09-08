@@ -5,7 +5,7 @@
 // grille de la page /capsules. Un clic ouvre la visionneuse plein écran.
 
 import { useRef } from "react"
-import { Play, Eye } from "lucide-react"
+import { Play } from "lucide-react"
 import Avatar from "@/components/common/Avatar"
 import { cn } from "@/lib/utils"
 import type { Capsule } from "@/lib/capsule-service"
@@ -18,8 +18,6 @@ interface CapsuleCardProps {
 
 export default function CapsuleCard({ capsule, onOpen, className }: CapsuleCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const formatViews = (n: number) =>
-    n >= 1000 ? `${(n / 1000).toFixed(1).replace(".0", "")}k` : String(n)
 
   // Lecture automatique au survol / au focus (vidéo muette)
   const startVideo = () => {
@@ -84,14 +82,6 @@ export default function CapsuleCard({ capsule, onOpen, className }: CapsuleCardP
 
       {/* Voile dégradé pour la lisibilité */}
       <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/80 via-black/30 to-transparent" aria-hidden />
-
-      {/* Badge vue */}
-      {capsule.viewsCount > 0 && (
-        <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
-          <Eye size={12} aria-hidden />
-          {formatViews(capsule.viewsCount)}
-        </span>
-      )}
 
       {/* Auteur + légende */}
       <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 p-2.5">

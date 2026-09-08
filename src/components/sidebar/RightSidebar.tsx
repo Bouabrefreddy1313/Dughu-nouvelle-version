@@ -273,7 +273,7 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
       aria-label="Sidebar droite"
       className={cn(
         "flex flex-col fixed top-0 right-0 bottom-0 w-[300px] max-w-[85vw] z-50",
-        "overflow-y-auto scrollbar-hide space-y-5 pb-10 pl-2 pr-3 bg-[#f7f8fa]",
+        "overflow-y-auto scrollbar-hide space-y-5 pb-10 pl-2 pr-3 bg-[#f7f8fa] dark:bg-[#121212]",
         "transition-[transform,visibility] duration-300 ease-in-out",
         // Tiroir mobile : ouvert/fermé selon la prop `open`
         open ? "translate-x-0 visible" : "translate-x-full invisible",
@@ -285,12 +285,12 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
     >
       {/* Barre de fermeture — mobile & tablette uniquement */}
       <div className="xl:hidden flex items-center justify-between px-1 pt-2">
-        <span className="text-[15px] font-bold text-[#2D2D2D]">Découvertes</span>
+        <span className="text-[15px] font-bold text-[#2D2D2D] dark:text-[#F3F4F6]">Découvertes</span>
         <button
           type="button"
           onClick={onClose}
           aria-label="Fermer la sidebar droite"
-          className="w-9 h-9 rounded-full bg-[#F0F2F5] flex items-center justify-center text-[#050505] hover:bg-[#E4E6EB] transition"
+          className="w-9 h-9 rounded-full bg-[#F0F2F5] dark:bg-[#2A2A2A] flex items-center justify-center text-[#050505] dark:text-[#F3F4F6] hover:bg-[#E4E6EB] dark:hover:bg-[#333333] transition"
         >
           <X size={18} />
         </button>
@@ -305,10 +305,10 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
       />
 
       {/* Posts boostés */}
-      <div className="bg-white rounded-[20px] p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#1E1E1E] border border-transparent dark:border-white/10 rounded-[20px] p-4 shadow-sm">
         <div className="flex items-center gap-2 mb-3 px-1">
-          <TrendingUp size={15} className="text-[#A35A2A]" />
-          <h3 className="text-[14px] font-bold text-[#2D2D2D]">Boostés pour vous</h3>
+          <TrendingUp size={15} className="text-[#A35A2A] dark:text-[#B46D1C]" />
+          <h3 className="text-[14px] font-bold text-[#2D2D2D] dark:text-[#F3F4F6]">Boostés pour vous</h3>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -337,7 +337,7 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
               />
             ))
           ) : (
-            <div className="text-center py-8 text-[12px] text-[#65676B]">
+            <div className="text-center py-8 text-[12px] text-[#65676B] dark:text-[#A1A1AA]">
               Aucun post boosté
             </div>
           )}
@@ -353,8 +353,8 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
                 className={cn(
                   "transition-all duration-300 rounded-full",
                   activeDot === i
-                    ? "w-4 h-1.5 bg-[#A35A2A]"
-                    : "w-1.5 h-1.5 bg-[#E4E6EB] hover:bg-[#B87333]/50"
+                    ? "w-4 h-1.5 bg-[#A35A2A] dark:bg-[#B46D1C]"
+                    : "w-1.5 h-1.5 bg-[#E4E6EB] dark:bg-white/20 hover:bg-[#B87333]/50"
                 )}
                 aria-label={`Page ${i + 1}`}
               />
@@ -370,7 +370,7 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
         items={suggestedGroups.length > 0 ? suggestedGroups : GROUPS}
         defaultCover="/images/group/default-cover.jpg"
         defaultAvatar="/images/group/default-avatar.jpg"
-        icon={<Users size={14} className="text-[#A35A2A]" />}
+        icon={<Users size={14} className="text-[#A35A2A] dark:text-[#B46D1C]" />}
         buttonLabel="Adhérer"
         buttonColor="#A35A2A"
       />
@@ -382,7 +382,7 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
         items={suggestedPages.length > 0 ? suggestedPages : SPACES}
         defaultCover="/images/page/default-cover.jpg"
         defaultAvatar="/images/page/default-avatar.jpg"
-        icon={<Globe size={14} className="text-[#A35A2A]" />}
+        icon={<Globe size={14} className="text-[#A35A2A] dark:text-[#B46D1C]" />}
         buttonLabel="J'aime"
         buttonColor="#FF0000"
         buttonHoverColor="#FF000099"
@@ -390,10 +390,10 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
       />
 
       {/* Dernière activité */}
-      <div className="bg-white rounded-[20px] p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#1E1E1E] border border-transparent dark:border-white/10 rounded-[20px] p-4 shadow-sm">
         <div className="flex items-center gap-2 mb-3 px-1">
-          <ActivityIcon size={15} className="text-[#A35A2A]" />
-          <h3 className="text-[14px] font-bold text-[#2D2D2D]">Dernière activité</h3>
+          <ActivityIcon size={15} className="text-[#A35A2A] dark:text-[#B46D1C]" />
+          <h3 className="text-[14px] font-bold text-[#2D2D2D] dark:text-[#F3F4F6]">Dernière activité</h3>
         </div>
 
         <div className="flex flex-col">
@@ -417,20 +417,20 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
               const userName = act.user?.name || user?.name || "Utilisateur"
               const avatarSrc = act.user?.avatar || user?.avatar
               return (
-                <div key={act.id || i} className="flex items-center gap-3 py-3 border-b border-gray-50 last:border-b-0">
+                <div key={act.id || i} className="flex items-center gap-3 py-3 border-b border-gray-50 dark:border-white/5 last:border-b-0">
                   {/* Photo de profil */}
                   <Avatar
                     src={avatarSrc}
                     name={userName}
                     size="xs"
-                    className="w-8 h-8 shrink-0 border border-gray-200"
+                    className="w-8 h-8 shrink-0 border border-gray-200 dark:border-white/10"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] leading-snug">
-                      <span className="font-semibold text-[#050505]">{userName}</span>{" "}
-                      <span className="text-[#65676B]">{meta.action}</span>
+                      <span className="font-semibold text-[#050505] dark:text-[#F3F4F6]">{userName}</span>{" "}
+                      <span className="text-[#65676B] dark:text-[#A1A1AA]">{meta.action}</span>
                     </p>
-                    <p className="text-[11px] text-[#65676B] mt-0.5">{formatActivityTime(act.createdAt)}</p>
+                    <p className="text-[11px] text-[#65676B] dark:text-[#A1A1AA] mt-0.5">{formatActivityTime(act.createdAt)}</p>
                   </div>
                   {/* Petite icône selon le type d'activité */}
                   <span className={cn("w-7 h-7 shrink-0 rounded-full flex items-center justify-center", meta.color)}>
@@ -440,7 +440,7 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
               )
             })
           ) : (
-            <div className="text-center py-8 text-[12px] text-[#65676B]">
+            <div className="text-center py-8 text-[12px] text-[#65676B] dark:text-[#A1A1AA]">
               Aucune activité pour le moment
             </div>
           )}
@@ -449,7 +449,7 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
 
       {/* Tendances */}
       <Card className="p-5 rounded-[24px]">
-        <h4 className="font-bold text-[16px] mb-3 text-[#2D2D2D]">On parle de ça</h4>
+        <h4 className="font-bold text-[16px] mb-3 text-[#2D2D2D] dark:text-[#F3F4F6]">On parle de ça</h4>
         <div className="space-y-1">
           {isAnyLoading ? (
             <div className="space-y-3" aria-busy="true">
@@ -465,11 +465,11 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
               <span className="sr-only">Chargement des tendances…</span>
             </div>
           ) : trends.map((t) => (
-            <div key={t.tag} className="flex items-center gap-3 hover:bg-[#F0F2F5] p-3 rounded-xl cursor-pointer transition">
+            <div key={t.tag} className="flex items-center gap-3 hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] p-3 rounded-xl cursor-pointer transition">
               <BarChart3 size={18} className="text-[#E4405F] shrink-0" />
               <div className="min-w-0">
-                <p className="text-[14px] font-medium text-[#2D2D2D]">{t.tag}</p>
-                <p className="text-[12px] text-[#65676B]">{t.count} publications</p>
+                <p className="text-[14px] font-medium text-[#2D2D2D] dark:text-[#F3F4F6]">{t.tag}</p>
+                <p className="text-[12px] text-[#65676B] dark:text-[#A1A1AA]">{t.count} publications</p>
               </div>
             </div>
           ))}

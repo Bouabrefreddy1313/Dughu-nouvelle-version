@@ -16,14 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import {
-  Flame,
   TrendingUp,
-  Heart,
-  MessageSquare,
-  Share2,
-  RefreshCcw,
-  Sparkles,
-  Trophy,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -115,8 +108,6 @@ interface Post {
   [key: string]: unknown
 }
 
-type TrendingFilter = "all" | "likes" | "comments" | "shares"
-
 export default function TrendingPage() {
   const router = useRouter()
   const { data: rawUser } = useAuth()
@@ -137,17 +128,14 @@ export default function TrendingPage() {
 
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [activeFilter, setActiveFilter] = useState<TrendingFilter>("all")
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [blockedAuthors, setBlockedAuthors] = useState<Set<string>>(new Set())
   const [followingAuthorIds, setFollowingAuthorIds] = useState<Set<string>>(new Set())
 
   // Charger et agréger les posts pour extraire les tendances
   const loadTrendingPosts = useCallback(
-    async (isManualRefresh = false) => {
-      if (isManualRefresh) setRefreshing(true)
-      else setLoading(true)
+    async () => {
+      setLoading(true)
 
       try {
         const userId = user?.id || ""
@@ -207,7 +195,6 @@ export default function TrendingPage() {
         toast.error("Impossible de charger les tendances pour le moment.")
       } finally {
         setLoading(false)
-        setRefreshing(false)
       }
     },
     [user?.id, user?.dughu?.userId]
@@ -217,7 +204,7 @@ export default function TrendingPage() {
     loadTrendingPosts()
   }, [loadTrendingPosts])
 
-  // Tri selon le filtre d'interaction sélectionné
+  // Tri par total d'interactions (J'aime + Commentaires + Partages)
   const sortedPosts = useMemo(() => {
     const list = [...posts]
 
@@ -229,35 +216,11 @@ export default function TrendingPage() {
       const aShares = a._count?.reposts || 0
       const bShares = b._count?.reposts || 0
 
-      if (activeFilter === "likes") {
-        return bLikes - aLikes
-      }
-      if (activeFilter === "comments") {
-        return bComments - aComments
-      }
-      if (activeFilter === "shares") {
-        return bShares - aShares
-      }
-
-      // Par défaut : total des interactions
       const aTotal = aLikes + aComments + aShares
       const bTotal = bLikes + bComments + bShares
       return bTotal - aTotal
     })
-  }, [posts, activeFilter])
-
-  // Calcul du total des interactions pour une publication
-  const getInteractionScore = (post: Post) => {
-    const likes = post._count?.likes || 0
-    const comments = post._count?.comments || 0
-    const shares = post._count?.reposts || 0
-    return {
-      total: likes + comments + shares,
-      likes,
-      comments,
-      shares,
-    }
-  }
+  }, [posts])
 
   // ── Like / Réactions ────────────────────────────────────────────────────────
   const handleReaction = async (postId: string, reactionId?: number) => {
@@ -654,96 +617,6 @@ export default function TrendingPage() {
   return (
     <MainLayout user={user} active="tendances">
       <div className="w-full max-w-[680px] mx-auto pb-16">
-        {/* ── EN-TÊTE DE LA PAGE TENDANCES ── */}
-        <div className="bg-white rounded-3xl p-5 sm:p-6 mb-4 shadow-sm border border-gray-100/80">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F5C33B] via-[#E5A817] to-[#D68B0A] flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
-                <Flame className="w-6 h-6 text-white animate-pulse" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-bold text-[#1F1F1F] tracking-tight">
-                    Tendances
-                  </h1>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/60">
-                    <Sparkles className="w-3 h-3 text-amber-600" />
-                    En direct
-                  </span>
-                </div>
-                <p className="text-xs sm:text-sm text-[#65676B] mt-1">
-                  Les publications avec le plus d&apos;interactions (J&apos;aime, commentaires et partages)
-                </p>
-              </div>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => loadTrendingPosts(true)}
-              disabled={loading || refreshing}
-              className="rounded-full hover:bg-amber-50 hover:text-amber-700 transition shrink-0"
-              title="Rafraîchir les tendances"
-            >
-              <RefreshCcw
-                size={18}
-                className={refreshing ? "animate-spin text-amber-600" : "text-gray-500"}
-              />
-            </Button>
-          </div>
-
-          {/* Filtres de classement */}
-          <div className="flex items-center gap-2 overflow-x-auto pt-4 mt-4 border-t border-gray-100 no-scrollbar">
-            <button
-              onClick={() => setActiveFilter("all")}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
-                activeFilter === "all"
-                  ? "bg-[#1F1F1F] text-white shadow-sm"
-                  : "bg-gray-100/80 text-gray-600 hover:bg-gray-200/70"
-              }`}
-            >
-              <Flame size={14} className={activeFilter === "all" ? "text-amber-400" : "text-gray-500"} />
-              Toutes les interactions
-            </button>
-
-            <button
-              onClick={() => setActiveFilter("likes")}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
-                activeFilter === "likes"
-                  ? "bg-[#1F1F1F] text-white shadow-sm"
-                  : "bg-gray-100/80 text-gray-600 hover:bg-gray-200/70"
-              }`}
-            >
-              <Heart size={14} className={activeFilter === "likes" ? "text-rose-400" : "text-gray-500"} />
-              Plus aimées
-            </button>
-
-            <button
-              onClick={() => setActiveFilter("comments")}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
-                activeFilter === "comments"
-                  ? "bg-[#1F1F1F] text-white shadow-sm"
-                  : "bg-gray-100/80 text-gray-600 hover:bg-gray-200/70"
-              }`}
-            >
-              <MessageSquare size={14} className={activeFilter === "comments" ? "text-blue-400" : "text-gray-500"} />
-              Plus commentées
-            </button>
-
-            <button
-              onClick={() => setActiveFilter("shares")}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
-                activeFilter === "shares"
-                  ? "bg-[#1F1F1F] text-white shadow-sm"
-                  : "bg-gray-100/80 text-gray-600 hover:bg-gray-200/70"
-              }`}
-            >
-              <Share2 size={14} className={activeFilter === "shares" ? "text-emerald-400" : "text-gray-500"} />
-              Plus partagées
-            </button>
-          </div>
-        </div>
-
         {/* ── LISTE DES POSTS TENDANCES ── */}
         {loading ? (
           <div className="space-y-4">
@@ -785,9 +658,7 @@ export default function TrendingPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {sortedPosts.map((post, index) => {
-              const rank = index + 1
-              const score = getInteractionScore(post)
+            {sortedPosts.map((post) => {
               const postVideo =
                 typeof post.video === "string"
                   ? post.video
@@ -795,41 +666,6 @@ export default function TrendingPage() {
 
               return (
                 <div key={`trend-item-${post.id}`} className="relative group">
-                  {/* Badge de classement tendance au-dessus du post */}
-                  <div className="mb-2 px-3 sm:px-1 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      {rank === 1 ? (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full font-bold bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-sm shadow-amber-500/30 text-[13px]">
-                          <Flame size={14} className="animate-bounce" />
-                          #1 Tendance Dughu
-                        </span>
-                      ) : rank === 2 ? (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full font-bold bg-gradient-to-r from-slate-600 to-gray-700 text-white shadow-sm text-[12px]">
-                          <Trophy size={13} className="text-gray-300" />
-                          #2 Tendance
-                        </span>
-                      ) : rank === 3 ? (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full font-bold bg-gradient-to-r from-amber-700 to-amber-800 text-white shadow-sm text-[12px]">
-                          <Trophy size={13} className="text-amber-200" />
-                          #3 Tendance
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-700 text-[11px]">
-                          #{rank} en tendance
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2.5 text-[#65676B] font-medium text-[11px] sm:text-xs">
-                      <span className="font-semibold text-gray-900 bg-amber-50/80 px-2 py-0.5 rounded-md border border-amber-200/40">
-                        {score.total} interaction{score.total > 1 ? "s" : ""}
-                      </span>
-                      <span className="hidden sm:inline">
-                        (❤️ {score.likes} · 💬 {score.comments} · 🔁 {score.shares})
-                      </span>
-                    </div>
-                  </div>
-
                   {/* Carte standard du Post */}
                   <PostCard
                     postId={post.id}

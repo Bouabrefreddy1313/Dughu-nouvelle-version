@@ -674,7 +674,7 @@ export default function ConversationPopup({
           </div>
 
           {/* Corps de la conversation */}
-          <div className="flex min-h-0 flex-1 flex-col bg-[#F7F8FA]">
+          <div className="flex min-h-0 flex-1 flex-col bg-[#F7F8FA] dark:bg-[#121212]">
             <div
               ref={messagesContainerRef}
               className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 pr-2 [scrollbar-width:thin] [scrollbar-color:#B98663_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#B98663]"
@@ -688,7 +688,7 @@ export default function ConversationPopup({
                     >
                       <Skeleton
                         className={cn(
-                          "h-8 rounded-2xl bg-gray-200",
+                          "h-8 rounded-2xl bg-gray-200 dark:bg-white/10",
                           i % 2 === 0 ? "w-32 rounded-bl-sm" : "w-40 rounded-br-sm"
                         )}
                       />
@@ -698,21 +698,21 @@ export default function ConversationPopup({
                 </div>
               ) : error ? (
                 <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-                  <p className="text-sm text-red-600">{error}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                   <button
                     type="button"
                     onClick={() => void loadMessages(true)}
-                    className="mt-2 text-xs font-semibold text-[#A35A2A]"
+                    className="mt-2 text-xs font-semibold text-[#A35A2A] dark:text-[#B46D1C]"
                   >
                     Réessayer
                   </button>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-                  <p className="text-sm text-[#65676B]">
+                  <p className="text-sm text-[#65676B] dark:text-[#A1A1AA]">
                     Aucun message pour le moment.
                   </p>
-                  <p className="mt-1 text-xs text-[#65676B]">
+                  <p className="mt-1 text-xs text-[#65676B] dark:text-[#A1A1AA]">
                     Écrivez le premier message !
                   </p>
                 </div>
@@ -736,7 +736,7 @@ export default function ConversationPopup({
                           }}
                           aria-label="Répondre"
                           title="Répondre"
-                          className="rounded-full p-1 text-[#65676B] transition hover:bg-gray-200"
+                          className="rounded-full p-1 text-[#65676B] dark:text-[#A1A1AA] transition hover:bg-gray-200 dark:hover:bg-[#2A2A2A]"
                         >
                           <Reply size={14} />
                         </button>
@@ -750,7 +750,7 @@ export default function ConversationPopup({
                           onClick={(event) => toggleMessageMenu(event, message.id)}
                           aria-label="Actions du message"
                           aria-expanded={menuMessageId === message.id}
-                          className="rounded-full p-1 text-[#65676B] transition hover:bg-gray-200"
+                          className="rounded-full p-1 text-[#65676B] dark:text-[#A1A1AA] transition hover:bg-gray-200 dark:hover:bg-[#2A2A2A]"
                         >
                           <MoreVertical size={14} />
                         </button>
@@ -769,7 +769,7 @@ export default function ConversationPopup({
                         "relative max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[70%]",
                         message.isMine
                           ? "rounded-br-sm bg-[#A35A2A] text-white"
-                          : "rounded-bl-sm border border-gray-100 bg-white text-[#050505]"
+                          : "rounded-bl-sm border border-gray-100 dark:border-white/10 bg-white dark:bg-[#1E1E1E] text-[#050505] dark:text-[#F3F4F6]"
                       )}
                     >
                       {editingMessageId === message.id ? (
@@ -812,7 +812,7 @@ export default function ConversationPopup({
                                     "mb-2 flex items-start gap-1.5 rounded-lg border-l-[3px] px-2 py-1.5 text-xs",
                                     message.isMine
                                       ? "border-white/70 bg-white/15"
-                                      : "border-[#A35A2A] bg-gray-50"
+                                      : "border-[#A35A2A] bg-gray-50 dark:bg-[#252525]"
                                   )}
                                 >
                                   <Reply size={12} className="mt-0.5 shrink-0 opacity-70" />
@@ -835,7 +835,7 @@ export default function ConversationPopup({
                         <p
                           className={cn(
                             "text-[10px]",
-                            message.isMine ? "text-white/70" : "text-[#65676B]"
+                            message.isMine ? "text-white/70" : "text-[#65676B] dark:text-[#A1A1AA]"
                           )}
                         >
                           {formatTime(message.createdAt)}
@@ -845,8 +845,8 @@ export default function ConversationPopup({
                       {messageReactions[message.id] && (
                         <span
                           className={cn(
-                            "absolute -bottom-2 z-10 flex h-5 min-w-5 items-center justify-center rounded-full border-2 bg-white text-xs",
-                            message.isMine ? "-left-2 border-[#A35A2A]" : "-right-2 border-white shadow-sm"
+                            "absolute -bottom-2 z-10 flex h-5 min-w-5 items-center justify-center rounded-full border-2 bg-white dark:bg-[#252525] text-xs",
+                            message.isMine ? "-left-2 border-[#A35A2A]" : "-right-2 border-white dark:border-[#1E1E1E] shadow-sm"
                           )}
                           title={`Réaction : ${messageReactions[message.id]}`}
                         >
@@ -881,20 +881,20 @@ export default function ConversationPopup({
               <div ref={endRef} />
             </div>
 
-            <footer className="border-t border-gray-100 bg-white p-2">
+            <footer className="border-t border-gray-100 dark:border-white/10 bg-white dark:bg-[#1E1E1E] p-2">
               {replyTo && (
-                <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-[#F0F2F5] px-3 py-2 text-xs">
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-[#F0F2F5] dark:bg-[#2A2A2A] px-3 py-2 text-xs">
                   <div className="min-w-0">
-                    <span className="font-semibold">
+                    <span className="font-semibold text-[#050505] dark:text-[#F3F4F6]">
                       Réponse à {replyTo.isMine ? "vous" : (conversation.contact.name || "Utilisateur")}
                     </span>
-                    <p className="truncate text-[#65676B]">{replyTo.text || "Pièce jointe"}</p>
+                    <p className="truncate text-[#65676B] dark:text-[#A1A1AA]">{replyTo.text || "Pièce jointe"}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setReplyTo(null)}
                     aria-label="Annuler la réponse"
-                    className="shrink-0 rounded-full p-1 text-[#65676B] transition hover:bg-gray-200"
+                    className="shrink-0 rounded-full p-1 text-[#65676B] dark:text-[#A1A1AA] transition hover:bg-gray-200 dark:hover:bg-[#333333]"
                   >
                     <X size={15} />
                   </button>
@@ -906,7 +906,7 @@ export default function ConversationPopup({
                     <button
                       type="button"
                       onClick={() => setImage(null)}
-                      className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-[#65676B] transition hover:bg-gray-200"
+                      className="flex items-center gap-1 rounded-full bg-gray-100 dark:bg-[#2A2A2A] px-3 py-1 text-[#65676B] dark:text-[#A1A1AA] transition hover:bg-gray-200 dark:hover:bg-[#333333]"
                     >
                       <ImageIcon size={13} />
                       {fileLabel(image)} <span aria-hidden="true">×</span>
@@ -916,7 +916,7 @@ export default function ConversationPopup({
                     <button
                       type="button"
                       onClick={() => setVideo(null)}
-                      className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-[#65676B] transition hover:bg-gray-200"
+                      className="flex items-center gap-1 rounded-full bg-gray-100 dark:bg-[#2A2A2A] px-3 py-1 text-[#65676B] dark:text-[#A1A1AA] transition hover:bg-gray-200 dark:hover:bg-[#333333]"
                     >
                       <Video size={13} />
                       {fileLabel(video)} <span aria-hidden="true">×</span>
@@ -926,7 +926,7 @@ export default function ConversationPopup({
                     <button
                       type="button"
                       onClick={() => setDocumentFile(null)}
-                      className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-[#65676B] transition hover:bg-gray-200"
+                      className="flex items-center gap-1 rounded-full bg-gray-100 dark:bg-[#2A2A2A] px-3 py-1 text-[#65676B] dark:text-[#A1A1AA] transition hover:bg-gray-200 dark:hover:bg-[#333333]"
                     >
                       <Paperclip size={13} />
                       {fileLabel(documentFile)} <span aria-hidden="true">×</span>
@@ -934,16 +934,16 @@ export default function ConversationPopup({
                   )}
                 </div>
               )}
-              <div className="flex items-center gap-0.5 rounded-full bg-[#F0F2F5] py-1 pl-1 pr-1">
-                <label className="cursor-pointer rounded-full p-2 text-[#65676B] transition hover:bg-gray-200" title="Envoyer une image">
+              <div className="flex items-center gap-0.5 rounded-full bg-[#F0F2F5] dark:bg-[#2A2A2A] py-1 pl-1 pr-1">
+                <label className="cursor-pointer rounded-full p-2 text-[#65676B] dark:text-[#A1A1AA] transition hover:bg-gray-200 dark:hover:bg-[#333333]" title="Envoyer une image">
                   <ImageIcon size={17} />
                   <input type="file" accept="image/*" className="hidden" onChange={(event) => setImage(event.target.files?.[0] || null)} />
                 </label>
-                <label className="cursor-pointer rounded-full p-2 text-[#65676B] transition hover:bg-gray-200" title="Envoyer une vidéo">
+                <label className="cursor-pointer rounded-full p-2 text-[#65676B] dark:text-[#A1A1AA] transition hover:bg-gray-200 dark:hover:bg-[#333333]" title="Envoyer une vidéo">
                   <Video size={17} />
                   <input type="file" accept="video/mp4,video/ogg,video/webm" className="hidden" onChange={(event) => setVideo(event.target.files?.[0] || null)} />
                 </label>
-                <label className="cursor-pointer rounded-full p-2 text-[#65676B] transition hover:bg-gray-200" title="Envoyer un fichier">
+                <label className="cursor-pointer rounded-full p-2 text-[#65676B] dark:text-[#A1A1AA] transition hover:bg-gray-200 dark:hover:bg-[#333333]" title="Envoyer un fichier">
                   <Paperclip size={17} />
                   <input type="file" className="hidden" onChange={(event) => setDocumentFile(event.target.files?.[0] || null)} />
                 </label>
@@ -959,14 +959,14 @@ export default function ConversationPopup({
                   }}
                   placeholder="Écrire un message..."
                   aria-label="Écrire un message"
-                  className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-[#050505] outline-none placeholder:text-[#65676B]"
+                  className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-[#050505] dark:text-[#F3F4F6] outline-none placeholder:text-[#65676B] dark:placeholder:text-[#8E9094]"
                 />
                 <button
                   type="button"
                   onClick={() => void handleSend()}
                   disabled={sending || (!text.trim() && !image && !video && !documentFile)}
                   aria-label="Envoyer"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#A35A2A] text-white transition hover:bg-[#8f4f25] disabled:opacity-40"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#A35A2A] hover:bg-[#8f4f25] dark:bg-[#B46D1C] dark:hover:bg-[#A35A2A] text-white transition disabled:opacity-40"
                 >
                   {sending ? (
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />

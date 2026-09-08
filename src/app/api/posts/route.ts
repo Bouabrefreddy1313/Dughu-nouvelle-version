@@ -95,17 +95,62 @@ function resolveColorInputId(colorIdRaw: string | undefined, colorRaw: unknown):
   return ""
 }
 
-// Fusionne le fil des publications des pages avec les posts de l'utilisateur
-// lui-même (créés directement depuis l'API Dughu), sans doublon.
+function isSpacePost(p: any): boolean {
+  if (!p) return false
+  if (p.isSpacePost) return true
+  if (p.page && (p.page.id || p.page.page_id || p.page.name)) return true
+  if (p.author?.pageId) return true
+  if (p.group && (p.group.id || p.group.name)) return true
+  if (p.page_id || p.pageId || p.group_id || p.groupId) return true
+  return false
+}
+
+// Fusionne le fil des publications classiques et des espaces (pages/groupes),
+// en répartissant aléatoirement les posts d'espaces dans le fil au lieu de les
+// afficher systématiquement tous en haut.
 function mergeFeedPosts(pagePosts: any[], userPosts: any[]): any[] {
   const seen = new Set<string>()
-  const merged: any[] = []
-  for (const p of [...pagePosts, ...userPosts]) {
-    if (!p.id || seen.has(p.id)) continue
-    seen.add(p.id)
-    merged.push(p)
+  const regularPosts: any[] = []
+  const spacePosts: any[] = []
+
+  for (const p of [...userPosts, ...pagePosts]) {
+    if (!p?.id || seen.has(String(p.id))) continue
+    seen.add(String(p.id))
+
+    if (isSpacePost(p)) {
+      spacePosts.push(p)
+    } else {
+      regularPosts.push(p)
+    }
   }
-  return merged.sort((a, b) => new Date(b.createdAt || "").getTime() - new Date(a.createdAt || "").getTime())
+
+  // Trier les publications classiques chronologiquement (plus récentes en premier)
+  regularPosts.sort(
+    (a, b) => new Date(b.createdAt || "").getTime() - new Date(a.createdAt || "").getTime()
+  )
+
+  // S'il n'y a pas de publications classiques, renvoyer les posts d'espaces
+  if (regularPosts.length === 0) return spacePosts
+  // S'il n'y a pas de posts d'espaces, renvoyer les classiques
+  if (spacePosts.length === 0) return regularPosts
+
+  // Mélanger l'ordre des posts d'espace eux-mêmes (Fisher-Yates)
+  for (let i = spacePosts.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[spacePosts[i], spacePosts[j]] = [spacePosts[j], spacePosts[i]]
+  }
+
+  // Insérer chaque publication d'espace à une position aléatoire dans le fil
+  const result = [...regularPosts]
+  for (const sp of spacePosts) {
+    // Si la liste contient au moins 2 posts, on évite la toute première position (index 0)
+    // pour garantir que le haut du fil ne commence pas systématiquement par un espace
+    const minIndex = result.length >= 2 ? 1 : 0
+    const insertIndex = minIndex + Math.floor(Math.random() * (result.length - minIndex + 1))
+    result.splice(insertIndex, 0, sp)
+  }
+
+  return result
 }
 
 export async function GET(req: NextRequest) {
@@ -185,7 +230,10 @@ export async function GET(req: NextRequest) {
 
     const pagePostsPromise = dughuApi
       .getPostPageUser(dughuUserId, page)
-      .then((rawPages: any) => mapPosts(rawPages, undefined) as any[])
+      .then((rawPages: any) => {
+        const mapped = (mapPosts(rawPages, undefined) as any[]) || []
+        return mapped.map((p) => ({ ...p, isSpacePost: true }))
+      })
       .catch((e: unknown) => {
         console.error("FEED getPostPageUser ERROR:", e)
         return []

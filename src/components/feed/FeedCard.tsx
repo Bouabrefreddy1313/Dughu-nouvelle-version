@@ -49,7 +49,7 @@ export function FeedCard({
           <Avatar src={author.avatar} name={author.name} size="md" />
           <div>
             <div className="flex items-center gap-1.5">
-              <p className="font-semibold text-[15px] text-[#050505]">{author.name}</p>
+              <p className="font-semibold text-[15px] text-[#050505] dark:text-[#F3F4F6]">{author.name}</p>
               {author.verified && (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A35A2A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
@@ -69,7 +69,7 @@ export function FeedCard({
       {/* Body */}
       <div className="px-4 pb-3">
         {content && (
-          <p className="text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed break-words mb-3">
+          <p className="text-[15px] text-[#050505] dark:text-[#F3F4F6] whitespace-pre-wrap leading-relaxed break-words mb-3">
             {content}
           </p>
         )}

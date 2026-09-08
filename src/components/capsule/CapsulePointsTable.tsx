@@ -83,22 +83,22 @@ export default function CapsulePointsTable({ entries, loading = false }: Capsule
                 setCurrentPage(1)
               }}
               placeholder="Rechercher une transaction..."
-              className="w-full rounded-full border border-gray-200 bg-[#FBFBFB] py-2 pl-9 pr-3 text-xs text-[#2D2D2D] placeholder:text-[#9A9A9A] focus:border-[#985810] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#985810]/20 transition"
+              className="w-full rounded-full border border-gray-200 dark:border-white/10 bg-[#FBFBFB] dark:bg-[#252525] py-2 pl-9 pr-3 text-xs text-[#2D2D2D] dark:text-white placeholder:text-[#9A9A9A] focus:border-[#985810] focus:bg-white dark:focus:bg-[#2A2A2A] focus:outline-none focus:ring-2 focus:ring-[#985810]/20 transition"
             />
           </div>
 
-          <span className="text-[11px] text-[#65676B] self-end sm:self-auto font-medium">
+          <span className="text-[11px] text-[#65676B] dark:text-zinc-400 self-end sm:self-auto font-medium">
             {filtered.length} transaction{filtered.length > 1 ? "s" : ""}
           </span>
         </div>
       )}
 
       {/* ── Tableau élégant ── */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">
+      <div className="overflow-hidden rounded-2xl border border-gray-200/90 dark:border-white/10 bg-white dark:bg-[#1E1E1E] shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-gray-200/80 bg-[#FAF7F2]/80 text-[11px] font-bold uppercase tracking-wider text-[#65676B]">
+              <tr className="border-b border-gray-200/80 dark:border-white/10 bg-[#FAF7F2]/80 dark:bg-[#252525] text-[11px] font-bold uppercase tracking-wider text-[#65676B] dark:text-zinc-400">
                 <th scope="col" className="px-4 sm:px-6 py-3.5">
                   <div className="flex items-center gap-1.5">
                     <Calendar size={13} className="text-[#985810]" />
@@ -120,27 +120,27 @@ export default function CapsulePointsTable({ entries, loading = false }: Capsule
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-100 font-normal">
+            <tbody className="divide-y divide-gray-100 dark:divide-white/5 font-normal">
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
                     <td className="px-4 sm:px-6 py-3.5">
-                      <div className="h-4 w-24 rounded bg-gray-100" />
+                      <div className="h-4 w-24 rounded bg-gray-100 dark:bg-[#2A2A2A]" />
                     </td>
                     <td className="px-3 sm:px-4 py-3.5">
-                      <div className="h-6 w-16 rounded-full bg-gray-100" />
+                      <div className="h-6 w-16 rounded-full bg-gray-100 dark:bg-[#2A2A2A]" />
                     </td>
                     <td className="px-4 sm:px-6 py-3.5">
-                      <div className="h-4 w-40 rounded bg-gray-100" />
+                      <div className="h-4 w-40 rounded bg-gray-100 dark:bg-[#2A2A2A]" />
                     </td>
                     <td className="px-4 sm:px-6 py-3.5 text-right">
-                      <div className="ml-auto h-4 w-12 rounded bg-gray-100" />
+                      <div className="ml-auto h-4 w-12 rounded bg-gray-100 dark:bg-[#2A2A2A]" />
                     </td>
                   </tr>
                 ))
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-10 text-center text-[#65676B]">
+                  <td colSpan={4} className="px-6 py-10 text-center text-[#65676B] dark:text-zinc-400">
                     Aucune transaction ne correspond à votre recherche.
                   </td>
                 </tr>
@@ -152,11 +152,11 @@ export default function CapsulePointsTable({ entries, loading = false }: Capsule
                   return (
                     <tr
                       key={entry.id}
-                      className="transition-colors hover:bg-[#FAF8F5]/80"
+                      className="transition-colors hover:bg-[#FAF8F5]/80 dark:hover:bg-[#252525]"
                     >
                       {/* 1. Date */}
-                      <td className="whitespace-nowrap px-4 sm:px-6 py-3.5 text-[#2D2D2D]">
-                        <div className="font-semibold text-xs text-[#2D2D2D]">{dateStr}</div>
+                      <td className="whitespace-nowrap px-4 sm:px-6 py-3.5 text-[#2D2D2D] dark:text-white">
+                        <div className="font-semibold text-xs text-[#2D2D2D] dark:text-white">{dateStr}</div>
                         {timeStr && (
                           <div className="text-[10px] text-[#888888]">{timeStr}</div>
                         )}
@@ -167,21 +167,21 @@ export default function CapsulePointsTable({ entries, loading = false }: Capsule
                         <span
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold border ${
                             isGain
-                              ? "border-emerald-200/70 bg-emerald-50 text-emerald-700"
-                              : "border-rose-200/70 bg-rose-50 text-rose-700"
+                              ? "border-emerald-200/70 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
+                              : "border-rose-200/70 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300"
                           }`}
                         >
                           {isGain ? (
-                            <ArrowUpRight size={12} className="text-emerald-600" />
+                            <ArrowUpRight size={12} className="text-emerald-600 dark:text-emerald-400" />
                           ) : (
-                            <ArrowDownLeft size={12} className="text-rose-600" />
+                            <ArrowDownLeft size={12} className="text-rose-600 dark:text-rose-400" />
                           )}
                           <span>{isGain ? "Gain" : "Perte"}</span>
                         </span>
                       </td>
 
                       {/* 3. Description */}
-                      <td className="px-4 sm:px-6 py-3.5 text-xs sm:text-sm text-[#333333] font-medium leading-relaxed max-w-xs sm:max-w-md">
+                      <td className="px-4 sm:px-6 py-3.5 text-xs sm:text-sm text-[#333333] dark:text-zinc-200 font-medium leading-relaxed max-w-xs sm:max-w-md">
                         {entry.description || "Activité sur les capsules"}
                       </td>
 
@@ -189,7 +189,7 @@ export default function CapsulePointsTable({ entries, loading = false }: Capsule
                       <td className="whitespace-nowrap px-4 sm:px-6 py-3.5 text-right">
                         <span
                           className={`inline-flex items-center gap-1 font-extrabold text-sm sm:text-base ${
-                            isGain ? "text-emerald-600" : "text-rose-600"
+                            isGain ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                           }`}
                         >
                           <span>{isGain ? "+" : "-"}</span>
@@ -207,7 +207,7 @@ export default function CapsulePointsTable({ entries, loading = false }: Capsule
 
         {/* ── Pied de pagination ── */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-gray-100 bg-[#FAFAFA] px-4 py-3 text-xs text-[#65676B]">
+          <div className="flex items-center justify-between border-t border-gray-100 dark:border-white/10 bg-[#FAFAFA] dark:bg-[#252525] px-4 py-3 text-xs text-[#65676B] dark:text-zinc-400">
             <span>
               Page {currentPage} sur {totalPages}
             </span>

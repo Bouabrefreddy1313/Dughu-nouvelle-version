@@ -10,7 +10,7 @@ export function FeedBody({ content, image, className }: FeedBodyProps) {
   return (
     <div className={className}>
       {content && (
-        <p className="text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed mb-3">
+        <p className="text-[15px] text-[#050505] dark:text-[#F3F4F6] whitespace-pre-wrap leading-relaxed mb-3">
           {content}
         </p>
       )}

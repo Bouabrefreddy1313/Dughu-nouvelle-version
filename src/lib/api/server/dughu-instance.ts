@@ -144,3 +144,13 @@ export function dughuServerJson<T = unknown>(
     headers: { "Content-Type": "application/json" },
   }, options)
 }
+
+/** DELETE vers l'API Dughu — mutation sans retry automatique. */
+export function dughuServerDelete<T = unknown>(
+  path: string,
+  params?: Record<string, string | number | undefined>,
+  options?: ExecuteOptions
+): Promise<T> {
+  return execute<T>({ method: "DELETE", url: path, params }, options)
+}
+

@@ -183,22 +183,22 @@ export default function NotificationCard({
       className={cn(
         "flex items-start gap-3.5 transition cursor-pointer select-none group",
         compact
-          ? "p-3.5 sm:p-4 border-b border-gray-100 last:border-b-0"
-          : "p-4 sm:p-5 rounded-2xl border mb-2.5 shadow-sm",
+          ? "p-3.5 sm:p-4 border-b border-gray-100 dark:border-white/10 last:border-b-0"
+          : "p-4 sm:p-5 rounded-2xl border mb-2.5 shadow-sm dark:border-white/10",
         isUnread
           ? compact
-            ? "bg-[#A35A2A]/[0.04] hover:bg-[#A35A2A]/[0.08]"
-            : "bg-white hover:bg-amber-50/20 border-[#A35A2A]/20"
+            ? "bg-[#A35A2A]/[0.04] dark:bg-[#985810]/15 hover:bg-[#A35A2A]/[0.08] dark:hover:bg-[#985810]/25"
+            : "bg-white dark:bg-[#1E1E1E] hover:bg-amber-50/20 dark:hover:bg-[#252525] border-[#A35A2A]/20 dark:border-[#985810]/40"
           : compact
-          ? "bg-white hover:bg-gray-50/80"
-          : "bg-white hover:bg-gray-50/80 border-gray-100"
+          ? "bg-white dark:bg-[#1E1E1E] hover:bg-gray-50/80 dark:hover:bg-[#252525]"
+          : "bg-white dark:bg-[#1E1E1E] hover:bg-gray-50/80 dark:hover:bg-[#252525] border-gray-100 dark:border-white/10"
       )}
     >
       {/* Avatar avec Badge du Type */}
       <div className="relative shrink-0 mt-0.5">
         <div
           className={cn(
-            "rounded-full overflow-hidden bg-gray-100 border border-gray-200/60 relative",
+            "rounded-full overflow-hidden bg-gray-100 dark:bg-[#2A2A2A] border border-gray-200/60 dark:border-white/10 relative",
             compact ? "w-11 h-11" : "w-12 h-12"
           )}
         >
@@ -219,7 +219,7 @@ export default function NotificationCard({
             className={cn(
               "font-semibold leading-tight mb-1 truncate",
               compact ? "text-[13.5px]" : "text-[14.5px]",
-              isUnread ? "text-[#1F1F1F]" : "text-[#333333]"
+              isUnread ? "text-[#1F1F1F] dark:text-[#F3F4F6]" : "text-[#333333] dark:text-[#D1D5DB]"
             )}
           >
             {displayTitle}
@@ -229,12 +229,12 @@ export default function NotificationCard({
           className={cn(
             "leading-snug break-words",
             compact ? "text-[13px] line-clamp-3" : "text-sm sm:text-[14px] line-clamp-4",
-            isUnread ? "text-[#1F1F1F] font-medium" : "text-[#4A4A4A] font-normal"
+            isUnread ? "text-[#1F1F1F] dark:text-[#F3F4F6] font-medium" : "text-[#4A4A4A] dark:text-[#A1A1AA] font-normal"
           )}
         >
           {item.text}
         </p>
-        <p className="text-[11.5px] text-[#8A8D91] mt-1.5 font-medium flex items-center gap-1.5">
+        <p className="text-[11.5px] text-[#8A8D91] dark:text-[#71717A] mt-1.5 font-medium flex items-center gap-1.5">
           <span>{timeAgo(item.createdAt)}</span>
         </p>
       </div>
@@ -242,7 +242,7 @@ export default function NotificationCard({
       {/* Point indicatif pour les notifications non lues */}
       {isUnread && (
         <div className="self-center shrink-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#A35A2A] block ring-4 ring-[#A35A2A]/15" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#A35A2A] dark:bg-[#B46D1C] block ring-4 ring-[#A35A2A]/15 dark:ring-[#B46D1C]/25" />
         </div>
       )}
     </div>

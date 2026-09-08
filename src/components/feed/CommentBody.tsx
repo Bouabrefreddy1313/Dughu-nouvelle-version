@@ -129,7 +129,7 @@ export function CommentBody({
       {text && (
         <p
           className={cn(
-            "text-[#050505] whitespace-pre-wrap break-words",
+            "text-[#050505] dark:text-[#F3F4F6] whitespace-pre-wrap break-words",
             size === "sm" ? "text-[13px]" : "text-[14px]"
           )}
         >
@@ -153,7 +153,7 @@ export function CommentBody({
           href={f.src}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#F0F2F5] hover:bg-gray-200 transition text-[13px] text-[#050505]"
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#F0F2F5] hover:bg-gray-200 dark:bg-[#2A2A2A] dark:hover:bg-[#333333] transition text-[13px] text-[#050505] dark:text-[#F3F4F6]"
         >
           <FileText size={16} className="text-[#A35A2A] shrink-0" />
           <span className="truncate">{f.name || "Fichier joint"}</span>

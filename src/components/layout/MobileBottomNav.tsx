@@ -27,7 +27,7 @@ export default function MobileBottomNav({ user }: MobileBottomNavProps) {
     <nav
       className={cn(
         // Positionnement et apparence de base
-        "fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-white border-t border-gray-200 lg:hidden",
+        "fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-white dark:bg-[#1A1A1A]/95 dark:backdrop-blur-md border-t border-gray-200 dark:border-white/10 lg:hidden",
         // Hauteur : 58px + safe-area-inset-bottom (encoche iPhone)
         // La safe-area assure que les boutons ne sont jamais sous la barre système
         "h-[calc(58px+env(safe-area-inset-bottom,0px))]",
@@ -51,7 +51,7 @@ export default function MobileBottomNav({ user }: MobileBottomNavProps) {
             onClick={() => router.push(item.href)}
             className={cn(
               "flex flex-col items-center justify-center gap-0.5 h-[58px] min-w-0 flex-1 transition-colors",
-              isActive ? "text-[#A35A2B]" : "text-[#65676B] hover:text-[#A35A2B]"
+              isActive ? "text-[#A35A2B] dark:text-[#B46D1C]" : "text-[#65676B] dark:text-[#A1A1AA] hover:text-[#A35A2B] dark:hover:text-[#B46D1C]"
             )}
             aria-label={item.label}
             aria-current={isActive ? "page" : undefined}

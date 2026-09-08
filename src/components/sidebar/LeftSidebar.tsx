@@ -39,20 +39,20 @@ function SidebarItem({ icon, label, active, badge, onClick, iconBg, iconColor }:
       onClick={onClick}
       className={cn(
         "w-full flex items-center gap-3 rounded-2xl cursor-pointer transition-all duration-200 select-none text-left px-3 py-2.5",
-        active ? "bg-[#A35A2A]/8 text-[#2D2D2D]" : "hover:bg-[#F0F2F5] text-[#4A4A4A]"
+        active ? "bg-[#A35A2A]/8 dark:bg-[#B46D1C]/20 text-[#2D2D2D] dark:text-[#F3F4F6]" : "hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] text-[#4A4A4A] dark:text-[#D1D5DB]"
       )}
     >
       <span className={cn(
         "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-        iconBg || "bg-[#F0F2F5]"
+        iconBg || "bg-[#F0F2F5] dark:bg-[#2A2A2A]"
       )}>
-        <span className={cn("flex items-center justify-center", iconColor || "text-[#65676B]")}>
+        <span className={cn("flex items-center justify-center", iconColor || "text-[#65676B] dark:text-[#A1A1AA]")}>
           {icon}
         </span>
       </span>
       <span className={cn(
         "font-medium flex-1 truncate text-[15px]",
-        active ? "text-[#2D2D2D] font-semibold" : "text-[#4A4A4A]"
+        active ? "text-[#2D2D2D] dark:text-[#F3F4F6] font-semibold" : "text-[#4A4A4A] dark:text-[#D1D5DB]"
       )}>
         {label}
       </span>
@@ -90,15 +90,15 @@ export default function LeftSidebar({
   return (
     <aside className={cn(
       "flex flex-col overflow-y-auto scrollbar-hide z-30",
-      "w-full h-full bg-[#f7f8fa] py-4 px-3",
-      mobile && "bg-white shadow-2xl"
+      "w-full h-full bg-[#f7f8fa] dark:bg-[#121212] py-4 px-3",
+      mobile && "bg-white dark:bg-[#1E1E1E] shadow-2xl"
     )}>
       {mobile && (
         <div className="flex items-center justify-between mb-3 px-2">
-          <p className="font-bold text-lg text-[#2D2D2D]">Menu</p>
+          <p className="font-bold text-lg text-[#2D2D2D] dark:text-[#F3F4F6]">Menu</p>
           <button
             onClick={onCloseMobile}
-            className="w-9 h-9 rounded-full bg-[#F0F2F5] flex items-center justify-center text-[#65676B] hover:bg-[#E4E6EB]"
+            className="w-9 h-9 rounded-full bg-[#F0F2F5] dark:bg-[#2A2A2A] flex items-center justify-center text-[#65676B] dark:text-[#A1A1AA] hover:bg-[#E4E6EB] dark:hover:bg-[#333333]"
             aria-label="Fermer"
           >
             <X size={18} />
@@ -285,7 +285,12 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<Image src="/images/notif.png" alt="Événements" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Événements"
+            active={active === "events"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/events")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
@@ -302,13 +307,22 @@ export default function LeftSidebar({
           <SidebarItem
             icon={<Image src="/images/finance.png" alt="Finance" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Finance"
+            active={active === "finance"}
             iconBg="bg-transparent"
+            onClick={() => {
+              router.push("/finance")
+              onCloseMobile?.()
+            }}
           />
 
           <SidebarItem
             icon={<Image src="/images/icon-dealtoo.png" alt="Dealtoo" width={28} height={28} className="w-7 h-7 object-contain" />}
             label="Dealtoo"
             iconBg="bg-transparent"
+            onClick={() => {
+              window.open("https://dealtoo.co/", "_blank", "noopener,noreferrer")
+              onCloseMobile?.()
+            }}
           />
         </nav>
       </Card>

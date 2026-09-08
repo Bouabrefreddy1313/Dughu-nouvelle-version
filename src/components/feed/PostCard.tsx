@@ -383,7 +383,7 @@ function ParentPostCard({
           }
         }}
         title="Cliquer pour accéder à la publication d'origine"
-        className="group mx-3 sm:mx-4 mt-1 rounded-2xl border border-gray-200/80 bg-[#F7F8FA] overflow-hidden cursor-pointer transition-all duration-200 hover:border-[#E7D8C4] hover:bg-[#F2F4F8] hover:shadow-sm active:scale-[0.99]"
+        className="group mx-3 sm:mx-4 mt-1 rounded-2xl border border-gray-200/80 dark:border-white/10 bg-[#F7F8FA] dark:bg-[#252525] overflow-hidden cursor-pointer transition-all duration-200 hover:border-[#E7D8C4] hover:bg-[#F2F4F8] dark:hover:bg-[#2F2F2F] hover:shadow-sm active:scale-[0.99]"
       >
         <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
           <div className="flex items-center gap-2 min-w-0">
@@ -408,7 +408,7 @@ function ParentPostCard({
                   <a
                     href={`/espaces/${parentPost.author.pageId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] font-semibold text-[#050505] truncate hover:underline"
+                    className="block text-[13px] font-semibold text-[#050505] dark:text-[#F3F4F6] truncate hover:underline"
                   >
                     {parentPost.author.name}
                   </a>
@@ -428,14 +428,14 @@ function ParentPostCard({
                   <a
                     href={`/profile/${parentPost.author.username || parentPost.author.id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] font-semibold text-[#050505] truncate hover:underline"
+                    className="block text-[13px] font-semibold text-[#050505] dark:text-[#F3F4F6] truncate hover:underline"
                   >
                     {parentPost.author.name}
                   </a>
                 </EntityPreviewCard>
               )}
               {parentPost.timeAgo ? (
-                <p className="text-[11px] text-[#65676B]">{parentPost.timeAgo}</p>
+                <p className="text-[11px] text-[#65676B] dark:text-[#A1A1AA]">{parentPost.timeAgo}</p>
               ) : null}
             </div>
           </div>
@@ -457,7 +457,7 @@ function ParentPostCard({
               </p>
             </div>
           ) : (
-            <p className="px-3 pb-2 pt-1 text-[14px] text-[#050505] whitespace-pre-wrap leading-relaxed break-words">
+            <p className="px-3 pb-2 pt-1 text-[14px] text-[#050505] dark:text-[#F3F4F6] whitespace-pre-wrap leading-relaxed break-words">
               <HashtagText text={content} />
             </p>
           )
@@ -1762,11 +1762,11 @@ export function PostCard({
       <div
         key={reply.id}
         className={cn(
-          "relative ml-2 sm:ml-5 pl-3 sm:pl-4 border-l-2 border-[#D9DEE5]",
+          "relative ml-2 sm:ml-5 pl-3 sm:pl-4 border-l-2 border-[#D9DEE5] dark:border-white/10",
           inModal ? "mt-4" : "mt-3"
         )}
       >
-        <span className="absolute -left-[7px] top-3 w-3 h-3 rounded-full bg-white border-2 border-[#D9DEE5]" />
+        <span className="absolute -left-[7px] top-3 w-3 h-3 rounded-full bg-white dark:bg-[#1E1E1E] border-2 border-[#D9DEE5] dark:border-white/20" />
 
         <div className="flex items-start gap-2">
           <Avatar
@@ -1776,9 +1776,9 @@ export function PostCard({
             className="w-6 h-6 shrink-0"
           />
 
-          <div className="flex-1 rounded-2xl bg-white border border-[#E5E7EB] px-3 py-2">
-            <div className="flex items-center gap-1 text-[11px] text-[#65676B] mb-1">
-              <span className="font-semibold text-[#050505]">
+          <div className="flex-1 rounded-2xl bg-white dark:bg-[#252525] border border-[#E5E7EB] dark:border-white/10 px-3 py-2">
+            <div className="flex items-center gap-1 text-[11px] text-[#65676B] dark:text-[#A1A1AA] mb-1">
+              <span className="font-semibold text-[#050505] dark:text-[#F3F4F6]">
                 {replyName}
               </span>
 
@@ -1786,12 +1786,12 @@ export function PostCard({
 
               <span>a répondu à</span>
 
-              <span className="font-semibold text-[#A35A2A]">
+              <span className="font-semibold text-[#A35A2A] dark:text-[#B46D1C]">
                 {parentName}
               </span>
             </div>
 
-            <span className="text-[10px] text-[#65676B]">
+            <span className="text-[10px] text-[#65676B] dark:text-[#A1A1AA]">
               {formatCommentTime(reply.createdAt)}
             </span>
 
@@ -1961,9 +1961,9 @@ export function PostCard({
         />
 
         <div className="flex-1 min-w-0">
-          <div className="rounded-2xl bg-[#F0F2F5] px-3 py-2">
+          <div className="rounded-2xl bg-[#F0F2F5] dark:bg-[#2A2A2A] px-3 py-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-[13px] font-semibold text-[#050505]">
+              <p className="text-[13px] font-semibold text-[#050505] dark:text-[#F3F4F6]">
                 {comment.user?.name}
               </p>
 
@@ -1973,7 +1973,7 @@ export function PostCard({
                 </span>
               )}
 
-              <span className="text-[11px] text-[#65676B]">
+              <span className="text-[11px] text-[#65676B] dark:text-[#A1A1AA]">
                 {formatCommentTime(comment.createdAt)}
               </span>
             </div>
@@ -2166,9 +2166,9 @@ export function PostCard({
       data-post-id={postId}
       className={cn(
         // Mobile : edge-to-edge, séparateur subtil border-b, pas de shadow ni d'arrondi
-        "bg-white border-b border-gray-100",
+        "bg-white dark:bg-[#1E1E1E] border-b border-gray-100 dark:border-white/10",
         // sm+ (tablette/desktop) : rendu carte avec arrondi, shadow et bordure complète
-        "sm:rounded-3xl sm:shadow-sm sm:border sm:border-gray-100",
+        "sm:rounded-3xl sm:shadow-sm sm:border sm:border-gray-100 dark:sm:border-white/10",
         className
       )}
     >
@@ -2183,11 +2183,11 @@ export function PostCard({
             className={cn(
               "group relative shrink-0 rounded-full p-[3px] transition hover:opacity-90 hover:shadow-md",
               flashViewed
-                ? "bg-gray-300 hover:shadow-gray-400/30"
+                ? "bg-gray-300 dark:bg-white/20 hover:shadow-gray-400/30"
                 : "bg-gradient-to-br from-[#E08543] to-[#A35A2A] hover:shadow-[#A35A2A]/30"
             )}
           >
-            <span className="block rounded-full bg-white p-[2px]">
+            <span className="block rounded-full bg-white dark:bg-[#1E1E1E] p-[2px]">
               <Avatar
                 src={author.avatar}
                 name={author.name}
@@ -2219,7 +2219,7 @@ export function PostCard({
             >
               <a
                 href={`/espaces/${author.pageId}`}
-                className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
+                className="font-semibold text-[15px] text-[#050505] dark:text-[#F3F4F6] truncate hover:underline"
               >
                 {author.name}
               </a>
@@ -2241,14 +2241,14 @@ export function PostCard({
             >
               <a
                 href={`/profile/${author.username || author.id}`}
-                className="font-semibold text-[15px] text-[#050505] truncate hover:underline"
+                className="font-semibold text-[15px] text-[#050505] dark:text-[#F3F4F6] truncate hover:underline"
               >
                 {author.name}
               </a>
             </EntityPreviewCard>
           )}
 
-          <div className="flex items-center gap-1.5 text-[12px] text-[#65676B]">
+          <div className="flex items-center gap-1.5 text-[12px] text-[#65676B] dark:text-[#A1A1AA]">
             {timeAgo && <span>{timeAgo}</span>}
             {timeAgo && <span aria-hidden>•</span>}
             <PrivacyBadge postPrivacy={postPrivacy} />
@@ -2286,17 +2286,17 @@ export function PostCard({
               }
               setPostMenuOpen((v) => !v)
             }}
-            className="p-2 rounded-full hover:bg-gray-100 transition"
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#2A2A2A] transition"
             aria-label="Menu"
           >
             <MoreHorizontal
               size={20}
-              className="text-[#65676B]"
+              className="text-[#65676B] dark:text-[#A1A1AA]"
             />
           </button>
 
           {postMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in duration-150">
+            <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-[#252525] rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 py-2 z-50 animate-in fade-in zoom-in duration-150">
               {onBoost && canBoost && (
                 <button
                   type="button"
@@ -2304,12 +2304,12 @@ export function PostCard({
                     setPostMenuOpen(false)
                     onBoost()
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] dark:hover:bg-[#2F2F2F] transition text-left"
                 >
-                  <span className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                    <Rocket size={16} className="text-[#A35A2A]" />
+                  <span className="w-8 h-8 rounded-full bg-orange-50 dark:bg-orange-500/15 flex items-center justify-center shrink-0">
+                    <Rocket size={16} className="text-[#A35A2A] dark:text-[#B46D1C]" />
                   </span>
-                  <span className="text-[13px] font-medium text-[#050505]">Booster</span>
+                  <span className="text-[13px] font-medium text-[#050505] dark:text-[#F3F4F6]">Booster</span>
                 </button>
               )}
               {onDelete && canDelete && (
@@ -2319,12 +2319,12 @@ export function PostCard({
                     setPostMenuOpen(false)
                     onDelete()
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] dark:hover:bg-[#2F2F2F] transition text-left"
                 >
-                  <span className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                  <span className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-500/15 flex items-center justify-center shrink-0">
                     <Trash2 size={16} className="text-[#E4405F]" />
                   </span>
-                  <span className="text-[13px] font-medium text-[#050505]">Supprimer</span>
+                  <span className="text-[13px] font-medium text-[#050505] dark:text-[#F3F4F6]">Supprimer</span>
                 </button>
               )}
               {onSave && (
@@ -2334,15 +2334,15 @@ export function PostCard({
                     setPostMenuOpen(false)
                     onSave()
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] dark:hover:bg-[#2F2F2F] transition text-left"
                 >
-                  <span className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                  <span className="w-8 h-8 rounded-full bg-orange-50 dark:bg-orange-500/15 flex items-center justify-center shrink-0">
                     <Bookmark
                       size={16}
-                      className={cn("text-[#A35A2A]", isSaved && "fill-[#A35A2A]")}
+                      className={cn("text-[#A35A2A] dark:text-[#B46D1C]", isSaved && "fill-[#A35A2A] dark:fill-[#B46D1C]")}
                     />
                   </span>
-                  <span className="text-[13px] font-medium text-[#050505]">
+                  <span className="text-[13px] font-medium text-[#050505] dark:text-[#F3F4F6]">
                     {isSaved ? "Retirer des favoris" : "Sauvegarder"}
                   </span>
                 </button>
@@ -2354,12 +2354,12 @@ export function PostCard({
                     setPostMenuOpen(false)
                     onHide()
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] dark:hover:bg-[#2F2F2F] transition text-left"
                 >
-                  <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                    <EyeOff size={16} className="text-[#65676B]" />
+                  <span className="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center shrink-0">
+                    <EyeOff size={16} className="text-[#65676B] dark:text-[#A1A1AA]" />
                   </span>
-                  <span className="text-[13px] font-medium text-[#050505]">Cacher</span>
+                  <span className="text-[13px] font-medium text-[#050505] dark:text-[#F3F4F6]">Cacher</span>
                 </button>
               )}
               {canBlock && (
@@ -2369,12 +2369,12 @@ export function PostCard({
                     setPostMenuOpen(false)
                     onBlock?.()
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] dark:hover:bg-[#2F2F2F] transition text-left"
                 >
-                  <span className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                  <span className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-500/15 flex items-center justify-center shrink-0">
                     <Ban size={16} className="text-[#E4405F]" />
                   </span>
-                  <span className="text-[13px] font-medium text-[#050505]">
+                  <span className="text-[13px] font-medium text-[#050505] dark:text-[#F3F4F6]">
                     {isBlocked ? "Débloquer" : "Bloquer"}
                   </span>
                 </button>
@@ -2386,12 +2386,12 @@ export function PostCard({
                     setPostMenuOpen(false)
                     setGivePointsOpen(true)
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] dark:hover:bg-[#2F2F2F] transition text-left"
                 >
-                  <span className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                    <Gift size={16} className="text-[#A35A2A]" />
+                  <span className="w-8 h-8 rounded-full bg-orange-50 dark:bg-orange-500/15 flex items-center justify-center shrink-0">
+                    <Gift size={16} className="text-[#A35A2A] dark:text-[#B46D1C]" />
                   </span>
-                  <span className="text-[13px] font-medium text-[#050505]">
+                  <span className="text-[13px] font-medium text-[#050505] dark:text-[#F3F4F6]">
                     Donner des points
                   </span>
                 </button>
@@ -2403,12 +2403,12 @@ export function PostCard({
                     setPostMenuOpen(false)
                     void handleCopyLink()
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] dark:hover:bg-[#2F2F2F] transition text-left"
                 >
-                  <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                    <Link2 size={16} className="text-[#65676B]" />
+                  <span className="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center shrink-0">
+                    <Link2 size={16} className="text-[#65676B] dark:text-[#A1A1AA]" />
                   </span>
-                  <span className="text-[13px] font-medium text-[#050505]">
+                  <span className="text-[13px] font-medium text-[#050505] dark:text-[#F3F4F6]">
                     Copier le lien
                   </span>
                 </button>
@@ -2478,7 +2478,7 @@ export function PostCard({
         <div className="min-w-0 w-full max-w-full overflow-hidden px-4 py-2">
           <p
             className={cn(
-              "min-w-0 max-w-full text-[15px] text-[#050505] whitespace-pre-wrap leading-relaxed",
+              "min-w-0 max-w-full text-[15px] text-[#050505] dark:text-[#F3F4F6] whitespace-pre-wrap leading-relaxed",
               "[overflow-wrap:anywhere] [word-break:break-word]",
               !contentExpanded && isLongContent && "line-clamp-6"
             )}
@@ -2634,7 +2634,7 @@ export function PostCard({
         </div>
       </div>
 
-      <div className="mx-2 sm:mx-4 border-t border-gray-100 flex relative">
+      <div className="mx-2 sm:mx-4 border-t border-gray-100 dark:border-white/10 flex relative">
         <div
           className="flex-1 relative min-w-0"
           onMouseEnter={() => {
@@ -2651,8 +2651,8 @@ export function PostCard({
             className={cn(
               "w-full flex items-center justify-center gap-1 sm:gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium rounded-lg my-1 transition",
               localSelectedReaction
-                ? "text-[#A35A2A]"
-                : "text-[#65676B] hover:bg-gray-50"
+                ? "text-[#A35A2A] dark:text-[#B46D1C]"
+                : "text-[#65676B] dark:text-[#A1A1AA] hover:bg-gray-50 dark:hover:bg-[#2A2A2A]"
             )}
           >
             <span className="text-[16px] sm:text-[18px] shrink-0">
@@ -2676,7 +2676,7 @@ export function PostCard({
           <button
             type="button"
             onClick={() => setConfirmPointsOpen(true)}
-            className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1 transition"
+            className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] dark:text-[#A1A1AA] hover:bg-gray-50 dark:hover:bg-[#2A2A2A] rounded-lg my-1 transition"
             aria-label="Gratifier l'auteur de ce post de 100 points"
           >
             <Image
@@ -2694,7 +2694,7 @@ export function PostCard({
           <button
             type="button"
             onClick={() => setRepostMenuOpen((v) => !v)}
-            className="flex w-full items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
+            className="flex w-full items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] dark:text-[#A1A1AA] hover:bg-gray-50 dark:hover:bg-[#2A2A2A] rounded-lg my-1"
           >
             <Repeat2 size={18} />
             <span className="hidden sm:inline">Republier</span>
@@ -2703,7 +2703,7 @@ export function PostCard({
           {repostMenuOpen && (
             <div
               ref={repostMenuRef}
-              className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-1.5 z-50 animate-in fade-in zoom-in duration-150"
+              className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-56 bg-white dark:bg-[#252525] rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 py-1.5 z-50 animate-in fade-in zoom-in duration-150"
             >
               <button
                 type="button"
@@ -2711,10 +2711,10 @@ export function PostCard({
                   setRepostMenuOpen(false)
                   onRepost?.()
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] dark:hover:bg-[#2F2F2F] transition text-left"
               >
-                <Repeat2 size={14} className="text-[#65676B]" />
-                <span className="text-[13px] font-medium text-[#050505]">
+                <Repeat2 size={14} className="text-[#65676B] dark:text-[#A1A1AA]" />
+                <span className="text-[13px] font-medium text-[#050505] dark:text-[#F3F4F6]">
                   Republier directement
                 </span>
               </button>
@@ -2724,10 +2724,10 @@ export function PostCard({
                   setRepostMenuOpen(false)
                   setRepostModalOpen(true)
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] transition text-left"
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F2F5] dark:hover:bg-[#2F2F2F] transition text-left"
               >
-                <Pen size={14} className="text-[#A35A2B]" />
-                <span className="text-[13px] font-medium text-[#050505]">
+                <Pen size={14} className="text-[#A35A2B] dark:text-[#B46D1C]" />
+                <span className="text-[13px] font-medium text-[#050505] dark:text-[#F3F4F6]">
                   Écrire un commentaire
                 </span>
               </button>
@@ -2738,7 +2738,7 @@ export function PostCard({
         <button
           type="button"
           onClick={() => setShareModalOpen(true)}
-          className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] hover:bg-gray-50 rounded-lg my-1"
+          className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 text-[13px] sm:text-[15px] font-medium text-[#65676B] dark:text-[#A1A1AA] hover:bg-gray-50 dark:hover:bg-[#2A2A2A] rounded-lg my-1"
         >
           <Share2 size={18} />
           <span className="hidden sm:inline">Partager</span>
@@ -2846,8 +2846,8 @@ export function PostCard({
         </div>
       )}
 
-      <div className="px-4 pb-4 pt-2 border-t border-gray-100">
-        <div className="relative flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 py-1.5">
+      <div className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-white/10">
+        <div className="relative flex items-center gap-2 bg-[#F0F2F5] dark:bg-[#2A2A2A] rounded-full px-3 py-1.5">
           <Avatar
             src={currentUserAvatar}
             name={currentUser?.name || author.name}
@@ -2865,7 +2865,7 @@ export function PostCard({
               }
             }}
             placeholder="Écrire un commentaire..."
-            className="flex-1 bg-transparent outline-none text-[14px] text-[#050505] placeholder-[#65676B]"
+            className="flex-1 bg-transparent outline-none text-[14px] text-[#050505] dark:text-[#F3F4F6] placeholder-[#65676B] dark:placeholder-[#8E9094]"
           />
 
           <input

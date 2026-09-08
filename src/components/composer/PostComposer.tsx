@@ -672,28 +672,28 @@ export function PostComposer({
   )
 
   const BackgroundPickerOverlay = () => (
-    <div className="absolute inset-0 z-10 bg-white rounded-2xl flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-200 min-h-[380px]">
-      <div className="flex items-center gap-2 p-3 border-b border-gray-100 shrink-0">
+    <div className="absolute inset-0 z-10 bg-white dark:bg-[#1E1E1E] rounded-2xl flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-200 min-h-[380px]">
+      <div className="flex items-center gap-2 p-3 border-b border-gray-100 dark:border-white/10 shrink-0">
         <button
           onClick={() => setShowBgPicker(false)}
-          className="p-2 rounded-full hover:bg-gray-100 transition"
+          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#2A2A2A] transition"
           aria-label="Retour"
         >
-          <ChevronLeft size={18} className="text-gray-600" />
+          <ChevronLeft size={18} className="text-gray-600 dark:text-gray-300" />
         </button>
-        <span className="font-semibold text-[#050505] text-sm">Choisir un arrière-plan</span>
+        <span className="font-semibold text-[#050505] dark:text-[#F3F4F6] text-sm">Choisir un arrière-plan</span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
         <div>
-          <p className="text-[12px] font-semibold text-[#65676B] uppercase tracking-wide mb-2">Texte simple</p>
+          <p className="text-[12px] font-semibold text-[#65676B] dark:text-[#A1A1AA] uppercase tracking-wide mb-2">Texte simple</p>
           <button
             onClick={() => {
               setSelectedColor(null)
               setShowBgPicker(false)
             }}
             className={cn(
-              "w-14 aspect-square rounded-xl flex items-center justify-center border-2 bg-gray-50 hover:scale-105 transition",
+              "w-14 aspect-square rounded-xl flex items-center justify-center border-2 bg-gray-50 dark:bg-[#262626] hover:scale-105 transition",
               !selectedColor ? "border-[#A35A2A]" : "border-transparent"
             )}
             aria-label="Aucun arrière-plan"
@@ -758,14 +758,14 @@ export function PostComposer({
               <button
                 type="button"
                 onClick={() => setSpaceDropdownOpen((v) => !v)}
-                className="flex items-center gap-1.5 text-[15px] font-semibold text-[#050505] leading-tight hover:text-[#A35A2A] transition"
+                className="flex items-center gap-1.5 text-[15px] font-semibold text-[#050505] dark:text-[#F3F4F6] leading-tight hover:text-[#A35A2A] dark:hover:text-[#B46D1C] transition"
               >
                 <span>{effectiveName}</span>
-                <ChevronDown size={14} className="text-[#65676B]" />
+                <ChevronDown size={14} className="text-[#65676B] dark:text-[#A1A1AA]" />
               </button>
               {spaceDropdownOpen && (
-                <div className="absolute z-30 top-full mt-1 left-0 w-64 bg-white rounded-xl shadow-xl border border-gray-100 p-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-                  <p className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#65676B]">Publier en tant que</p>
+                <div className="absolute z-30 top-full mt-1 left-0 w-64 bg-white dark:bg-[#252525] rounded-xl shadow-xl border border-gray-100 dark:border-white/10 p-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <p className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#65676B] dark:text-[#A1A1AA]">Publier en tant que</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -774,13 +774,13 @@ export function PostComposer({
                       setSpaceDropdownOpen(false)
                     }}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left hover:bg-gray-50 transition",
-                      !activeSpaceId && "bg-[#A35A2A]/5 text-[#A35A2A]"
+                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left hover:bg-gray-50 dark:hover:bg-[#2F2F2F] transition",
+                      !activeSpaceId && "bg-[#A35A2A]/5 dark:bg-[#B46D1C]/20 text-[#A35A2A] dark:text-[#B46D1C]"
                     )}
                   >
                     <Avatar src={user?.avatar || user?.image || null} name={displayName} size="sm" />
                     <span className="text-[13px] font-medium flex-1 truncate">{displayName} (Profil)</span>
-                    {!activeSpaceId && <Check size={16} className="text-[#A35A2A]" />}
+                    {!activeSpaceId && <Check size={16} className="text-[#A35A2A] dark:text-[#B46D1C]" />}
                   </button>
                   {spaces.map((sp) => (
                     <button
@@ -792,32 +792,32 @@ export function PostComposer({
                         setSpaceDropdownOpen(false)
                       }}
                       className={cn(
-                        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left hover:bg-gray-50 transition",
-                        String(activeSpaceId) === String(sp.id) && "bg-[#A35A2A]/5 text-[#A35A2A]"
+                        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left hover:bg-gray-50 dark:hover:bg-[#2F2F2F] transition",
+                        String(activeSpaceId) === String(sp.id) && "bg-[#A35A2A]/5 dark:bg-[#B46D1C]/20 text-[#A35A2A] dark:text-[#B46D1C]"
                       )}
                     >
                       <Avatar src={sp.avatar || null} name={sp.name} size="sm" />
                       <span className="text-[13px] font-medium flex-1 truncate">{sp.name}</span>
-                      {String(activeSpaceId) === String(sp.id) && <Check size={16} className="text-[#A35A2A]" />}
+                      {String(activeSpaceId) === String(sp.id) && <Check size={16} className="text-[#A35A2A] dark:text-[#B46D1C]" />}
                     </button>
                   ))}
                 </div>
               )}
             </div>
           ) : (
-            <span className="text-[15px] font-semibold text-[#050505] leading-tight">{effectiveName}</span>
+            <span className="text-[15px] font-semibold text-[#050505] dark:text-[#F3F4F6] leading-tight">{effectiveName}</span>
           )}
           <div className="relative" ref={privacyRef}>
             <button
               onClick={() => setPrivacyOpen((v) => !v)}
-              className="flex items-center gap-1 text-[12px] font-medium text-[#65676B] bg-gray-100 hover:bg-gray-200 rounded-full px-2 py-0.5 transition"
+              className="flex items-center gap-1 text-[12px] font-medium text-[#65676B] dark:text-[#A1A1AA] bg-gray-100 dark:bg-[#2A2A2A] hover:bg-gray-200 dark:hover:bg-[#333333] rounded-full px-2 py-0.5 transition"
             >
               <PrivacyIcon size={12} />
               <span>{POST_PRIVACY_OPTIONS.find((p) => p.id === privacy)!.label}</span>
               <ChevronDown size={12} />
             </button>
             {privacyOpen && (
-              <div className="absolute z-20 top-full mt-1 left-0 w-64 bg-white rounded-xl shadow-xl border border-gray-100 p-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="absolute z-20 top-full mt-1 left-0 w-64 bg-white dark:bg-[#252525] rounded-xl shadow-xl border border-gray-100 dark:border-white/10 p-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
                 {POST_PRIVACY_OPTIONS.map((p) => {
                   const Icon = p.icon
                   return (
@@ -828,18 +828,18 @@ export function PostComposer({
                         setPrivacyOpen(false)
                       }}
                       className={cn(
-                        "w-full flex items-start gap-3 px-2.5 py-2 rounded-lg text-left hover:bg-gray-50 transition",
-                        privacy === p.id && "bg-[#A35A2A]/5"
+                        "w-full flex items-start gap-3 px-2.5 py-2 rounded-lg text-left hover:bg-gray-50 dark:hover:bg-[#2F2F2F] transition",
+                        privacy === p.id && "bg-[#A35A2A]/5 dark:bg-[#B46D1C]/20"
                       )}
                     >
-                      <div className="mt-0.5 w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                        <Icon size={14} className="text-[#65676B]" />
+                      <div className="mt-0.5 w-7 h-7 rounded-full bg-gray-100 dark:bg-[#333333] flex items-center justify-center shrink-0">
+                        <Icon size={14} className="text-[#65676B] dark:text-[#A1A1AA]" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-[13px] font-medium text-[#050505]">{p.label}</p>
-                        <p className="text-[11.5px] text-[#65676B]">{p.hint}</p>
+                        <p className="text-[13px] font-medium text-[#050505] dark:text-[#F3F4F6]">{p.label}</p>
+                        <p className="text-[11.5px] text-[#65676B] dark:text-[#A1A1AA]">{p.hint}</p>
                       </div>
-                      {privacy === p.id && <Check size={16} className="text-[#A35A2A] mt-1" />}
+                      {privacy === p.id && <Check size={16} className="text-[#A35A2A] dark:text-[#B46D1C] mt-1" />}
                     </button>
                   )
                 })}
@@ -854,9 +854,9 @@ export function PostComposer({
           className={cn(
             "ml-auto w-9 h-9 rounded-full flex items-center justify-center border transition shrink-0",
             hasMedia
-              ? "opacity-40 cursor-not-allowed border-gray-100"
-              : "border-gray-200 hover:bg-gray-50",
-            selectedColor && "ring-2 ring-[#A35A2A]"
+              ? "opacity-40 cursor-not-allowed border-gray-100 dark:border-white/5"
+              : "border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-[#2A2A2A]",
+            selectedColor && "ring-2 ring-[#A35A2A] dark:ring-[#B46D1C]"
           )}
           aria-label="Ajouter une couleur d'arrière-plan"
           title={hasMedia ? "Indisponible avec des médias" : "Arrière-plan coloré"}
@@ -910,7 +910,7 @@ export function PostComposer({
             }}
             onKeyDown={handleComposerKeyDown}
             placeholder={`Quoi de neuf, ${displayName.split(" ")[0]} ?`}
-            className="w-full bg-transparent resize-none outline-none text-[19px] text-[#050505] placeholder-[#65676B] min-h-[64px] py-1"
+            className="w-full bg-transparent resize-none outline-none text-[19px] text-[#050505] dark:text-[#F3F4F6] placeholder-[#65676B] dark:placeholder-[#8E9094] min-h-[64px] py-1"
             rows={2}
           />
         )}
@@ -1016,8 +1016,8 @@ export function PostComposer({
       )}
 
       {/* action toolbar */}
-      <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-2 sm:px-3 py-2.5 mb-4 overflow-x-auto scrollbar-hide gap-1">
-        <span className="text-[12px] sm:text-[13px] font-medium text-[#65676B] hidden sm:block shrink-0">Ajouter à la publication</span>
+      <div className="flex items-center justify-between rounded-2xl border border-gray-100 dark:border-white/10 px-2 sm:px-3 py-2.5 mb-4 overflow-x-auto scrollbar-hide gap-1">
+        <span className="text-[12px] sm:text-[13px] font-medium text-[#65676B] dark:text-[#A1A1AA] hidden sm:block shrink-0">Ajouter à la publication</span>
         <div className="flex items-center gap-1 ml-auto shrink-0">
           <ToolbarIcon
             icon={ImageIcon}
@@ -1111,7 +1111,7 @@ export function PostComposer({
   )
 
   const composeFooter = () => (
-    <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-4 bg-white rounded-b-3xl">
+    <div className="sticky bottom-0 -mx-4 px-4 pt-2 pb-4 bg-white dark:bg-[#1E1E1E] rounded-b-3xl">
       <Button
         onClick={handleSubmit}
         disabled={!hasContent || overLimit || isSubmitting}
@@ -1119,7 +1119,7 @@ export function PostComposer({
           "w-full rounded-full h-11 font-semibold transition-all duration-300 disabled:opacity-100 disabled:pointer-events-none",
           hasContent && !overLimit
             ? "bg-[#A35A2A] hover:bg-[#8B4A1F] text-white shadow-md shadow-[#A35A2A]/25"
-            : "bg-gray-200 text-gray-400 cursor-not-allowed"
+            : "bg-gray-200 dark:bg-white/10 text-gray-400 dark:text-white/30 cursor-not-allowed"
         )}
       >
         {isSubmitting ? (
@@ -1165,17 +1165,17 @@ export function PostComposer({
       />
 
       {/* collapsed trigger card */}
-      <div className={cn("bg-white rounded-3xl p-4 shadow-sm border border-gray-100", className)}>
+      <div className={cn("bg-white dark:bg-[#1E1E1E] rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-white/10", className)}>
         <div className="flex items-center gap-3 mb-3">
           <Avatar src={effectiveAvatar} name={effectiveName} size="md" />
           <button
             onClick={openModal}
-            className="flex-1 text-left bg-gray-100 hover:bg-gray-200 transition rounded-full px-4 py-2.5 text-[15px] text-[#65676B] truncate"
+            className="flex-1 text-left bg-gray-100 dark:bg-[#2A2A2A] hover:bg-gray-200 dark:hover:bg-[#333333] transition rounded-full px-4 py-2.5 text-[15px] text-[#65676B] dark:text-[#A1A1AA] truncate"
           >
             {placeholder || (activeSpace ? `Publier pour ${activeSpace.name}...` : `Quoi de neuf, ${displayName.split(" ")[0]} ?`)}
           </button>
         </div>
-        <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 -mx-1">
+        <div className="flex items-center justify-between border-t border-gray-100 dark:border-white/10 pt-2.5 -mx-1">
           <TriggerAction icon={ImageIcon} color="#45BD62" label="Photo" onClick={() => imageFileRef.current?.click()} />
           <TriggerAction icon={Video} color="#EC4899" label="Vidéo" onClick={() => videoFileRef.current?.click()} />
           <TriggerAction
@@ -1190,7 +1190,7 @@ export function PostComposer({
           <TriggerAction icon={BarChart3} color="#10B981" label="Sondage" onClick={openModal} />
           <button
             onClick={openModal}
-            className="flex-1 flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#65676B] hover:bg-gray-100 px-2 py-2 rounded-xl transition mx-1"
+            className="flex-1 flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#65676B] dark:text-[#A1A1AA] hover:bg-gray-100 dark:hover:bg-[#2A2A2A] px-2 py-2 rounded-xl transition mx-1"
           >
             <ColorfulTextIcon size={18} />
             <span className="hidden xs:inline sm:inline">Fond coloré</span>
@@ -1206,15 +1206,15 @@ export function PostComposer({
             if (e.target === e.currentTarget) closeModal()
           }}
         >
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-gray-100 flex items-center justify-center relative p-4 z-20">
-              <h3 className="text-[17px] font-semibold text-[#050505]">Créer une publication</h3>
+          <div className="bg-white dark:bg-[#1E1E1E] dark:border dark:border-white/10 rounded-3xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+            <div className="sticky top-0 bg-white/95 dark:bg-[#1E1E1E]/95 backdrop-blur border-b border-gray-100 dark:border-white/10 flex items-center justify-center relative p-4 z-20">
+              <h3 className="text-[17px] font-semibold text-[#050505] dark:text-[#F3F4F6]">Créer une publication</h3>
               <button
                 onClick={closeModal}
-                className="absolute right-4 p-2 rounded-full hover:bg-gray-100 transition"
+                className="absolute right-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#2A2A2A] transition"
                 aria-label="Fermer"
               >
-                <X size={18} className="text-[#65676B]" />
+                <X size={18} className="text-[#65676B] dark:text-[#A1A1AA]" />
               </button>
             </div>
             <div className="p-4 pb-0">

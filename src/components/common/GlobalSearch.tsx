@@ -126,11 +126,11 @@ export default function GlobalSearch({
 
   return (
     <div ref={rootRef} className={cn("relative min-w-0", className)}>
-      <div className="flex min-h-10 items-center rounded-full bg-[#F0F2F5] px-3 focus-within:ring-2 focus-within:ring-[#A35A2A]/30">
+      <div className="flex min-h-10 items-center rounded-full bg-[#F0F2F5] dark:bg-[#2A2A2A] border border-transparent dark:border-white/10 px-3 focus-within:ring-2 focus-within:ring-[#A35A2A]/30">
         {loading ? (
-          <LoaderCircle size={17} className="mr-2 shrink-0 animate-spin text-[#A35A2A]" aria-hidden="true" />
+          <LoaderCircle size={17} className="mr-2 shrink-0 animate-spin text-[#A35A2A] dark:text-[#B46D1C]" aria-hidden="true" />
         ) : (
-          <Search size={17} className="mr-2 shrink-0 text-[#65676B]" aria-hidden="true" />
+          <Search size={17} className="mr-2 shrink-0 text-[#65676B] dark:text-[#A1A1AA]" aria-hidden="true" />
         )}
         <input
           ref={inputRef}
@@ -146,27 +146,27 @@ export default function GlobalSearch({
           aria-controls={showPanel ? listboxId : undefined}
           aria-expanded={showPanel}
           aria-activedescendant={activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined}
-          className={cn("min-w-0 flex-1 bg-transparent py-2 text-sm text-[#050505] outline-none placeholder:text-[#65676B]", inputClassName)}
+          className={cn("min-w-0 flex-1 bg-transparent py-2 text-sm text-[#050505] dark:text-[#F3F4F6] outline-none placeholder:text-[#65676B] dark:placeholder:text-[#8E9094]", inputClassName)}
         />
       </div>
 
       {showPanel && (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[70] max-h-[min(28rem,calc(100vh-6rem))] overflow-y-auto rounded-2xl border border-black/5 bg-white p-2 shadow-xl sm:min-w-80">
-          <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-wide text-[#65676B]">
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[70] max-h-[min(28rem,calc(100vh-6rem))] overflow-y-auto rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-[#1E1E1E] p-2 shadow-xl dark:shadow-[0_16px_40px_rgba(0,0,0,0.6)] sm:min-w-80">
+          <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-wide text-[#65676B] dark:text-[#A1A1AA]">
             Résultats
           </p>
           {error ? (
-            <p role="alert" className="px-3 py-5 text-center text-sm text-red-700">{error}</p>
+            <p role="alert" className="px-3 py-5 text-center text-sm text-red-700 dark:text-red-400">{error}</p>
           ) : loading && results.length === 0 ? (
-            <p role="status" className="px-3 py-5 text-center text-sm text-[#65676B]">Recherche en cours…</p>
+            <p role="status" className="px-3 py-5 text-center text-sm text-[#65676B] dark:text-[#A1A1AA]">Recherche en cours…</p>
           ) : results.length === 0 ? (
-            <p className="px-3 py-5 text-center text-sm text-[#65676B]">Aucun résultat pour « {query} ».</p>
+            <p className="px-3 py-5 text-center text-sm text-[#65676B] dark:text-[#A1A1AA]">Aucun résultat pour « {query} ».</p>
           ) : (
             <ul id={listboxId} role="listbox" aria-label="Résultats de recherche" className="space-y-1">
               {results.map((result, index) => {
                 const content = (
                   <>
-                    <span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[#F0F2F5] text-[#A35A2A]">
+                    <span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[#F0F2F5] dark:bg-[#2A2A2A] text-[#A35A2A] dark:text-[#B46D1C]">
                       {result.image ? (
                         <Image src={result.image} alt="" fill sizes="44px" className="object-cover" />
                       ) : result.type === "hashtag" ? (
@@ -178,16 +178,16 @@ export default function GlobalSearch({
                       )}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-[#2D2D2D]">{result.title}</span>
-                      <span className="block truncate text-xs text-[#65676B]">{result.subtitle}</span>
+                      <span className="block truncate text-sm font-semibold text-[#2D2D2D] dark:text-[#F3F4F6]">{result.title}</span>
+                      <span className="block truncate text-xs text-[#65676B] dark:text-[#A1A1AA]">{result.subtitle}</span>
                     </span>
-                    <span className="shrink-0 text-[10px] font-semibold uppercase text-[#8B5A2B]">{TYPE_LABELS[result.type]}</span>
+                    <span className="shrink-0 text-[10px] font-semibold uppercase text-[#8B5A2B] dark:text-[#D98A38]">{TYPE_LABELS[result.type]}</span>
                   </>
                 )
                 const itemClass = cn(
                   "flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition",
-                  result.href ? "hover:bg-[#F0F2F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A]" : "cursor-default opacity-80",
-                  activeIndex === index && "bg-[#F0F2F5]"
+                  result.href ? "hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A35A2A]" : "cursor-default opacity-80",
+                  activeIndex === index && "bg-[#F0F2F5] dark:bg-[#2A2A2A]"
                 )
                 return (
                   <li key={`${result.type}-${result.id}`} id={`${listboxId}-${index}`} role="option" aria-selected={activeIndex === index}>

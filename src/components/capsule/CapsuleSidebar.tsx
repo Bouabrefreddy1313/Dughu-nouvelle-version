@@ -73,7 +73,7 @@ export default function CapsuleSidebar({
   return (
     <div
       className={cn(
-        "flex flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm border border-gray-100",
+        "flex flex-col gap-4 rounded-3xl bg-white dark:bg-[#1E1E1E] p-4 shadow-sm border border-gray-100 dark:border-white/10",
         className
       )}
     >
@@ -83,8 +83,8 @@ export default function CapsuleSidebar({
           <Clapperboard size={22} aria-hidden />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-bold text-[#2D2D2D] truncate">Capsules Dughu</h2>
-          <p className="text-xs text-[#65676B] truncate">Vidéos courtes & points</p>
+          <h2 className="text-base font-bold text-[#2D2D2D] dark:text-white truncate">Capsules Dughu</h2>
+          <p className="text-xs text-[#65676B] dark:text-zinc-400 truncate">Vidéos courtes & points</p>
         </div>
       </div>
 
@@ -115,7 +115,7 @@ export default function CapsuleSidebar({
                 "group relative flex w-full items-center gap-3.5 rounded-2xl px-3.5 py-3 text-left transition-all",
                 isActive
                   ? "bg-[#985810] text-white shadow-sm font-semibold"
-                  : "text-[#2D2D2D] hover:bg-[#F6F7F9]"
+                  : "text-[#2D2D2D] hover:bg-[#F6F7F9] dark:text-zinc-200 dark:hover:bg-[#2A2A2A]"
               )}
             >
               <div
@@ -148,7 +148,7 @@ export default function CapsuleSidebar({
                 <p
                   className={cn(
                     "text-[11px] truncate mt-0.5",
-                    isActive ? "text-white/80" : "text-[#65676B]"
+                    isActive ? "text-white/80" : "text-[#65676B] dark:text-zinc-400"
                   )}
                 >
                   {item.subtitle}
@@ -175,7 +175,7 @@ export default function CapsuleSidebar({
             "group relative mt-1 cursor-pointer overflow-hidden rounded-2xl border p-3.5 transition-all",
             activeTab === "points"
               ? "border-[#985810] bg-[#985810]/5 ring-1 ring-[#985810]/20"
-              : "border-amber-200/70 bg-gradient-to-br from-amber-50/60 to-orange-50/40 hover:border-amber-300 hover:shadow-sm"
+              : "border-amber-200/70 dark:border-amber-900/40 bg-gradient-to-br from-amber-50/60 to-orange-50/40 dark:from-amber-950/20 dark:to-orange-950/20 hover:border-amber-300 dark:hover:border-amber-800 hover:shadow-sm"
           )}
         >
           <div className="flex items-center justify-between">
@@ -183,7 +183,7 @@ export default function CapsuleSidebar({
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#985810] text-white">
                 <Coins size={15} />
               </span>
-              <span className="text-xs font-bold text-[#2D2D2D]">Points Capsule</span>
+              <span className="text-xs font-bold text-[#2D2D2D] dark:text-zinc-200">Points Capsule</span>
             </div>
             <ArrowRight size={14} className="text-[#985810] transition-transform group-hover:translate-x-0.5" />
           </div>
@@ -198,12 +198,12 @@ export default function CapsuleSidebar({
                 "—"
               )}
             </span>
-            <span className="flex items-center gap-1 text-[10px] font-medium text-[#65676B]">
+            <span className="flex items-center gap-1 text-[10px] font-medium text-[#65676B] dark:text-zinc-400">
               <TrendingUp size={11} className="text-emerald-600" />
               Récompenses
             </span>
           </div>
-          <p className="mt-1 text-[10px] text-[#65676B] line-clamp-1">
+          <p className="mt-1 text-[10px] text-[#65676B] dark:text-zinc-400 line-clamp-1">
             Gagnez des points en publiant & visionnant
           </p>
         </div>
