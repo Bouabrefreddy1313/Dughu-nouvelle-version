@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { BarChart3, Users, Globe, TrendingUp, Activity as ActivityIcon, Heart, MessageCircle, Repeat2, Share2, PenSquare, UserPlus, ThumbsUp, X } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { BarChart3, Users, Globe, TrendingUp, Activity as ActivityIcon, Heart, MessageCircle, Repeat2, Share2, PenSquare, UserPlus, ThumbsUp, X, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Card from "@/components/common/Card"
 import Avatar from "@/components/common/Avatar"
@@ -12,6 +13,7 @@ import GroupCarousel from "@/components/sidebar/GroupCarousel"
 import { fetchSuggestions, fetchPointsToday } from "@/services/posts/feed.service"
 import { useProfile } from "@/hooks/profile/use-profile"
 import { useAuth } from "@/hooks/auth/use-auth"
+import { getLocalActivities, subscribeToActivities } from "@/lib/activity-tracker"
 
 interface RightSidebarProps {
   user?: any
@@ -53,6 +55,7 @@ interface ActivityItem {
     id: string
     name: string | null
     avatar: string | null
+    username?: string | null
   } | null
 }
 
@@ -111,27 +114,32 @@ function formatActivityTime(dateStr: string): string {
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) + " à " + date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
 }
 
-// Icône et libellé selon le type d'activité
+// Icône et libellé selon le type d'activité (supporte les variantes API et locales)
 function getActivityMeta(type: string): { icon: React.ReactNode; action: string; color: string } {
-  switch (type) {
-    case "post":
-      return { icon: <PenSquare size={16} />, action: "a publié une publication", color: "bg-[#A35A2A]/10 text-[#A35A2A]" }
-    case "reaction":
-      return { icon: <Heart size={16} />, action: "a aimé une publication", color: "bg-[#E4405F]/10 text-[#E4405F]" }
-    case "comment":
-      return { icon: <MessageCircle size={16} />, action: "a commenté une publication", color: "bg-[#1877F2]/10 text-[#1877F2]" }
-    case "repost":
-      return { icon: <Repeat2 size={16} />, action: "a repartagé une publication", color: "bg-[#16A34A]/10 text-[#16A34A]" }
-    case "share":
-      return { icon: <Share2 size={16} />, action: "a partagé une publication", color: "bg-[#9333EA]/10 text-[#9333EA]" }
-    case "follow":
-      return { icon: <UserPlus size={16} />, action: "a reçu un nouvel abonné", color: "bg-[#0EA5E9]/10 text-[#0EA5E9]" }
-    default:
-      return { icon: <ActivityIcon size={16} />, action: "a fait une activité", color: "bg-[#65676B]/10 text-[#65676B]" }
+  const t = (type || "").toLowerCase().trim()
+  if (t.includes("like") || t.includes("react") || t.includes("love") || t.includes("jaime")) {
+    return { icon: <Heart size={16} />, action: "a aimé une publication", color: "bg-[#E4405F]/10 text-[#E4405F]" }
   }
+  if (t.includes("comment") || t.includes("reply") || t.includes("reponse")) {
+    return { icon: <MessageCircle size={16} />, action: "a commenté une publication", color: "bg-[#1877F2]/10 text-[#1877F2]" }
+  }
+  if (t.includes("repost") || t.includes("retweet")) {
+    return { icon: <Repeat2 size={16} />, action: "a repartagé une publication", color: "bg-[#16A34A]/10 text-[#16A34A]" }
+  }
+  if (t.includes("share") || t.includes("partag")) {
+    return { icon: <Share2 size={16} />, action: "a partagé une publication", color: "bg-[#9333EA]/10 text-[#9333EA]" }
+  }
+  if (t.includes("follow") || t.includes("abonn")) {
+    return { icon: <UserPlus size={16} />, action: "a reçu un nouvel abonné", color: "bg-[#0EA5E9]/10 text-[#0EA5E9]" }
+  }
+  if (t.includes("post") || t.includes("publi") || t.includes("create")) {
+    return { icon: <PenSquare size={16} />, action: "a publié une publication", color: "bg-[#A35A2A]/10 text-[#A35A2A]" }
+  }
+  return { icon: <ActivityIcon size={16} />, action: "a fait une activité", color: "bg-[#65676B]/10 text-[#65676B]" }
 }
 
 export default function RightSidebar({ user: propUser, open = false, onClose, hideOnDesktop = false }: RightSidebarProps) {
+  const router = useRouter()
   const { data: authUser, isLoading: authLoading } = useAuth()
   const user = propUser ?? authUser
 
@@ -172,6 +180,7 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
       setLoading(true)
       const userId = String(user?.id ?? "").trim()
       const dughhuUserId = String(user?.dughu?.userId ?? user?.dughhuUserId ?? "").trim()
+      const username = String(user?.username || user?.user_name || user?.slug || "").trim()
       // Session pas encore résolue (auth en cours) : on garde les squelettes,
       // l'effet se relancera quand `user` arrivera.
       if (!userId && !dughhuUserId) {
@@ -183,16 +192,28 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
         return
       }
       try {
-        // Charger les suggestions
-        const data = await fetchSuggestions(userId, { dughhuUserId })
+        // Charger les suggestions avec le nom d'utilisateur pour récupérer ses vraies activités
+        const data = await fetchSuggestions(userId, { dughhuUserId, username })
         if (cancelled) return
         if (data.success) {
           if (data.boostedPosts) {
             setBoostedPosts(data.boostedPosts as BoostedPost[])
             setShuffledBoosted(data.boostedPosts as BoostedPost[])
           }
-          if (data.activities) {
-            setActivities(data.activities as ActivityItem[])
+          if (data.activities || true) {
+            const remoteActs = ((data.activities as ActivityItem[]) || [])
+            const localActs = getLocalActivities(userId || dughhuUserId) as unknown as ActivityItem[]
+            const combined = [...localActs, ...remoteActs].reduce<ActivityItem[]>((acc, act) => {
+              const isDuplicate = acc.some(
+                (existing) =>
+                  existing.id === act.id ||
+                  (Boolean(existing.postId) && Boolean(act.postId) && existing.postId === act.postId && existing.activityType === act.activityType)
+              )
+              if (!isDuplicate) acc.push(act)
+              return acc
+            }, [])
+            combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            setActivities(combined.slice(0, 8))
           }
           if (Array.isArray(data.groups) && data.groups.length > 0) {
             setSuggestedGroups(
@@ -219,7 +240,7 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
             )
           }
           if (Array.isArray(data.hashtags) && data.hashtags.length > 0) {
-            setTrends(data.hashtags.slice(0, 6).map((t: any) => ({ tag: t.tag, count: t.postCount || 0 })))
+            setTrends(data.hashtags.slice(0, 6).map((t: any) => ({ tag: t.tag, count: Number(t.postCount ?? t.count ?? 0) })))
           }
         }
         // Charger les points totaux de l'utilisateur
@@ -238,6 +259,36 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
     void loadData()
     return () => { cancelled = true }
   }, [user, authLoading])
+
+  // Abonnement aux activités effectuées en temps réel dans l'application (post, like, commentaire)
+  useEffect(() => {
+    const unsubscribe = subscribeToActivities((newAct) => {
+      setActivities((prev) => {
+        const item: ActivityItem = {
+          id: newAct.id,
+          activityType: newAct.activityType,
+          postId: newAct.postId,
+          description: newAct.description || "",
+          createdAt: newAct.createdAt,
+          user: newAct.user
+            ? {
+                id: newAct.user.id || "",
+                name: newAct.user.name || null,
+                avatar: newAct.user.avatar || null,
+                username: newAct.user.username || null,
+              }
+            : null,
+        }
+        const filtered = prev.filter(
+          (p) =>
+            p.id !== item.id &&
+            !(Boolean(p.postId) && Boolean(item.postId) && p.postId === item.postId && p.activityType === item.activityType)
+        )
+        return [item, ...filtered].slice(0, 8)
+      })
+    })
+    return unsubscribe
+  }, [])
 
   const currentBoosted = useMemo(() => {
     if (shuffledBoosted.length === 0) return []
@@ -329,6 +380,8 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
             currentBoosted.map((p, i) => (
               <BoostedPostCard
                 key={`${activeDot}-${p.id}-${i}`}
+                postId={p.id}
+                rawPost={p}
                 image={p.image || p.video}
                 authorName={p.author?.name}
                 authorAvatar={p.author?.avatar}
@@ -373,6 +426,7 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
         icon={<Users size={14} className="text-[#A35A2A] dark:text-[#B46D1C]" />}
         buttonLabel="Adhérer"
         buttonColor="#A35A2A"
+        getItemHref={(item) => `/groups/${item.id}`}
       />
 
       {/* Espaces */}
@@ -387,13 +441,26 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
         buttonColor="#FF0000"
         buttonHoverColor="#FF000099"
         buttonIcon={<ThumbsUp size={12} />}
+        getItemHref={(item) => `/espaces/${item.id}`}
       />
 
       {/* Dernière activité */}
       <div className="bg-white dark:bg-[#1E1E1E] border border-transparent dark:border-white/10 rounded-[20px] p-4 shadow-sm">
-        <div className="flex items-center gap-2 mb-3 px-1">
-          <ActivityIcon size={15} className="text-[#A35A2A] dark:text-[#B46D1C]" />
-          <h3 className="text-[14px] font-bold text-[#2D2D2D] dark:text-[#F3F4F6]">Dernière activité</h3>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div className="flex items-center gap-2">
+            <ActivityIcon size={15} className="text-[#A35A2A] dark:text-[#B46D1C]" />
+            <h3 className="text-[14px] font-bold text-[#2D2D2D] dark:text-[#F3F4F6]">Dernière activité</h3>
+          </div>
+          {user?.username && (
+            <button
+              type="button"
+              onClick={() => router.push(`/profile/${encodeURIComponent(user.username)}`)}
+              className="text-[11px] font-medium text-[#A35A2A] dark:text-[#B46D1C] hover:underline"
+              title="Voir toutes les activités"
+            >
+              Voir tout
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col">
@@ -412,18 +479,39 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
               <span className="sr-only">Chargement de l&apos;activité…</span>
             </div>
           ) : activities.length > 0 ? (
-            activities.slice(0, 5).map((act, i) => {
+            activities.map((act, i) => {
               const meta = getActivityMeta(act.activityType)
               const userName = act.user?.name || user?.name || "Utilisateur"
               const avatarSrc = act.user?.avatar || user?.avatar
+              const targetUrl = act.postId
+                ? `/post/${act.postId}`
+                : act.user?.username
+                ? `/profile/${encodeURIComponent(act.user.username)}`
+                : user?.username
+                ? `/profile/${encodeURIComponent(user.username)}`
+                : "/profile"
+
               return (
-                <div key={act.id || i} className="flex items-center gap-3 py-3 border-b border-gray-50 dark:border-white/5 last:border-b-0">
+                <div
+                  key={act.id || i}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => router.push(targetUrl)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      router.push(targetUrl)
+                    }
+                  }}
+                  className="flex items-center gap-3 py-3 border-b border-gray-50 dark:border-white/5 last:border-b-0 cursor-pointer hover:bg-[#F0F2F5]/70 dark:hover:bg-[#2A2A2A]/70 px-2 rounded-xl transition active:scale-[0.99]"
+                >
                   {/* Photo de profil */}
                   <Avatar
                     src={avatarSrc}
                     name={userName}
                     size="xs"
-                    className="w-8 h-8 shrink-0 border border-gray-200 dark:border-white/10"
+                    bare
+                    className="w-8 h-8 shrink-0 border-0"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] leading-snug">
@@ -449,7 +537,16 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
 
       {/* Tendances */}
       <Card className="p-5 rounded-[24px]">
-        <h4 className="font-bold text-[16px] mb-3 text-[#2D2D2D] dark:text-[#F3F4F6]">On parle de ça</h4>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="font-bold text-[16px] text-[#2D2D2D] dark:text-[#F3F4F6]">On parle de ça</h4>
+          <button
+            type="button"
+            onClick={() => router.push("/tendances")}
+            className="text-[11px] font-medium text-[#A35A2A] dark:text-[#B46D1C] hover:underline"
+          >
+            Explorer
+          </button>
+        </div>
         <div className="space-y-1">
           {isAnyLoading ? (
             <div className="space-y-3" aria-busy="true">
@@ -464,15 +561,32 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
               ))}
               <span className="sr-only">Chargement des tendances…</span>
             </div>
-          ) : trends.map((t) => (
-            <div key={t.tag} className="flex items-center gap-3 hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] p-3 rounded-xl cursor-pointer transition">
-              <BarChart3 size={18} className="text-[#E4405F] shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[14px] font-medium text-[#2D2D2D] dark:text-[#F3F4F6]">{t.tag}</p>
-                <p className="text-[12px] text-[#65676B] dark:text-[#A1A1AA]">{t.count} publications</p>
+          ) : trends.map((t) => {
+            const cleanTag = t.tag.replace(/^#/, "")
+            return (
+              <div
+                key={t.tag}
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(`/hashtags/${encodeURIComponent(cleanTag)}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    router.push(`/hashtags/${encodeURIComponent(cleanTag)}`)
+                  }
+                }}
+                className="flex items-center gap-3 hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] p-3 rounded-xl cursor-pointer transition active:scale-[0.99]"
+              >
+                <BarChart3 size={18} className="text-[#E4405F] shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium text-[#2D2D2D] dark:text-[#F3F4F6] hover:text-[#A35A2A] transition">{t.tag}</p>
+                  <p className="text-[12px] text-[#65676B] dark:text-[#A1A1AA]">
+                    {t.count} publication{t.count > 1 ? "s" : ""}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </Card>
     </aside>

@@ -11,7 +11,110 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-09-09
+### Header & Fil d'actualité — Affichage exclusif des publications vidéo au clic sur l'icône « Vidéos »
+* **Demande utilisateur** :
+  - Dans le header, lorsqu'on clique sur l'icône « Vidéos », afficher uniquement les posts vidéo.
+* **Modifications effectuées** :
+  - `src/lib/dughu.ts` :
+    - Export de l'utilitaire `hasVideoContent(post: any): boolean` pour détecter de façon exhaustive les publications contenant une vidéo (vidéos directes, uploads natifs MP4/WebM/MOV, Akwaplay, reposts avec vidéo, etc.).
+  - `src/app/api/posts/route.ts` :
+    - Prise en charge du query parameter `filter=videos` pour filtrer les posts côté serveur et préserver l'indicateur de pagination `hasMore`.
+  - `src/components/layout/Header.tsx` :
+    - Utilisation de `usePathname()` pour rendre dynamique l'indicateur d'onglet actif (surbrillance et tiret marron `#A35A2A` / `#B46D1C`).
+    - Utilisation des composants `<Link>` de Next.js pour une navigation client instantanée sans rechargement.
+  - `src/components/sidebar/LeftSidebar.tsx` :
+    - Retrait du bouton « Vidéos » dans la sidebar gauche conformément à la demande utilisateur (la navigation principale vidéo est assurée par le Header et la barre mobile).
+  - `src/components/videos/VideosPage.tsx` :
+    - Suppression du bloc d'en-tête « Vidéos / Fil vidéo / Toutes les publications... » pour un flux direct et épuré, intégrant immédiatement le compositeur et les publications vidéo.
+  - `docs/CAHIER_DES_CHARGES.md` :
+    - Ajout des spécifications du Header central, de la navigation dynamique et du fil `/videos`.
+
 ## 2026-09-08
+### Fil d'actualité — Suggestions Groupes & Espaces, randomisation de la position 4 et Flash en position 11
+* **Demande utilisateur** :
+  - Création de deux nouvelles cartes `SuggestionsGroupesCard` et `SuggestionsEspacesCard` reprenant fidèlement le design/layout de `SuggestionsAmisCard` (header + icône, carrousel horizontal, croix « ✕ » pour ignorer, flèches, bouton d'action pleine largeur marron `#A35A2A`, lien « Voir tout »).
+  - Randomisation de la 4e position du feed parmi : Capsules / Groupes suggérés / Espaces suggérés, mémoïsée par chargement de feed avec repli automatique vers une autre option si celle tirée est vide.
+  - Ajout du composant existant « Flash » en 11e position du feed (masqué si moins de 11 publications).
+* **Modifications effectuées** :
+  - `src/components/feed/SuggestionsGroupesCard.tsx` :
+    - Composant carrousel pour groupes avec couverture portrait, nom, compteur de membres (« X membres » ou « X ami(e)s dans ce groupe »), bouton « Rejoindre » / « Membre » (`#A35A2A`), bouton « ✕ » et lien « Voir tout » vers `/groups`.
+    - Chargement via `fetchSuggestions` (interrogeant `suggestgroupes` de l'API Dughu via Axios).
+  - `src/components/feed/SuggestionsEspacesCard.tsx` :
+    - Composant carrousel pour espaces avec couverture portrait, nom, mentions J'aime / catégorie, bouton « Suivre » / « Abonné » (`#A35A2A`) connecté à `likePage`, bouton « ✕ » et lien « Voir tout » vers `/espaces`.
+    - Chargement via `fetchSuggestions` (interrogeant `suggestPages` de l'API Dughu via Axios).
+  - `src/components/feed/FeedPosition4Slot.tsx` :
+    - Gestionnaire mémoïsé de la 4e position tirant au sort l'une des 3 options au montage, avec mécanisme de repli automatique instantané sans saut visuel.
+  - `src/components/flash/FlashFeed.tsx` :
+    - Ajout de la prop `friendsOnly?: boolean` : permet de masquer la carte « Créer un Flash » et la carte personnelle pour afficher exclusivement les Flash des amis, et masque le conteneur si aucun ami n'a de Flash actif.
+  - `src/app/(protected)/home/page.tsx` :
+    - Position 4 : `<FeedPosition4Slot ... />` (`postIndex === 3`).
+    - Position 8 : `<SuggestionsAmisCard ... />` (`postIndex === 6 && posts.length >= 8`).
+    - Position 11 : `<FlashFeed friendsOnly={true} ... />` (`postIndex === 9 && posts.length >= 11`).
+  - `docs/CAHIER_DES_CHARGES.md` : mise à jour avec l'architecture complète des positions 4, 8 et 11 dans le flux.
+
+### Fil d'actualité — Insertion de la carte de suggestions « Personnes que vous pourriez connaître » (SuggestionsAmisCard)
+* **Demande utilisateur** :
+  - Création d'un composant `SuggestionsAmisCard` inséré en 8e position dans le fil d'actualité (après le 7e post de la liste).
+  - Masquage si le feed contient moins de 8 éléments ou si la liste de suggestions renvoyée est vide.
+  - Carrousel horizontal défilant (drag souris ou flèches de navigation circulaires < et >).
+  - Mini-cartes personnes avec grande photo portrait, bouton « ✕ » pour masquer avec retrait animé, nom complet cliquable, mention « X ami(e) en commun » si disponible, bouton « S'abonner » pleine largeur (couleur marron Dughu `#A35A2A`), et lien « Voir tout » vers `/retrouvailles?tab=suggestions`.
+  - Intégration de l'endpoint `GET /api/retrouvailles?tab=suggestions&user_id={user_id}`.
+* **Modifications effectuées** :
+  - `src/components/feed/SuggestionsAmisCard.tsx` :
+    - Composant React complet avec requête Axios via `fetchRetrouvailles({ tab: "suggestions", userId })`.
+    - Dédoublonnage des suggestions d'affinité, gestion d'état pour les personnes masquées (`dismissedIds`) avec animation fade-out / zoom.
+    - Carrousel horizontal avec drag-to-scroll fluide à la souris et boutons flèches < et > conditionnés par le défilement.
+    - Intégration du composant existant `FollowButton` connecté au service `followAuthor`.
+    - Menu « ••• » pour masquer la section.
+  - `src/app/(protected)/home/page.tsx` :
+    - Importation et insertion de `<SuggestionsAmisCard currentUser={user} />` au niveau de `postIndex === 6` (8e position) avec la condition `posts.length >= 8`.
+  - `docs/CAHIER_DES_CHARGES.md` : mise à jour avec les spécifications et le comportement de la carte de suggestions.
+
+### RightSidebar — Suppression du cercle d'avatar (Dernière activité) & Calcul réel des publications par hashtag
+* **Demande utilisateur** :
+  - "dans le card de derniere activité , il ya un cercle fin qui entoure la photo de profile , supprime la"
+  - "dans la partie hastag , je vois en bas des ashtag ya 0 publication , je veux que la bas tu mettre le nombre de poste qui contient les differents ashtag"
+* **Modifications effectuées** :
+  - `src/components/sidebar/RightSidebar.tsx` :
+    - Suppression de la bordure `border border-gray-200 dark:border-white/10` et ajout de `bare={true}` sur le composant `<Avatar />` de la carte « Dernière activité », éliminant tout cercle ou anneau fin autour de la photo.
+    - Correction de l'accord grammatical dans la section Tendances (« On parle de ça ») : `t.count publication` au singulier / `t.count publications` au pluriel.
+  - `src/app/api/suggestions/route.ts` :
+    - Résolution dynamique du vrai nombre total de publications par hashtag via l'endpoint Dughu `getPostByHashtags(tag, 1)` (`posts.total`).
+    - Élimination de l'affichage statique « 0 publication » au profit du compte réel de publications contenant chaque hashtag.
+    - Tri automatique des hashtags par nombre de publications décroissant.
+
+### RightSidebar — Rétablissement de l'image des posts boostés & Traqueur d'activités en temps réel
+* **Demande utilisateur** :
+  - "quand je clique sur un post booster je ne vois pas l'image qui saffiche , et dan derniers activité ya rien , la bas met , si jai fais un post , liker commenter et autre"
+* **Corrections et améliorations apportées** :
+  - **Affichage des images des posts boostés** :
+    - `src/components/promotion/BoostedPostCard.tsx` : au clic sur un post boosté, sérialisation immédiate de l'objet complet (`image`, `images: [{ url: image, id }]`, `video`, `author`, `_count`) dans `sessionStorage` (`dughu_post_${postId}`).
+    - `src/app/(protected)/post/[id]/page.tsx` : initialisation synchrone du state `post` depuis `sessionStorage` dès le premier rendu pour éliminer tout écran blanc ou chargement asynchrone bloquant. Extraction sécurisée de `images` supportant tous les formats de données (`image`, `images` en tableaux d'objets ou de chaînes). Fallback d'enrichissement réseau via `fetchSuggestions` avec les deux formats de paramètres `dughuUserId` et `dughhuUserId`.
+    - `src/components/feed/PostMediaLightbox.tsx` : ajout de la propriété `unoptimized` sur le composant `Image` principal pour éviter toute défaillance ou rejet de domaine de l'optimiseur Next.js.
+  - **Traqueur et affichage des activités en temps réel (« Dernière activité »)** :
+    - `src/lib/activity-tracker.ts` : création d'un module utilitaire client capturant les publications, mentions J'aime, commentaires et repartages avec persistance locale et diffusion instantanée par événement DOM (`dughu:activity-updated`).
+    - `src/services/posts/posts.service.ts` : enregistrement automatique de l'activité après chaque création de post (`createPost`), repartage (`rePost`) et réaction (`addReaction`).
+    - `src/services/posts/comments.service.ts` : enregistrement automatique de l'activité après chaque commentaire ajouté (`addComment`).
+    - `src/components/sidebar/RightSidebar.tsx` : fusion intelligente des activités locales et distantes au chargement, abonnement temps réel aux nouvelles interactions pour mise à jour instantanée sans rechargement, et normalisation complète de `getActivityMeta` couvrant tous les types et synonymes (`like`, `reaction`, `love`, `comment`, `reply`, `post`, `publi`, `repost`, `share`, `follow`).
+    - `src/app/api/suggestions/route.ts` : alignement des paramètres `dughuUserId` et `dughhuUserId`, interrogation de `profile/{username}/activites?page=1` et dérivation automatique depuis `getUserPosts` et `getLikedPosts` si l'endpoint externe ne contient pas encore d'activités enregistrées.
+
+* **Demande utilisateur** :
+  - Refaire uniquement le front-end de la page Messages existante en conservant rigoureusement l'intégration API intacte.
+  - Reproduire fidèlement le layout moderne Messenger en 3 colonnes fixes (hauteur 100vh) :
+    1. Colonne gauche : liste des discussions (~360px) avec titre « Discussions » en gras, menu d'options et bouton crayon, champ pill gris clair, onglets filtres (« Tout » actif fond teinté marron, « Non lu », « Groupes », « ••• »), bandeau d'alerte PIN dismissible, liste des conversations avec avatars, pastille en ligne verte, ancienneté relative (« 20 h », « 1 j ») et pastille marron non-lu.
+    2. Colonne centrale : fenêtre de conversation active (flex-grow) avec en-tête contact, 3 boutons circulaires (téléphone, caméra, « i » marron), fil de messages avec bulles groupées consécutives (marron `#8B5E34` sortant, gris `#F0F0F0` entrant), séparateurs de date centrés, marqueurs de citation, statut de lecture discret (« Vu », « Envoyé ») avec avatar miniature, barre de saisie pill inférieure avec icônes médias, emoji et pouce levé se transformant en bouton Envoyer au fil de la saisie.
+    3. Colonne droite : panneau d'information discussion (~320px, masquable via « i ») avec grand avatar, badge « Chiffré de bout en bout », 3 raccourcis circulaires (Profil, Sourdine, Recherche), et 4 accordéons repliables (Infos, Personnalisation avec thèmes marron Dughu, Médias et documents partagés réels, Confidentialité et assistance avec suppression).
+  - Assurer un responsive mobile-first complet avec navigation empilée et boutons retour dédiés.
+* **Modifications effectuées** :
+  - `src/components/layout/MainLayout.tsx` : ajustement de la prise en charge de `workspace` pour allouer une hauteur 100% pleine et sans padding externe parasite à la messagerie.
+  - `src/components/messages/message-formatters.ts` : fonctions utilitaires de calcul d'ancienneté relative style Messenger (« 20 h », « 1 j », « 1 sem. »), séparateurs de date centrés et dernière connexion.
+  - `src/components/messages/ConversationList.tsx` : composant de la colonne gauche avec en-tête, menu `DropdownMenu` natif Base UI, recherche pill, filtres d'onglets, carte d'alerte PIN fermable, liste de discussions avec statuts et mode composition/recherche d'utilisateurs.
+  - `src/components/messages/ChatWindow.tsx` : composant de la colonne centrale avec en-tête de conversation, fil de messages groupés par expéditeur avec bulles marron `#8B5E34` et gris `#F0F0F0`, citations avec marqueur, statut discret + miniature du contact, auto-scroll, et barre de saisie pill avec actions médias, emojis et bascule pouce levé / bouton Envoyer.
+  - `src/components/messages/ConversationInfoPanel.tsx` : composant de la colonne droite masquable avec avatar XL, badge chiffré, raccourcis Profil/Sourdine/Recherche, et 4 sections accordéons dynamiques (avec extraction directe des photos/vidéos et documents partagés dans la discussion).
+  - `src/app/(protected)/messages/MessagesPageClient.tsx` : refonte du contrôleur client assemblant les 3 colonnes, gestion du masquage de panneau, responsive mobile, modale de confirmation PIN et conservation rigoureuse de toute la logique existante (polling, citation, send/edit/delete, read keys).
+  - `docs/CAHIER_DES_CHARGES.md` : ajout de la documentation détaillée du module Messagerie instantanée.
+
 ### Événements — Implémentation complète du module Événements
 * **Demande utilisateur** :
   - Créer le module Événements accessible depuis le bouton « Événements » de la barre latérale gauche avec 4 écrans/modales : liste, création/édition, détail (structuré en 3 zones), modale d'invitation.

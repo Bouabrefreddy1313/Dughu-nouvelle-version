@@ -28,9 +28,11 @@ interface FlashFeedProps {
   currentUser?: FlashCardUser
   onAddStory?: () => void
   onOpenFlash?: (targetUserId: string, user?: { name?: string | null; avatar?: string | null }) => void
+  /** Masque la carte "Créer un Flash" et la carte personnelle pour n'afficher que les Flash des amis. */
+  friendsOnly?: boolean
 }
 
-export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash }: FlashFeedProps) {
+export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash, friendsOnly = false }: FlashFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   // État local "vu" : statut affiché lorsque l'API ne renvoie pas de statut.
   const [locallyViewed, setLocallyViewed] = useState<Set<string>>(new Set())
@@ -53,6 +55,11 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
   const selfId = String(currentUser?.dughu?.userId || currentUser?.id || "")
   const selfEntry = selfId ? users.find((u) => String(u.userId) === selfId) : undefined
   const friendUsers = users.filter((u) => String(u.userId) !== selfId)
+
+  // Si mode friendsOnly et aucun ami n'a de flash (après chargement), ne rien afficher
+  if (friendsOnly && !isLoading && !isError && friendUsers.length === 0) {
+    return null
+  }
 
   // Dernier Flash publié par moi (les stories sont triées, la plus récente en premier).
   const selfStory = selfEntry?.stories?.[0]
@@ -78,11 +85,13 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
         ref={scrollRef}
         className="flex gap-3 overflow-x-auto scroll-smooth pb-1 touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {/* Créer un Flash (rail) — garde toujours la photo de profil */}
-        <FlashAddCard currentUser={currentUser} onClick={onAddStory} />
+        {/* Créer un Flash (rail) — masqué si friendsOnly */}
+        {!friendsOnly && (
+          <FlashAddCard currentUser={currentUser} onClick={onAddStory} />
+        )}
 
-        {/* Mon dernier Flash — carte story dédiée dans le rail, comme les amis */}
-        {selfEntry && selfStory && (
+        {/* Mon dernier Flash — masqué si friendsOnly */}
+        {!friendsOnly && selfEntry && selfStory && (
           <FlashStoryCard
             key={`self-${selfEntry.userId}`}
             image={selfStory.image}

@@ -1110,6 +1110,7 @@ export function PostMediaLightbox({
                 width={1600}
                 height={1200}
                 priority
+                unoptimized
                 className="max-h-[85vh] md:max-h-[92vh] max-w-full w-auto h-auto object-contain rounded-lg drop-shadow-2xl transition-all duration-300 ease-out animate-in zoom-in-95"
               />
             </div>

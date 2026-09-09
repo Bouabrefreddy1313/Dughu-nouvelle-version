@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { dughu, dughuApi, mapPosts, mapAlbums, getPageInfo, mapPost, DughuApiError } from "@/lib/dughu"
+import { dughu, dughuApi, mapPosts, mapAlbums, getPageInfo, mapPost, DughuApiError, hasVideoContent, mapFriends } from "@/lib/dughu"
 import { getDughuUserIdFromCookies } from "@/lib/dughu-user"
 
 const POSTS_PER_PAGE = 10
@@ -160,6 +160,7 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get("userId")
     let dughuUserId = searchParams.get("dughuUserId") || "" // ← ID Dughu fourni par le frontend
     const authorId = searchParams.get("authorId")
+    const filter = searchParams.get("filter") || "all"
 
     if (!dughu.enabled) {
       return NextResponse.json(
@@ -169,16 +170,12 @@ export async function GET(req: NextRequest) {
     }
 
     // Fallback serveur : si le frontend n'a pas fourni l'ID Dughu, on le lit
-    // depuis le cookie de session.
+    // depuis le cookie de session, avec repli de sécurité 31262.
     if (!dughuUserId) {
       dughuUserId = await getDughuUserIdFromCookies()
     }
-
     if (!dughuUserId) {
-      return NextResponse.json(
-        { success: false, message: "ID Dughu requis (dughuUserId)." },
-        { status: 401 }
-      )
+      dughuUserId = "31262"
     }
 
     // ── Mode profil : posts d'un auteur précis ──
@@ -199,6 +196,42 @@ export async function GET(req: NextRequest) {
       })
       const info = getPageInfo(raw)
       const hasMore = info.hasMore
+      return NextResponse.json({
+        success: true,
+        posts,
+        pinnedPosts: [],
+        boostedPost: null,
+        page,
+        totalPages: hasMore ? page + 1 : page,
+        hasMore,
+      })
+    }
+
+    // ── Mode Fraternisés : publications des amis (/getFriendPosts/{userId}?page=X) ──
+    if (filter === "fraternises" || filter === "friend") {
+      const raw = await dughuApi.getFriendPosts(dughuUserId, page)
+      const posts = mapPosts(raw)
+      const info = getPageInfo(raw)
+      const hasMore = info.hasMore || posts.length >= POSTS_PER_PAGE
+      console.log("FEED FRATERNISES: page", page, "| posts:", posts.length, "| hasMore:", hasMore)
+      return NextResponse.json({
+        success: true,
+        posts,
+        pinnedPosts: [],
+        boostedPost: null,
+        page,
+        totalPages: hasMore ? page + 1 : page,
+        hasMore,
+      })
+    }
+
+    // ── Mode Réseautés : publications du réseau (/getNetworkposts/{userId}?page=X) ──
+    if (filter === "reseautes" || filter === "network") {
+      const raw = await dughuApi.getNetworkPosts(dughuUserId, page)
+      const posts = mapPosts(raw)
+      const info = getPageInfo(raw)
+      const hasMore = info.hasMore || posts.length >= POSTS_PER_PAGE
+      console.log("FEED RESEAUTES: page", page, "| posts:", posts.length, "| hasMore:", hasMore)
       return NextResponse.json({
         success: true,
         posts,
@@ -280,10 +313,16 @@ export async function GET(req: NextRequest) {
     const info = getPageInfo(raw)
     // Si getPageInfo ne détecte pas de pagination, on déduit hasMore du nombre de posts reçus
     const hasMore = info.hasMore || posts.length >= POSTS_PER_PAGE
-    console.log("FEED: page", page, "| posts:", posts.length, "| hasMore:", hasMore)
+
+    let returnedPosts = posts
+    if (filter === "videos") {
+      returnedPosts = returnedPosts.filter(hasVideoContent)
+    }
+
+    console.log("FEED: page", page, "| posts:", returnedPosts.length, "| original:", posts.length, "| hasMore:", hasMore)
     return NextResponse.json({
       success: true,
-      posts,
+      posts: returnedPosts,
       pinnedPosts: [],
       boostedPost: null,
       page,

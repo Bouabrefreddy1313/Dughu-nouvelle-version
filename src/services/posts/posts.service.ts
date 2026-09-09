@@ -12,6 +12,7 @@
 
 import { apiClient } from "@/lib/api/client/axios-instance"
 import { ApiError } from "@/lib/api/api-error"
+import { recordUserActivity } from "@/lib/activity-tracker"
 import type {
   PostMutationResponse,
   PostsResponse,
@@ -104,6 +105,19 @@ export async function fetchSavedPosts(
 export async function createPost(formData: FormData, signal?: AbortSignal): Promise<PostMutationResponse> {
   try {
     const res = await apiClient.post<PostMutationResponse>("/posts", formData, { signal })
+    if (res.data?.success) {
+      const postId = (res.data as any)?.post?.id || (res.data as any)?.id
+      const content = String(formData.get("postText") || formData.get("content") || "")
+      const userId = String(formData.get("userId") || "")
+      recordUserActivity(
+        {
+          activityType: "post",
+          postId: postId ? String(postId) : undefined,
+          description: content || "a publié une publication",
+        },
+        userId || undefined
+      )
+    }
     return res.data
   } catch (error) {
     throw toServiceApiError(error, "Erreur création post")
@@ -114,6 +128,19 @@ export async function createPost(formData: FormData, signal?: AbortSignal): Prom
 export async function rePost(formData: FormData, signal?: AbortSignal): Promise<PostMutationResponse> {
   try {
     const res = await apiClient.post<PostMutationResponse>("/rePost", formData, { signal })
+    if (res.data?.success) {
+      const parentId = String(formData.get("parentId") || "")
+      const content = String(formData.get("postText") || "")
+      const userId = String(formData.get("userId") || "")
+      recordUserActivity(
+        {
+          activityType: "repost",
+          postId: parentId || undefined,
+          description: content || "a repartagé une publication",
+        },
+        userId || undefined
+      )
+    }
     return res.data
   } catch (error) {
     throw toServiceApiError(error, "Erreur repost")
@@ -127,6 +154,15 @@ export async function addReaction(
 ): Promise<PostMutationResponse> {
   try {
     const res = await apiClient.post<PostMutationResponse>("/reactions", payload, { signal })
+    if (payload.type && payload.type !== "unlike") {
+      recordUserActivity(
+        {
+          activityType: "reaction",
+          postId: payload.postId,
+        },
+        payload.userId
+      )
+    }
     return res.data
   } catch (error) {
     throw toServiceApiError(error, "Erreur réseau lors de la réaction")

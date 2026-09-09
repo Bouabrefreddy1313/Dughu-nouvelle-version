@@ -1,26 +1,89 @@
 import { Eye } from "lucide-react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import Badge from "@/components/common/Badge"
 import Avatar from "@/components/common/Avatar"
 
 interface BoostedPostCardProps {
+  postId?: string | number | null
   image?: string | null
   authorName?: string | null
   authorAvatar?: string | null
   title?: string
   views?: number | null
+  rawPost?: any
+  onClick?: () => void
 }
 
 export default function BoostedPostCard({
+  postId,
   image,
   authorName = "Utilisateur",
   authorAvatar,
   title = "Publication",
   views = 0,
+  rawPost,
+  onClick,
 }: BoostedPostCardProps) {
+  const router = useRouter()
   const viewCount = views ?? 0
+
+  const handleClick = () => {
+    if (onClick) {
+      onClick()
+    } else if (postId) {
+      if (typeof window !== "undefined") {
+        try {
+          const postToStore = rawPost
+            ? {
+                id: String(rawPost.id || postId),
+                content: rawPost.content || title || "",
+                image: rawPost.image || image || null,
+                images: (rawPost.image || image) ? [{ url: rawPost.image || image, id: String(postId) }] : [],
+                video: rawPost.video || null,
+                author: rawPost.author || {
+                  id: "",
+                  name: authorName || "Utilisateur",
+                  avatar: authorAvatar || null,
+                },
+                likesCount: rawPost._count?.likes || 0,
+                _count: rawPost._count || { views: viewCount, likes: 0, comments: 0 },
+              }
+            : {
+                id: String(postId),
+                content: title || "",
+                image: image || null,
+                images: image ? [{ url: image, id: String(postId) }] : [],
+                author: {
+                  id: "",
+                  name: authorName || "Utilisateur",
+                  avatar: authorAvatar || null,
+                },
+                likesCount: 0,
+                _count: { views: viewCount, likes: 0, comments: 0 },
+              }
+          sessionStorage.setItem(`dughu_post_${postId}`, JSON.stringify(postToStore))
+        } catch {
+          /* ignore */
+        }
+      }
+      router.push(`/post/${postId}`)
+    }
+  }
+
   return (
-    <div className="relative bg-white rounded-[16px] overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.08)] border border-gray-100 group cursor-pointer">
+    <div
+      role={postId || onClick ? "link" : undefined}
+      tabIndex={postId || onClick ? 0 : undefined}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if ((e.key === "Enter" || e.key === " ") && (postId || onClick)) {
+          e.preventDefault()
+          handleClick()
+        }
+      }}
+      className="relative bg-white dark:bg-[#252525] rounded-[16px] overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.08)] border border-gray-100 dark:border-white/10 group cursor-pointer transition hover:shadow-md active:scale-[0.99]"
+    >
       {/* Badge Boosté */}
       <Badge variant="yellow" className="absolute top-2 left-2 z-10 text-[9px] px-1.5 py-0.5">
         Boosté

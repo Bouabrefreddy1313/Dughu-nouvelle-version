@@ -1,7 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { BriefcaseBusiness, Home, Video, Zap, Play, Search, X, LayoutGrid, UsersRound } from "lucide-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { BriefcaseBusiness, Home, Video, TrendingUp, Play, Search, X, LayoutGrid, UsersRound } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Badge from "@/components/common/Badge"
 import ProfileMenu from "@/components/layout/ProfileMenu"
@@ -46,17 +48,51 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
   const userId = String(user?.id || user?.dughu?.userId || "")
   const { unreadCount } = useNotificationUnreadCount(userId)
 
+  const pathname = usePathname()
 
   const navItems = [
-    { icon: <Home size={22} />, label: "Accueil", active: true, href: "/home", tooltipId: "accueil-tooltip" },
-    { icon: <Video size={22} />, label: "Vidéos", href: "/videos", tooltipId: "videos-tooltip" },
-    { icon: <Zap size={22} />, label: "Flash", href: "/flash", tooltipId: "flash-tooltip" },
-    { icon: <Play size={22} />, label: "Akwaplay", href: "/akwaplay", tooltipId: "akwaplay-tooltip" },
-  ]
-
-  const staticRelationItems = [
-    { icon: <UsersRound size={22} />, label: "Fraternisés", tooltipId: "fraternises-tooltip" },
-    { icon: <BriefcaseBusiness size={22} />, label: "Réseautés", tooltipId: "reseautes-tooltip" },
+    {
+      icon: <Home size={22} />,
+      label: "Accueil",
+      active: pathname === "/home" || pathname === "/",
+      href: "/home",
+      tooltipId: "accueil-tooltip",
+    },
+    {
+      icon: <Video size={22} />,
+      label: "Vidéos",
+      active: pathname.startsWith("/videos"),
+      href: "/videos",
+      tooltipId: "videos-tooltip",
+    },
+    {
+      icon: <TrendingUp size={22} />,
+      label: "Tendances",
+      active: pathname.startsWith("/tendances"),
+      href: "/tendances",
+      tooltipId: "tendances-tooltip",
+    },
+    {
+      icon: <Play size={22} />,
+      label: "Akwaplay",
+      active: pathname.startsWith("/akwaplay"),
+      href: "/akwaplay",
+      tooltipId: "akwaplay-tooltip",
+    },
+    {
+      icon: <UsersRound size={22} />,
+      label: "Fraternisés",
+      active: pathname.startsWith("/fraternises"),
+      href: "/fraternises",
+      tooltipId: "fraternises-tooltip",
+    },
+    {
+      icon: <BriefcaseBusiness size={22} />,
+      label: "Réseautés",
+      active: pathname.startsWith("/reseautes"),
+      href: "/reseautes",
+      tooltipId: "reseautes-tooltip",
+    },
   ]
 
   const scrollDirection = useScrollDirection({ threshold: 8, offset: 56 })
@@ -89,52 +125,37 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
           </svg>
         </button>
 
-        <a href="/home" className="shrink-0">
+        <Link
+          href="/home"
+          className="shrink-0 cursor-pointer"
+        >
           <img src="/images/logo.png" alt="Dughu" className="h-10 w-auto max-w-[80px] sm:max-w-[120px] object-contain object-left" />
-        </a>
+        </Link>
 
         {/* Barre de recherche AGRANDIE (desktop) */}
         <GlobalSearch value={desktopQuery} onChange={setDesktopQuery} className="hidden w-56 lg:block" inputClassName="text-[15px]" />
       </div>
 
-      {/* ═════ CENTRE : Navigation ═════ */}
-      <nav className="hidden lg:flex min-w-0 items-center justify-center gap-20 h-full">
+      {/* ═════ CENTRE : Navigation (6 accès directs) ═════ */}
+      <nav className="hidden sm:flex min-w-0 items-center justify-center gap-1 sm:gap-2.5 md:gap-5 lg:gap-8 xl:gap-12 h-full">
         {navItems.map((item) => (
-          <a
+          <Link
             key={item.label}
             href={item.href}
             aria-label={item.label}
             aria-describedby={item.tooltipId}
             aria-current={item.active ? "page" : undefined}
             className={cn(
-              "group relative flex h-10 items-center justify-center rounded-lg px-3 transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A35A2A]",
+              "group relative flex h-10 items-center justify-center rounded-lg px-2 sm:px-2.5 lg:px-3 transition-colors duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A35A2A]",
               item.active
-                ? "text-[#A35A2A]"
-                : "text-[#65676B] hover:bg-[#F0F2F5] hover:text-[#050505]"
+                ? "text-[#A35A2A] dark:text-[#B46D1C]"
+                : "text-[#65676B] dark:text-[#A1A1AA] hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] hover:text-[#050505] dark:hover:text-[#F3F4F6]"
             )}
           >
             {item.icon}
             {item.active && (
-              <span aria-hidden="true" className="absolute -bottom-2 left-0 right-0 h-[3px] rounded-t-full bg-[#A35A2A]" />
+              <span aria-hidden="true" className="absolute -bottom-2 left-0 right-0 h-[3px] rounded-t-full bg-[#A35A2A] dark:bg-[#B46D1C]" />
             )}
-            <span
-              id={item.tooltipId}
-              role="tooltip"
-              className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#2D2D2D] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
-            >
-              {item.label}
-            </span>
-          </a>
-        ))}
-        {staticRelationItems.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            aria-label={item.label}
-            aria-describedby={item.tooltipId}
-            className="group relative flex h-10 items-center justify-center rounded-lg px-3 text-[#65676B] dark:text-[#A1A1AA] transition-colors duration-200 hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] hover:text-[#050505] dark:hover:text-[#F3F4F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A35A2A]"
-          >
-            {item.icon}
             <span
               id={item.tooltipId}
               role="tooltip"
@@ -142,7 +163,7 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
             >
               {item.label}
             </span>
-          </button>
+          </Link>
         ))}
       </nav>
 

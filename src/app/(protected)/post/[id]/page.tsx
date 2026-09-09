@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react"
 import { PostMediaLightbox, type LightboxCommentItem, type LightboxImageItem } from "@/components/feed/PostMediaLightbox"
 import { fetchComments, addComment, likeComment, reportComment } from "@/services/posts/comments.service"
 import { fetchPosts, addReaction } from "@/services/posts/posts.service"
+import { fetchSuggestions } from "@/services/posts/feed.service"
 import { useAuth } from "@/hooks/queries/use-auth"
 import { toast } from "sonner"
 
@@ -38,11 +39,19 @@ export default function SinglePostPage() {
   const postId = String(params?.id || "")
   const { data: currentUser } = useAuth()
 
-  const [post, setPost] = React.useState<SinglePostData | null>(null)
-  const [loadingPost, setLoadingPost] = React.useState(true)
+  const [post, setPost] = React.useState<SinglePostData | null>(() => {
+    if (typeof window !== "undefined" && postId) {
+      try {
+        const cached = sessionStorage.getItem(`dughu_post_${postId}`)
+        if (cached) return JSON.parse(cached) as SinglePostData
+      } catch {}
+    }
+    return null
+  })
+  const [loadingPost, setLoadingPost] = React.useState(() => !post)
   const [comments, setComments] = React.useState<LightboxCommentItem[]>([])
   const [loadingComments, setLoadingComments] = React.useState(true)
-  const [localLikesCount, setLocalLikesCount] = React.useState(0)
+  const [localLikesCount, setLocalLikesCount] = React.useState(() => post?._count?.likes || post?.likesCount || 0)
   const [localSelectedReaction, setLocalSelectedReaction] = React.useState<number | null>(null)
 
   // Chargement du post et de ses commentaires
@@ -56,8 +65,8 @@ export default function SinglePostPage() {
           const cached = sessionStorage.getItem(`dughu_post_${postId}`)
           if (cached) {
             const parsed = JSON.parse(cached) as SinglePostData
-            setPost(parsed)
-            setLocalLikesCount(parsed._count?.likes || parsed.likesCount || 0)
+            setPost((prev) => prev || parsed)
+            setLocalLikesCount((prev) => prev || parsed._count?.likes || parsed.likesCount || 0)
             setLoadingPost(false)
           }
         } catch {}
@@ -76,11 +85,46 @@ export default function SinglePostPage() {
 
         if (!active) return
 
+        let postResolved = false
         if (postsRes.status === "fulfilled" && postsRes.value.posts) {
           const found = (postsRes.value.posts as unknown as SinglePostData[]).find((p) => String(p.id) === postId)
           if (found) {
+            postResolved = true
             setPost(found)
             setLocalLikesCount(found._count?.likes || found.likesCount || 0)
+          }
+        }
+
+        // Si le post n'est pas dans les premiers posts du feed, chercher dans les posts boostés
+        if (!postResolved) {
+          try {
+            const sug = await fetchSuggestions(currentUser?.id || "", {
+              dughuUserId: currentUser?.dughu?.userId ? String(currentUser.dughu.userId) : undefined,
+              dughhuUserId: currentUser?.dughu?.userId ? String(currentUser.dughu.userId) : undefined,
+            })
+            if (sug?.boostedPosts) {
+              const b = (sug.boostedPosts as any[]).find((item) => String(item.id) === postId)
+              if (b) {
+                const imgUrl = b.image || null
+                const boostedFound: SinglePostData = {
+                  id: String(b.id),
+                  content: b.content || "",
+                  image: imgUrl,
+                  images: imgUrl ? [{ url: imgUrl, id: String(b.id) }] : [],
+                  video: b.video || null,
+                  author: b.author || { id: "", name: "Utilisateur", avatar: null },
+                  likesCount: b._count?.likes || 0,
+                  _count: b._count,
+                }
+                setPost((prev) => prev || boostedFound)
+                setLocalLikesCount((prev) => prev || b._count?.likes || 0)
+                try {
+                  sessionStorage.setItem(`dughu_post_${postId}`, JSON.stringify(boostedFound))
+                } catch {}
+              }
+            }
+          } catch {
+            /* ignore */
           }
         }
 
@@ -180,11 +224,18 @@ export default function SinglePostPage() {
     )
   }
 
-  const images: LightboxImageItem[] = post?.image
-    ? [{ url: post.image, id: post.id }]
-    : post?.images?.length
-    ? post.images
-    : []
+  const images: LightboxImageItem[] = (() => {
+    if (post?.image) return [{ url: post.image, id: post.id }]
+    if (Array.isArray(post?.images) && post.images.length > 0) {
+      return post.images
+        .map((img: any) => ({
+          url: typeof img === "string" ? img : img?.url || "",
+          id: typeof img === "object" ? String(img?.id || post.id) : post.id,
+        }))
+        .filter((i) => Boolean(i.url))
+    }
+    return []
+  })()
 
   return (
     <PostMediaLightbox

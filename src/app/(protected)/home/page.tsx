@@ -60,6 +60,8 @@ import { isDefaultDughuMedia } from "@/lib/dughu"
 import { useFlashFeed } from "@/hooks/queries/use-flash"
 import { usePagesList } from "@/hooks/pages/use-pages"
 import { likePage } from "@/services/pages/pages.service"
+import SuggestionsAmisCard from "@/components/feed/SuggestionsAmisCard"
+import FeedPosition4Slot from "@/components/feed/FeedPosition4Slot"
 
 const PostComposer = dynamic(() => import("@/components/composer/PostComposer").then((mod) => ({ default: mod.PostComposer })), {
   loading: () => null,
@@ -1138,12 +1140,30 @@ export default function HomePage() {
             className="mb-4"
           />
         )})()}
-        {/* Rail Capsules : 3 capsules aléatoires après les 4 premiers posts */}
+        {/* 4e position du feed : tirage aléatoire mémoïsé (Capsules / Groupes suggérés / Espaces suggérés avec repli automatique) */}
         {postIndex === 3 && (
-          <CapsuleRail
+          <FeedPosition4Slot
+            currentUser={user}
             capsules={capsules}
-            loading={capsulesLoading}
-            onOpen={openCapsuleViewer}
+            capsulesLoading={capsulesLoading}
+            onOpenCapsule={openCapsuleViewer}
+          />
+        )}
+
+        {/* 8e position du feed : suggestions de personnes (masqué si moins de 8 posts) */}
+        {postIndex === 6 && posts.length >= 8 && (
+          <SuggestionsAmisCard currentUser={user} />
+        )}
+
+        {/* 11e position du feed : Flash des amis uniquement (masqué si moins de 11 posts ou si aucun flash d'amis) */}
+        {postIndex === 9 && posts.length >= 11 && (
+          <FlashFeed
+            userId={user?.id}
+            currentUser={user}
+            friendsOnly={true}
+            onOpenFlash={(targetUserId: string, targetUser?: { name?: string | null; avatar?: string | null }) =>
+              setFlashTarget({ userId: targetUserId, userName: targetUser?.name, userAvatar: targetUser?.avatar })
+            }
           />
         )}
         </Fragment>

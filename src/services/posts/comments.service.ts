@@ -6,6 +6,7 @@
 
 import { apiClient } from "@/lib/api/client/axios-instance"
 import { ApiError } from "@/lib/api/api-error"
+import { recordUserActivity } from "@/lib/activity-tracker"
 import type { CommentResponse } from "@/types/posts/post.types"
 
 function toServiceApiError(error: unknown, fallback: string): ApiError {
@@ -42,6 +43,22 @@ export async function addComment(
 ): Promise<CommentResponse> {
   try {
     const res = await apiClient.post<CommentResponse>("/comments", payload, { signal })
+    if (res.data?.success) {
+      const isForm = payload instanceof FormData
+      const postId = isForm ? (payload.get("postId") as string) : (payload.postId as string)
+      const text = isForm
+        ? ((payload.get("text") || payload.get("content") || "") as string)
+        : ((payload.text || payload.content || "") as string)
+      const userId = isForm ? (payload.get("userId") as string) : (payload.userId as string)
+      recordUserActivity(
+        {
+          activityType: "comment",
+          postId: postId ? String(postId) : undefined,
+          description: text || "a commenté une publication",
+        },
+        userId || undefined
+      )
+    }
     return res.data
   } catch (error) {
     throw toServiceApiError(error, "Erreur réseau commentaire")

@@ -332,6 +332,14 @@ export const dughuApi = {
   getPostAll: (userId: string | number, page: number) =>
     dughu.get(`getPostAll/${encodeURIComponent(String(userId))}`, { page }),
 
+  // Publications des amis (fraterniser) : /getFriendPosts/{userId}?page=X
+  getFriendPosts: (userId: string | number, page: number) =>
+    dughu.get(`getFriendPosts/${encodeURIComponent(String(userId))}`, { page }),
+
+  // Publications du réseau (reseauté) : /getNetworkposts/{userId}?page=X
+  getNetworkPosts: (userId: string | number, page: number) =>
+    dughu.get(`getNetworkposts/${encodeURIComponent(String(userId))}`, { page }),
+
   // Liste des albums d'un utilisateur (chaque album contient ses medias)
   getAlbums: (userId: string | number, page = 1) =>
     dughu.get("album", { user_id: String(userId), page }),
@@ -936,13 +944,28 @@ function isAudioFileName(v: any): boolean {
   return isWebmAudioHint(s)
 }
 
-function isVideoPost(p: any): boolean {
+export function isVideoPost(p: any): boolean {
   const type = String(pick(p, "postType", "post_type", "type", "media_type") || "").toLowerCase()
   const fileName = String(pick(p, "postFileName", "post_file_name", "fileName", "filename") || "")
   const anyMedia = toUrl(
     pick(p, "postFile", "postFileLink", "file", "postVideoURL", "video", "videoLink", "video_url", "hls_playlist", "postYoutube", "postVimeo")
   )
   return type === "video" || isVideoUrl(fileName) || isVideoUrl(anyMedia)
+}
+
+export function hasVideoContent(p: any): boolean {
+  if (!p) return false
+  if (p.isAkwaplayVideo) return true
+  if (p.video) {
+    if (typeof p.video === "string" && p.video.trim() !== "") return true
+    if (typeof p.video === "object" && Boolean(p.video.url || p.video.link)) return true
+  }
+  const postType = String(p.postType || p.type || "").toLowerCase()
+  if (postType === "video" || postType === "akwaplay_video" || postType === "akwa_video") return true
+  if (p.parentPost?.video) return true
+  if (Array.isArray(p.media) && p.media.some((m: any) => m?.type === "video" || isVideoUrl(m?.url))) return true
+  if (Array.isArray(p.files) && p.files.some((f: any) => isVideoUrl(typeof f === "string" ? f : f?.url))) return true
+  return isVideoPost(p)
 }
 
 function postImages(p: any): string[] {
@@ -1714,13 +1737,21 @@ export function mapComments(raw: any, currentUserId?: string): Record<string, an
 
 export function getPageInfo(raw: any): { hasMore: boolean; page: number } {
   const unwrapped = raw?.result && typeof raw.result === "object" && !Array.isArray(raw.result) ? raw.result : raw
-  const page = Number(pick(unwrapped, "page", "current_page", "currentPage") || 1) || 1
+  const pagination = unwrapped?.pagination && typeof unwrapped.pagination === "object" ? unwrapped.pagination : null
+  const page = Number(
+    pick(unwrapped, "page", "current_page", "currentPage") ||
+    (pagination ? pick(pagination, "page", "current_page", "currentPage") : undefined) ||
+    1
+  ) || 1
   const totalPages = Number(
-    pick(unwrapped, "total_pages", "totalPages", "last_page", "lastPage", "pages", "page_count") || 1
+    pick(unwrapped, "total_pages", "totalPages", "last_page", "lastPage", "pages", "page_count") ||
+    (pagination ? pick(pagination, "total_pages", "totalPages", "last_page", "lastPage", "pages", "page_count") : undefined) ||
+    1
   ) || 1
   const hasMore =
     !!pick(unwrapped, "has_more", "hasMore", "next_page", "nextPage") ||
-    !!pick(unwrapped, "next_page_url", "nextPageUrl", "nextPageUrl") ||
+    !!pick(unwrapped, "next_page_url", "nextPageUrl") ||
+    (pagination ? !!pick(pagination, "has_more", "hasMore", "next_page", "nextPage") || !!pick(pagination, "next_page_url", "nextPageUrl") : false) ||
     page < totalPages
   return { hasMore, page }
 }

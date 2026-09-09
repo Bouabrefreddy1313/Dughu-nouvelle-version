@@ -6,7 +6,6 @@ import {
   Home, MessageCircle, Users, Heart, Image as ImageIcon, Bookmark,
   Zap, Globe, X,
   BarChart3, ShieldAlert, Gift, UserPlus,
-  Videotape,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Card from "@/components/common/Card"
@@ -120,6 +119,7 @@ export default function LeftSidebar({
               onCloseMobile?.()
             }}
           />
+
 
           <SidebarItem
             icon={<MessageCircle size={20} />}

@@ -26,12 +26,16 @@ interface MainLayoutProps {
   wide?: boolean
   /** Masque la sidebarre droite (RightSidebar + ConversationSidebar). */
   noRightSidebar?: boolean
+  /** Masque la sidebarre gauche (LeftSidebar) sur desktop. */
+  noLeftSidebar?: boolean
   active?: string
   workspace?: boolean
   /** Réserve la largeur de la sidebar gauche au contenu sur desktop. */
   reserveLeftSidebar?: boolean
   /** Masque le header principal sur mobile/tablette (ex : profil en couverture plein écran). */
   hideHeaderOnMobile?: boolean
+  /** Masque la barre de navigation mobile (tapbar en bas). */
+  hideBottomNav?: boolean
 }
 
 export default function MainLayout({
@@ -43,10 +47,12 @@ export default function MainLayout({
   onFilterChange,
   wide = false,
   noRightSidebar = false,
+  noLeftSidebar = false,
   active = "feed",
   workspace = false,
   reserveLeftSidebar = false,
   hideHeaderOnMobile = false,
+  hideBottomNav = false,
 }: MainLayoutProps) {
   const [chatOpen, setChatOpen] = useState(false)
   // Sidebar droite en tiroir (mobile/tablette) : ouverte par le bouton grille du header.
@@ -145,11 +151,13 @@ export default function MainLayout({
         />
       )}
 
-      {/* LeftSidebar - desktop fixe, mobile repliable */}
+       {/* LeftSidebar - desktop fixe, mobile repliable */}
        <div className={cn(
          "transition-all duration-300",
          mobileMenuOpen
            ? "fixed inset-y-0 left-0 z-50 w-[270px] translate-x-0"
+           : noLeftSidebar
+           ? "hidden"
            : "hidden lg:block lg:fixed lg:left-0 lg:top-[72px] lg:bottom-0 lg:w-[270px] lg:z-30"
        )}>
         <LeftSidebar
@@ -235,19 +243,31 @@ export default function MainLayout({
           de l'écran : padding supérieur nul sous lg, conservé sur desktop. */}
       <div className={cn("flex w-full", hideHeaderOnMobile ? "pt-0 lg:pt-[88px]" : "pt-[56px] sm:pt-[88px]")}>
         {/* Réservation espace de la sidebar gauche (fixe en lg+) */}
-        <div className="hidden lg:block lg:w-[270px] lg:shrink-0" aria-hidden="true" />
+        {!noLeftSidebar && (
+          <div className="hidden lg:block lg:w-[270px] lg:shrink-0" aria-hidden="true" />
+        )}
 
         {/* Contenu central (timeline) */}
         {/* Mobile : px-0 → posts edge-to-edge, sm+ : px-4, xl : px-4, 2xl : px-6
             pb-[calc(80px+env(safe-area-inset-bottom,0px))] → espace pour la tapbar + safe-area iOS */}
-        <main className="min-w-0 flex-1 px-0 pb-[calc(80px+env(safe-area-inset-bottom,0px))] sm:px-4 sm:pb-16 lg:px-6 xl:px-4 2xl:px-6 lg:pb-12">
+        <main
+          className={cn(
+            "min-w-0 flex-1",
+            workspace
+              ? "px-0 pb-0 h-[calc(100dvh-56px)] sm:h-[calc(100dvh-88px)] overflow-hidden"
+              : "px-0 pb-[calc(80px+env(safe-area-inset-bottom,0px))] sm:px-4 sm:pb-16 lg:px-6 xl:px-4 2xl:px-6 lg:pb-12"
+          )}
+        >
           <div
             className={cn(
-              "mx-auto w-full",
-              wide ? "max-w-[1100px]" : "max-w-[750px] xl:max-w-[780px]",
-              // Mobile : pas d'espace entre posts (border-b les sépare)
-              // sm+ : espacement normal entre cartes
-              "space-y-0 sm:space-y-3 md:space-y-4"
+              "w-full",
+              workspace
+                ? "h-full max-w-none space-y-0"
+                : cn(
+                    "mx-auto",
+                    wide ? "max-w-[1100px]" : "max-w-[750px] xl:max-w-[780px]",
+                    "space-y-0 sm:space-y-3 md:space-y-4"
+                  )
             )}
           >
             {children}
@@ -266,7 +286,7 @@ export default function MainLayout({
       </div>
 
       {/* Barre de navigation mobile (tab bar en bas) */}
-      <MobileBottomNav user={user} />
+      {!hideBottomNav && <MobileBottomNav user={user} />}
     </div>
   )
 }

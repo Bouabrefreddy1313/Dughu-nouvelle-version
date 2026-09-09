@@ -31,13 +31,23 @@ export async function givePoints(payload: GivePointsPayload, signal?: AbortSigna
 /** Charge les suggestions / activités / tendances via GET /api/suggestions. */
 export async function fetchSuggestions(
   userId: string,
-  options: { signal?: AbortSignal; dughhuUserId?: string | number | null } = {}
+  options: {
+    signal?: AbortSignal
+    dughuUserId?: string | number | null
+    dughhuUserId?: string | number | null
+    username?: string | null
+  } = {}
 ): Promise<SuggestionsResponse> {
   try {
-    const params = new URLSearchParams
+    const params = new URLSearchParams()
     if (userId.trim()) params.set("userId", userId.trim())
-    const dughhuUserId = String(options.dughhuUserId ?? "").trim()
-    if (dughhuUserId) params.set("dughhuUserId", dughhuUserId)
+    const dughhuUserId = String(options.dughuUserId ?? options.dughhuUserId ?? "").trim()
+    if (dughhuUserId) {
+      params.set("dughuUserId", dughhuUserId)
+      params.set("dughhuUserId", dughhuUserId)
+    }
+    const username = String(options.username ?? "").trim()
+    if (username) params.set("username", username)
     const qs = params.toString()
     const res = await apiClient.get<SuggestionsResponse>(`/suggestions${qs ? `?${qs}` : ""}`, {
       signal: options.signal,

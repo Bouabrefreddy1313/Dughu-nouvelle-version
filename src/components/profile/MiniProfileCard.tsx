@@ -59,10 +59,21 @@ export default function MiniProfileCard({ user, points, stats, loading = false }
     return null
   }
 
+  const profileUrl = user?.username ? `/profile/${encodeURIComponent(user.username)}` : "/profile"
+
   return (
     <div
-      onClick={() => router.push(`/profile/${user?.username || user?.id || ""}`)}
-      className="w-full bg-white dark:bg-[#1E1E1E] dark:border dark:border-white/10 rounded-[20px] overflow-visible shadow-sm hover:shadow-md dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] cursor-pointer transition"
+      role="link"
+      tabIndex={0}
+      title="Voir mon profil"
+      onClick={() => router.push(profileUrl)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          router.push(profileUrl)
+        }
+      }}
+      className="w-full bg-white dark:bg-[#1E1E1E] dark:border dark:border-white/10 rounded-[20px] overflow-visible shadow-sm hover:shadow-md dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] cursor-pointer transition active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B5E34]"
     >
       {/* Badge points */}
       <div className="bg-[#B87333] dark:bg-[#A35A2A] text-white text-center py-1.5 rounded-t-[20px]">

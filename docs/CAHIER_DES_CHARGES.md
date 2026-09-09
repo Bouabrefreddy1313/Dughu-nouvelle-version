@@ -258,12 +258,33 @@ La normalisation technique de ces états est documentée dans
 * La barre de navigation mobile (`MobileBottomNav`) s'affiche en bas de l'écran
   sur les écrans inférieurs à `lg`.
 * Les onglets de la barre de navigation mobile sont : **Accueil**, **Capsules**,
-  **Akwaplay** et **Vidéos**.
+  **Akwaplay** et **Vidéos** (qui renvoie vers `/videos`).
 * Les onglets **Flash** et **Profil** ne sont pas présents dans la barre de
   navigation mobile.
 * La barre affiche aussi **Fraterniser** (`UsersRound`) et **Réseauter**
   (`BriefcaseBusiness`) : un appui renvoie à `/profile/relations?type=friend`
   ou `?type=network`, avec le filtre de la page des demandes pré-sélectionné.
+
+### Header — Navigation principale et Fil Vidéos
+
+* Sur grand écran (`lg` et plus), le header central propose 4 accès directs :
+  - **Accueil** (`/home`) : fil d'actualité complet (toutes publications) ;
+  - **Vidéos** (`/videos`) : fil d'actualité exclusif aux **publications vidéo** ;
+  - **Flash** (`/flash`) : stories Flash ;
+  - **Akwaplay** (`/akwaplay`) : plateforme vidéo Akwaplay.
+* L'indicateur actif (barre inférieure marron `#A35A2A` / `#B46D1C`) et la surbrillance de l'icône sont dynamiques et synchronisés avec l'URL en cours (`usePathname()`).
+* La navigation s'effectue via Next.js `Link` de manière fluide et instantanée côté client sans rechargement de page.
+
+### Fil Vidéos (`/videos`)
+
+* Accessible depuis l'icône **« Vidéos »** du Header (dès `sm`) et depuis la barre de navigation mobile (`MobileBottomNav`).
+* Affiche **exclusivement les publications vidéo** :
+  - Filtrage serveur (`GET /api/posts?filter=videos`) et sécurisation défensive côté client via l'utilitaire `hasVideoContent` (détection des vidéos natives Dughu `.mp4`, `.webm`, `.mov`, etc. et des vidéos créateurs `Akwaplay`).
+  - Présentation directe et épurée sans bannière textuelle redondante, avec intégration du compositeur `PostComposer` au sommet du fil comme sur la page d'accueil.
+  - Rendu fidèle avec les composants standard `PostCard` (lecteur vidéo avec contrôles, poster, boucle et pause/lecture intelligente au scroll) et `AkwaplayPostCard`.
+  - Intégration de toutes les interactions : likes/réactions (6 types), commentaires avec fichiers, republications, enregistrements, masquage, blocage, suivi d'auteur et suppression avec confirmation (`ConfirmDialog`).
+  - Défilement infini (`IntersectionObserver`) avec auto-remplissage des pages si une page comporte peu de vidéos.
+  - État vide soigné et squelettes de chargement adaptés au format vidéo.
 
 ### Bouton S'abonner (PostCard)
 
@@ -365,6 +386,45 @@ La normalisation technique de ces états est documentée dans
     * Détection automatique via `mapPost` (types `akwaplay`, `akwaplay_video` ou présence du bloc `akwaplay`).
     * Les statistiques de likes et de vues restent synchronisées avec les données réelles issues d'Akwaplay.
     * Sur la page de profil, les vidéos publiées sur Akwaplay sont également synchronisées avec les vidéos du créateur pour une visibilité immédiate.
+* **Carte de suggestions d'amis dans le fil d'actualité (`SuggestionsAmisCard`)** :
+  * **Positionnement** : insérée en **8e position** dans le feed principal (`/home`), soit juste après le 7e post de la liste (`postIndex === 6`). Si le fil contient moins de 8 publications au total ou si la liste de suggestions renvoyée par l'API est vide, la carte ne s'affiche pas.
+  * **Structure et design** :
+    * Carte blanche aux coins arrondis (`rounded-3xl`), ombre légère, bordure discrète, parfaitement cohérente avec les cartes de post du feed.
+    * **En-tête** : icône 2 personnes (`Users`) dans un cercle teinté marron Dughu, titre en gras « Personnes que vous pourriez connaître » à gauche, et menu à options « ••• » à droite permettant de masquer la section du flux avec notification informative.
+    * **Carrousel horizontal fluide** : défilement horizontal par glisser-déposer (drag à la souris) ou boutons flèches « < » et « > » circulaires translucides apparaissant selon l'état de défilement.
+    * **Mini-cartes personnes** :
+      * Grande photo de profil au format portrait couvrant toute la largeur avec coins arrondis en haut.
+      * Bouton « ✕ » circulaire semi-transparent en haut à droite de la photo permettant de retirer la suggestion localement avec une animation fluide en fade-out / rétrécissement.
+      * Nom complet de la personne en gras, redirigeant vers son profil au clic.
+      * Indication discrète du nombre d'amis en commun (« X ami(e) en commun » ou « X amis en commun » avec icône) si ce nombre est supérieur à 0 (ligne omise sinon).
+      * Bouton officiel « S'abonner » (`FollowButton`, teinte marron Dughu `#A35A2A`) pleine largeur réutilisant la logique d'abonnement existante (`followAuthor`).
+    * **Pied de carte** : lien centré « Voir tout » redirigeant vers l'onglet complet des suggestions (`/retrouvailles?tab=suggestions`).
+  * **Intégration API** :
+    * Appel au montage via l'instance Axios cliente vers `GET /api/retrouvailles?tab=suggestions&user_id={user_id}` (relayé vers `GET {{local_dughu}}/retrouvailles?tab=suggestions&user_id={user_id}`).
+    * Dédoublonnage des personnes et dérivation des métadonnées (nom, avatar, amis en commun, identifiant pour le suivi).
+
+* **Cartes de suggestions Groupes & Espaces (`SuggestionsGroupesCard`, `SuggestionsEspacesCard`)** :
+  * **Design identique** : calquées sur `SuggestionsAmisCard` avec les mêmes dimensions de cartes (`w-[175px] sm:w-[190px]`), mêmes espacements, flèches de navigation circulaires, bouton « ✕ » d'exclusion animée et palette marron Dughu (`#A35A2A`).
+  * **SuggestionsGroupesCard** :
+    * En-tête : icône groupe (`Users`) + titre « Groupes que vous pourriez aimer » + menu « ••• ».
+    * Mini-cartes : photo de couverture portrait, nom du groupe, information secondaire (« X membres » ou « X ami(e)s dans ce groupe »), bouton « Rejoindre » / « Membre » pleine largeur (`#A35A2A`).
+    * Lien « Voir tout » redirigeant vers `/groups`.
+    * Données issues de `suggestgroupes` (API Dughu) via `/api/suggestions`.
+  * **SuggestionsEspacesCard** :
+    * En-tête : icône espace (`Globe`) + titre « Espaces que vous pourriez aimer » + menu « ••• ».
+    * Mini-cartes : couverture de l'espace, nom de l'espace, information secondaire (mentions J'aime ou catégorie), bouton « Suivre » / « Abonné » pleine largeur connecté à `likePage`.
+    * Lien « Voir tout » redirigeant vers `/espaces`.
+    * Données issues de `suggestPages` (API Dughu) via `/api/suggestions`.
+
+* **Architecture des insertions dynamiques dans le fil d'actualité (`/home`)** :
+  * **Position 4** : tirage aléatoire mémoïsé (une seule fois par chargement du feed via `FeedPosition4Slot`) choisissant l'une des 3 cartes :
+    1. Carte « Capsules » (`CapsuleRail`)
+    2. Carte « Groupes suggérés » (`SuggestionsGroupesCard`)
+    3. Carte « Espaces suggérés » (`SuggestionsEspacesCard`)
+    * *Repli automatique* : si l'option tirée ne dispose d'aucun contenu (ex: 0 capsules ou 0 groupes), le composant bascule automatiquement vers l'option suivante parmi les 3 plutôt que d'afficher un bloc vide.
+  * **Position 8** : suggestions de personnes (`SuggestionsAmisCard`), insérée après le 7e post (`postIndex === 6`), masquée si le fil contient moins de 8 publications au total.
+  * **Position 11** : module Flash (`FlashFeed` avec `friendsOnly={true}`), inséré après le 10e post (`postIndex === 9`). La carte personnelle « Créer un Flash » est masquée afin d'afficher exclusivement les Flash actifs des amis. Si le fil contient moins de 11 publications au total ou si aucun ami n'a de Flash actif, le module est automatiquement omis.
+  * **Autres positions** : publications classiques du fil d'actualité.
 
 #### Mini-profil (sidebar droite)
 
@@ -1775,6 +1835,132 @@ Structurée fidèlement selon la maquette en 3 zones :
 * Synchronisation avec `POST /listInvitedEvents` : les amis déjà invités sont pré-cochés / désactivés avec badge « Invité ✓ ».
 * Au clic sur « Inviter » : appel direct de `POST /userInvitedRegisteredEvents` avec passage instantané du bouton à l'état désactivé « Invité » (UI optimiste) et toast de confirmation.
 * Bouton gris « Fermer » en bas à droite.
+
+## Messagerie instantanée (Messages)
+
+Le module de **Messagerie instantanée** (`/messages`) propose une expérience moderne inspirée des standards de messagerie actuels, adaptée à la charte visuelle Dughu (dominante marron `#8B5E34` et gris neutres `#F0F0F0` / `#E5E5E5`). L'interface est structurée en 3 colonnes fixes haute fidélité :
+
+### 1. Colonne gauche — Liste des discussions (~360px)
+* **En-tête** :
+  - Titre principal « Discussions » en gras grande taille (`text-2xl font-bold text-[#1C1E21]`).
+  - Actions rapides à droite dans des cercles gris clair `#F0F2F5` : menu contextuel « ••• » (`DropdownMenu` pour actualiser ou marquer tout comme lu) et bouton crayon / nouveau message (bascule du mode composition).
+* **Barre de recherche** :
+  - Champ de saisie style pill, fond gris clair `#F0F2F5`, icône loupe et placeholder « Rechercher dans Messenger ».
+* **Filtres (onglets horizontaux)** :
+  - Onglets pills : « Tout » (actif : fond marron teinté `bg-[#8B5E34]/15`, texte marron foncé `#8B5E34`), « Non lu », et menu overflow « ••• ».
+  - Filtrage en temps réel de la liste des conversations en mémoire.
+* **Liste scrollable des conversations** :
+  - Avatar rond avec indicateur vert d'activité en ligne (`bg-[#31A24C]`) si applicable.
+  - Nom du contact en gras (gras renforcé si non lu).
+  - Aperçu du dernier message tronqué avec ellipsis, préfixé par « Vous : » si envoyé par l'utilisateur connecté.
+  - Ancienneté relative Messenger à droite (« 20 h », « 1 j », « 1 sem. »).
+  - Pastille pleine marron `#8B5E34` sous la date pour les messages non lus.
+  - État actif sélectionné teinté marron très clair (`bg-[#8B5E34]/10`) et hover gris clair (`hover:bg-[#F2F2F2]`).
+* **Mode composition** :
+  - Champ de recherche d'amis / contacts en temps réel avec debounce de 350ms, appelant `searchContacts`.
+  - Liste des profils trouvés avec avatar, nom et `@username`, sélectionnant instantanément le contact.
+
+### 2. Colonne centrale — Fenêtre de conversation active (`flex-grow`)
+* **En-tête de conversation** :
+  - Avatar rond du contact avec indicateur en ligne vert, nom en gras, statut en ligne ou date/heure de dernière connexion.
+  - Bouton flèche retour `←` visible sur smartphone pour revenir à la liste des discussions.
+  - Bouton circulaire d'action à droite : Information « i » (marron `#8B5E34`), permettant de basculer l'affichage du panneau d'information latéral.
+* **Fil de messages scrollable** :
+  - Padding généreux et barre de défilement fine personnalisée.
+  - Regroupement des messages consécutifs d'un même expéditeur avec espacement vertical réduit.
+  - Messages entrants : bulle gris clair `#F0F0F0`, texte noir, coins très arrondis (`rounded-[20px] rounded-bl-[4px]`), avatar du contact affiché exclusivement sur le dernier message du groupe consécutif.
+  - Messages sortants : bulle marron Dughu `#8B5E34`, texte blanc, coins très arrondis (`rounded-[20px] rounded-br-[4px]`), alignée à droite.
+  - Séparateur de date centré sur fond pill gris clair (« 28 août 2026, 17:31 ») lorsque l'intervalle entre messages dépasse 25 minutes.
+  - Citations : marqueur dynamique « [Nom] vous a répondu » avec petite icône de citation et encart récapitulatif à l'intérieur de la bulle.
+  - Pièces jointes : affichage fluide des images, vidéos et documents envoyés.
+  - Statut de réception : discret en petit texte gris à droite (« Envoyé », « Vu ») et miniature de l'avatar du contact sous le dernier message lu.
+  - Menu d'actions au survol : Répondre, Modifier (sur ses propres messages avec zone d'édition en ligne) et Supprimer (modale de confirmation).
+  - Défilement automatique vers le bas lors de l'ouverture et de l'envoi/réception de messages.
+* **Barre de saisie inférieure (fixe)** :
+  - Séparateur supérieur gris fin `#E5E5E5`.
+  - Zone d'aperçu de citation active (avec bouton d'annulation `×`) et aperçu des fichiers joints sélectionnés.
+  - Rangée d'icônes à gauche : Photo/Image (`<input type="file" accept="image/*">`), Trombone (documents).
+  - Champ de texte central style pill, fond gris clair `#F0F2F5`, placeholder « Aa », supportant l'envoi direct via la touche Entrée.
+  - Rangée d'icônes à droite : Sélecteur d'emojis rapides et bouton pouce levé 👍 quand le champ est vide (envoi direct de 👍 au clic).
+  - Le pouce levé est automatiquement remplacé par le bouton circulaire d'envoi marron `#8B5E34` (flèche d'envoi blanche) dès que du texte ou une pièce jointe est présent.
+
+### 3. Colonne droite — Panneau d'informations discussion (~320px, visible par défaut)
+* **Affichage** :
+  - Visible par défaut sur desktop (`lg+`), masquable au besoin via l'icône « i » du header central ou le bouton fermeture `×` en haut du panneau.
+  - État d'attente soigné lorsque aucune conversation n'est sélectionnée.
+* **En-tête centré** :
+  - Grand avatar rond (`size="xl"`, 80px) et nom du contact en gras.
+  - Badge pill centré fond gris clair `#F0F2F5` avec icône cadenas et libellé « Chiffré de bout en bout ».
+* **Raccourcis rapides circulaires** :
+  - « Profil » : redirection directe vers la page de profil du contact (`/profile/${id}`).
+  - « Mettre en sourdine » : activation / désactivation de la sourdine avec notification toast.
+  - « Rechercher » : outil de recherche dans l'historique de la conversation.
+* **Sections accordéons avec chevrons rotatifs** :
+  - « Informations sur la discussion » : statut en ligne, dernière connexion, identifiant.
+  - « Fichiers et contenus multimédias » : grille des photos et vidéos partagées extraites en temps réel des messages de la discussion active, et liste des documents récents.
+
+### 4. Responsive & Mobile First
+* **Desktop (lg+)** : vue complète 3 colonnes côte à côte (liste 360px + chat flex + infos 320px).
+* **Tablette (md à lg)** : vue 2 colonnes (liste + chat), le panneau d'infos basculant au besoin.
+* **Smartphone (< md)** : navigation empilée 1 colonne à la fois (Liste des discussions → Fenêtre de conversation avec bouton retour `←` → Panneau d'informations avec bouton retour `←`).
+* **Masquage de la tapbare mobile** : afin que la barre de navigation inférieure mobile (`MobileBottomNav`) ne recouvre ni ne masque le champ de saisie et le bouton d'envoi de message, elle est automatiquement retirée dès qu'un utilisateur entre dans une discussion active (`hideBottomNav={Boolean(activeTarget)}`). Dès qu'il clique sur la flèche retour `←` pour revenir à la liste des discussions, la tapbare réapparaît instantanément. De plus, la barre de saisie prend en charge la zone de sécurité d'encoche inférieure (`env(safe-area-inset-bottom)`) pour un confort tactile optimal.
+
+---
+
+## 4. Sidebar Droite (Découvertes & Suggestions) — Interactivité & Navigation
+
+La barre latérale droite (`RightSidebar`) propose un ensemble de raccourcis, suggestions et flux d'actualités connectés en temps réel à l'API Dughu :
+
+### Mini-profil utilisateur (`MiniProfileCard`)
+* **Affichage** : couverture, photo de profil, nom complet, `@username`, badge du solde de points et compteurs réels d'interactions/suivis/abonnés (issus de `/api/profile`).
+* **Navigation** : un clic sur la carte ou l'appui sur Entrée/Espace redirige immédiatement l'utilisateur vers son profil (`/profile/${username}` ou `/profile`).
+
+### Posts sponsorisés / boostés (`BoostedPostCard`)
+* **Affichage** : média (image/vidéo), badge « Boosté », avatar et nom de l'auteur, titre/contenu et compteur de vues.
+* **Navigation et visionneuse de média** :
+  - Chaque carte sponsorisée est cliquable et dirige vers la visionneuse dédiée (`/post/${postId}`).
+  - **Persistance immédiate des médias** : au moment du clic, les données complètes du post boosté (URL d'image ou vidéo, auteur, compteurs, titre) sont sérialisées dans `sessionStorage` (`dughu_post_${postId}`).
+  - **Restauration synchrone** : la page `/post/[id]` initialise son état directement depuis ce cache de session dès le premier rendu, garantissant l'affichage instantané de l'image de la publication boostée sans écran blanc ni chargement asynchrone bloquant.
+  - **Mode unoptimized sécurisé** : l'image plein écran est servie avec la propriété `unoptimized` afin de prévenir tout refus de domaine ou dégradation d'optimisation d'image Next.js.
+  - **Repli réseau** : si le post n'est pas dans le cache, un fallback automatique interroge les suggestions (`fetchSuggestions`) avec `dughuUserId` et `dughhuUserId` pour charger la publication sponsorisée.
+
+### Groupes suggérés (`GroupCarousel`)
+* **Affichage** : carrousel horizontal à défilement fluide avec cartes de groupes (couverture, avatar centré, nom, description, nombre de membres et bouton d'adhésion).
+* **Navigation** : un clic sur la carte du groupe redirige vers la page du groupe (`/groups/${group.id}`).
+* **Action isolée** : le bouton « Adhérer » arrête la propagation de l'événement (`stopPropagation`) afin de permettre l'adhésion directe sans déclencher la navigation vers la page du groupe.
+
+### Espaces suggérés (`GroupCarousel`)
+* **Affichage** : carrousel horizontal à défilement fluide avec cartes d'espaces (couverture, avatar centré, nom, description, mentions j'aime et bouton d'action).
+* **Navigation** : un clic sur la carte de l'espace redirige vers la page dédiée (`/espaces/${space.id}`).
+* **Action isolée** : le bouton d'action « J'aime » arrête la propagation de l'événement pour réagir immédiatement sans quitter la page courante.
+
+### Dernières activités de l'utilisateur
+* **Source de données et enrichissement automatique** :
+  - L'endpoint Dughu `profile/${username}/activites?page=1` est interrogé en priorité.
+  - Si l'endpoint externe ne renvoie aucune activité enregistrée, un repli intelligent extrait automatiquement les publications récentes (`getUserPosts`) et les mentions J'aime (`getLikedPosts`) de l'utilisateur pour les convertir en activités réelles (`post`, `reaction`).
+* **Traqueur d'activités en temps réel (`activity-tracker.ts`)** :
+  - Dès qu'un utilisateur publie un post (`createPost`), réagit à une publication (`addReaction`), rédige un commentaire (`addComment`) ou effectue un repartage (`rePost`), l'action est capturée instantanément dans le stockage local et propagée via un événement personnalisé `dughu:activity-updated`.
+  - La `RightSidebar` s'abonne à cet événement et intègre la nouvelle activité en haut de liste sans délai (« à l'instant »), avec son icône thématique et le nom de l'utilisateur.
+* **Typage et synonymes reconnus (`getActivityMeta`)** :
+  - Publications : `post`, `publi`, `create` (icône stylet `#A35A2A`, libellé « a publié une publication »).
+  - Mentions J'aime : `like`, `reaction`, `love`, `jaime` (icône cœur `#E4405F`, libellé « a aimé une publication »).
+  - Commentaires : `comment`, `commentaire`, `reply`, `reponse` (icône bulle `#1877F2`, libellé « a commenté une publication »).
+  - Repartages : `repost`, `retweet` (icône répéter `#16A34A`, libellé « a repartagé une publication »).
+  - Partages : `share`, `partag` (icône partage `#9333EA`, libellé « a partagé une publication »).
+  - Abonnements : `follow`, `abonn` (icône utilisateur `#0EA5E9`, libellé « a reçu un nouvel abonné »).
+* **Affichage** : photo de profil épurée sans cercle ni anneau de contour (`bare`, `border-0`), libellé de l'action selon le type d'activité (publication, réaction, commentaire, repartage, abonné), date relative (« à l'instant », « il y a X min ») et badge d'icône thématique.
+
+### Tendances (« On parle de ça »)
+* **Source de données et compteurs réels** :
+  - Les hashtags populaires sont interrogés via `/getHashtags?q=post`.
+  - Pour chaque hashtag listé, le serveur interroge l'endpoint Dughu `getPostByHashtags/{tag}` pour déterminer le nombre total réel de publications (`total`), éliminant l'affichage statique « 0 publication ».
+  - Les hashtags sont ensuite automatiquement triés par nombre réel de publications décroissant.
+  - L'interface adapte l'accord grammatical (`X publication` au singulier, `X publications` au pluriel).
+* **Navigation** : chaque hashtag est cliquable et ouvre la page de filtrage par hashtag (`/hashtags/${tag}`).
+* **Lien explorer** : le bouton « Explorer » dans l'en-tête de la carte ouvre la page des tendances (`/tendances`).
+
+
+
 
 
 

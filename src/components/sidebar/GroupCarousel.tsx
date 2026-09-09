@@ -3,7 +3,9 @@
 import { useRef, type ReactNode } from "react"
 import { ChevronLeft, ChevronRight, Users } from "lucide-react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 interface GroupItem {
   id: string
@@ -26,6 +28,10 @@ interface GroupCarouselProps {
   buttonIcon?: ReactNode
   /** Pendant le chargement distant : squelettes à la place des données statiques. */
   loading?: boolean
+  /** Lien de redirection au clic sur l'élément (ex: /groups/${item.id} ou /espaces/${item.id}) */
+  getItemHref?: (item: GroupItem) => string
+  /** Callback optionnel au clic sur l'élément */
+  onItemClick?: (item: GroupItem) => void
 }
 
 const CARD_WIDTH = 160
@@ -43,7 +49,10 @@ export default function GroupCarousel({
   buttonHoverColor,
   buttonIcon,
   loading = false,
+  getItemHref,
+  onItemClick,
 }: GroupCarouselProps) {
+  const router = useRouter()
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const handleNext = () => {
@@ -92,61 +101,91 @@ export default function GroupCarousel({
           className="flex gap-[8px] overflow-x-auto scrollbar-hide snap-x snap-mandatory"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {items.map((item) => (
-            <div
-              key={item.id}
-              data-card
-              className="snap-start shrink-0 w-[160px] rounded-[14px] overflow-hidden border border-[#E4E6EB] dark:border-white/10 bg-white dark:bg-[#252525]"
-            >
-              {/* Cover */}
-              <div className="h-[70px] relative">
-                <Image
-                  src={item.cover || defaultCover}
-                  alt={item.name}
-                  fill
-                  className="object-cover"
-                  sizes="160px"
-                />
-              </div>
+          {items.map((item) => {
+            const href = getItemHref?.(item)
+            const isClickable = Boolean(href || onItemClick)
+            const handleItemClick = () => {
+              if (onItemClick) {
+                onItemClick(item)
+              } else if (href) {
+                router.push(href)
+              }
+            }
 
-              {/* Avatar au centre - chevauche la cover */}
-              <div className="relative flex justify-center -mt-5 mb-1">
-                <div className="w-[52px] h-[52px] rounded-full border-3 border-white dark:border-[#252525] overflow-hidden shadow-md relative">
+            return (
+              <div
+                key={item.id}
+                data-card
+                role={isClickable ? "link" : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                onClick={handleItemClick}
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.key === " ") && isClickable) {
+                    e.preventDefault()
+                    handleItemClick()
+                  }
+                }}
+                className={cn(
+                  "snap-start shrink-0 w-[160px] rounded-[14px] overflow-hidden border border-[#E4E6EB] dark:border-white/10 bg-white dark:bg-[#252525]",
+                  isClickable && "cursor-pointer transition hover:shadow-md hover:border-[#A35A2A]/40 active:scale-[0.99]"
+                )}
+              >
+                {/* Cover */}
+                <div className="h-[70px] relative">
                   <Image
-                    src={item.avatar || defaultAvatar}
+                    src={item.cover || defaultCover}
                     alt={item.name}
                     fill
                     className="object-cover"
-                    sizes="52px"
+                    sizes="160px"
                   />
                 </div>
-              </div>
 
-              {/* Info */}
-              <div className="px-3 text-center">
-                <p className="font-bold text-[13px] text-[#2D2D2D] dark:text-[#F3F4F6] truncate">{item.name}</p>
-                {item.description && (
-                  <p className="text-[10px] text-[#65676B] dark:text-[#A1A1AA] mt-0.5 truncate">{item.description}</p>
-                )}
-                <div className="flex items-center justify-center gap-1 mt-1">
-                  <Users size={11} className="text-[#65676B] dark:text-[#A1A1AA]" />
-                  <p className="text-[10px] text-[#65676B] dark:text-[#A1A1AA]">{item.members || "0 membres"}</p>
+                {/* Avatar au centre - chevauche la cover */}
+                <div className="relative flex justify-center -mt-5 mb-1">
+                  <div className="w-[52px] h-[52px] rounded-full border-3 border-white dark:border-[#252525] overflow-hidden shadow-md relative">
+                    <Image
+                      src={item.avatar || defaultAvatar}
+                      alt={item.name}
+                      fill
+                      className="object-cover"
+                      sizes="52px"
+                    />
+                  </div>
                 </div>
-                {buttonLabel && (
-                  <button
-                    className="w-full mt-2 mb-2 py-1.5 rounded-full text-[11px] font-semibold text-white flex items-center justify-center gap-1 transition hover:opacity-90"
-                    style={{
-                      backgroundColor: buttonColor,
-                      ...(buttonHoverColor ? { backgroundImage: `linear-gradient(to right, ${buttonColor}, ${buttonHoverColor})` } : {}),
-                    }}
-                  >
-                    {buttonIcon}
-                    {buttonLabel}
-                  </button>
-                )}
+
+                {/* Info */}
+                <div className="px-3 text-center">
+                  <p className="font-bold text-[13px] text-[#2D2D2D] dark:text-[#F3F4F6] truncate hover:text-[#A35A2A] transition">
+                    {item.name}
+                  </p>
+                  {item.description && (
+                    <p className="text-[10px] text-[#65676B] dark:text-[#A1A1AA] mt-0.5 truncate">{item.description}</p>
+                  )}
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    <Users size={11} className="text-[#65676B] dark:text-[#A1A1AA]" />
+                    <p className="text-[10px] text-[#65676B] dark:text-[#A1A1AA]">{item.members || "0 membres"}</p>
+                  </div>
+                  {buttonLabel && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                      }}
+                      className="w-full mt-2 mb-2 py-1.5 rounded-full text-[11px] font-semibold text-white flex items-center justify-center gap-1 transition hover:opacity-90 active:scale-95"
+                      style={{
+                        backgroundColor: buttonColor,
+                        ...(buttonHoverColor ? { backgroundImage: `linear-gradient(to right, ${buttonColor}, ${buttonHoverColor})` } : {}),
+                      }}
+                    >
+                      {buttonIcon}
+                      {buttonLabel}
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Bouton précédent - à gauche, visible au hover */}
