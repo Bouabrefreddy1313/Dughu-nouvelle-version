@@ -13,7 +13,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import {
-  fetchPosts,
+  fetchFriendPosts,
   createPost,
   rePost,
   addReaction,
@@ -198,15 +198,8 @@ export default function FraternisesPage() {
       const timer = setTimeout(() => controller.abort(), 15000)
 
       try {
-        const data = await fetchPosts(
-          {
-            page,
-            filter: "fraternises",
-            userId: user?.id || "",
-            dughuUserId,
-          },
-          { signal: controller.signal }
-        )
+        // Endpoint dédié /api/getFriendPosts/[userId]?page=X via le service frontend
+        const data = await fetchFriendPosts(dughuUserId, page, { signal: controller.signal })
 
         if (reqId !== feedReqRef.current) return
 
@@ -239,7 +232,7 @@ export default function FraternisesPage() {
           setHasMore(data.hasMore !== false && rawItems.length > 0)
         } else {
           if (page > 1) setHasMore(false)
-          toast.error(data.message || "Erreur lors du chargement des publications.")
+          toast.error((data as any).message || "Erreur lors du chargement des publications.")
         }
       } catch (err) {
         if (page > 1) setHasMore(false)
@@ -258,13 +251,13 @@ export default function FraternisesPage() {
         }
       }
     },
-    [user, dughuUserId]
+    [user]
   )
 
   useEffect(() => {
     setPageNum(1)
     void loadFraternisesPosts(1, true)
-  }, [loadFraternisesPosts, dughuUserId])
+  }, [loadFraternisesPosts])
 
   // Défilement infini
   useEffect(() => {

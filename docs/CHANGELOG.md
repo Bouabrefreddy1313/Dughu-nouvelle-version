@@ -12,6 +12,25 @@ Chaque entrée doit contenir :
 * éventuelles corrections importantes.
 
 ## 2026-09-09
+### Correction — Fils « Fraternisés » et « Réseautés » (erreur « Impossible de charger les publications de vos amis fraternisés. »)
+* **Cause** : les Route Handlers dédiés `src/app/api/getFriendPosts/[userId].ts` et
+  `src/app/api/getNetworkposts/[userId].ts` étaient déclarés sous forme de fichier
+  autonome `[userId].ts`. Ce motif n'est pas reconnu par Next.js App Router (qui
+  exige un dossier dynamique `[userId]/` contenant un `route.ts`) : les requêtes
+  `/api/getFriendPosts/{id}` et `/api/getNetworkposts/{id}` répondaient en **404**,
+  déclenchant le toast d'erreur côté frontend.
+* **Correctif** :
+  - Routes déplacées au motif valide `[userId]/route.ts` pour les deux endpoints ;
+    les URLs restent identiques et répondent désormais `200` avec
+    `{ success, posts, hasMore, page, totalPages }`.
+  - `src/services/posts/posts.service.ts` : ajout de `fetchFriendPosts` et
+    `fetchNetworkPosts` (appels via l'instance Axios cliente, `AbortSignal` transmis).
+  - `src/components/fraternises/FraternisesPage.tsx` et
+    `src/components/reseautes/ReseautesPage.tsx` : suppression de l'import direct
+    de `apiClient` dans les composants (conformité AGENTS.md) au profit des
+    fonctions de service.
+  - `docs/CAHIER_DES_CHARGES.md` : documentation des endpoints BFF et du flux
+    réseau des fils Fraternisés / Réseautés.
 ### Header & Fil d'actualité — Affichage exclusif des publications vidéo au clic sur l'icône « Vidéos »
 * **Demande utilisateur** :
   - Dans le header, lorsqu'on clique sur l'icône « Vidéos », afficher uniquement les posts vidéo.

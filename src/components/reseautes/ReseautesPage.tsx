@@ -13,7 +13,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { readMyReactions, writeMyReactions } from "@/lib/reactionCache"
 import {
-  fetchPosts,
+  fetchNetworkPosts,
   createPost,
   rePost,
   addReaction,
@@ -198,15 +198,8 @@ export default function ReseautesPage() {
       const timer = setTimeout(() => controller.abort(), 15000)
 
       try {
-        const data = await fetchPosts(
-          {
-            page,
-            filter: "reseautes",
-            userId: user?.id || "",
-            dughuUserId,
-          },
-          { signal: controller.signal }
-        )
+        // Endpoint dédié /api/getNetworkposts/[userId]?page=X via le service frontend
+        const data = await fetchNetworkPosts(dughuUserId, page, { signal: controller.signal })
 
         if (reqId !== feedReqRef.current) return
 
@@ -239,7 +232,7 @@ export default function ReseautesPage() {
           setHasMore(data.hasMore !== false && rawItems.length > 0)
         } else {
           if (page > 1) setHasMore(false)
-          toast.error(data.message || "Erreur lors du chargement des publications.")
+          toast.error((data as any).message || "Erreur lors du chargement des publications.")
         }
       } catch (err) {
         if (page > 1) setHasMore(false)
@@ -258,13 +251,13 @@ export default function ReseautesPage() {
         }
       }
     },
-    [user, dughuUserId]
+    [user]
   )
 
   useEffect(() => {
     setPageNum(1)
     void loadReseautesPosts(1, true)
-  }, [loadReseautesPosts, dughuUserId])
+  }, [loadReseautesPosts])
 
   // Défilement infini
   useEffect(() => {

@@ -1232,6 +1232,27 @@ quand on s'y trouve, le clic ferme le drawer mobile).
 * Sur desktop, les accès « Accueil », « Vidéos », « Flash » et « Akwaplay » sont présentés sous forme d'icônes compactes, régulièrement espacées, avec une infobulle accessible au survol et au clavier, tout en conservant leur navigation respective et l'indicateur de page active.
 * L'en-tête présente également deux accès statiques distincts « Fraternisés » (icône de groupe) et « Réseautés » (icône de mallette). Ils remplacent l'ancien accès « Abonnés », suivent la même présentation avec infobulle accessible, et n'effectuent aucune navigation tant que leurs vues dédiées ne sont pas disponibles.
 
+#### Fils Fraternisés et Réseautés (`/fraternises` et `/reseautes`)
+
+* Les pages protégées `/fraternises` (FraternisesPage) et `/reseautes` (ReseautesPage)
+  affichent les publications respectives des amis fraternisés et du réseau de
+  l'utilisateur connecté, avec défilement infini (pagination par page de 10).
+* Chaque fil est chargé via un **endpoint BFF dédié** :
+  - `GET /api/getFriendPosts/{userId}?page=X` encapsule l'endpoint Dughu
+    `GET /getFriendPosts/{userId}?page=X` (publications des amis) ;
+  - `GET /api/getNetworkposts/{userId}?page=X` encapsule l'endpoint Dughu
+    `GET /getNetworkposts/{userId}?page=X` (publications du réseau).
+  Les Route Handlers sont déclarés au motif Next.js `[userId]/route.ts`, mappent
+  la réponse (`mapPosts`, `getPageInfo`) et renvoient
+  `{ success, posts, hasMore, page, totalPages }`.
+* Flux réseau conforme : composant → service frontend
+  (`fetchFriendPosts` / `fetchNetworkPosts` dans `posts.service.ts`) → instance
+  Axios cliente (`baseURL /api`, `AbortSignal` transmis) → Route Handler → API
+  Dughu. Aucun `apiClient` directement dans les composants.
+* États gérés : squelettes de chargement, erreur (toast français, message dédié
+  si timeout), et état vide « Aucune publication de vos amis fraternisés » /
+  « Aucune publication de votre réseau ».
+
 ### Album
 
 * La page « Album » (`/album`, protégée) est accessible depuis le bouton « L'album »

@@ -101,6 +101,50 @@ export async function fetchSavedPosts(
   }
 }
 
+/**
+ * Charge les publications des amis fraternisés via
+ * GET /api/getFriendPosts/:dughuUserId (encapsule GET /getFriendPosts/{userId}
+ * de l'API Dughu, paginée). La route renvoie { success, posts, hasMore, page,
+ * totalPages } — les posts sont déjà mappés côté serveur (même forme que le fil).
+ */
+export async function fetchFriendPosts(
+  dughuUserId: string,
+  page: number,
+  options: { signal?: AbortSignal } = {}
+): Promise<PostsResponse> {
+  try {
+    const res = await apiClient.get<PostsResponse>(
+      `/getFriendPosts/${encodeURIComponent(dughuUserId)}?page=${page}`,
+      { signal: options.signal }
+    )
+    return res.data
+  } catch (error) {
+    throw toServiceApiError(error, "Impossible de charger les publications de vos amis fraternisés.")
+  }
+}
+
+/**
+ * Charge les publications du réseau (réseautés) via
+ * GET /api/getNetworkposts/:dughuUserId (encapsule GET /getNetworkposts/{userId}
+ * de l'API Dughu, paginée). La route renvoie { success, posts, hasMore, page,
+ * totalPages } — les posts sont déjà mappés côté serveur (même forme que le fil).
+ */
+export async function fetchNetworkPosts(
+  dughuUserId: string,
+  page: number,
+  options: { signal?: AbortSignal } = {}
+): Promise<PostsResponse> {
+  try {
+    const res = await apiClient.get<PostsResponse>(
+      `/getNetworkposts/${encodeURIComponent(dughuUserId)}?page=${page}`,
+      { signal: options.signal }
+    )
+    return res.data
+  } catch (error) {
+    throw toServiceApiError(error, "Impossible de charger les publications de votre réseau.")
+  }
+}
+
 /** Crée une publication via POST /api/posts (multipart). */
 export async function createPost(formData: FormData, signal?: AbortSignal): Promise<PostMutationResponse> {
   try {

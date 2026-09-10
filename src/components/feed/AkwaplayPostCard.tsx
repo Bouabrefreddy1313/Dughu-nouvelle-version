@@ -19,6 +19,7 @@ export interface AkwaplayPostCardProps {
   headerText?: string
   onDismiss?: () => void
   className?: string
+  author?: any
 }
 
 function formatDurationDisplay(dur: string | number | null | undefined): string {
@@ -46,12 +47,14 @@ export function AkwaplayPostCard({
   headerText = "Akwaplay · Suggestion pour vous",
   onDismiss,
   className,
+  author,
 }: AkwaplayPostCardProps) {
   const isVideoThumb = typeof thumbnail === "string" && /\.(mp4|webm|mkv|mov|m3u8)(\?|#|$)/i.test(thumbnail)
   const [currentThumb, setCurrentThumb] = useState(!isVideoThumb && thumbnail ? thumbnail : "/images/default-thumbnail.jpg")
   const [thumbError, setThumbError] = useState(false)
   const watchUrl = `/akwaplay/watch?v=${encodeURIComponent(String(videoId))}`
   const formattedDuration = formatDurationDisplay(duration)
+  const authorAvatar = author?.avatar || "/images/avatar.png"
 
   const handleThumbError = () => {
     if (currentThumb !== "/images/default-thumbnail.jpg") {
@@ -72,21 +75,34 @@ export function AkwaplayPostCard({
       <div className="flex items-center justify-between px-4 py-3.5 sm:px-5">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 overflow-hidden flex items-center justify-center shrink-0 p-1">
-            <img
-              src="/images/akp.png"
-              alt="Akwaplay"
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                // Fallback si akp.png est indisponible
-                (e.currentTarget as HTMLImageElement).src = "/images/icon/akp.png"
-              }}
-            />
+            {authorAvatar ? (
+              <img
+                src={authorAvatar}
+                alt={author?.name || author?.username || "Auteur"}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = "/images/avatar.png"
+                }}
+              />
+            ) : (
+              <img
+                src="/images/akp.png"
+                alt="Akwaplay"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  // Fallback si akp.png est indisponible
+                  (e.currentTarget as HTMLImageElement).src = "/images/icon/akp.png"
+                }}
+              />
+            )}
           </div>
           <div className="min-w-0">
             <h4 className="text-[14px] sm:text-[15px] font-semibold text-gray-900 truncate">
               {headerText}
             </h4>
-            <p className="text-[12px] text-gray-500 truncate">Vidéo recommandée sur Akwaplay</p>
+            <p className="text-[12px] text-gray-500 truncate">
+              {author?.name || author?.username ? `Par ${author.name || author.username}` : "Vidéo recommandée sur Akwaplay"}
+            </p>
           </div>
         </div>
 
