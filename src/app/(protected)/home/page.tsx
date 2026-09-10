@@ -664,7 +664,7 @@ export default function HomePage() {
     writeMyReactions(newCache)
 
     try {
-      const data = await addReaction({ postId, userId: user.id, type: reactionType, dughuUserId: user?.dughu?.userId })
+      const data = await addReaction({ postId, userId: user.id, type: reactionType, reactionId, dughuUserId: user?.dughu?.userId })
       if (data.success) {
         if (typeof data.count === "number") {
           applyToPost((p) => ({
@@ -673,7 +673,7 @@ export default function HomePage() {
           }))
         }
         if (newReacted) {
-          toast.success(`Réaction ${newReacted} ajoutée`)
+          toast.success("Vous avez réagi à ce post")
           const targetPost = posts.find((p) => p.id === postId)
           if (targetPost?.author?.id && String(targetPost.author.id) !== String(user.id)) {
             void notifyPostReaction({

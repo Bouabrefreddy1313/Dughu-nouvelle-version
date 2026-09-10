@@ -340,6 +340,7 @@ export default function PagesFeedTab() {
         postId,
         userId: String(user.id),
         type: reactionType,
+        reactionId,
         dughuUserId: user?.dughu?.userId,
       })
       if (data.success) {
@@ -351,7 +352,7 @@ export default function PagesFeedTab() {
             _count: { ...p._count, likes: serverCount },
           }))
         }
-        if (newReacted) toast.success(`Réaction ${newReacted} ajoutée`)
+        if (newReacted) toast.success("Vous avez réagi à ce post")
       } else {
         toast.error(data.message || "Impossible de réagir à cette publication")
         applyToPost((p) => ({

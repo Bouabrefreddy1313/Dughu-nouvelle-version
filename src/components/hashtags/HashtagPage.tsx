@@ -184,7 +184,7 @@ export function HashtagPage({ tag }: HashtagPageProps) {
     writeMyReactions(newCache)
 
     try {
-      const data = await addReaction({ postId, userId: user.id, type: reactionType, dughuUserId: user?.dughu?.userId })
+      const data = await addReaction({ postId, userId: user.id, type: reactionType, reactionId, dughuUserId: user?.dughu?.userId })
       if (data.success) {
         if (typeof data.count === "number") {
           applyToPost((p) => ({

@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
       targetUserId,
       userId,
       type = "like",
+      reactionId: reactionIdParam,
       dughuUserId: dughuUserIdParam,
     } = await req.json()
 
@@ -85,7 +86,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Paramètres requis." }, { status: 422 })
     }
     const reactionType = REACTION_TYPES.includes(type) ? type : "like"
-    const reactionId = REACTION_TYPES.indexOf(reactionType) + 1
+    // Si un reactionId est fourni directement (nouveaux IDs API : 5, 6, 11, 12, 13, 14, 15),
+    // on l'utilise tel quel ; sinon on calcule depuis le type.
+    const reactionId = typeof reactionIdParam === "number" && reactionIdParam > 0
+      ? reactionIdParam
+      : REACTION_TYPES.indexOf(reactionType) + 1
+
 
     if (!dughu.enabled) {
       return NextResponse.json(

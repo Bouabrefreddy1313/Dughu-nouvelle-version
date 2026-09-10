@@ -1689,8 +1689,7 @@ export function PostCard({
       }
 
       if (newReactionId) {
-        const reactionDef = REACTIONS.find((r) => r.id === newReactionId)
-        toast.success(`Réaction ${reactionDef?.name || "J'aime"} ajoutée`)
+        toast.success("Vous avez réagi à ce post")
       }
     } catch (error) {
       console.error("Reaction failed:", error)

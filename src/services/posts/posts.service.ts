@@ -193,7 +193,7 @@ export async function rePost(formData: FormData, signal?: AbortSignal): Promise<
 
 /** Ajoute une réaction via POST /api/reactions. */
 export async function addReaction(
-  payload: { postId: string; userId: string; type: string; dughuUserId?: string },
+  payload: { postId: string; userId: string; type: string; reactionId?: number; dughuUserId?: string },
   signal?: AbortSignal
 ): Promise<PostMutationResponse> {
   try {
@@ -212,6 +212,7 @@ export async function addReaction(
     throw toServiceApiError(error, "Erreur réseau lors de la réaction")
   }
 }
+
 
 /** Réponse de GET /api/reactions (liste des personnes ayant réagi sur un post). */
 export interface PostReactionsResponse {

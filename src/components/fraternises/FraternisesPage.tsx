@@ -442,6 +442,7 @@ export default function FraternisesPage() {
         postId,
         userId: user.id,
         type: reactionType,
+        reactionId,
         dughuUserId: user?.dughu?.userId,
       })
       if (data.success) {
@@ -452,7 +453,7 @@ export default function FraternisesPage() {
           }))
         }
         if (newReacted) {
-          toast.success(`Réaction ${newReacted} ajoutée`)
+          toast.success("Vous avez réagi à ce post")
           const targetPost = posts.find((p) => p.id === postId)
           if (targetPost?.author?.id && String(targetPost.author.id) !== String(user.id)) {
             void notifyPostReaction({

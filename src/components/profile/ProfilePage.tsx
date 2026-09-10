@@ -379,7 +379,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
     writeMyReactions(newCache)
 
     try {
-      const data = await addReaction({ postId, userId: currentUser.id, type, dughuUserId: currentUser?.dughu?.userId })
+      const data = await addReaction({ postId, userId: currentUser.id, type, reactionId, dughuUserId: currentUser?.dughu?.userId })
       if (data.success) {
         if (typeof data.count === "number") {
           applyToPost((p) => ({
@@ -389,7 +389,7 @@ export function ProfilePage({ target, onSubmitVerification, isVerifying }: { tar
           }))
         }
         if (newReacted) {
-          toast.success(`Réaction ${newReacted} ajoutée`)
+          toast.success("Vous avez réagi à ce post")
         }
       } else {
         toast.error(data.message || "Impossible de réagir à cette publication")

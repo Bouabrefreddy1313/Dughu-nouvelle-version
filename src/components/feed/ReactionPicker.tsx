@@ -2,7 +2,6 @@
 
 import { useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { REACTIONS } from "@/lib/constants"
 
 interface ReactionPickerProps {
   onSelect: (reactionId: number) => void
@@ -11,6 +10,22 @@ interface ReactionPickerProps {
   align?: "left" | "center" | "right"
   onClose?: () => void
 }
+
+/**
+ * Réactions statiques mappées aux images locales /public/images/.
+ * Les IDs correspondent exactement à ceux de l'API Dughu (/reactions).
+ */
+const REACTION_ITEMS = [
+  { id: 1,  name: "J'aime",     img: "/images/like.png" },
+  { id: 2,  name: "J'adore",    img: "/images/love.png" },
+  { id: 11, name: "Haha",       img: "/images/happy.png" },
+  { id: 5,  name: "Triste",     img: "/images/triste.png" },
+  { id: 6,  name: "Colère",     img: "/images/colere.png" },
+  { id: 12, name: "Silence",    img: "/images/silence.png" },
+  { id: 13, name: "Réflexion",  img: "/images/reflexion.png" },
+  { id: 14, name: "Fade",       img: "/images/fade.png" },
+  { id: 15, name: "Étonné",     img: "/images/etonne.png" },
+] as const
 
 export function ReactionPicker({
   onSelect,
@@ -47,7 +62,7 @@ export function ReactionPicker({
       className={cn(
         // Positionnement et boîte
         "absolute z-50 flex items-center gap-1 sm:gap-1.5 p-1.5 sm:p-2 bg-white rounded-full shadow-[0_10px_35px_rgba(0,0,0,0.18)] border border-gray-100/90 max-w-[calc(100vw-1rem)]",
-        // Animation légère et dynamique à l'apparition
+        // Animation légère à l'apparition
         "animate-in fade-in zoom-in-95 duration-150 ease-out origin-bottom",
         // Alignement horizontal
         align === "left" && "left-0 sm:left-2",
@@ -58,7 +73,7 @@ export function ReactionPicker({
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      {REACTIONS.map((reaction, index) => {
+      {REACTION_ITEMS.map((reaction, index) => {
         const isSelected = selectedReactionId === reaction.id
         return (
           <button
@@ -67,17 +82,13 @@ export function ReactionPicker({
             onClick={(e) => {
               e.stopPropagation()
               if (typeof window !== "undefined" && "vibrate" in navigator) {
-                try {
-                  navigator.vibrate(10)
-                } catch {
-                  /* ignore */
-                }
+                try { navigator.vibrate(10) } catch { /* ignore */ }
               }
               onSelect(reaction.id)
             }}
             className={cn(
               "group relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full",
-              "text-[22px] sm:text-[25px] leading-none transition-all duration-150 select-none",
+              "transition-all duration-150 select-none",
               "hover:scale-125 hover:-translate-y-1 active:scale-95 focus-visible:outline-2 focus-visible:outline-[#A35A2A]",
               isSelected && "bg-amber-50 ring-2 ring-[#A35A2A]/40 scale-110"
             )}
@@ -86,9 +97,13 @@ export function ReactionPicker({
             aria-label={reaction.name}
             aria-pressed={isSelected}
           >
-            <span className="transform transition-transform group-hover:scale-110">
-              {reaction.icon}
-            </span>
+            <img
+              src={reaction.img}
+              alt={reaction.name}
+              width={32}
+              height={32}
+              className="w-7 h-7 sm:w-8 sm:h-8 object-contain transform transition-transform group-hover:scale-110"
+            />
 
             {/* Infobulle élégante au survol (desktop) */}
             <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded-full bg-black/80 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 whitespace-nowrap hidden sm:block">

@@ -234,6 +234,11 @@ export const dughuApi = {
   getPostReactions: (postId: string | number, userId: string | number) =>
     dughu.get(`getPostReactions/${encodeURIComponent(String(postId))}/${encodeURIComponent(String(userId))}`),
 
+  // Liste des types de réactions disponibles avec leurs icônes (contrat : GET /reactions).
+  // Retourne un tableau d'objets { id, name, wowonder_icon, sunshine_icon, status }.
+  getReactions: () => dughu.get("reactions"),
+
+
   // ── Gestion du menu des posts ──
   deletePost: (postId: string | number) =>
     dughuFetch(`deletePost/${encodeURIComponent(String(postId))}`, { method: "DELETE" }),

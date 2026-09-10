@@ -424,6 +424,7 @@ export default function VideosPage() {
         postId,
         userId: user?.id || "",
         type: nextReacted || "unlike",
+        reactionId,
         dughuUserId,
       })
       if (!data.success) {
