@@ -8,7 +8,7 @@ const DUGHU_ORIGIN = BASE_URL.replace(/\/api\/?$/, "")
 // de production, où cet utilisateur n'existe pas.
 const CHAT_BASE_URL = (process.env.DUGHU_CHAT_API_BASE_URL || BASE_URL).replace(/\/+$/, "")
 const CHAT_ORIGIN = CHAT_BASE_URL.replace(/\/api\/?$/, "")
-const TIMEOUT_MS = (Number(process.env.DUGHU_API_TIMEOUT) || 15) * 1000
+const TIMEOUT_MS = (Number(process.env.DUGHU_API_TIMEOUT) || 5) * 1000
 const RETRY_TIMES = Number(process.env.DUGHU_API_RETRY_TIMES) || 2
 const RETRY_SLEEP_MS = Number(process.env.DUGHU_API_RETRY_SLEEP) || 200
 export const DUGHU_DEFAULT_MEDIA_URL = "https://dughuakwaplay.s3.eu-west-3.amazonaws.com/storage/photos/d-avatar.jpg"
@@ -633,6 +633,34 @@ export function pick(obj: any, ...keys: Array<string | string[] | number | boole
     }
   }
   return undefined
+}
+/**
+ * Compteur « Interactions » de l'auteur d'un post (même convention que la page
+ * profil : NbrPostsTotal / getTotalInteractions côté API Dughu). Lecture
+ * défensive multi-sources, dans l'ordre : auteur normalisé, objet user BRUT
+ * embarqué du post, objet post lui-même. L'API renvoie le compteur sur l'user
+ * brut embarqué (getTotalInteractions, confirmé sur getPostAll) et sur le post,
+ * mais PAS sur l'objet user normalisé (normalizeUser ne conserve pas ce champ)
+ * — d'où le bug historique « interactions : 0 » sur les cartes de posts alors
+ * que le profil en affiche un. Replis de noms de champs, 0 si aucune source ne
+ * fournit le compteur.
+ */
+function readAuthorInteractionsCount(...sources: any[]): number {
+  for (const source of sources) {
+    const value = Number(
+      pick(
+        source,
+        "getTotalInteractions",
+        "totalInteractions",
+        "total_interactions",
+        "nbrInteractions",
+        "NbrPostsTotal",
+        "nbr_posts_total"
+      )
+    )
+    if (Number.isFinite(value) && value > 0) return value
+  }
+  return 0
 }
 
 // L'enveloppe de l'API est { success, message, result } — rejette le contenu utile
@@ -1392,6 +1420,17 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       avatar: toUrl(fallbackAuthor?.avatar) || "/images/avatar.png",
       isFollowing: false,
     }
+  // Compteur « Interactions » de l'auteur (voir readAuthorInteractionsCount) :
+  // l'API le renvoie sur l'objet user BRUT embarqué du post (getTotalInteractions)
+  // et au niveau du post lui-même, jamais sur l'objet user normalisé. Lecture
+  // défensive multi-sources/multi-noms de champs, 0 par défaut.
+  const authorInteractions = readAuthorInteractionsCount(
+    author,
+    p?.user,
+    p?.author,
+    p?.utilisateur,
+    p
+  )
 
   const rawLikes = pick(p, "likes", "like_count", "likeCount", "nombre_likes", "total_likes", "reaction_count", "count_likes")
   // Si l'API renvoie la liste des réactions (tableau), on compte les éléments
@@ -1553,6 +1592,9 @@ export function mapPost(p: any, fallbackAuthor?: any): Record<string, any> | nul
       username: author.username,
       avatar: author.avatar,
       isFollowing: !!author.isFollowing,
+      // Nombre d'interactions de l'auteur (chiffre « Interactions » de son
+      // profil Dughu), affiché sous son nom dans PostCard.
+      interactionsCount: authorInteractions,
       // Si le post appartient à une page, on transmet le pageId pour que
       // PostCard puisse rediriger vers /espaces/[pageId] au lieu de /profile/[username].
       ...(pageAuthor ? { pageId: pageAuthor.id } : {}),

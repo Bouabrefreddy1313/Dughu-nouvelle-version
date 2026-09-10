@@ -195,7 +195,7 @@ export default function FraternisesPage() {
       }
 
       const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), 15000)
+      const timer = setTimeout(() => controller.abort(), 5000)
 
       try {
         // Endpoint dédié /api/getFriendPosts/[userId]?page=X via le service frontend

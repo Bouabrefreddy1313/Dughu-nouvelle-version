@@ -194,7 +194,7 @@ export default function VideosPage() {
       }
 
       const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), 15000)
+      const timer = setTimeout(() => controller.abort(), 5000)
 
       try {
         const data = await fetchPosts(

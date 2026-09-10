@@ -13,6 +13,8 @@ export interface PostAuthor {
   name?: string | null
   username?: string | null
   avatar?: string | null
+  /** Nombre d'interactions de l'auteur (chiffre « Interactions » de son profil Dughu). */
+  interactionsCount?: number
   [key: string]: unknown
 }
 

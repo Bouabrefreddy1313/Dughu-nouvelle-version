@@ -2,7 +2,7 @@ import { NextRequest } from "next/server"
 
 const BASE_URL = (process.env.DUGHU_API_BASE_URL || "https://apitest.dughu.com/api").replace(/\/+$/, "")
 const API_TOKEN = process.env.DUGHU_API_KEY || ""
-const TIMEOUT_MS = (Number(process.env.DUGHU_API_TIMEOUT) || 15) * 1000
+const TIMEOUT_MS = (Number(process.env.DUGHU_API_TIMEOUT) || 5) * 1000
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"

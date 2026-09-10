@@ -22,7 +22,7 @@ import { ApiError } from "@/lib/api/api-error"
 export const apiClient = axios.create({
   baseURL: "/api",
   withCredentials: true,
-  timeout: 15_000,
+  timeout: 5_000,
   headers: { Accept: "application/json" },
 })
 

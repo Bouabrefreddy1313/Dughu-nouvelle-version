@@ -11,6 +11,57 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
+## 2026-09-10
+### Correction — Compteur « interactions : N » toujours à 0 sur les cartes de posts
+
+* **Signalement** : Diallo Bintou (@bintou_1diallo) affiche 27 interactions sur son profil mais « interactions : 0 » sur ses publications dans le fil (cas général : le compteur valait toujours 0 sur toutes les cartes).
+* **Cause racine** : dans `mapPost` (`src/lib/dughu.ts`), le compteur était lu uniquement sur l'objet `author` **normalisé**. Or `normalizeUser` reconstruit un objet à clés fixes qui ne conserve jamais `getTotalInteractions` / `NbrPostsTotal` — le `pick` ne trouvait donc rien et retombait sur `0`, même quand l'API Dughu fournit le compteur. Le profil, lui, lit `NbrPostsTotal` sur la réponse brute (avant normalisation), d'où l'écart. Vérifié sur données réelles : l'API renvoie `getTotalInteractions` sur l'objet user brut embarqué du post ET au niveau du post (ex. feed `getPostAll`, endpoint profil `userPost`).
+* **Modifications effectuées** :
+  - `src/lib/dughu.ts` : nouveau helper `readAuthorInteractionsCount(...sources)` — lecture défensive multi-sources dans l'ordre (auteur normalisé, user brut embarqué `p.user` / `p.author` / `p.utilisateur`, objet post lui-même) avec les mêmes replis de noms de champs, `0` par défaut ; `mapPost` l'utilise pour propager `author.interactionsCount` ;
+  - aucun changement dans les composants (`PostCard` lit déjà `author.interactionsCount`) ni dans le mapper des groupes (déjà correct).
+* **Validation** : exécution du vrai `mapPosts` (compilé via `tsc`) sur fixtures (27 via user brut, 5 via post-level, 9 en snake_case, 0 sans source) puis sur les données réelles de l'API (feed `getPostAll` : rdsng=253, augustin-selete=114, franck_advms=57… ; profil `userPost` : 119 — valeurs identiques aux compteurs bruts, toutes à 0 avant correctif) ; ESLint OK sur `src/lib/dughu.ts`.
+
+### Fil d'actualité — interactions de l'auteur affichées sous son nom sur la carte du post
+
+* **Demande utilisateur** : afficher le nombre d'interactions de l'utilisateur (celui de son profil) juste en bas de son nom sur la carte de son post dans le feed, au format « interactions : N ».
+* **Modifications effectuées** :
+  - `src/lib/dughu.ts` (`mapPost`) : lecture défensive du compteur d'interactions de l'auteur sur l'objet user embarqué du post (`getTotalInteractions`, replis `totalInteractions` / `total_interactions` / `nbrInteractions` / `NbrPostsTotal` / `nbr_posts_total`, `0` par défaut) et propagation via `author.interactionsCount` — normalisation dans le mapper, jamais dans le composant ;
+  - `src/types/posts/post.types.ts` : champ `interactionsCount?: number` ajouté au contrat `PostAuthor` ;
+  - `src/components/feed/PostCard.tsx` : la ligne « interactions : N » (compteur formaté via `formatNumber`) s'affiche juste sous le nom de l'auteur (comme sous le nom de page) ; l'ancien affichage en flamme (`Flame`) dans la ligne des compteurs est supprimé (bloc + import nettoyés) ; la prop optionnelle `interactionsCount` reste un override prioritaire ;
+  - Compatibilité : le mapper des groupes (`group-feed.mapper.ts`) renseignait déjà `author.interactionsCount` — même contrat, aucun changement requis.
+* **Validation** : `tsc --noEmit` exit 0 ; ESLint sans nouvelle erreur.
+
+### API — timeout ramené de 15 s à 5 s
+
+* **Demande utilisateur** : abaisser le temps d'attente des appels API de 15 000 ms à 5 000 ms.
+* **Modifications effectuées** (toutes les couches alignées sur **5 000 ms**) :
+  - `src/lib/api/client/axios-instance.ts` : `timeout: 15_000` → `timeout: 5_000` (instance Axios cliente) ;
+  - `src/lib/config/env.ts` : valeur par défaut `DUGHU_API_TIMEOUT` passée de `15` à `5` secondes (instance serveur) ;
+  - `src/app/api/dughu/[...path]/route.ts`, `src/lib/api/akwa-proxy.ts`, `src/lib/dughu.ts` : `TIMEOUT_MS` par défaut `15` → `5` ;
+  - timeouts client `AbortController` de chargement de feeds alignés : `src/app/(protected)/home/page.tsx`, `src/components/fraternises/FraternisesPage.tsx`, `src/components/reseautes/ReseautesPage.tsx`, `src/components/videos/VideosPage.tsx` (15 000 → 5 000) ;
+  - `.env` et `.env.example` : `DUGHU_API_TIMEOUT=15` → `5` (commentaire mis à jour).
+* **Non modifié** : `SEND_TIMEOUT_MS = 60_000` des messages (uploads volumineux), `staleTime`/`refetchInterval` TanStack Query, healthcheck Docker (sans rapport avec le timeout API).
+* **Validation** : `tsc --noEmit` exit 0.
+
+### Fil d'actualité — carte « Flash » : icône éclair et Flash des amis agrandis
+
+* **Demande utilisateur** : dans la carte « Flash » du feed, l'en-tête doit porter une **icône d'éclair** (⚡) et les Flash des amis doivent s'afficher en **plus grand** / plus imposants.
+* **Modifications effectuées** :
+  - `src/app/(protected)/home/page.tsx` : remplacement de l'icône `Flashlight` par l'éclair **`Zap`** dans l'en-tête de la carte (rond `bg-[#A35A2A]/10` agrandi en `w-9 h-9`, `Zap size={18}`) et passage de `size="lg"` au `FlashFeed` encastré.
+  - `src/components/flash/FlashStoryCard.tsx` : nouvelle prop `size` (`sm` = `120×168` / `lg` = `180×252`) avec coordonnées adaptées (avatar `w-12 h-12`, initiale `text-[14px]`, texte overlay `text-[15px] px-3`, voile dégradé `h-20`, nom `text-[14px]`) ; le rail du haut de page conserve le format compact par défaut (`sm`).
+  - `src/components/flash/FlashFeed.tsx` : propagation de `size` aux cartes, skeletons, état d'erreur, boutons de navigation (`top-[118px]`) et pas de défilement (`330px`) en mode `lg`.
+  - `docs/CAHIER_DES_CHARGES.md` : spécification de la position 11 mise à jour (icône éclair `Zap` + grandes cartes `180×252`).
+* **Validation** : `tsc --noEmit` exit 0 ; ESLint sans nouvelle erreur sur les fichiers modifiés.
+
+### Fil d'actualité — Flash des amis présentés dans une carte « Flash »
+
+* **Demande utilisateur** : dans le fil d'actualité, les Flash des amis (position 11, après le 10e post) sont désormais présentés dans une carte de style feed portant un en-tête « Flash ».
+* **Modifications effectuées** :
+  - `src/app/(protected)/home/page.tsx` : le `FlashFeed` (`friendsOnly`) de la position 11 est enveloppé dans une carte blanche `rounded-3xl p-4 shadow-sm border` cohérente avec les cartes de post, avec en-tête (icône `Flash` dans un rond marron `#A35A2A/10` et titre « Flash »). La classe `mb-0 px-0` neutralise les marges/padding du rail au sein de la carte.
+  - `src/components/flash/FlashFeed.tsx` : ajout d'une prop optionnelle `className` fusionnée via `cn()` sur le conteneur racine (permet d'ajuster marge/padding quand le rail est encastré dans une carte).
+  - `docs/CAHIER_DES_CHARGES.md` : spécification de la position 11 mise à jour (carte avec en-tête « Flash »).
+* **Validation** : `tsc --noEmit` exit 0 ; ESLint sans nouvelle erreur sur les fichiers modifiés.
+
 ## 2026-09-09
 ### Correction — Fils « Fraternisés » et « Réseautés » (erreur « Impossible de charger les publications de vos amis fraternisés. »)
 * **Cause** : les Route Handlers dédiés `src/app/api/getFriendPosts/[userId].ts` et

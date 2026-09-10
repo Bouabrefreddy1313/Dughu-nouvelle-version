@@ -341,6 +341,11 @@ La normalisation technique de ces états est documentée dans
   * Il est matérialisé par l'icône d'œil (`Eye` de `lucide-react`) suivi du compteur formaté de manière compacte via `formatNumber` (ex. `42`, `1.4k`, `2.5M`).
   * Une info-bulle (`title`) affiche le libellé précis au survol (« X vue(s) »).
   * Le champ est extrait défensivement par le service de normalisation (`mapPost`) et propagé depuis `views_count` (ou `viewsCount` / `_count.views`).
+* **Affichage des interactions de l'auteur sous son nom** :
+  * Sur chaque carte de publication du fil, `PostCard` affiche juste en bas du nom de l'auteur (ou du nom de la page) la ligne **« interactions : N »**, où N est le nombre d'interactions de cet utilisateur.
+  * La valeur est **celle du compteur « Interactions » du profil Dughu de l'auteur** (`NbrPostsTotal`, ou `getTotalInteractions` quand l'API le fournit sur l'objet user du post) — même convention que la page profil et la carte mini-profil.
+  * L'extraction défensive multi-noms de champs (replis `totalInteractions`, `total_interactions`, `nbrInteractions`, `NbrPostsTotal`, `nbr_posts_total`, `0` par défaut) vit dans le service de normalisation (`mapPost`, `src/lib/dughu.ts`), qui propage le compteur via `author.interactionsCount` — jamais dans le composant. La lecture est **multi-sources** (helper `readAuthorInteractionsCount`) : auteur normalisé → objet user **brut** embarqué du post (`p.user` / `p.author` / `p.utilisateur`) → objet post lui-même. L'API Dughu fournit le compteur (`getTotalInteractions`) sur l'user brut embarqué et sur le post, mais pas sur l'objet user normalisé (`normalizeUser` ne conserve pas ce champ) : ne lire que l'objet normalisé faisait afficher « interactions : 0 » sur toutes les cartes.
+  * Une prop optionnelle `interactionsCount` de `PostCard` permet d'écraser la valeur propagée ; le compteur est formaté via `formatNumber` (ex. `42`, `1.4k`, `2.5M`).
 * **Barre d'actions complète dans la vue détail** (page `/post/[id]` et lightbox du post d'origine) : **J'aime** (+ palette de réactions) · **Gratifier** (100 points, modale de confirmation) · **Republier** (simple ou avec commentaire) · **Partager** (modale interne `SharePostModal` vers WhatsApp, X, Facebook, LinkedIn, Instagram/copie de lien). Ces actions sont centralisées dans `PostMediaLightbox` et fonctionnent directement depuis la page de détail.
 * Gratifier : bouton d’action rapide qui envoie **100 points** à l’auteur du post
   en un clic (endpoint `points/give`). Une modale de confirmation (« Voulez-vous
@@ -423,7 +428,16 @@ La normalisation technique de ces états est documentée dans
     3. Carte « Espaces suggérés » (`SuggestionsEspacesCard`)
     * *Repli automatique* : si l'option tirée ne dispose d'aucun contenu (ex: 0 capsules ou 0 groupes), le composant bascule automatiquement vers l'option suivante parmi les 3 plutôt que d'afficher un bloc vide.
   * **Position 8** : suggestions de personnes (`SuggestionsAmisCard`), insérée après le 7e post (`postIndex === 6`), masquée si le fil contient moins de 8 publications au total.
-  * **Position 11** : module Flash (`FlashFeed` avec `friendsOnly={true}`), inséré après le 10e post (`postIndex === 9`). La carte personnelle « Créer un Flash » est masquée afin d'afficher exclusivement les Flash actifs des amis. Si le fil contient moins de 11 publications au total ou si aucun ami n'a de Flash actif, le module est automatiquement omis.
+  * **Position 11** : module Flash (`FlashFeed` avec `friendsOnly={true}`), inséré après le 10e post (`postIndex === 9`). La carte
+  * personnelle « Créer un Flash » est masquée afin d'afficher exclusivement les
+  * Flash actifs des amis. Si le fil contient moins de 11 publications au total ou
+  * si aucun ami n'a de Flash actif, le module est automatiquement omis. La section
+  * est présentée dans une carte de style feed (fond blanc, coins arrondis, bordure
+  * discrète) avec un en-tête visible portant une **icône éclair** (`Zap`) dans un rond
+  * marron `#A35A2A/10` et le titre « Flash ». Dans cette carte, les Flash des amis
+  * s'affichent en **grand format** (`size="lg"`, cartes `180×252` — avatar `48px`,
+  * nom `14px`, voile `h-20`) pour un rendu plus imposant ; le rail du haut de page
+  * conserve le format compact (`120×168`).
   * **Autres positions** : publications classiques du fil d'actualité.
 
 #### Mini-profil (sidebar droite)

@@ -26,7 +26,7 @@ function readEnv(): DughuServerConfig {
   const apiBaseUrl = rawBaseUrl.replace(/\/+$/, "")
   const apiToken = process.env.DUGHU_API_KEY || ""
 
-  const timeoutSeconds = Number(process.env.DUGHU_API_TIMEOUT) || 15
+  const timeoutSeconds = Number(process.env.DUGHU_API_TIMEOUT) || 5
   const retryTimes = Number(process.env.DUGHU_API_RETRY_TIMES) || 2
   const retrySleepMs = Number(process.env.DUGHU_API_RETRY_SLEEP) || 200
 

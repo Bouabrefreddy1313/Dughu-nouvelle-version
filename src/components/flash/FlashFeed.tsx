@@ -15,6 +15,7 @@ import { FlashAddCard, FlashStoryCard, type FlashCardUser } from "@/components/f
 import { Skeleton } from "@/components/ui/skeleton"
 import { useFlashFeed, type FlashUserStory } from "@/hooks/queries/use-flash"
 import { resolvePostColorCss } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 
 // Résout la couleur de fond d'une story : accepte un ID numérique Dughu
 // ("18"), un code hexadécimal ("#000000") ou un dégradé CSS déjà prêt.
@@ -23,6 +24,28 @@ function resolveStoryBg(raw: string | null | undefined): string {
   return resolvePostColorCss(raw)?.bg ?? String(raw).trim()
 }
 
+// Dimensions/positions selon la taille du rail :
+//   • sm → mini-cartes 120×168 (rail en haut de page)
+//   • lg → grandes cartes 180×252 (carte « Flash » du feed)
+const RAIL_SIZES = {
+  sm: {
+    skeleton: "w-[120px] h-[168px] rounded-2xl overflow-hidden relative bg-gray-100 border border-gray-200/80",
+    skeletonAvatar: "top-2.5 left-2.5 w-8 h-8",
+    skeletonName: "bottom-2 left-2.5 w-16 h-3",
+    error: "w-[220px] h-[168px]",
+    navTop: "top-[76px]",
+    step: 220,
+  },
+  lg: {
+    skeleton: "w-[180px] h-[252px] rounded-2xl overflow-hidden relative bg-gray-100 border border-gray-200/80",
+    skeletonAvatar: "top-3 left-3 w-12 h-12",
+    skeletonName: "bottom-3 left-3 w-24 h-3",
+    error: "w-[320px] h-[252px]",
+    navTop: "top-[118px]",
+    step: 330,
+  },
+} as const
+
 interface FlashFeedProps {
   userId?: string
   currentUser?: FlashCardUser
@@ -30,9 +53,13 @@ interface FlashFeedProps {
   onOpenFlash?: (targetUserId: string, user?: { name?: string | null; avatar?: string | null }) => void
   /** Masque la carte "Créer un Flash" et la carte personnelle pour n'afficher que les Flash des amis. */
   friendsOnly?: boolean
+  /** Classes Tailwind supplémentaires (ex: `mb-0 px-0` quand le rail est encastré dans une carte). */
+  className?: string
+  /** Taille des cartes : "sm" = mini-rail compact (120×168), "lg" = grandes cartes du feed (180×252). */
+  size?: "sm" | "lg"
 }
 
-export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash, friendsOnly = false }: FlashFeedProps) {
+export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash, friendsOnly = false, className, size = "sm" }: FlashFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   // État local "vu" : statut affiché lorsque l'API ne renvoie pas de statut.
   const [locallyViewed, setLocallyViewed] = useState<Set<string>>(new Set())
@@ -75,12 +102,14 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
     onOpenFlash?.(u.userId, u.user || undefined)
   }
 
+  const rail = RAIL_SIZES[size]
+
   const scroll = (dir: 1 | -1) => {
-    scrollRef.current?.scrollBy({ left: dir * 220, behavior: "smooth" })
+    scrollRef.current?.scrollBy({ left: dir * rail.step, behavior: "smooth" })
   }
 
   return (
-    <div className="relative mb-4 group/rail px-3 sm:px-0">
+    <div className={cn("relative mb-4 group/rail px-3 sm:px-0", className)}>
       <div
         ref={scrollRef}
         className="flex gap-3 overflow-x-auto scroll-smooth pb-1 touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -94,6 +123,7 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
         {!friendsOnly && selfEntry && selfStory && (
           <FlashStoryCard
             key={`self-${selfEntry.userId}`}
+            size={size}
             image={selfStory.image}
             video={selfStory.video}
             thumbnail={selfStory.thumbnail}
@@ -115,13 +145,13 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
                 key={`flash-skeleton-${i}`}
                 className="flex flex-col items-center shrink-0"
               >
-                <div className="w-[120px] h-[168px] rounded-2xl overflow-hidden relative bg-gray-100 border border-gray-200/80">
+                <div className={rail.skeleton}>
                   {/* vignette principale */}
                   <Skeleton className="absolute inset-0 rounded-none bg-gray-200" />
                   {/* avatar en haut à gauche */}
-                  <Skeleton className="absolute top-2.5 left-2.5 w-8 h-8 rounded-full bg-gray-300" />
+                  <Skeleton className={cn("absolute rounded-full bg-gray-300", rail.skeletonAvatar)} />
                   {/* nom incrusté en bas */}
-                  <Skeleton className="absolute bottom-2 left-2.5 w-16 h-3 rounded bg-gray-300" />
+                  <Skeleton className={cn("absolute rounded bg-gray-300", rail.skeletonName)} />
                 </div>
               </div>
             ))}
@@ -130,7 +160,7 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
 
         {/* État d'erreur réseau */}
         {isError && (
-          <div className="flex flex-col items-center justify-center gap-2 w-[220px] h-[168px] rounded-2xl bg-red-50/60 px-4 text-center">
+          <div className={cn("flex flex-col items-center justify-center gap-2 rounded-2xl bg-red-50/60 px-4 text-center", rail.error)}>
             <AlertTriangle className="w-5 h-5 text-red-500" />
             <span className="text-xs text-red-600">Impossible de charger les Flash</span>
             <button
@@ -147,6 +177,7 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
         {!isLoading && !isError && friendUsers.map((u) => (
           <FlashStoryCard
             key={u.userId}
+            size={size}
             image={u.stories[0]?.image}
             video={u.stories[0]?.video}
             thumbnail={u.stories[0]?.thumbnail}
@@ -168,7 +199,7 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
             type="button"
             onClick={() => scroll(-1)}
             aria-label="Précédent"
-            className="absolute left-1 top-[76px] -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-[#65676B] hover:text-[#E08543] z-20 opacity-0 group-hover/rail:opacity-100 transition-opacity duration-200"
+            className={cn("absolute left-1 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-[#65676B] hover:text-[#E08543] z-20 opacity-0 group-hover/rail:opacity-100 transition-opacity duration-200", rail.navTop)}
           >
             <ChevronLeft size={18} />
           </button>
@@ -176,7 +207,7 @@ export default function FlashFeed({ userId, currentUser, onAddStory, onOpenFlash
             type="button"
             onClick={() => scroll(1)}
             aria-label="Suivant"
-            className="absolute right-1 top-[76px] -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-[#65676B] hover:text-[#E08543] z-20 opacity-0 group-hover/rail:opacity-100 transition-opacity duration-200"
+            className={cn("absolute right-1 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-[#65676B] hover:text-[#E08543] z-20 opacity-0 group-hover/rail:opacity-100 transition-opacity duration-200", rail.navTop)}
           >
             <ChevronRight size={18} />
           </button>

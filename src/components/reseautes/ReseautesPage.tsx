@@ -195,7 +195,7 @@ export default function ReseautesPage() {
       }
 
       const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), 15000)
+      const timer = setTimeout(() => controller.abort(), 5000)
 
       try {
         // Endpoint dédié /api/getNetworkposts/[userId]?page=X via le service frontend

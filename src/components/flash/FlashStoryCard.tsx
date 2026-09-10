@@ -110,6 +110,34 @@ export function FlashAddCard({
   )
 }
 /* ─────────────────────────────────────────────────────────────
+   Taille des cartes story :
+     • sm → mini-carte du rail en haut de page (120×168)
+     • lg → grande carte dans la carte « Flash » du feed (180×252)
+   ───────────────────────────────────────────────────────────── */
+const FLASH_STORY_SIZES = {
+  sm: {
+    card: "w-[120px] h-[168px]",
+    media: "104px",
+    avatar: "top-2.5 left-2.5 w-8 h-8",
+    avatarMedia: "32px",
+    initial: "text-[10px]",
+    overlay: "text-[13px] px-2",
+    veil: "h-16",
+    name: "bottom-2 left-2.5 right-2.5 text-[12px]",
+  },
+  lg: {
+    card: "w-[180px] h-[252px]",
+    media: "180px",
+    avatar: "top-3 left-3 w-12 h-12",
+    avatarMedia: "48px",
+    initial: "text-[14px]",
+    overlay: "text-[15px] px-3",
+    veil: "h-20",
+    name: "bottom-3 left-3 right-3 text-[14px]",
+  },
+} as const
+
+/* ─────────────────────────────────────────────────────────────
    Carte "story active d'un ami" — média en fond, avatar via
    l'anneau vu/non-vu, nom incrusté en bas.
    ───────────────────────────────────────────────────────────── */
@@ -124,6 +152,7 @@ export function FlashStoryCard({
   viewed = false,
   onClick,
   ariaLabel,
+  size = "sm",
 }: {
   image?: string
   video?: string
@@ -135,7 +164,10 @@ export function FlashStoryCard({
   viewed?: boolean
   onClick?: () => void
   ariaLabel?: string
+  /** "sm" = mini-carte du rail (120×168) ; "lg" = grande carte du feed (180×252). */
+  size?: "sm" | "lg"
 }) {
+  const dims = FLASH_STORY_SIZES[size]
   const avatarSrc = avatar ? resolveMediaUrl(avatar) : null
   const thumbRaw = thumbnail || image
   const thumbSrc = thumbRaw ? resolveMediaUrl(thumbRaw) : null
@@ -149,10 +181,10 @@ export function FlashStoryCard({
       aria-label={ariaLabel}
       className="flex flex-col items-center shrink-0 cursor-pointer group/story relative"
     >
-      <div className="w-[120px] h-[168px] rounded-2xl overflow-hidden relative flex flex-col border border-gray-200/80 shadow-sm transition-all duration-300 ease-out group-hover/story:shadow-lg group-hover/story:shadow-[#E08543]/15 group-hover/story:-translate-y-0.5">
+      <div className={cn("rounded-2xl overflow-hidden relative flex flex-col border border-gray-200/80 shadow-sm transition-all duration-300 ease-out group-hover/story:shadow-lg group-hover/story:shadow-[#E08543]/15 group-hover/story:-translate-y-0.5", dims.card)}>
         {thumbSrc ? (
           <div className="absolute inset-0">
-            <Image src={thumbSrc} alt={name || ""} fill className="object-cover transition-transform duration-500 ease-out group-hover/story:scale-105" sizes="104px" />
+            <Image src={thumbSrc} alt={name || ""} fill className="object-cover transition-transform duration-500 ease-out group-hover/story:scale-105" sizes={dims.media} />
           </div>
         ) : videoSrc ? (
           <div className="absolute inset-0 bg-black">
@@ -163,13 +195,13 @@ export function FlashStoryCard({
             className="absolute inset-0 flex items-center justify-center"
             style={{ background: bg }}
           >
-            <span className="text-white text-[13px] font-semibold text-center leading-tight px-2 line-clamp-4 drop-shadow-sm">
+            <span className={cn("text-white font-semibold text-center leading-tight line-clamp-4 drop-shadow-sm", dims.overlay)}>
               {text || ""}
             </span>
           </div>
         ) : avatarSrc ? (
           <div className="absolute inset-0">
-            <Image src={avatarSrc} alt={name || ""} fill className="object-cover transition-transform duration-500 ease-out group-hover/story:scale-105" sizes="104px" />
+            <Image src={avatarSrc} alt={name || ""} fill className="object-cover transition-transform duration-500 ease-out group-hover/story:scale-105" sizes={dims.media} />
           </div>
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#E08543] to-[#A35A2A] flex items-center justify-center">
@@ -178,26 +210,27 @@ export function FlashStoryCard({
         )}
 
         {/* voile dégradé bas pour lisibilité du nom */}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        <div className={cn("absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent", dims.veil)} />
 
         {/* Avatar en haut — anneau épais : orange Dughu (Flash non lu) → gris (Flash vu) */}
         <div
           className={cn(
-            "absolute top-2.5 left-2.5 w-8 h-8 rounded-full overflow-hidden bg-[#A35A2A] ring-4",
+            "absolute rounded-full overflow-hidden bg-[#A35A2A] ring-4",
+            dims.avatar,
             viewed ? "ring-gray-300" : "ring-[#E08543]"
           )}
         >
           {avatarSrc ? (
-            <Image src={avatarSrc} alt={name || ""} fill className="object-cover" sizes="32px" />
+            <Image src={avatarSrc} alt={name || ""} fill className="object-cover" sizes={dims.avatarMedia} />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-white text-[10px] font-bold bg-[#A35A2A]">
+            <div className={cn("w-full h-full flex items-center justify-center text-white font-bold bg-[#A35A2A]", dims.initial)}>
               {initial}
             </div>
           )}
         </div>
 
         {/* Nom incrusté en bas de la carte */}
-        <span className="absolute bottom-2 left-2.5 right-2.5 text-[12px] font-semibold text-white truncate drop-shadow-sm">
+        <span className={cn("absolute font-semibold text-white truncate drop-shadow-sm", dims.name)}>
           {name || "Utilisateur"}
         </span>
       </div>

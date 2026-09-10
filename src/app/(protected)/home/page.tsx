@@ -380,7 +380,7 @@ export default function HomePage() {
     setLoading(true)
     const controller = new AbortController()
     // Timeout cote client : evite que le spinner tourne indefiniment si l'API tarde
-    const timer = setTimeout(() => controller.abort(), 15000)
+    const timer = setTimeout(() => controller.abort(), 5000)
     try {
       const data = await fetchPosts(
         { page, filter, userId: user?.id || "", dughuUserId: user?.dughu?.userId || "" },
@@ -1157,14 +1157,28 @@ export default function HomePage() {
 
         {/* 11e position du feed : Flash des amis uniquement (masqué si moins de 11 posts ou si aucun flash d'amis) */}
         {postIndex === 9 && posts.length >= 11 && (
-          <FlashFeed
-            userId={user?.id}
-            currentUser={user}
-            friendsOnly={true}
-            onOpenFlash={(targetUserId: string, targetUser?: { name?: string | null; avatar?: string | null }) =>
-              setFlashTarget({ userId: targetUserId, userName: targetUser?.name, userAvatar: targetUser?.avatar })
-            }
-          />
+          <div className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-white/10 mb-4">
+            {/* En-tête de la carte Flash */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-full bg-[#A35A2A]/10 flex items-center justify-center">
+                <Zap size={18} className="text-[#A35A2A]" />
+              </div>
+              <h3 className="font-semibold text-sm text-[#050505] dark:text-[#F3F4F6]">
+                Flash
+              </h3>
+            </div>
+            {/* Rail des Flash des amis */}
+            <FlashFeed
+              userId={user?.id}
+              currentUser={user}
+              friendsOnly={true}
+              size="lg"
+              className="mb-0 px-0"
+              onOpenFlash={(targetUserId: string, targetUser?: { name?: string | null; avatar?: string | null }) =>
+                setFlashTarget({ userId: targetUserId, userName: targetUser?.name, userAvatar: targetUser?.avatar })
+              }
+            />
+          </div>
         )}
         </Fragment>
       ))}

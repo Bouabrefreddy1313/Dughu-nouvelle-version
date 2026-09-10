@@ -76,6 +76,9 @@ interface Author {
   username?: string | null
   verified?: boolean
   isFollowing?: boolean
+  /** Nombre d'interactions de l'auteur (chiffre « Interactions » de son profil Dughu,
+      propagé par mapPost depuis l'objet user embarqué du post). */
+  interactionsCount?: number
   /** Défini quand l'auteur est une page (espace) → lien vers /espaces/[pageId] */
   pageId?: string | null
 }
@@ -146,6 +149,10 @@ interface PostCardProps {
   likesCount?: number
   commentsCount?: number
   sharesCount?: number
+  /** Nombre total d'interactions du post (J'aime + Commentaires + Partages).
+   * Si absent, le composant le calcule automatiquement depuis les compteurs
+   * reçus (localLikesCount + commentsCount + sharesCount). */
+  interactionsCount?: number
   viewsCount?: number
   views_count?: number
   reacted?: string | null
@@ -928,6 +935,7 @@ export function PostCard({
   likesCount = 0,
   commentsCount = 0,
   sharesCount = 0,
+  interactionsCount,
   viewsCount,
   views_count,
   reacted,
@@ -991,6 +999,15 @@ export function PostCard({
   const [localReactions, setLocalReactions] = useState<ReactionSummaryItem[]>(
     Array.isArray(reactions) ? reactions : []
   )
+  // Interactions affichées sous le nom de l'auteur : c'est le nombre
+  // d'interactions de l'auteur du post (même chiffre « Interactions » que son
+  // profil Dughu). Priorité à la prop explicite, sinon champ propagé par
+  // mapPost depuis l'objet user embarqué (getTotalInteractions / NbrPostsTotal).
+  const authorInteractions =
+    interactionsCount ??
+    (Number.isFinite(Number(author.interactionsCount))
+      ? Number(author.interactionsCount)
+      : 0)
   const [commentReactions, setCommentReactions] = useState<
     Record<string, number>
   >({})
@@ -2246,6 +2263,12 @@ export function PostCard({
               </a>
             </EntityPreviewCard>
           )}
+
+          {/* Interactions de l'auteur (chiffre « Interactions » de son profil
+              Dughu, propagé par mapPost), affiché juste sous son nom. */}
+          <span className="block text-[12px] leading-tight text-[#65676B] dark:text-[#A1A1AA]">
+            interactions : {formatNumber(authorInteractions)}
+          </span>
 
           <div className="flex items-center gap-1.5 text-[12px] text-[#65676B] dark:text-[#A1A1AA]">
             {timeAgo && <span>{timeAgo}</span>}
