@@ -102,8 +102,8 @@ export default function CanalPage() {
     (currentTab === "favorites" && favoritesQuery.isLoading)
 
   return (
-    <MainLayout user={rawUser} noRightSidebar active="canal" reserveLeftSidebar>
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+    <MainLayout user={rawUser} noRightSidebar active="canal" reserveLeftSidebar wide>
+      <div className="w-full px-4 py-6 sm:px-6">
         {/* ========================================================================= */}
         {/* En-tête : Icône + Titre "Canal" */}
         {/* ========================================================================= */}
@@ -256,7 +256,7 @@ export default function CanalPage() {
         {/* ========================================================================= */}
         <div className="mt-6">
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
@@ -278,7 +278,7 @@ export default function CanalPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
               {canals.map((canal) => (
                 <CanalCard
                   key={canal.id}

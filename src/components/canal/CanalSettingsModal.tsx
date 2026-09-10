@@ -32,6 +32,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Trash2,
+  Link2,
+  Copy,
 } from "lucide-react"
 import type { Canal, CanalType } from "@/types/canal/canal.types"
 import {
@@ -113,6 +115,7 @@ export default function CanalSettingsModal({
 
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   const logoInputRef = useRef<HTMLInputElement>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
@@ -157,6 +160,26 @@ export default function CanalSettingsModal({
       userId: currentUserId,
       canalId: canal.id,
       isActive: nextState,
+    })
+  }
+
+  const handleCopyInviteLink = () => {
+    const inviteLink = `${typeof window !== "undefined" ? window.location.origin : ""}/canal?invite=${canal.inviteCode}`
+    navigator.clipboard.writeText(inviteLink).then(() => {
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2500)
+    }).catch(() => {
+      // Fallback manuel si clipboard API indisponible
+      const textarea = document.createElement("textarea")
+      textarea.value = inviteLink
+      textarea.style.position = "fixed"
+      textarea.style.opacity = "0"
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textarea)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2500)
     })
   }
 
@@ -313,10 +336,10 @@ export default function CanalSettingsModal({
               <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-bold text-white">
-                    Notifications & Adhésions
+                    Notifications &amp; Adhésions
                   </h3>
                   <p className="text-xs text-gray-400">
-                    Gérez les demandes d'adhésion et les notifications relatives à votre canal
+                    Gérez les demandes d&apos;adhésion et les notifications relatives à votre canal
                   </p>
                 </div>
 
@@ -346,6 +369,39 @@ export default function CanalSettingsModal({
                   </button>
                 </div>
               </div>
+
+              {/* ─── Lien d'invitation (canaux privés uniquement) ─── */}
+              {canal.type === "private" && canal.inviteCode && (
+                <div className="mb-5 rounded-2xl border border-amber-800/40 bg-amber-950/20 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Link2 size={15} className="text-amber-400 shrink-0" />
+                    <h4 className="text-xs font-bold text-amber-300">Lien d&apos;invitation</h4>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mb-3">
+                    Partagez ce code avec des personnes de confiance. Elles devront soumettre une demande que vous pourrez accepter ou refuser.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2">
+                      <p className="text-[12px] font-mono font-semibold text-amber-200 truncate select-all tracking-wide">
+                        {canal.inviteCode}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyInviteLink}
+                      title="Copier le code d'invitation"
+                      className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${
+                        linkCopied
+                          ? "bg-emerald-700 text-white"
+                          : "bg-amber-700/80 hover:bg-amber-600 text-white"
+                      }`}
+                    >
+                      {linkCopied ? <Check size={14} /> : <Copy size={14} />}
+                      <span>{linkCopied ? "Copié !" : "Copier"}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {(notifsSubTab === "pending" ? notifsLoading : processedLoading) ? (
                 <div className="flex h-48 items-center justify-center text-xs text-gray-500">

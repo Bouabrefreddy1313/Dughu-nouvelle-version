@@ -242,16 +242,7 @@ export default function NotificationDropdown({
         </div>
 
         <div className="flex items-center gap-1">
-          {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllAsRead}
-              className="text-xs font-semibold text-[#A35A2A] dark:text-[#B46D1C] hover:bg-[#A35A2A]/10 px-2.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
-              title="Tout marquer comme lu"
-            >
-              <CheckCheck size={14} />
-              <span className="hidden sm:inline">Tout marquer comme lu</span>
-            </button>
-          )}
+          
 
           <button
             onClick={onClose}

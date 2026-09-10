@@ -198,15 +198,7 @@ export default function NotificationsPage() {
                 <RefreshCw size={16} className={cn(isFetching && "animate-spin text-[#A35A2A]")} />
               </button>
 
-              {displayedUnreadCount > 0 && (
-                <button
-                  onClick={handleMarkAllAsRead}
-                  className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-[#A35A2A]/10 hover:bg-[#A35A2A]/20 text-[#A35A2A] transition inline-flex items-center gap-1.5 cursor-pointer"
-                >
-                  <CheckCheck size={16} />
-                  <span>Tout marquer comme lu</span>
-                </button>
-              )}
+              
             </div>
           </div>
 

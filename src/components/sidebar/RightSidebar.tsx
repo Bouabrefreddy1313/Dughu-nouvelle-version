@@ -73,22 +73,7 @@ const TOTAL_DOTS = 5
 const GAP_RIGHT_PX = 220
 const SIDEBAR_WIDTH_PX = 240
 
-const GROUPS = [
-  { id: "1", name: "Startups Afrique", description: "Rejoignez la communauté", members: "2.1k membres" },
-  { id: "2", name: "Tech & Dev CI", description: "Développeurs passionnés", members: "1.5k membres" },
-  { id: "3", name: "Créateurs CI", description: "Design & Créativité", members: "980 membres" },
-  { id: "4", name: "Business Hub", description: "Entrepreneurs africains", members: "3.2k membres" },
-  { id: "5", name: "Music CI", description: "Artistes ivoiriens", members: "1.8k membres" },
-  { id: "6", name: "Sport & Fit", description: "Sportifs passionnés", members: "750 membres" },
-]
 
-const SPACES = [
-  { id: "1", name: "Espace Tech", description: "Innovation et technologie", members: "1.2k membres" },
-  { id: "2", name: "Espace Culture", description: "Culture africaine", members: "890 membres" },
-  { id: "3", name: "Espace Business", description: "Business networking", members: "2.3k membres" },
-  { id: "4", name: "Espace Jeunesse", description: "Jeunes talents", members: "1.5k membres" },
-  { id: "5", name: "Espace Femme", description: "Leadership féminin", members: "670 membres" },
-]
 
 function shuffleArray<T>(array: T[]): T[] {
   const arr = [...array]
@@ -303,11 +288,7 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
     }
   }
 
-  const [trends, setTrends] = useState([
-    { tag: "#TechCI", count: 124 },
-    { tag: "#Abidjan", count: 174 },
-    { tag: "#Dughu", count: 224 },
-  ])
+  const [trends, setTrends] = useState<{ tag: string; count: number }[]>([])
 
   const isAnyLoading = loading || authLoading
 
@@ -416,33 +397,37 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
         )}
       </div>
 
-      {/* Groupes */}
-      <GroupCarousel
-        title="Groupe suggéré"
-        loading={isAnyLoading}
-        items={suggestedGroups.length > 0 ? suggestedGroups : GROUPS}
-        defaultCover="/images/group/default-cover.jpg"
-        defaultAvatar="/images/group/default-avatar.jpg"
-        icon={<Users size={14} className="text-[#A35A2A] dark:text-[#B46D1C]" />}
-        buttonLabel="Adhérer"
-        buttonColor="#A35A2A"
-        getItemHref={(item) => `/groups/${item.id}`}
-      />
+      {/* Groupes — uniquement si l'API retourne des données */}
+      {(isAnyLoading || suggestedGroups.length > 0) && (
+        <GroupCarousel
+          title="Groupe suggéré"
+          loading={isAnyLoading}
+          items={suggestedGroups}
+          defaultCover="/images/group/default-cover.jpg"
+          defaultAvatar="/images/group/default-avatar.jpg"
+          icon={<Users size={14} className="text-[#A35A2A] dark:text-[#B46D1C]" />}
+          buttonLabel="Adhérer"
+          buttonColor="#A35A2A"
+          getItemHref={(item) => `/groups/${item.id}`}
+        />
+      )}
 
-      {/* Espaces */}
-      <GroupCarousel
-        title="Espace suggéré"
-        loading={isAnyLoading}
-        items={suggestedPages.length > 0 ? suggestedPages : SPACES}
-        defaultCover="/images/page/default-cover.jpg"
-        defaultAvatar="/images/page/default-avatar.jpg"
-        icon={<Globe size={14} className="text-[#A35A2A] dark:text-[#B46D1C]" />}
-        buttonLabel="J'aime"
-        buttonColor="#FF0000"
-        buttonHoverColor="#FF000099"
-        buttonIcon={<ThumbsUp size={12} />}
-        getItemHref={(item) => `/espaces/${item.id}`}
-      />
+      {/* Espaces — uniquement si l'API retourne des données */}
+      {(isAnyLoading || suggestedPages.length > 0) && (
+        <GroupCarousel
+          title="Espace suggéré"
+          loading={isAnyLoading}
+          items={suggestedPages}
+          defaultCover="/images/page/default-cover.jpg"
+          defaultAvatar="/images/page/default-avatar.jpg"
+          icon={<Globe size={14} className="text-[#A35A2A] dark:text-[#B46D1C]" />}
+          buttonLabel="J'aime"
+          buttonColor="#FF0000"
+          buttonHoverColor="#FF000099"
+          buttonIcon={<ThumbsUp size={12} />}
+          getItemHref={(item) => `/espaces/${item.id}`}
+        />
+      )}
 
       {/* Dernière activité */}
       <div className="bg-white dark:bg-[#1E1E1E] border border-transparent dark:border-white/10 rounded-[20px] p-4 shadow-sm">
@@ -535,60 +520,62 @@ export default function RightSidebar({ user: propUser, open = false, onClose, hi
         </div>
       </div>
 
-      {/* Tendances */}
-      <Card className="p-5 rounded-[24px]">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="font-bold text-[16px] text-[#2D2D2D] dark:text-[#F3F4F6]">On parle de ça</h4>
-          <button
-            type="button"
-            onClick={() => router.push("/tendances")}
-            className="text-[11px] font-medium text-[#A35A2A] dark:text-[#B46D1C] hover:underline"
-          >
-            Explorer
-          </button>
-        </div>
-        <div className="space-y-1">
-          {isAnyLoading ? (
-            <div className="space-y-3" aria-busy="true">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-3 py-2">
-                  <Skeleton className="h-5 w-5 shrink-0 rounded-lg" />
-                  <div className="flex-1 space-y-1.5">
-                    <Skeleton className="h-3 w-3/5" />
-                    <Skeleton className="h-2.5 w-1/3" />
+      {/* Tendances — uniquement si l'API retourne des données ou pendant le chargement */}
+      {(isAnyLoading || trends.length > 0) && (
+        <Card className="p-5 rounded-[24px]">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-bold text-[16px] text-[#2D2D2D] dark:text-[#F3F4F6]">On parle de ça</h4>
+            <button
+              type="button"
+              onClick={() => router.push("/tendances")}
+              className="text-[11px] font-medium text-[#A35A2A] dark:text-[#B46D1C] hover:underline"
+            >
+              Explorer
+            </button>
+          </div>
+          <div className="space-y-1">
+            {isAnyLoading ? (
+              <div className="space-y-3" aria-busy="true">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-3 py-2">
+                    <Skeleton className="h-5 w-5 shrink-0 rounded-lg" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3 w-3/5" />
+                      <Skeleton className="h-2.5 w-1/3" />
+                    </div>
+                  </div>
+                ))}
+                <span className="sr-only">Chargement des tendances…</span>
+              </div>
+            ) : trends.map((t) => {
+              const cleanTag = t.tag.replace(/^#/, "")
+              return (
+                <div
+                  key={t.tag}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => router.push(`/hashtags/${encodeURIComponent(cleanTag)}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      router.push(`/hashtags/${encodeURIComponent(cleanTag)}`)
+                    }
+                  }}
+                  className="flex items-center gap-3 hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] p-3 rounded-xl cursor-pointer transition active:scale-[0.99]"
+                >
+                  <BarChart3 size={18} className="text-[#E4405F] shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-medium text-[#2D2D2D] dark:text-[#F3F4F6] hover:text-[#A35A2A] transition">{t.tag}</p>
+                    <p className="text-[12px] text-[#65676B] dark:text-[#A1A1AA]">
+                      {t.count} publication{t.count > 1 ? "s" : ""}
+                    </p>
                   </div>
                 </div>
-              ))}
-              <span className="sr-only">Chargement des tendances…</span>
-            </div>
-          ) : trends.map((t) => {
-            const cleanTag = t.tag.replace(/^#/, "")
-            return (
-              <div
-                key={t.tag}
-                role="link"
-                tabIndex={0}
-                onClick={() => router.push(`/hashtags/${encodeURIComponent(cleanTag)}`)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault()
-                    router.push(`/hashtags/${encodeURIComponent(cleanTag)}`)
-                  }
-                }}
-                className="flex items-center gap-3 hover:bg-[#F0F2F5] dark:hover:bg-[#2A2A2A] p-3 rounded-xl cursor-pointer transition active:scale-[0.99]"
-              >
-                <BarChart3 size={18} className="text-[#E4405F] shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[14px] font-medium text-[#2D2D2D] dark:text-[#F3F4F6] hover:text-[#A35A2A] transition">{t.tag}</p>
-                  <p className="text-[12px] text-[#65676B] dark:text-[#A1A1AA]">
-                    {t.count} publication{t.count > 1 ? "s" : ""}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </Card>
+              )
+            })}
+          </div>
+        </Card>
+      )}
     </aside>
   )
 }
