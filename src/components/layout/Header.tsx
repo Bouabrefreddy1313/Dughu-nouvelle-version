@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BriefcaseBusiness, Home, Video, TrendingUp, Play, Search, X, LayoutGrid, UsersRound } from "lucide-react"
+import { BriefcaseBusiness, Home, Video, Flame, Play, Search, X, LayoutGrid, UsersRound } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Badge from "@/components/common/Badge"
 import ProfileMenu from "@/components/layout/ProfileMenu"
@@ -66,7 +66,7 @@ export default function Header({ user, onLogout, onSearch, onMenuClick, chatOpen
       tooltipId: "videos-tooltip",
     },
     {
-      icon: <TrendingUp size={22} />,
+      icon: <Flame size={22} />,
       label: "Tendances",
       active: pathname.startsWith("/tendances"),
       href: "/tendances",

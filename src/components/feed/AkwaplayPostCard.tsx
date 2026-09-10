@@ -74,27 +74,16 @@ export function AkwaplayPostCard({
       {/* ── Header de la carte ── */}
       <div className="flex items-center justify-between px-4 py-3.5 sm:px-5">
         <div className="flex items-center gap-3 min-w-0">
+          {/* Logo Akwaplay — toujours affiché */}
           <div className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 overflow-hidden flex items-center justify-center shrink-0 p-1">
-            {authorAvatar ? (
-              <img
-                src={authorAvatar}
-                alt={author?.name || author?.username || "Auteur"}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = "/images/avatar.png"
-                }}
-              />
-            ) : (
-              <img
-                src="/images/akp.png"
-                alt="Akwaplay"
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  // Fallback si akp.png est indisponible
-                  (e.currentTarget as HTMLImageElement).src = "/images/icon/akp.png"
-                }}
-              />
-            )}
+            <img
+              src="/images/akp.png"
+              alt="Akwaplay"
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = "/images/icon/akp.png"
+              }}
+            />
           </div>
           <div className="min-w-0">
             <h4 className="text-[14px] sm:text-[15px] font-semibold text-gray-900 truncate">

@@ -200,7 +200,7 @@ export default function SuggestionsAmisCard({ currentUser, className }: Suggesti
             <Users size={18} />
           </div>
           <h3 className="font-bold text-[15px] text-[#050505] dark:text-[#F3F4F6] truncate">
-            Personnes que vous pourriez connaître
+            Profils par affinités
           </h3>
         </div>
 

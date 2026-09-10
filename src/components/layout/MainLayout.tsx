@@ -146,7 +146,7 @@ export default function MainLayout({
       {/* Overlay mobile pour le menu */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-[60] lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
@@ -155,7 +155,7 @@ export default function MainLayout({
        <div className={cn(
          "transition-all duration-300",
          mobileMenuOpen
-           ? "fixed inset-y-0 left-0 z-50 w-[270px] translate-x-0"
+           ? "fixed inset-y-0 left-0 z-[70] w-[270px] translate-x-0"
            : noLeftSidebar
            ? "hidden"
            : "hidden lg:block lg:fixed lg:left-0 lg:top-[72px] lg:bottom-0 lg:w-[270px] lg:z-30"
