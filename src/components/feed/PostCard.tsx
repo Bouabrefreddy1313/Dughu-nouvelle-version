@@ -34,6 +34,8 @@ import {
   MessageCircle,
   Users,
   Rocket,
+  TrendingUp,
+  BarChart3,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -1008,6 +1010,14 @@ export function PostCard({
     (Number.isFinite(Number(author.interactionsCount))
       ? Number(author.interactionsCount)
       : 0)
+  // Statistics du post (compteur affiché à côté des vues) : somme des vues,
+  // des J'aime/réactions (état local, mis à jour de façon optimiste), des
+  // commentaires et des partages de CE post. Défensif via Number().
+  const postStatsCount =
+    (Number(finalViewsCount) || 0) +
+    (Number(localLikesCount) || 0) +
+    (Number(commentsCount) || 0) +
+    (Number(sharesCount) || 0)
   const [commentReactions, setCommentReactions] = useState<
     Record<string, number>
   >({})
@@ -2627,6 +2637,17 @@ export function PostCard({
             >
               <Eye size={16} className="text-[#65676B]" />
               <span>{formatNumber(Number(finalViewsCount) || 0)}</span>
+            </div>
+          )}
+
+          {/* Stats du post : vues + J'aime + Commentaires + Partages */}
+          {finalViewsCount !== undefined && finalViewsCount !== null && (
+            <div
+              className="flex items-center gap-1.5 text-[#65676B]"
+              title={`${postStatsCount} statistique${postStatsCount > 1 ? "s" : ""} (vues, J'aime, commentaires et partages)`}
+            >
+              <BarChart3 size={16} className="text-[#65676B]" />
+              <span>{formatNumber(postStatsCount)}</span>
             </div>
           )}
 
