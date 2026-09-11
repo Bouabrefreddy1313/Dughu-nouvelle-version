@@ -19,46 +19,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import {
-  deleteConversation,
-  deleteMessage,
-  editMessage,
-  fetchChats,
-  fetchContact,
-  fetchConversation,
-  searchContacts,
-  sendMessage,
-} from "@/services/messages/messages.service"
+import { fetchContact, searchContacts } from "@/services/messages/messages.service"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/queries/use-auth"
 import type { ChatContact, ChatMessage, ChatSummary } from "@/lib/messages"
 import {
-  isMeaningfulReply,
-  mergeLocalReplies,
-  persistMessageReply,
-} from "@/lib/messages"
+  useConversations,
+  useMessages,
+  useSendMessage,
+  useTypingIndicator,
+  useMarkAsSeen,
+  useDeleteMessage,
+  useEditMessage,
+} from "@/hooks/messages"
 
 import ConversationList from "@/components/messages/ConversationList"
 import ChatWindow from "@/components/messages/ChatWindow"
 import ConversationInfoPanel from "@/components/messages/ConversationInfoPanel"
-
-const POLL_INTERVAL_MS = 5_000
-const READ_CHATS_STORAGE_KEY = "dughu:read-conversations"
-const READ_CHATS_EVENT = "dughu:read-conversations-changed"
-
-function getApiErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.name === "ApiError" && error.message.trim()) {
-    return error.message
-  }
-  if (error && typeof error === "object") {
-    const response = (error as { response?: { data?: { message?: string } } }).response
-    const serverMessage = response?.data?.message
-    if (serverMessage && typeof serverMessage === "string" && serverMessage.trim()) {
-      return serverMessage
-    }
-  }
-  return fallback
-}
 
 function contactIdFromConversationKey(value: string, currentUserId: string) {
   if (/^\d+$/.test(value)) return value
@@ -73,19 +50,33 @@ export default function MessagesPageClient() {
   const { data: user, isLoading: authLoading } = useAuth()
   const currentUserId = String(user?.dughu?.userId || "")
 
-  const [chats, setChats] = useState<ChatSummary[]>([])
   const [activeTarget, setActiveTarget] = useState(requestedTarget)
   const [standaloneContact, setStandaloneContact] = useState<ChatContact | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [search, setSearch] = useState("")
   const [composing, setComposing] = useState(false)
   const [contactQuery, setContactQuery] = useState("")
   const [contactResults, setContactResults] = useState<ChatContact[]>([])
   const [searchingContacts, setSearchingContacts] = useState(false)
-  const [loadingChats, setLoadingChats] = useState(false)
-  const [loadingMessages, setLoadingMessages] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [readMessageKeys, setReadMessageKeys] = useState<Record<string, string>>({})
+
+  // Hooks Firebase temps réel
+  const { conversations: chats, loading: loadingChats, refresh: refreshChats } = useConversations(currentUserId)
+  const activeChat = useMemo(
+    () => chats.find((chat) => chat.contact.id === activeTarget),
+    [chats, activeTarget]
+  )
+  const activeConvId = activeChat?.id || null
+
+  const { messages, loading: loadingMessages } = useMessages(activeConvId, currentUserId)
+  const { sendMessage: sendMsg, sending } = useSendMessage()
+  const { isOtherTyping, notifyTyping, stopTyping } = useTypingIndicator(activeConvId, currentUserId)
+  const { markAsSeen } = useMarkAsSeen(activeConvId, currentUserId)
+  const {
+    deleteForMe,
+    deleteForAll,
+    deleteConversation: deleteConv,
+    deleting: deletingMessage,
+  } = useDeleteMessage(activeConvId, currentUserId)
+  const { editMessage: editMsg, editing: updatingMessage } = useEditMessage(activeConvId, currentUserId)
 
   // Panneau d'information (colonne droite, visible par défaut)
   const [isInfoOpen, setIsInfoOpen] = useState(true)
@@ -95,11 +86,9 @@ export default function MessagesPageClient() {
   // Édition de message
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState("")
-  const [updatingMessage, setUpdatingMessage] = useState(false)
 
   // Modale suppression de message
   const [deleteMessageTarget, setDeleteMessageTarget] = useState<ChatMessage | null>(null)
-  const [deletingMessage, setDeletingMessage] = useState(false)
 
   // Modale suppression de conversation
   const [deleteConversationOpen, setDeleteConversationOpen] = useState(false)
@@ -114,41 +103,12 @@ export default function MessagesPageClient() {
     router.replace(`/messages?target=${encodeURIComponent(correctedTarget)}`)
   }, [activeTarget, currentUserId, router])
 
-  // Chargement des conversations
-  const loadChats = useCallback(async () => {
-    if (!currentUserId) return
-    setLoadingChats(true)
-    try {
-      const data = await fetchChats(currentUserId)
-      if (!data?.success) throw new Error(data?.message || "Erreur de chargement")
-      setChats(Array.isArray(data.chats) ? data.chats : [])
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Impossible de charger les conversations")
-    } finally {
-      setLoadingChats(false)
+  // Marquer comme lu à l'ouverture de la conversation ou à l'arrivée de messages
+  useEffect(() => {
+    if (activeConvId && currentUserId) {
+      void markAsSeen()
     }
-  }, [currentUserId])
-
-  useEffect(() => {
-    void loadChats()
-  }, [loadChats])
-
-  // Synchronisation des clés lues en local
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(`${READ_CHATS_STORAGE_KEY}:${currentUserId}`)
-      setReadMessageKeys(stored ? JSON.parse(stored) : {})
-    } catch {
-      setReadMessageKeys({})
-    }
-  }, [currentUserId])
-
-  // Polling des conversations
-  useEffect(() => {
-    if (!currentUserId) return
-    const timer = window.setInterval(() => void loadChats(), POLL_INTERVAL_MS)
-    return () => window.clearInterval(timer)
-  }, [currentUserId, loadChats])
+  }, [activeConvId, currentUserId, messages.length, markAsSeen])
 
   // Recherche de contacts pour nouveau message
   useEffect(() => {
@@ -184,61 +144,16 @@ export default function MessagesPageClient() {
     }
   }, [activeTarget, chats, currentUserId])
 
-  // Chargement des messages de la conversation active
-  const loadMessages = useCallback(async (showLoader = false) => {
-    if (!currentUserId || !activeTarget) return
-    if (showLoader) setLoadingMessages(true)
-    try {
-      const data = await fetchConversation({ userId: currentUserId, targetUserId: activeTarget })
-      if (!data?.success) throw new Error(data?.message || "Erreur de chargement")
-      const serverMessages: ChatMessage[] = Array.isArray(data.messages) ? data.messages : []
-      setMessages((current) => {
-        const localReplies = new Map<string, NonNullable<ChatMessage["reply"]>>()
-        for (const message of current) {
-          if (isMeaningfulReply(message.reply) && message.id) {
-            localReplies.set(message.id, message.reply)
-          }
-        }
-        return mergeLocalReplies(serverMessages, localReplies)
-      })
-    } catch (error) {
-      if (showLoader) {
-        toast.error(error instanceof Error ? error.message : "Impossible de charger les messages")
-      }
-    } finally {
-      if (showLoader) setLoadingMessages(false)
-    }
-  }, [activeTarget, currentUserId])
-
-  useEffect(() => {
-    if (!activeTarget || !currentUserId) return
-    void loadMessages(true)
-    const timer = window.setInterval(() => void loadMessages(false), POLL_INTERVAL_MS)
-    return () => window.clearInterval(timer)
-  }, [activeTarget, currentUserId, loadMessages])
-
   // Contact actif sélectionné
   const selectedContact = useMemo(
-    () => chats.find((chat) => chat.contact.id === activeTarget)?.contact || standaloneContact,
-    [activeTarget, chats, standaloneContact]
+    () => activeChat?.contact || standaloneContact,
+    [activeChat, standaloneContact]
   )
 
   // Sélection d'une conversation
   const selectTarget = (target: string) => {
-    const selectedChat = chats.find((chat) => chat.contact.id === target)
-    if (selectedChat?.lastMessageKey) {
-      setReadMessageKeys((current) => {
-        const next = { ...current, [target]: selectedChat.lastMessageKey }
-        window.localStorage.setItem(`${READ_CHATS_STORAGE_KEY}:${currentUserId}`, JSON.stringify(next))
-        window.dispatchEvent(
-          new CustomEvent(READ_CHATS_EVENT, { detail: { userId: currentUserId, keys: next } })
-        )
-        return next
-      })
-    }
-    setMessages([])
-    setStandaloneContact(null)
     setActiveTarget(target)
+    setStandaloneContact(null)
     setComposing(false)
     setContactQuery("")
     setContactResults([])
@@ -247,19 +162,11 @@ export default function MessagesPageClient() {
   }
 
   // Marquer toutes les conversations comme lues
-  const handleMarkAllAsRead = () => {
-    const nextKeys = { ...readMessageKeys }
-    for (const chat of chats) {
-      if (chat.lastMessageKey) {
-        nextKeys[chat.contact.id] = chat.lastMessageKey
-      }
+  const handleMarkAllAsRead = async () => {
+    if (activeConvId && currentUserId) {
+      await markAsSeen()
     }
-    setReadMessageKeys(nextKeys)
-    window.localStorage.setItem(`${READ_CHATS_STORAGE_KEY}:${currentUserId}`, JSON.stringify(nextKeys))
-    window.dispatchEvent(
-      new CustomEvent(READ_CHATS_EVENT, { detail: { userId: currentUserId, keys: nextKeys } })
-    )
-    toast.success("Toutes les conversations ont été marquées comme lues.")
+    toast.success("Conversations marquées comme lues.")
   }
 
   // Envoi d'un message (texte, médias, citation)
@@ -267,7 +174,7 @@ export default function MessagesPageClient() {
     text,
     image,
     video,
-    document,
+    document: docFile,
     replyTo,
   }: {
     text: string
@@ -277,68 +184,30 @@ export default function MessagesPageClient() {
     replyTo?: ChatMessage | null
   }) => {
     if (!currentUserId || !activeTarget || sending) return
-    if (!text.trim() && !image && !video && !document) {
-      toast.error("Ajoutez un message ou un fichier")
-      return
-    }
-    if (text.trim().length > 500) {
-      toast.error("Le message ne peut pas dépasser 500 caractères")
-      return
-    }
-
-    const formData = new FormData()
-    formData.set("user_id", currentUserId)
-    formData.set("target_user_id", activeTarget)
-    if (text.trim()) formData.set("message", text.trim())
-    if (image) formData.set("image", image)
-    if (video) formData.set("video", video)
-    if (document) formData.set("document", document)
-    if (replyTo) {
-      formData.set("reply_doc_id", replyTo.id)
-      formData.set("reply_sender", replyTo.isMine ? (user?.name || "Moi") : (selectedContact?.name || "Utilisateur"))
-      formData.set("reply_text", replyTo.text)
-    }
-
-    setSending(true)
+    stopTyping()
     try {
-      const data = await sendMessage(formData)
-      if (!data?.success) throw new Error(data?.message || "Envoi impossible")
-      const replyInfo = replyTo
-        ? {
-            id: replyTo.id,
-            sender: replyTo.isMine ? (user?.name || "Moi") : (selectedContact?.name || "Utilisateur"),
-            text: replyTo.text || "Pièce jointe",
-          }
-        : null
-
-      const sentMessage = data.sentMessage as ChatMessage | null | undefined
-      const normalizedSentReply = isMeaningfulReply(sentMessage?.reply) ? sentMessage!.reply : null
-
-      if (sentMessage?.id && replyInfo) persistMessageReply(sentMessage.id, replyInfo)
-
-      if (sentMessage) {
-        setMessages((current) =>
-          current.some((item) => item.id === sentMessage.id)
-            ? current.map((item) =>
-                item.id === sentMessage.id ? { ...item, reply: replyInfo ?? normalizedSentReply } : item
-              )
-            : [...current, { ...sentMessage, reply: replyInfo ?? normalizedSentReply, receipt: "sent" as const }]
-        )
-      }
-
-      await Promise.all([loadMessages(false), loadChats()])
-
-      if (sentMessage?.id) {
-        setMessages((current) =>
-          current.map((item) =>
-            item.id === sentMessage.id ? { ...item, reply: replyInfo ?? item.reply ?? null } : item
-          )
-        )
-      }
-    } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, "Impossible d’envoyer le message"))
-    } finally {
-      setSending(false)
+      await sendMsg({
+        conversationId: activeConvId,
+        targetUserId: activeTarget,
+        currentUserId,
+        text,
+        image,
+        video,
+        document: docFile,
+        replyTo,
+        currentUserProfile: {
+          name: user?.name || "Utilisateur",
+          username: user?.username || "",
+          avatar: user?.avatar || "",
+        },
+        targetUserProfile: {
+          name: selectedContact?.name || "Utilisateur",
+          username: selectedContact?.username || "",
+          avatar: selectedContact?.avatar || "",
+        },
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Impossible d’envoyer le message")
     }
   }
 
@@ -355,87 +224,49 @@ export default function MessagesPageClient() {
 
   const saveEditMessage = async () => {
     if (!editingMessageId || !currentUserId || updatingMessage) return
-    const trimmed = editDraft.trim()
-    if (!trimmed) {
-      toast.error("Le message ne peut pas être vide.")
-      return
-    }
-    if (trimmed.length > 500) {
-      toast.error("Le message ne peut pas dépasser 500 caractères.")
-      return
-    }
-    setUpdatingMessage(true)
     try {
-      const data = await editMessage({
-        messageId: editingMessageId,
-        userId: currentUserId,
-        message: trimmed,
-        targetUserId: activeTarget,
-      })
-      if (!data?.success) throw new Error(data?.message || "Modification impossible")
-      setMessages((current) =>
-        current.map((item) =>
-          item.id === editingMessageId ? { ...item, text: trimmed } : item
-        )
-      )
+      await editMsg(editingMessageId, editDraft)
       setEditingMessageId(null)
       setEditDraft("")
       toast.success("Message modifié.")
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Impossible de modifier le message."))
-    } finally {
-      setUpdatingMessage(false)
+      toast.error(error instanceof Error ? error.message : "Impossible de modifier le message.")
     }
   }
 
   // Suppression de message
   const confirmDeleteMessage = async (deleteType: "me" | "all") => {
     if (!deleteMessageTarget || !currentUserId || deletingMessage) return
-    setDeletingMessage(true)
     try {
-      const data = await deleteMessage({
-        messageId: deleteMessageTarget.id,
-        userId: currentUserId,
-        targetUserId: activeTarget,
-        deleteType,
-      })
-      if (!data?.success) throw new Error(data?.message || "Suppression impossible")
-      setMessages((current) => current.filter((item) => item.id !== deleteMessageTarget.id))
-      persistMessageReply(deleteMessageTarget.id, null)
+      if (deleteType === "all") {
+        await deleteForAll(deleteMessageTarget.id, activeTarget)
+      } else {
+        await deleteForMe(deleteMessageTarget.id)
+      }
       setDeleteMessageTarget(null)
-      void loadChats()
       toast.success(
-        deleteType === "all" ? "Message supprimé pour tout le monde." : "Message supprimé pour vous."
+        deleteType === "all"
+          ? "Message supprimé pour tout le monde."
+          : "Message supprimé pour vous."
       )
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Impossible de supprimer le message."))
-    } finally {
-      setDeletingMessage(false)
+    } catch {
+      toast.error("Impossible de supprimer le message.")
     }
   }
 
   // Suppression de conversation complète
   const confirmDeleteConversation = async () => {
     if (!currentUserId || deletingConversation) return
-    const conversationId = chats.find((chat) => chat.contact.id === activeTarget)?.id || activeTarget
-    if (!conversationId) return
     setDeletingConversation(true)
     try {
-      const data = await deleteConversation({
-        conversationId,
-        userId: currentUserId,
-        targetUserId: activeTarget,
-      })
-      if (!data?.success) throw new Error(data?.message || "Suppression impossible")
+      await deleteConv(activeConvId || undefined)
       setDeleteConversationOpen(false)
-      setMessages([])
       setStandaloneContact(null)
       setActiveTarget("")
       router.replace("/messages")
-      void loadChats()
       toast.success("Conversation supprimée.")
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Impossible de supprimer la conversation."))
+    } catch {
+      toast.error("Impossible de supprimer la conversation.")
     } finally {
       setDeletingConversation(false)
     }
@@ -534,10 +365,9 @@ export default function MessagesPageClient() {
               chats={chats}
               activeTarget={activeTarget}
               currentUserId={currentUserId}
-              readMessageKeys={readMessageKeys}
               loadingChats={loadingChats}
               onSelectChat={selectTarget}
-              onRefreshChats={loadChats}
+              onRefreshChats={refreshChats}
               onMarkAllAsRead={handleMarkAllAsRead}
               search={search}
               onSearchChange={setSearch}
@@ -596,6 +426,8 @@ export default function MessagesPageClient() {
                 messages={messages}
                 loadingMessages={loadingMessages}
                 sending={sending}
+                isTyping={isOtherTyping}
+                onTyping={notifyTyping}
                 onSendMessage={handleSendMessage}
                 onStartEditMessage={startEditMessage}
                 onDeleteMessagePrompt={(msg) => setDeleteMessageTarget(msg)}

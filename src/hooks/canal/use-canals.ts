@@ -20,6 +20,7 @@ import {
   fetchCanalMedia,
   fetchCanalDocuments,
   joinOrRequestCanal,
+  requestJoinCanal,
   leaveCanal,
   createOrUpdateCanal,
   deleteCanal,
@@ -195,6 +196,16 @@ export function useJoinOrRequestCanal() {
   return useMutation({
     mutationFn: ({ userId, canalId, type }: { userId: string; canalId: string; type: "direct" | "request" }) =>
       joinOrRequestCanal(userId, canalId, type),
+    retry: 0,
+    onSettled: () => invalidateCanals(queryClient),
+  })
+}
+
+export function useRequestJoinCanal() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, canalId }: { userId: string; canalId: string }) =>
+      requestJoinCanal(userId, canalId),
     retry: 0,
     onSettled: () => invalidateCanals(queryClient),
   })

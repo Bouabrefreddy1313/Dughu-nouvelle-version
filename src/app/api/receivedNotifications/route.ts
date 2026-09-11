@@ -1,6 +1,7 @@
 /**
- * GET /api/canal/notifications/received
- * Notifications en attente d'un canal.
+ * GET /api/receivedNotifications
+ * Alias direct miroir pour la collection Postman :
+ * GET {{local_dughu}}/receivedNotifications?user_id=23443&canal_id=21&page=1
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -14,14 +15,14 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const page = Math.max(1, Number(searchParams.get("page")) || 1)
-    const canalId = String(searchParams.get("canalId") || searchParams.get("canal_id") || "")
+    const canalId = String(searchParams.get("canal_id") || searchParams.get("canalId") || "")
     const userId =
-      String(searchParams.get("userId") || searchParams.get("user_id") || "") ||
+      String(searchParams.get("user_id") || searchParams.get("userId") || "") ||
       (await getDughuUserIdFromCookies())
 
     if (!userId) {
       return NextResponse.json<CanalNotificationsResponse>(
-        { success: false, message: "Session requise.", notifications: [], hasMore: false, page: 1 },
+        { success: false, message: "Session requise ou paramètre user_id manquant.", notifications: [], hasMore: false, page: 1 },
         { status: 401 }
       )
     }
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
     const result = await getReceivedNotifications(userId, canalId, page)
     return NextResponse.json(result)
   } catch (error) {
-    console.error("CANAL RECEIVED NOTIFICATIONS ERROR:", error)
+    console.error("API ALIAS RECEIVED NOTIFICATIONS ERROR:", error)
     const message = error instanceof Error && error.message ? error.message : "Impossible de charger les notifications."
     return NextResponse.json<CanalNotificationsResponse>(
       { success: false, message, notifications: [], hasMore: false, page: 1 },

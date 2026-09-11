@@ -1,16 +1,17 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ChevronDown, ImageIcon, Maximize2, MoreVertical, Paperclip, Pencil, Reply, Send, SmilePlus, Trash2, Video, X } from "lucide-react"
 import { toast } from "sonner"
 import {
-  deleteConversation,
-  deleteMessage,
-  editMessage,
-  fetchConversation,
-  sendMessage,
-} from "@/services/messages/messages.service"
+  useMessages,
+  useSendMessage,
+  useTypingIndicator,
+  useMarkAsSeen,
+  useDeleteMessage,
+  useEditMessage,
+} from "@/hooks/messages"
 import type { ChatMessage, ChatSummary } from "@/lib/messages"
 import { isMeaningfulReply, mergeLocalReplies, persistMessageReply, resolveReplyPreview } from "@/lib/messages"
 import ReceiptTicks from "@/components/messages/ReceiptTicks"
@@ -167,47 +168,43 @@ export default function ConversationPopup({
   const targetUserId = conversation.contact.id
 
   const [collapsed, setCollapsed] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
   const [text, setText] = useState("")
-  const [sending, setSending] = useState(false)
   const [image, setImage] = useState<File | null>(null)
   const [video, setVideo] = useState<File | null>(null)
-  // ⚠️ Renommé en `documentFile` (au lieu de `document`) : la variable
-  // précédente masquait l'objet global `document` du navigateur dans tout
-  // le composant, ce qui cassait `document.body` utilisé par createPortal
-  // (le menu du message et le sélecteur de réaction plantaient au clic).
   const [documentFile, setDocumentFile] = useState<File | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState("")
-  const [updatingMessage, setUpdatingMessage] = useState(false)
   const [menuMessageId, setMenuMessageId] = useState<string | null>(null)
   const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null)
   const [deleteMessageTarget, setDeleteMessageTarget] = useState<ChatMessage | null>(null)
-  const [deletingMessage, setDeletingMessage] = useState(false)
   const [deleteConversationOpen, setDeleteConversationOpen] = useState(false)
   const [deletingConversation, setDeletingConversation] = useState(false)
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
   const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null)
   const [reactionAnchorRect, setReactionAnchorRect] = useState<DOMRect | null>(null)
   const [messageReactions, setMessageReactions] = useState<Record<string, string>>(() => readMessageReactions())
-  const endRef = useRef<HTMLDivElement>(null)
+
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const endRef = useRef<HTMLDivElement>(null)
   const prevCountRef = useRef(0)
-  // Les portails (menu message / réactions) ne doivent être rendus qu'une fois
-  // le composant réellement monté dans le navigateur : sur certains pipelines
-  // SSR/Next.js, `typeof document !== "undefined"` peut être vrai alors que
-  // `document` est un stub incomplet (ex. `document.body` vaut null), ce qui
-  // faisait planter `createPortal`. Un flag posé dans un useEffect garantit
-  // qu'on est bien côté client, après hydratation complète.
   const [portalReady, setPortalReady] = useState(false)
+
   useEffect(() => {
-    // Différé au frame suivant : évite un setState synchrone dans l'effet
-    // tout en garantissant que le portal est monté après le premier rendu.
-    const frame = requestAnimationFrame(() => setPortalReady(true))
-    return () => cancelAnimationFrame(frame)
+    setPortalReady(true)
   }, [])
+
+  const convId = conversation.id
+  const { messages, loading, error, refresh: loadMessages } = useMessages(convId, currentUserId)
+  const { sendMessage: sendMsg, sending } = useSendMessage()
+  const { isOtherTyping, notifyTyping, stopTyping } = useTypingIndicator(convId, currentUserId)
+  const { markAsSeen } = useMarkAsSeen(convId, currentUserId)
+  const {
+    deleteForMe,
+    deleteForAll,
+    deleteConversation: deleteConv,
+    deleting: deletingMessage,
+  } = useDeleteMessage(convId, currentUserId)
+  const { editMessage: editMsg, editing: updatingMessage } = useEditMessage(convId, currentUserId)
 
   const closePopovers = useCallback(() => {
     setMenuMessageId(null)
@@ -216,67 +213,42 @@ export default function ConversationPopup({
     setReactionAnchorRect(null)
   }, [])
 
-  const toggleMessageMenu = (event: React.MouseEvent<HTMLButtonElement>, messageId: string) => {
-    if (menuMessageId === messageId) {
-      closePopovers()
-      return
-    }
-    setReactionPickerFor(null)
-    setReactionAnchorRect(null)
-    setMenuAnchorRect(event.currentTarget.getBoundingClientRect())
-    setMenuMessageId(messageId)
-  }
-
-  const toggleReactionPicker = (event: React.MouseEvent<HTMLButtonElement>, messageId: string) => {
-    if (reactionPickerFor === messageId) {
-      closePopovers()
-      return
-    }
-    setMenuMessageId(null)
-    setMenuAnchorRect(null)
-    setReactionAnchorRect(event.currentTarget.getBoundingClientRect())
-    setReactionPickerFor(messageId)
-  }
-
-  const loadMessages = useCallback(
-    async (showLoader = false) => {
-      if (!currentUserId || !targetUserId) return
-      if (showLoader) setLoading(true)
-      try {
-        const data = await fetchConversation({ userId: currentUserId, targetUserId })
-        if (!data?.success) throw new Error(data?.message || "Erreur de chargement")
-        const serverMessages: ChatMessage[] = Array.isArray(data.messages) ? data.messages : []
-        // Préserve les citations locales (reply) que le serveur ne renvoie pas
-        // (l'API peut omettre la citation après un envoi/réponse), pour qu'elle
-        // ne disparaisse pas au prochain rafraîchissement.
-        setMessages((current) => {
-          const localReplies = new Map<string, NonNullable<ChatMessage["reply"]>>()
-          for (const message of current) {
-            // On ne préserve que les VRAIES citations (voir isMeaningfulReply) :
-            // sinon un objet reply vide fini par se figer dans le state et
-            // continue d'afficher l'encart fantôme après chaque polling.
-            if (isMeaningfulReply(message.reply) && message.id) localReplies.set(message.id, message.reply)
-          }
-          return mergeLocalReplies(serverMessages, localReplies)
-        })
-        setError("")
-      } catch {
-        if (showLoader) setError("Impossible de charger les messages.")
-      } finally {
-        if (showLoader) setLoading(false)
+  const toggleReactionPicker = useCallback((event: React.MouseEvent<HTMLButtonElement>, messageId: string) => {
+    event.stopPropagation()
+    const rect = event.currentTarget.getBoundingClientRect()
+    setReactionPickerFor((curr) => {
+      if (curr === messageId) {
+        setReactionAnchorRect(null)
+        return null
       }
-    },
-    [currentUserId, targetUserId]
-  )
+      setReactionAnchorRect(rect)
+      setMenuMessageId(null)
+      setMenuAnchorRect(null)
+      return messageId
+    })
+  }, [])
 
+  const toggleMessageMenu = useCallback((event: React.MouseEvent<HTMLButtonElement>, messageId: string) => {
+    event.stopPropagation()
+    const rect = event.currentTarget.getBoundingClientRect()
+    setMenuMessageId((curr) => {
+      if (curr === messageId) {
+        setMenuAnchorRect(null)
+        return null
+      }
+      setMenuAnchorRect(rect)
+      setReactionPickerFor(null)
+      setReactionAnchorRect(null)
+      return messageId
+    })
+  }, [])
+
+  // Marquer comme lu en ouvrant ou quand de nouveaux messages arrivent
   useEffect(() => {
-    if (!currentUserId || !targetUserId) return
-    // Chargement initial puis rafraîchissement périodique comme la page messages.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadMessages(true)
-    const timer = window.setInterval(() => void loadMessages(false), POLL_INTERVAL_MS)
-    return () => window.clearInterval(timer)
-  }, [currentUserId, loadMessages, targetUserId])
+    if (convId && currentUserId) {
+      void markAsSeen()
+    }
+  }, [convId, currentUserId, messages.length, markAsSeen])
 
   // Défilement automatique vers le dernier message à l'arrivée de nouveaux.
   useEffect(() => {
@@ -339,81 +311,33 @@ export default function ConversationPopup({
       toast.error("Le message ne peut pas dépasser 500 caractères.")
       return
     }
-    // On capture la réponse ciblée AVANT l'envoi : `replyTo` sera réinitialisé
-    // après un envoi réussi, donc si on ne le capture pas ici, un message
-    // envoyé sans réponse pourrait se voir attribuer par erreur la citation
-    // d'un envoi précédent encore présent en mémoire.
-    const activeReply = replyTo
-    const formData = new FormData()
-    formData.set("user_id", currentUserId)
-    formData.set("target_user_id", targetUserId)
-    if (message) formData.set("message", message)
-    if (image) formData.set("image", image)
-    if (video) formData.set("video", video)
-    if (documentFile) formData.set("document", documentFile)
-    if (activeReply) {
-      formData.set("reply_doc_id", activeReply.id)
-      formData.set(
-        "reply_sender",
-        activeReply.isMine ? (myName || "Moi") : (conversation.contact.name || "Utilisateur")
-      )
-      formData.set("reply_text", activeReply.text || "Pièce jointe")
-    }
-    setSending(true)
+    stopTyping()
     try {
-      const data = await sendMessage(formData)
-      if (!data?.success) throw new Error(data?.message || "Envoi impossible")
-      const replyInfo = activeReply
-        ? {
-            id: activeReply.id,
-            sender: activeReply.isMine ? (myName || "Moi") : (conversation.contact.name || "Utilisateur"),
-            text: activeReply.text || "Pièce jointe",
-          }
-        : null
+      await sendMsg({
+        conversationId: convId,
+        targetUserId,
+        currentUserId,
+        text: message,
+        image,
+        video,
+        document: documentFile,
+        replyTo,
+        currentUserProfile: {
+          name: myName || "Utilisateur",
+        },
+        targetUserProfile: {
+          name: conversation.contact.name,
+          username: conversation.contact.username || "",
+          avatar: conversation.contact.avatar || "",
+        },
+      })
       setText("")
       setImage(null)
       setVideo(null)
       setDocumentFile(null)
       setReplyTo(null)
-      const sent = data.sentMessage as ChatMessage | null | undefined
-      // Le serveur peut renvoyer un `reply` vide ({ id:"", sender:"", text:"" })
-      // même pour un message qui n'est pas une réponse : on le neutralise ici
-      // avant de le stocker, sinon l'encart fantôme réapparaît.
-      const normalizedSentReply = isMeaningfulReply(sent?.reply) ? sent!.reply : null
-      // Persiste la citation localement : l'API Dughu ne la restitue pas au
-      // prochain rechargement (reply_id reste à 0), on la restaure côté client.
-      if (sent?.id && replyInfo) persistMessageReply(sent.id, replyInfo)
-      // Écho local : on attache la citation au message envoyé même si la réponse
-      // de l'API ne la renvoie pas, pour que la bulle l'affiche immédiatement.
-      // On force `reply: replyInfo ?? normalizedSentReply` (et pas
-      // `sent.reply ?? replyInfo`) pour ne jamais hériter d'une citation
-      // vide ou erronée renvoyée par le serveur sur un message qui n'est pas
-      // réellement une réponse.
-      if (sent) {
-        setMessages((current) =>
-          current.some((item) => item.id === sent.id)
-            ? current.map((item) =>
-                item.id === sent.id ? { ...item, reply: replyInfo ?? normalizedSentReply } : item
-              )
-                        : [...current, { ...sent, reply: replyInfo ?? normalizedSentReply, receipt: "sent" as const }]
-        )
-      }
-      await loadMessages(false)
-      // Après rechargement serveur, on ré-attache (ou on retire) la citation
-      // uniquement pour CE message précis, identifié par son id.
-      if (sent?.id) {
-        setMessages((current) =>
-          current.map((item) =>
-            item.id === sent.id ? { ...item, reply: replyInfo ?? item.reply ?? null } : item
-          )
-        )
-      }
-    } catch (error) {
-      toast.error(
-        getApiErrorMessage(error, "Impossible d'envoyer le message.")
-      )
-    } finally {
-      setSending(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Impossible d'envoyer le message.")
     }
   }
 
@@ -444,77 +368,43 @@ export default function ConversationPopup({
       toast.error("Le message ne peut pas dépasser 500 caractères.")
       return
     }
-    setUpdatingMessage(true)
     try {
-      const data = await editMessage({
-        messageId: editingMessageId,
-        userId: currentUserId,
-        message: trimmed,
-        targetUserId,
-      })
-      if (!data?.success) throw new Error(data?.message || "Modification impossible")
-      setMessages((current) =>
-        current.map((item) =>
-          item.id === editingMessageId ? { ...item, text: trimmed } : item
-        )
-      )
+      await editMsg(editingMessageId, trimmed)
       setEditingMessageId(null)
       setEditDraft("")
       toast.success("Message modifié.")
-    } catch (error) {
-      toast.error(
-        getApiErrorMessage(error, "Impossible de modifier le message.")
-      )
-    } finally {
-      setUpdatingMessage(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Impossible de modifier le message.")
     }
   }
 
   const confirmDeleteMessage = async (deleteType: "me" | "all") => {
     if (!deleteMessageTarget || !currentUserId || deletingMessage) return
-    setDeletingMessage(true)
     try {
-      const data = await deleteMessage({
-        messageId: deleteMessageTarget.id,
-        userId: currentUserId,
-        targetUserId,
-        deleteType,
-      })
-      if (!data?.success) throw new Error(data?.message || "Suppression impossible")
-      setMessages((current) => current.filter((item) => item.id !== deleteMessageTarget.id))
-      persistMessageReply(deleteMessageTarget.id, null)
+      if (deleteType === "all") {
+        await deleteForAll(deleteMessageTarget.id, targetUserId)
+      } else {
+        await deleteForMe(deleteMessageTarget.id)
+      }
       setDeleteMessageTarget(null)
       toast.success(
         deleteType === "all" ? "Message supprimé pour tout le monde." : "Message supprimé pour vous."
       )
-    } catch (error) {
-      toast.error(
-        getApiErrorMessage(error, "Impossible de supprimer le message.")
-      )
-    } finally {
-      setDeletingMessage(false)
+    } catch {
+      toast.error("Impossible de supprimer le message.")
     }
   }
 
   const confirmDeleteConversation = async () => {
     if (!currentUserId || deletingConversation) return
-    const conversationId = conversation.id
-    if (!conversationId) return
     setDeletingConversation(true)
     try {
-      const data = await deleteConversation({
-        conversationId,
-        userId: currentUserId,
-        targetUserId,
-      })
-      if (!data?.success) throw new Error(data?.message || "Suppression impossible")
+      await deleteConv(convId)
       setDeleteConversationOpen(false)
       toast.success("Conversation supprimée.")
       onClose()
-    } catch (error) {
-      toast.error(
-        getApiErrorMessage(error, "Impossible de supprimer la conversation.")
-      )
+    } catch {
+      toast.error("Impossible de supprimer la conversation.")
     } finally {
       setDeletingConversation(false)
     }
@@ -701,7 +591,7 @@ export default function ConversationPopup({
                   <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                   <button
                     type="button"
-                    onClick={() => void loadMessages(true)}
+                    onClick={() => void loadMessages()}
                     className="mt-2 text-xs font-semibold text-[#A35A2A] dark:text-[#B46D1C]"
                   >
                     Réessayer
@@ -878,6 +768,16 @@ export default function ConversationPopup({
                   </div>
                 ))
               )}
+              {isOtherTyping && (
+                <div className="flex items-center gap-2 text-xs italic text-[#65676B] dark:text-[#A1A1AA] py-1 px-2">
+                  <span className="inline-flex gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce" />
+                  </span>
+                  <span>{conversation.contact.name || "Le contact"} écrit...</span>
+                </div>
+              )}
               <div ref={endRef} />
             </div>
 
@@ -950,7 +850,10 @@ export default function ConversationPopup({
                 <input
                   type="text"
                   value={text}
-                  onChange={(event) => setText(event.target.value.slice(0, MESSAGE_MAX_LENGTH))}
+                  onChange={(event) => {
+                    setText(event.target.value.slice(0, MESSAGE_MAX_LENGTH))
+                    notifyTyping()
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault()

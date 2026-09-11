@@ -13,7 +13,7 @@
  *     - Photo de profil (logo) & Photo de couverture (cover)
  */
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import Image from "next/image"
 import {
   X,
@@ -34,6 +34,7 @@ import {
   Trash2,
   Link2,
   Copy,
+  RotateCw,
 } from "lucide-react"
 import type { Canal, CanalType } from "@/types/canal/canal.types"
 import {
@@ -76,19 +77,27 @@ export default function CanalSettingsModal({
   const [notifsSubTab, setNotifsSubTab] = useState<"pending" | "processed">("pending")
 
   // Requêtes : Demandes d'adhésion (reçues & traitées), Membres & Catégories
-  const { data: notifsData, isLoading: notifsLoading } = useReceivedNotifications(
-    currentUserId,
-    canal.id
-  )
-  const { data: processedNotifsData, isLoading: processedLoading } = useProcessedNotifications(
-    currentUserId,
-    canal.id
-  )
+  const {
+    data: notifsData,
+    isLoading: notifsLoading,
+    refetch: refetchReceived,
+  } = useReceivedNotifications(currentUserId, canal.id)
+  const {
+    data: processedNotifsData,
+    isLoading: processedLoading,
+    refetch: refetchProcessed,
+  } = useProcessedNotifications(currentUserId, canal.id)
   const deleteNotifMutation = useDeleteNotification(canal.id)
 
   const notifications = notifsData?.notifications ?? []
   const pendingRequests = notifications.filter(
-    (n) => n.status === null || n.status === "" || n.status === "pending"
+    (n) =>
+      !n.status ||
+      n.status === "pending" ||
+      n.status === "0" ||
+      (!n.status.toLowerCase().includes("accept") &&
+        !n.status.toLowerCase().includes("rejet") &&
+        !n.status.toLowerCase().includes("refus"))
   )
   const processedRequests = processedNotifsData?.notifications ?? []
 
@@ -135,6 +144,28 @@ export default function CanalSettingsModal({
     setSaveError(null)
   }, [canal, categories])
 
+  const inviteUrl = useMemo(() => {
+    let base = ""
+    if (canal.inviteLink && (canal.inviteLink.startsWith("http://") || canal.inviteLink.startsWith("https://"))) {
+      base = canal.inviteLink
+    } else if (canal.inviteCode && (canal.inviteCode.startsWith("http://") || canal.inviteCode.startsWith("https://"))) {
+      base = canal.inviteCode
+    } else if (canal.inviteCode) {
+      base = `https://testxx.dughu.com/p/${canal.inviteCode}`
+    } else if (canal.id) {
+      base = `https://testxx.dughu.com/canal?id=${canal.id}`
+    }
+
+    if (!base) return ""
+    // Ne jamais inclure http://localhost:3000
+    base = base.replace(/http:\/\/localhost(:\d+)?/g, "https://testxx.dughu.com")
+
+    if (canal.id && !base.includes(`id=${canal.id}`) && !base.includes(`/canal/${canal.id}`)) {
+      base += base.includes("?") ? `&id=${canal.id}` : `?id=${canal.id}`
+    }
+    return base
+  }, [canal.id, canal.inviteLink, canal.inviteCode])
+
   if (!isOpen) return null
 
   const handleAction = (requestId: string, accept: boolean) => {
@@ -164,14 +195,15 @@ export default function CanalSettingsModal({
   }
 
   const handleCopyInviteLink = () => {
-    const inviteLink = `${typeof window !== "undefined" ? window.location.origin : ""}/canal?invite=${canal.inviteCode}`
-    navigator.clipboard.writeText(inviteLink).then(() => {
+    const linkToCopy = inviteUrl || canal.inviteCode || ""
+    if (!linkToCopy) return
+    navigator.clipboard.writeText(linkToCopy).then(() => {
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2500)
     }).catch(() => {
       // Fallback manuel si clipboard API indisponible
       const textarea = document.createElement("textarea")
-      textarea.value = inviteLink
+      textarea.value = linkToCopy
       textarea.style.position = "fixed"
       textarea.style.opacity = "0"
       document.body.appendChild(textarea)
@@ -343,53 +375,68 @@ export default function CanalSettingsModal({
                   </p>
                 </div>
 
-                {/* Sélecteur de sous-onglets : En attente / Traitées */}
-                <div className="flex items-center gap-1.5 rounded-xl bg-gray-900 border border-gray-800 p-1 self-start">
+                {/* Sélecteur de sous-onglets : En attente / Traitées + Bouton Actualiser */}
+                <div className="flex items-center gap-2 self-start flex-wrap">
+                  <div className="flex items-center gap-1.5 rounded-xl bg-gray-900 border border-gray-800 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setNotifsSubTab("pending")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        notifsSubTab === "pending"
+                          ? "bg-[#985810] text-white shadow-sm"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      En attente ({pendingRequests.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNotifsSubTab("processed")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        notifsSubTab === "processed"
+                          ? "bg-[#985810] text-white shadow-sm"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      Traitées ({processedRequests.length})
+                    </button>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => setNotifsSubTab("pending")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      notifsSubTab === "pending"
-                        ? "bg-[#985810] text-white shadow-sm"
-                        : "text-gray-400 hover:text-white"
-                    }`}
+                    onClick={() => {
+                      void refetchReceived()
+                      void refetchProcessed()
+                    }}
+                    title="Actualiser les demandes"
+                    className="flex items-center gap-1.5 rounded-xl bg-gray-900 border border-gray-800 px-3 py-2 text-xs font-semibold text-gray-400 hover:text-white hover:border-gray-700 transition cursor-pointer"
                   >
-                    En attente ({pendingRequests.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNotifsSubTab("processed")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      notifsSubTab === "processed"
-                        ? "bg-[#985810] text-white shadow-sm"
-                        : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    Traitées ({processedRequests.length})
+                    <RotateCw size={13} className={notifsLoading || processedLoading ? "animate-spin text-[#985810]" : ""} />
+                    <span>Actualiser</span>
                   </button>
                 </div>
               </div>
 
               {/* ─── Lien d'invitation (canaux privés uniquement) ─── */}
-              {canal.type === "private" && canal.inviteCode && (
+              {canal.type === "private" && (inviteUrl || canal.inviteCode) && (
                 <div className="mb-5 rounded-2xl border border-amber-800/40 bg-amber-950/20 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Link2 size={15} className="text-amber-400 shrink-0" />
                     <h4 className="text-xs font-bold text-amber-300">Lien d&apos;invitation</h4>
                   </div>
                   <p className="text-[11px] text-gray-400 mb-3">
-                    Partagez ce code avec des personnes de confiance. Elles devront soumettre une demande que vous pourrez accepter ou refuser.
+                    Partagez ce lien avec des personnes de confiance. Elles devront soumettre une demande que vous pourrez accepter ou refuser.
                   </p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 min-w-0 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2">
                       <p className="text-[12px] font-mono font-semibold text-amber-200 truncate select-all tracking-wide">
-                        {canal.inviteCode}
+                        {inviteUrl || canal.inviteCode}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={handleCopyInviteLink}
-                      title="Copier le code d'invitation"
+                      title="Copier le lien d'invitation"
                       className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${
                         linkCopied
                           ? "bg-emerald-700 text-white"

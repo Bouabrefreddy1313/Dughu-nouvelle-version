@@ -91,7 +91,14 @@ export function mapCanal(raw: any): Canal {
     isAdmin: bool(item?.is_admin ?? item?.isAdmin),
     isJoined: bool(item?.isRejoind ?? item?.is_joined ?? item?.isJoined ?? item?.joined),
     isFavorite: bool(item?.isFavorite ?? item?.is_favorite ?? item?.favorite),
-    inviteCode: item?.invite_code || item?.invite_link ? str(item.invite_code || item.invite_link) : undefined,
+    inviteCode: item?.invite_code
+      ? str(item.invite_code)
+      : item?.invite_link
+      ? (str(item.invite_link).includes("/p/")
+          ? str(item.invite_link).split("/p/").pop()?.split(/[?#]/)[0]
+          : str(item.invite_link))
+      : undefined,
+    inviteLink: item?.invite_link ? str(item.invite_link) : undefined,
     publicToken: item?.public_token || item?.unique_identifier ? str(item.public_token || item.unique_identifier) : undefined,
     createdAt: toIso(item?.created_at ?? item?.createdAt),
     userId: str(pick(item, ["autor_id", "author_id", "user_id", "userId", "owner_id"])),
@@ -351,14 +358,31 @@ export function mapCanalDocumentList(raw: any): CanalDocument[] {
 
 /** Normalise une notification de canal. */
 export function mapCanalNotification(raw: any): CanalNotification {
-  const senderName = str(raw?.sender_name ?? raw?.user_name ?? raw?.user?.name ?? raw?.name ?? raw?.fullName ?? "")
-  const rawAvatar = str(raw?.sender_avatar ?? raw?.user_avatar ?? raw?.user?.avatar ?? raw?.avatar ?? raw?.photo ?? "")
+  const senderName = str(
+    raw?.notifier?.fullName ??
+      raw?.notifier?.name ??
+      raw?.sender_name ??
+      raw?.user_name ??
+      raw?.user?.name ??
+      raw?.name ??
+      raw?.fullName ??
+      ""
+  )
+  const rawAvatar = str(
+    raw?.notifier?.avatar ??
+      raw?.sender_avatar ??
+      raw?.user_avatar ??
+      raw?.user?.avatar ??
+      raw?.avatar ??
+      raw?.photo ??
+      ""
+  )
   const senderAvatar = rawAvatar ? normalizeCanalMediaUrl(rawAvatar) : undefined
   const requestId = str(pick(raw, ["request_id", "requestId", "id", "notification_id"]))
 
   return {
     id: str(pick(raw, ["id", "notification_id"])),
-    userId: str(pick(raw, ["user_id", "userId"])),
+    userId: str(pick(raw, ["user_id", "userId"]) || raw?.notifier?.user_id),
     canalId: str(pick(raw, ["canal_id", "canalId"])),
     type: str(raw?.type ?? raw?.notification_type),
     content: str(raw?.content ?? raw?.message ?? raw?.body ?? raw?.text),

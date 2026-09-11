@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Règle de vérification pour les conversations
+    function isParticipant(conversationData) {
+      return request.auth != null && 
+             conversationData.participants is list &&
+             request.auth.uid in conversationData.participants;
+    }
+
+    // Collection des conversations (production)
+    match /conversations/{conversationId} {
+      allow read: if isParticipant(resource.data);
+      allow create: if isParticipant(request.resource.data);
+      allow update: if isParticipant(resource.data) && isParticipant(request.resource.data);
+      allow delete: if false; // Pas de suppression physique des documents conversation
+
+      // Sous-collection des messages
+      match /messages/{messageId} {
+        allow read: if isParticipant(get(/databases/$(database)/documents/conversations/$(conversationId)).data);
+        allow create: if isParticipant(get(/databases/$(database)/documents/conversations/$(conversationId)).data) &&
+                         request.auth.uid == request.resource.data.from_id;
+        allow update: if isParticipant(get(/databases/$(database)/documents/conversations/$(conversationId)).data);
+        allow delete: if false; // Pas de suppression physique des messages (soft delete via deletedFor / delete map)
+      }
+    }
+
+    // Collection des conversations (test / recette)
+    match /conversations_test/{conversationId} {
+      allow read: if isParticipant(resource.data);
+      allow create: if isParticipant(request.resource.data);
+      allow update: if isParticipant(resource.data) && isParticipant(request.resource.data);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isParticipant(get(/databases/$(database)/documents/conversations_test/$(conversationId)).data);
+        allow create: if isParticipant(get(/databases/$(database)/documents/conversations_test/$(conversationId)).data) &&
+                         request.auth.uid == request.resource.data.from_id;
+        allow update: if isParticipant(get(/databases/$(database)/documents/conversations_test/$(conversationId)).data);
+        allow delete: if false;
+      }
+    }
+  }
+}

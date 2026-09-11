@@ -71,6 +71,8 @@ export interface Canal {
   isFavorite: boolean
   /** Code d'invitation (canaux privés). */
   inviteCode?: string
+  /** Lien d'invitation complet (canaux privés). */
+  inviteLink?: string
   /** Token public pour accès direct (canaux publics). */
   publicToken?: string
   createdAt: string

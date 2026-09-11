@@ -29,10 +29,10 @@ interface ConversationListProps {
   chats: ChatSummary[]
   activeTarget: string
   currentUserId: string
-  readMessageKeys: Record<string, string>
+  readMessageKeys?: Record<string, string>
   loadingChats: boolean
   onSelectChat: (targetId: string) => void
-  onRefreshChats: () => void
+  onRefreshChats?: () => void
   onMarkAllAsRead?: () => void
   // Recherche globale / filtrage
   search: string
@@ -52,7 +52,7 @@ export default function ConversationList({
   chats,
   activeTarget,
   currentUserId,
-  readMessageKeys,
+  readMessageKeys = {},
   loadingChats,
   onSelectChat,
   onRefreshChats,
@@ -108,7 +108,7 @@ export default function ConversationList({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 rounded-2xl p-1.5 shadow-xl">
                 <DropdownMenuItem
-                  onClick={() => onRefreshChats()}
+                  onClick={() => onRefreshChats?.()}
                   className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium"
                 >
                   <RefreshCcw size={16} className={cn(loadingChats && "animate-spin text-[#8B5E34]")} />

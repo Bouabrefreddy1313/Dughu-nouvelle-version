@@ -28,6 +28,8 @@ import {
   Bell,
   Check,
   UserX,
+  Share2,
+  Link2,
 } from "lucide-react"
 import type { Canal } from "@/types/canal/canal.types"
 import {
@@ -63,6 +65,43 @@ export default function CanalChatView({
   const [rightTab, setRightTab] = useState<"media" | "docs" | "requests">("media")
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [settingsInitialTab, setSettingsInitialTab] = useState<"requests" | "members" | "settings">("requests")
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const handleCopyShareLink = () => {
+    if (!activeCanal) return
+    let shareUrl =
+      activeCanal.inviteLink && (activeCanal.inviteLink.startsWith("http://") || activeCanal.inviteLink.startsWith("https://"))
+        ? activeCanal.inviteLink
+        : activeCanal.inviteCode && (activeCanal.inviteCode.startsWith("http://") || activeCanal.inviteCode.startsWith("https://"))
+        ? activeCanal.inviteCode
+        : activeCanal.inviteCode
+        ? `https://testxx.dughu.com/p/${activeCanal.inviteCode}`
+        : activeCanal.id
+        ? `https://testxx.dughu.com/canal?id=${activeCanal.id}`
+        : ""
+
+    if (!shareUrl) return
+    shareUrl = shareUrl.replace(/http:\/\/localhost(:\d+)?/g, "https://testxx.dughu.com")
+    if (activeCanal.id && !shareUrl.includes(`id=${activeCanal.id}`) && !shareUrl.includes(`/canal/${activeCanal.id}`)) {
+      shareUrl += shareUrl.includes("?") ? `&id=${activeCanal.id}` : `?id=${activeCanal.id}`
+    }
+
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2500)
+    }).catch(() => {
+      const textarea = document.createElement("textarea")
+      textarea.value = shareUrl
+      textarea.style.position = "fixed"
+      textarea.style.opacity = "0"
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textarea)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2500)
+    })
+  }
 
   const mediaInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -122,7 +161,13 @@ export default function CanalChatView({
   const { data: notifsData } = useReceivedNotifications(currentUserId, activeCanalId)
   const notifications = notifsData?.notifications ?? []
   const pendingRequests = notifications.filter(
-    (n) => n.status === null || n.status === "" || n.status === "pending"
+    (n) =>
+      !n.status ||
+      n.status === "pending" ||
+      n.status === "0" ||
+      (!n.status.toLowerCase().includes("accept") &&
+        !n.status.toLowerCase().includes("rejet") &&
+        !n.status.toLowerCase().includes("refus"))
   )
 
   // Envoi de message
@@ -356,17 +401,30 @@ export default function CanalChatView({
                   setSettingsInitialTab("requests")
                   setIsSettingsOpen(true)
                 }}
-                className="flex items-center gap-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 px-3 py-1.5 text-xs font-bold text-gray-200 border border-gray-700 transition shadow-sm"
+                className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-sm ${
+                  pendingCount > 0
+                    ? "bg-red-600 hover:bg-red-700 text-white animate-pulse"
+                    : "bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700"
+                }`}
               >
-                <Settings size={14} className="text-[#985810]" />
-                <span className="hidden sm:inline">Gérer le canal</span>
-                {pendingCount > 0 && (
-                  <span className="flex size-5 items-center justify-center rounded-full bg-[#985810] text-[10px] font-extrabold text-white animate-pulse">
-                    {pendingCount}
-                  </span>
-                )}
+                <Settings size={14} className={pendingCount > 0 ? "text-white" : "text-[#985810]"} />
+                <span>Gérer {pendingCount > 0 ? `(${pendingCount})` : ""}</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={handleCopyShareLink}
+              title="Copier le lien d'invitation au canal"
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-sm ${
+                linkCopied
+                  ? "bg-emerald-600 text-white"
+                  : "bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700"
+              }`}
+            >
+              {linkCopied ? <Check size={14} /> : <Share2 size={14} />}
+              <span>{linkCopied ? "Lien copié !" : "Inviter"}</span>
+            </button>
 
             <button
               type="button"
@@ -381,6 +439,36 @@ export default function CanalChatView({
             </button>
           </div>
         </header>
+
+        {/* Bandeau d'alerte demandes d'adhésion en attente */}
+        {(isOwner || activeCanal?.isAdmin) && pendingCount > 0 && (
+          <div className="mx-6 mt-3 flex items-center justify-between rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/50 via-amber-900/40 to-amber-950/50 p-3 shadow-lg backdrop-blur-md">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white shadow animate-pulse">
+                {pendingCount}
+              </span>
+              <div>
+                <p className="text-xs font-bold text-amber-200">
+                  {pendingCount} demande{pendingCount > 1 ? "s" : ""} d'adhésion en attente
+                </p>
+                <p className="text-[11px] text-amber-300/80">
+                  Des utilisateurs attendent votre approbation pour rejoindre ce canal privé.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsInitialTab("requests")
+                setIsSettingsOpen(true)
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 px-3 py-1.5 text-xs font-bold text-black shadow-md transition shrink-0"
+            >
+              <span>Examiner</span>
+              <Check size={13} />
+            </button>
+          </div>
+        )}
 
         {/* Zone des messages */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -667,6 +755,7 @@ export default function CanalChatView({
                               handleJoinMutation.mutate({
                                 requestId: reqId,
                                 userId: currentUserId,
+                                canalId: activeCanalId,
                                 accept: true,
                               })
                             }
@@ -682,6 +771,7 @@ export default function CanalChatView({
                               handleJoinMutation.mutate({
                                 requestId: reqId,
                                 userId: currentUserId,
+                                canalId: activeCanalId,
                                 accept: false,
                               })
                             }

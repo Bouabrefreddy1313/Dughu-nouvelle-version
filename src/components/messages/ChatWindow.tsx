@@ -36,6 +36,8 @@ interface ChatWindowProps {
   messages: ChatMessage[]
   loadingMessages: boolean
   sending: boolean
+  isTyping?: boolean
+  onTyping?: () => void
   onSendMessage: (content: {
     text: string
     image?: File | null
@@ -76,6 +78,8 @@ export default function ChatWindow({
   messages,
   loadingMessages,
   sending,
+  isTyping,
+  onTyping,
   onSendMessage,
   onStartEditMessage,
   onDeleteMessagePrompt,
@@ -548,6 +552,19 @@ export default function ChatWindow({
                 </div>
               )
             })}
+            {isTyping && (
+              <div className="flex items-center gap-2 text-xs text-[#65676B] italic pl-2 py-1 animate-fade-in">
+                <Avatar src={contact?.avatar} name={contact?.name} size="xs" className="h-5 w-5" />
+                <span className="inline-flex items-center gap-1">
+                  {contact?.name || "L'interlocuteur"} est en train d&apos;écrire
+                  <span className="inline-flex gap-0.5 ml-0.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#8B5E34] animate-bounce [animation-delay:-0.3s]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#8B5E34] animate-bounce [animation-delay:-0.15s]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#8B5E34] animate-bounce" />
+                  </span>
+                </span>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -691,7 +708,10 @@ export default function ChatWindow({
             <textarea
               ref={textareaRef}
               value={text}
-              onChange={(e) => setText(e.target.value.slice(0, 500))}
+              onChange={(e) => {
+                setText(e.target.value.slice(0, 500))
+                onTyping?.()
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault()

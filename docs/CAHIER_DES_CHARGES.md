@@ -939,6 +939,60 @@ et accessible depuis l'item **« Mes sauvegardes » de la sidebar gauche**
 * **Responsive** : `MainLayout` sans sidebar droite, colonne max `max-w-3xl`,
   paddings adaptés mobile/desktop (même gabarit que la page Points).
 
+### Messagerie instantanée (Temps réel Firebase Firestore & FCM)
+
+Le module de messagerie instantanée de Dughu a été migré de l'ancienne API REST (Laravel/MySQL) vers **Firebase (Firestore, Firebase Storage et Firebase Cloud Messaging - FCM)**, connecté au projet Firebase historique `dughu-48cd0`. Cette migration préserve l'intégralité des données et conversations existantes sans réinitialisation d'historique.
+
+#### Interfaces de messagerie
+1. **Page complète `/messages`** (`MessagesPageClient`) : interface à deux volets (liste des discussions à gauche ~360px, fenêtre de discussion active à droite `ChatWindow`), adaptée sur mobile avec bascule fluide entre liste et discussion active.
+2. **Popup flottant de discussion** (`ConversationPopup`) : fenêtre ancrée en bas à droite de l'écran, rétractable/dépliable, permettant de chatter tout en naviguant sur le reste de la plateforme.
+3. **Volet latéral des discussions** (`ConversationSidebar`) : tiroir coulissant affichant les discussions récentes, les compteurs non lus et la recherche de contacts.
+
+#### Schéma Firestore & Compatibilité stricte (`dughu-48cd0`)
+* **Collection principale des conversations** : par défaut `conversations` (aligné sur Firestore production et mobile), surchargeable via `NEXT_PUBLIC_FIREBASE_CONVERSATIONS_COLLECTION`.
+  - Identifiant de conversation : `folder` normalisé sous la forme `p0_p1` ou document existant ; recherche bidirectionnelle (`folder in [p0_p1, p1_p0]`) et recherche par `participants array-contains` pour éviter tout doublon de fil.
+  - `participants` : tableau des chaînes d'identifiants utilisateurs `[userIdA, userIdB]`.
+  - `users` : tableau des métadonnées des participants (`id`, `name`, `photo_url`, `username`).
+  - `lastMessage` : chaîne de prévisualisation du dernier message.
+  - `unread` : dictionnaire de compteurs de non-lus par utilisateur (`{ [userId]: number }`).
+  - `typing` : dictionnaire des statuts de frappe en temps réel (`{ [userId]: boolean }`).
+  - `deletedFor` : tableau des utilisateurs ayant masqué ou supprimé la conversation pour eux-mêmes.
+  - `created_at`, `updated_at` : horodatages `Timestamp` Firestore.
+* **Sous-collection des messages** : `conversations/{conversationId}/messages`
+  - `from_id`, `to_id` : identifiants expéditeur et destinataire.
+  - `sender_name`, `avatar` : identité de l'expéditeur au moment de l'envoi.
+  - `text` : contenu textuel (limité à 500 caractères).
+  - `timestamp` : `Timestamp` Firestore ordonnant chronologiquement les messages.
+  - `seen` : booléen ou horodatage d'accusé de réception et de lecture.
+  - `media`, `mediafile`, `file_name`, `mime_type`, `file_size` : pièces jointes (images, vidéos, fichiers audio/documents) hébergées sur Firebase Storage.
+  - `reply_doc_id`, `reply_sender`, `reply_text` : métadonnées de citation/réponse.
+  - `delete` (map `{ [userId]: boolean }`) et `deletedFor` (tableau d'identifiants) : suppression logique pour un utilisateur ou pour tous.
+
+#### Authentification & Sécurité Firebase
+* **Pont d'authentification par Custom Token** : route serveur `GET /api/auth/firebase-token` vérifiant le cookie de session Dughu (`dughu_user_id`). Le SDK `firebase-admin` (strictement `server-only`) émet un jeton personnalisé (`createCustomToken`) transmis au client.
+* Le client Firebase Web SDK initialise la session via `signInWithCustomToken` de manière transparente sans mot de passe Firebase.
+* **Règles de sécurité Firestore (`firestore.rules`)** :
+  - Seuls les participants déclarés dans `request.auth.uid in resource.data.participants` peuvent lire et mettre à jour une conversation.
+  - Seuls les participants déclarés de la conversation parente peuvent lire et créer des messages dans la sous-collection `messages`.
+  - Modification et suppression restreintes à l'expéditeur du message.
+
+#### Fonctionnalités temps réel & Hooks
+* `useConversations(currentUserId)` : écoute en temps réel (`onSnapshot`) des conversations où l'utilisateur participe, triées par `updated_at desc`.
+* `useMessages(conversationId, currentUserId)` : écoute chronologique des messages du fil actif.
+* `useSendMessage()` : création atomique du document message dans Firestore, mise à jour de `lastMessage` et incrémentation de `unread` dans la conversation parente, téléversement des pièces jointes vers Firebase Storage (`chat_attachments/{conversationId}/...`), et notification push FCM.
+* `useTypingIndicator(conversationId, currentUserId)` : indicateur de frappe synchronisé via Firestore avec temporisation (4 secondes) et arrêt automatique à l'envoi ou perte de focus.
+* `useMarkAsSeen(conversationId, currentUserId)` : passage de `seen: true` sur les messages reçus et remise à zéro de `unread[currentUserId]`.
+* `useDeleteMessage(conversationId, currentUserId)` : suppression pour soi (`deletedFor`) ou pour tous (`delete`).
+* `useEditMessage(conversationId, currentUserId)` : modification du texte d'un message existant.
+
+#### Notifications push (FCM)
+* Route interne serveur `POST /api/messages/push` utilisant `firebase-admin/messaging` pour envoyer une notification push vers les jetons d'appareils de l'utilisateur destinataire (`dughu-fcm-token-{targetUserId}`).
+
+#### Nettoyage des anciennes routes REST
+* Les routes REST devenues obsolètes (`/api/messages/chats`, `/api/messages/conversation`, `/api/messages/send`, `/api/messages/update`, `/api/messages/delete`, `/api/messages/delete-conversation`) et les méthodes associées dans `messages.service.ts` ont été intégralement supprimées.
+* Les routes de recherche et fiches de contacts (`/api/messages/contacts`, `/api/messages/contact`) sont conservées pour l'autocomplétion des utilisateurs Dughu.
+
+
 #### Architecture HTTP
 
 * Composant `src/components/saved/SavedPage.tsx` → hooks TanStack Query
@@ -1321,6 +1375,7 @@ quand on s'y trouve, le clic ferme le drawer mobile).
 * **Écran 4 — Modale de gestion et paramètres du canal (`CanalSettingsModal`)** :
   - Accessible depuis l'en-tête du chat, la colonne latérale droite et le bouton « Gérer » sur les cartes de l'onglet « Mes canaux ».
   - Onglet « Demandes d'adhésion & Notifications » :
+    - Pour les canaux privés : bloc d'affichage et de copie du lien d'invitation officiel (`inviteLink` ou `inviteCode`, ex. `https://testxx.dughu.com/p/{code}`), copié et affiché directement sans préfixe `origin/localhost` erroné.
     - Sous-onglets intégrés : « En attente » (`GET /receivedNotifications?user_id={uid}&canal_id={cid}&page={p}`) et « Traitées » (`GET /processedNotifications?user_id={uid}&canal_id={cid}&page={p}`).
     - Actions en 1 clic pour chaque demande : « Accepter » (vert) et « Refuser » (rouge) branchées sur `POST /handleJoinRequest/{requestId}` avec `user_id`, `canal_id` et `accept` (1 ou 0).
     - Suppression d'une notification via bouton corbeille branché sur `DELETE /delecteNotifications/{notificationId}?user_id={uid}&canal_id={cid}` (typo backend `delecte` respectée).
@@ -1994,8 +2049,25 @@ La barre latérale droite (`RightSidebar`) propose un ensemble de raccourcis, su
 * **Navigation** : chaque hashtag est cliquable et ouvre la page de filtrage par hashtag (`/hashtags/${tag}`).
 * **Lien explorer** : le bouton « Explorer » dans l'en-tête de la carte ouvre la page des tendances (`/tendances`).
 
-
-
-
-
-
+### Canaux (« Canaux de diffusion »)
+* **Gestion des canaux privés et demandes d'adhésion** :
+  - **Canaux publics** : adhésion directe immédiate par tout utilisateur.
+  - **Canaux privés** : requièrent une validation d'adhésion par l'administrateur/créateur du canal ou un lien d'invitation direct (`/p/:inviteCode`).
+  - **Demandes d'adhésion reçues** :
+    - Les demandes d'adhésion (`canal_join_request`) sont visibles dès la liste des canaux (« Mes canaux » via `CanalCard.tsx`) grâce à un badge numérique pulsant sur la bannière et un bouton d'accès direct « Demandes (X) ».
+    - Dans la vue chat (`CanalChatView.tsx`), un bandeau d'alerte bien visible en haut du fil de discussion prévient immédiatement le propriétaire du nombre de demandes en attente avec un bouton « Examiner ».
+    - Dans la modale de gestion du canal (`CanalSettingsModal`), l'onglet « Demandes » affiche la liste complète avec sous-onglets « En attente » et « Traitées » ainsi qu'un bouton d'actualisation manuelle.
+    - Le service serveur `getReceivedNotifications` interroge l'endpoint `/receivedNotifications` avec un repli intelligent vers les notifications utilisateur (`/getNotifications/:userId`) associées au canal (par slug ou extraction textuelle précise du nom normalisé insensible aux accents) afin de garantir que toutes les demandes en attente s'affichent exhaustivement.
+    - Les endpoints miroirs directs (`/api/receivedNotifications`, `/api/processedNotifications`, `/api/requestJoinCanal`, `/api/handleJoinRequest/:requestId`) sont disponibles pour les requêtes de l'application et les intégrations API externes / Postman, supportant indifféremment les formats de paramètres snake_case (`canal_id`, `user_id`) et camelCase (`canalId`, `userId`).
+    - Le filtre UI n'exclut aucune demande non traitée (affiche les statuts `pending`, `0`, `null`, `""`).
+    - Chaque demande présente la photo et le nom du demandeur (`notifier`), la date de la demande et les boutons d'action « Accepter » et « Refuser ».
+    - L'acceptation ou le refus (`handleJoinRequest`) met à jour le statut, finalise la notification et rafraîchit automatiquement la liste des membres adhérents et le compteur de demandes.
+  - **Partage de lien et adhésion via lien d'invitation (`JoinCanalModal`)** :
+    - Des boutons d'invitation et de copie de lien sont disponibles dans la vue chat (`CanalChatView`), les cartes de canal (`CanalCard`) et les paramètres (`CanalSettingsModal`). Le lien généré utilise l'URL officielle Dughu (`inviteLink` ou `https://testxx.dughu.com/p/:code?id=:id`) et ne contient **jamais** l'adresse locale `http://localhost:3000`.
+    - Les URLs courtes d'invitation (`/p/:code`) sont automatiquement redirigées vers `/canal?code=:code` (avec conservation de l'identifiant de canal `id`).
+    - Lorsqu'un utilisateur clique sur un lien d'invitation ou partagé et arrive sur la page `/canal` (avec paramètres `id`, `canalId` ou `code`), une fenêtre modale d'adhésion dédiée (`JoinCanalModal`) s'ouvre automatiquement par-dessus la page.
+    - La modale présente la couverture, le logo, le nom, la catégorie, le nombre de membres, la description et le badge « Canal privé » du canal concerné.
+    - Elle demande explicitement à l'utilisateur s'il souhaite rejoindre le canal ou non, avec deux options : « Refuser » (ferme la modale et nettoie l'URL sans rechargement) et « Rejoindre le canal » / « Envoyer la demande ».
+    - Pour un canal privé, la confirmation déclenche l'envoi de la demande via l'endpoint dédié `POST {{local_dughu}}/requestJoinCanal` (`POST /api/requestJoinCanal` avec `user_id` et `canal_id`).
+    - Un retour visuel immédiat (état d'envoi avec spinner, bandeau de succès confirmant la transmission au créateur du canal, ou gestion des erreurs) est affiché.
+    - Si l'utilisateur est déjà le créateur du canal ou déjà membre, la modale l'en informe directement et lui propose un bouton d'accès direct vers la discussion.

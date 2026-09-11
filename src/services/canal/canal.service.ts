@@ -225,6 +225,24 @@ export async function joinOrRequestCanal(
   }
 }
 
+/** POST /api/requestJoinCanal — demande d'adhésion explicite pour canal privé. */
+export async function requestJoinCanal(
+  userId: string,
+  canalId: string,
+  signal?: AbortSignal
+): Promise<CanalMutationResponse> {
+  try {
+    const res = await apiClient.post<CanalMutationResponse>(
+      "/requestJoinCanal",
+      { user_id: userId, canal_id: canalId },
+      { signal }
+    )
+    return res.data
+  } catch (error) {
+    throw toServiceApiError(error, "Impossible d'envoyer la demande d'adhésion.")
+  }
+}
+
 /** POST /api/canal/leave — quitter un canal. */
 export async function leaveCanal(
   userId: string,

@@ -13,7 +13,8 @@
  *  - Clic "+ Créer un canal" : ouvre Écran 2 (CreateCanalModal)
  */
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import {
   Compass,
@@ -38,6 +39,7 @@ import CanalCard from "./CanalCard"
 import CreateCanalModal from "./CreateCanalModal"
 import CanalChatView from "./CanalChatView"
 import CanalSettingsModal from "./CanalSettingsModal"
+import JoinCanalModal from "./JoinCanalModal"
 
 type TabType = "explorer" | "mine" | "joined" | "favorites"
 
@@ -49,10 +51,28 @@ export default function CanalPage() {
   const [search, setSearch] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
 
-  // Modale création, Chat plein écran & Gestion canal
+  // Navigation & URL query params (liens d'invitation / partage)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const urlCanalId =
+    searchParams.get("id") ||
+    searchParams.get("canalId") ||
+    searchParams.get("canal_id") ||
+    searchParams.get("canal") ||
+    searchParams.get("join") ||
+    ""
+  const urlInviteCode =
+    searchParams.get("code") ||
+    searchParams.get("invite") ||
+    searchParams.get("inviteCode") ||
+    ""
+
+  // Modale création, Chat plein écran, Gestion canal & Demande d'adhésion
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [selectedCanalForChat, setSelectedCanalForChat] = useState<Canal | null>(null)
   const [managingCanal, setManagingCanal] = useState<Canal | null>(null)
+  const [targetCanalIdForJoin, setTargetCanalIdForJoin] = useState<string | null>(null)
+  const [targetCanalForJoin, setTargetCanalForJoin] = useState<Canal | null>(null)
 
   // Catégories
   const { data: rawCategories = [] } = usePossibleCategories()
@@ -100,6 +120,34 @@ export default function CanalPage() {
     (currentTab === "mine" && mineQuery.isLoading) ||
     (currentTab === "joined" && joinedQuery.isLoading) ||
     (currentTab === "favorites" && favoritesQuery.isLoading)
+
+  // Détection d'un canal cible passé dans l'URL (lien partagé ou invitation)
+  useEffect(() => {
+    if (urlCanalId) {
+      setTargetCanalIdForJoin(urlCanalId)
+    } else if (urlInviteCode) {
+      const match = explorerQuery.data?.canals?.find(
+        (c) =>
+          c.inviteCode === urlInviteCode ||
+          c.inviteLink?.includes(urlInviteCode)
+      )
+      if (match) {
+        setTargetCanalForJoin(match)
+        setTargetCanalIdForJoin(match.id)
+      }
+    }
+  }, [urlCanalId, urlInviteCode, explorerQuery.data?.canals])
+
+  const handleCloseJoinModal = () => {
+    setTargetCanalIdForJoin(null)
+    setTargetCanalForJoin(null)
+    router.replace("/canal", { scroll: false })
+  }
+
+  const handleOpenChatFromJoinModal = (canal: Canal) => {
+    setSelectedCanalForChat(canal)
+    handleCloseJoinModal()
+  }
 
   return (
     <MainLayout user={rawUser} noRightSidebar active="canal" reserveLeftSidebar wide>
@@ -327,6 +375,20 @@ export default function CanalPage() {
           isOpen={!!managingCanal}
           onClose={() => setManagingCanal(null)}
           initialTab="requests"
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* Modale "Rejoindre le canal" (Clic sur un lien d'invitation) */}
+      {/* ========================================================================= */}
+      {targetCanalIdForJoin && (
+        <JoinCanalModal
+          canalId={targetCanalIdForJoin}
+          initialCanal={targetCanalForJoin}
+          currentUserId={userId}
+          isOpen={!!targetCanalIdForJoin}
+          onClose={handleCloseJoinModal}
+          onOpenChat={handleOpenChatFromJoinModal}
         />
       )}
     </MainLayout>

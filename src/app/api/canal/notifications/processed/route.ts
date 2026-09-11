@@ -14,8 +14,10 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const page = Math.max(1, Number(searchParams.get("page")) || 1)
-    const canalId = String(searchParams.get("canalId") || "")
-    const userId = String(searchParams.get("userId") || "") || (await getDughuUserIdFromCookies())
+    const canalId = String(searchParams.get("canalId") || searchParams.get("canal_id") || "")
+    const userId =
+      String(searchParams.get("userId") || searchParams.get("user_id") || "") ||
+      (await getDughuUserIdFromCookies())
 
     if (!userId) {
       return NextResponse.json<CanalNotificationsResponse>(

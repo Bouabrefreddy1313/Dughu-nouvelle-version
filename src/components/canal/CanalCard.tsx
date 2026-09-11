@@ -25,6 +25,8 @@ import {
   Settings,
   ShieldCheck,
   Calendar,
+  Bell,
+  Share2,
 } from "lucide-react"
 import type { Canal } from "@/types/canal/canal.types"
 import {
@@ -32,6 +34,7 @@ import {
   useLeaveCanal,
   useToggleFavorite,
 } from "@/hooks/canal/use-canals"
+import { useReceivedNotifications } from "@/hooks/canal/use-canal-notifications"
 
 interface CanalCardProps {
   canal: Canal
@@ -66,6 +69,13 @@ export default function CanalCard({
   const [coverSrc, setCoverSrc] = useState(canal.cover || "/images/cover.jpg")
   const [logoSrc, setLogoSrc] = useState(canal.logo || "/images/avatar.png")
 
+  // Demandes d'adhésion en attente (propriétaire)
+  const { data: notifsData } = useReceivedNotifications(
+    isOwner ? currentUserId : undefined,
+    isOwner ? canal.id : undefined
+  )
+  const pendingRequestsCount = notifsData?.notifications?.length || 0
+
   useEffect(() => {
     setCoverSrc(canal.cover || "/images/cover.jpg")
   }, [canal.cover])
@@ -77,6 +87,43 @@ export default function CanalCard({
   const toggleFavMutation = useToggleFavorite()
   const joinMutation = useJoinOrRequestCanal()
   const leaveMutation = useLeaveCanal()
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const handleCopyLink = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    let shareUrl =
+      canal.inviteLink && (canal.inviteLink.startsWith("http://") || canal.inviteLink.startsWith("https://"))
+        ? canal.inviteLink
+        : canal.inviteCode && (canal.inviteCode.startsWith("http://") || canal.inviteCode.startsWith("https://"))
+        ? canal.inviteCode
+        : canal.inviteCode
+        ? `https://testxx.dughu.com/p/${canal.inviteCode}`
+        : canal.id
+        ? `https://testxx.dughu.com/canal?id=${canal.id}`
+        : ""
+
+    if (!shareUrl) return
+    shareUrl = shareUrl.replace(/http:\/\/localhost(:\d+)?/g, "https://testxx.dughu.com")
+    if (canal.id && !shareUrl.includes(`id=${canal.id}`) && !shareUrl.includes(`/canal/${canal.id}`)) {
+      shareUrl += shareUrl.includes("?") ? `&id=${canal.id}` : `?id=${canal.id}`
+    }
+
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2500)
+    }).catch(() => {
+      const textarea = document.createElement("textarea")
+      textarea.value = shareUrl
+      textarea.style.position = "fixed"
+      textarea.style.opacity = "0"
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textarea)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2500)
+    })
+  }
 
   const handleToggleFav = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -170,6 +217,21 @@ export default function CanalCard({
             <Users size={13} className="text-[#d48937]" />
             <span>{canal.memberCount || 0}</span>
           </span>
+
+          {isOwner && pendingRequestsCount > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onManage ? onManage(canal) : onClick?.()
+              }}
+              title="Demandes d'adhésion en attente"
+              className="flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-700 px-3 py-1 text-xs font-bold text-white shadow-md animate-pulse transition"
+            >
+              <Bell size={12} />
+              <span>{pendingRequestsCount} demande{pendingRequestsCount > 1 ? "s" : ""}</span>
+            </button>
+          )}
         </div>
 
         {/* Bouton Favori */}
@@ -221,6 +283,35 @@ export default function CanalCard({
                   Ouvrir le chat
                 </button>
 
+                {isOwner && pendingRequestsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onManage ? onManage(canal) : onClick?.()
+                    }}
+                    title="Voir les demandes d'adhésion"
+                    className="flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition animate-pulse"
+                  >
+                    <Bell size={13} />
+                    <span className="hidden sm:inline">Demandes</span>
+                    <span>({pendingRequestsCount})</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  title="Copier le lien d'invitation"
+                  className={`flex size-8 items-center justify-center rounded-xl transition ${
+                    linkCopied
+                      ? "bg-emerald-100 text-emerald-700 font-bold"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {linkCopied ? <Check size={14} /> : <Share2 size={14} />}
+                </button>
+
                 {isOwner ? (
                   <button
                     type="button"
@@ -230,9 +321,14 @@ export default function CanalCard({
                       else onClick?.()
                     }}
                     title="Gérer le canal & demandes d'adhésion"
-                    className="flex size-8 items-center justify-center rounded-xl bg-gray-100 text-gray-700 transition hover:bg-gray-200"
+                    className="relative flex size-8 items-center justify-center rounded-xl bg-gray-100 text-gray-700 transition hover:bg-gray-200"
                   >
                     <Settings size={14} />
+                    {pendingRequestsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-bold text-white">
+                        {pendingRequestsCount}
+                      </span>
+                    )}
                   </button>
                 ) : (
                   <button

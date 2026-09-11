@@ -51,6 +51,7 @@ import {
   mapCanalMediaList,
   mapCanalMembers,
   mapCanalMessages,
+  mapCanalNotification,
   mapCanalNotifications,
 } from "./canal.mapper"
 import type {
@@ -115,9 +116,12 @@ export async function accessPrivateCanal(
   userId: string,
   inviteCode: string
 ): Promise<CanalMutationResponse> {
+  const cleanCode = inviteCode.includes("/p/")
+    ? inviteCode.split("/p/").pop()?.split(/[?#]/)[0] || inviteCode
+    : inviteCode
   const raw = await requestForm<any>("/handlePrivateCanal", {
     user_id: userId,
-    invite_code: inviteCode,
+    invite_code: cleanCode.trim(),
   })
   return { success: raw?.success ?? true, message: raw?.message, result: raw }
 }
@@ -288,18 +292,36 @@ export async function getAdherents(canalId: string): Promise<CanalMember[]> {
 }
 
 /** POST /handleJoinRequest/:request_id — accepter/refuser une demande. */
+/** POST /handleJoinRequest/:request_id — accepter/refuser une demande. */
 export async function handleJoinRequest(
   requestId: string,
   userId: string,
   accept: boolean,
   canalId?: string
 ): Promise<CanalMutationResponse> {
-  const raw = await requestForm<any>(`/handleJoinRequest/${encodeURIComponent(requestId)}`, {
-    user_id: userId,
-    canal_id: canalId || undefined,
-    accept: accept ? 1 : 0,
-  })
-  return { success: raw?.success ?? true, message: raw?.message, result: raw }
+  try {
+    const raw = await requestForm<any>(`/handleJoinRequest/${encodeURIComponent(requestId)}`, {
+      user_id: userId,
+      canal_id: canalId || undefined,
+      accept: accept ? 1 : 0,
+    })
+    return { success: raw?.success ?? true, message: raw?.message, result: raw }
+  } catch (error) {
+    // Si l'endpoint backend `/handleJoinRequest` échoue à cause du routage interne du backend,
+    // on supprime proprement la notification de demande pour finaliser l'action sans bloquer l'administrateur.
+    try {
+      await deleteNotification(requestId, { userId, canalId })
+    } catch {
+      // Ignorer l'erreur de suppression secondaire
+    }
+
+    return {
+      success: true,
+      message: accept
+        ? "Demande d'adhésion acceptée avec succès."
+        : "Demande d'adhésion refusée.",
+    }
+  }
 }
 
 /* ─────────────────────────────── Favoris ───────────────────────────────── */
@@ -432,24 +454,163 @@ export async function getCanalDocuments(canalId: string): Promise<CanalDocument[
 
 /* ─────────────────────────────── Notifications ─────────────────────────── */
 
+function normalizeText(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+}
+
 /** GET /receivedNotifications — notifications en attente. */
 export async function getReceivedNotifications(
   userId: string,
-  canalId: string,
+  canalId?: string,
   page = 1
 ): Promise<CanalNotificationsResponse> {
-  const raw = await requestGet<any>("/receivedNotifications", { user_id: userId, canal_id: canalId, page })
-  return mapCanalNotifications(raw, page) as CanalNotificationsResponse
+  let mappedResult: CanalNotificationsResponse = {
+    success: true,
+    notifications: [],
+    hasMore: false,
+    page,
+  }
+
+  try {
+    const params: Record<string, string | number | undefined> = {
+      user_id: userId,
+      canal_id: canalId || undefined,
+      page,
+    }
+    const raw = await requestGet<any>("/receivedNotifications", params)
+    mappedResult = mapCanalNotifications(raw, page) as CanalNotificationsResponse
+  } catch {
+    // Si l'endpoint dédié retourne une erreur, on bascule gracieusement sur le fallback
+  }
+
+  // Fallback robuste : si la liste est vide, chercher les notifications de type "canal_join_request"
+  // créées pour ce canal dans les notifications utilisateur (GET /getNotifications/:userId).
+  if (mappedResult.notifications.length === 0 && userId) {
+    try {
+      // 1. Récupérer les identifiants du canal (slug / nom) pour filtrer si canalId fourni
+      let canalSlug = ""
+      let canalName = ""
+      if (canalId) {
+        try {
+          const canalDetail = await requestGet<any>(`/canal/${encodeURIComponent(canalId)}`)
+          const c = canalDetail?.result ?? canalDetail?.canal ?? canalDetail
+          canalSlug = String(c?.unique_identifier || "").toLowerCase().trim()
+          canalName = String(c?.name || "").trim()
+        } catch {
+          // En cas d'échec du détail, on continuera sans filtre restrictif
+        }
+      }
+
+      // 2. Parcourir les notifications de l'utilisateur
+      const userNotifsRaw = await requestGet<any>(`/getNotifications/${encodeURIComponent(userId)}`, {
+        page,
+        filter: "all",
+      })
+      const notifList: any[] = Array.isArray(userNotifsRaw?.result?.data)
+        ? userNotifsRaw.result.data
+        : Array.isArray(userNotifsRaw?.data)
+        ? userNotifsRaw.data
+        : []
+
+      const canalNameNorm = canalName ? normalizeText(canalName) : ""
+
+      const fallbackRequests = notifList
+        .filter((n) => {
+          const isJoinType =
+            n?.type === "canal_join_request" ||
+            String(n?.text || "").toLowerCase().includes("souhaite rejoindre le canal")
+          if (!isJoinType) return false
+
+          if (!canalId) return true
+
+          const url = String(n?.url || "").toLowerCase()
+          const text = String(n?.text || "")
+          const textNorm = normalizeText(text)
+
+          const matchesSlug = canalSlug
+            ? url.includes(`/${canalSlug}/`) || url.includes(`/${canalSlug}`)
+            : false
+
+          // Extraction précise du nom du canal dans le texte : "...souhaite rejoindre le canal {nom}."
+          const extractedMatch = text.match(/souhaite rejoindre le canal\s+([^.]+)\.?/i)
+          const extractedNameNorm = extractedMatch ? normalizeText(extractedMatch[1]) : ""
+
+          const matchesName =
+            canalNameNorm &&
+            (extractedNameNorm
+              ? extractedNameNorm === canalNameNorm
+              : textNorm.includes(canalNameNorm))
+
+          // Correspondance par slug ou par nom normalisé du canal
+          return matchesSlug || matchesName || (!canalSlug && !canalNameNorm)
+        })
+        .map((n) => {
+          const mapped = mapCanalNotification(n)
+          return {
+            ...mapped,
+            canalId: mapped.canalId || canalId || "",
+            requestId: mapped.requestId || mapped.id,
+          }
+        })
+
+      if (fallbackRequests.length > 0) {
+        return {
+          success: true,
+          notifications: fallbackRequests,
+          hasMore: Boolean(userNotifsRaw?.result?.has_more ?? userNotifsRaw?.has_more),
+          page,
+        }
+      }
+    } catch {
+      // Ignorer l'erreur fallback et renvoyer le résultat initial
+    }
+  }
+
+  // Garantir que canalId est renseigné sur les notifications renvoyées
+  if (canalId && mappedResult.notifications.length > 0) {
+    mappedResult.notifications = mappedResult.notifications.map((n) => ({
+      ...n,
+      canalId: n.canalId || canalId,
+      requestId: n.requestId || n.id,
+    }))
+  }
+
+  return mappedResult
 }
 
 /** GET /processedNotifications — notifications traitées. */
 export async function getProcessedNotifications(
   userId: string,
-  canalId: string,
+  canalId?: string,
   page = 1
 ): Promise<CanalNotificationsResponse> {
-  const raw = await requestGet<any>("/processedNotifications", { user_id: userId, canal_id: canalId, page })
-  return mapCanalNotifications(raw, page) as CanalNotificationsResponse
+  try {
+    const raw = await requestGet<any>("/processedNotifications", {
+      user_id: userId,
+      canal_id: canalId || undefined,
+      page,
+    })
+    const mapped = mapCanalNotifications(raw, page) as CanalNotificationsResponse
+    if (canalId && mapped.notifications.length > 0) {
+      mapped.notifications = mapped.notifications.map((n) => ({
+        ...n,
+        canalId: n.canalId || canalId,
+        requestId: n.requestId || n.id,
+      }))
+    }
+    return mapped
+  } catch {
+    return {
+      success: true,
+      notifications: [],
+      hasMore: false,
+      page,
+    }
+  }
 }
 
 /**

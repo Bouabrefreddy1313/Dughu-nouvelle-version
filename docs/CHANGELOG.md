@@ -11,8 +11,106 @@ Chaque entrée doit contenir :
 * modifications principales ;
 * éventuelles corrections importantes.
 
-## 2026-09-10
-### Correction — Compteur « interactions : N » toujours à 0 sur les cartes de posts
+## 2026-09-11
+### Correctif — Ordre des hooks React dans `CanalSettingsModal.tsx`
+
+* **Symptôme** : avertissement/erreur React « *React has detected a change in the order of Hooks called by CanalSettingsModal* » lors de l'ouverture/fermeture de la modale.
+* **Cause** : le hook `inviteUrl = useMemo(...)` était positionné après la condition de retour anticipé `if (!isOpen) return null`.
+* **Solution** : repositionnement de `useMemo` au niveau supérieur avec l'ensemble des hooks déclaratifs avant toute condition de sortie, rétablissant l'ordre strict des hooks à chaque rendu.
+
+### Fonctionnalité — Popup de demande d'adhésion lors du clic sur un lien de canal (`JoinCanalModal`)
+
+* **Contexte & Besoin** : lorsqu'un utilisateur clique sur un lien de canal envoyé par un autre membre (ex: `/canal?id=24`, `/canal?code=...` ou `/p/:code`), il doit arriver sur la page canal avec une fenêtre modale lui demandant clairement s'il souhaite rejoindre le canal ou non, déclenchant l'endpoint `POST {{local_dughu}}/requestJoinCanal` pour les canaux privés.
+* **Modifications et nouveautés** :
+  - **Composant `JoinCanalModal.tsx`** :
+    - Modale responsive et soignée présentant le profil du canal (bannière de couverture, logo, nom, catégorie, nombre de membres, description, badge « Canal privé »).
+    - Propose deux choix explicites : « Refuser » (ferme la modale et nettoie l'URL sans recharger la page) et « Rejoindre le canal » / « Envoyer la demande ».
+    - Envoi asynchrone via le hook `useRequestJoinCanal` qui appelle le service frontend `requestJoinCanal` puis l'endpoint `POST /api/requestJoinCanal` (`POST {{local_dughu}}/requestJoinCanal`).
+    - Retour visuel complet : état d'envoi avec spinner, bandeau de succès confirmant la notification du propriétaire, alertes d'erreur explicites.
+    - Prise en charge intelligente des statuts : notification et bouton d'accès direct si l'utilisateur est déjà le créateur ou déjà membre du canal.
+  - **Détection des paramètres d'URL dans `CanalPage.tsx`** :
+    - Écoute des paramètres d'URL `id`, `canalId`, `canal_id`, `canal`, `join`, `code`, `invite`.
+    - Ouverture automatique de la modale `JoinCanalModal` pour le canal ciblé.
+    - Encadrement dans un `Suspense` boundary dans `src/app/(protected)/canal/page.tsx` garantissant la conformité Next.js App Router.
+  - **Route de redirection courte `/p/[code]`** :
+    - Création de `src/app/(protected)/p/[code]/page.tsx` pour rediriger automatiquement les liens courts `/p/:code` vers `/canal?code=:code`.
+  - **Génération et partage des liens de canal** :
+    - Bouton « Inviter » dans l'en-tête de la vue chat (`CanalChatView.tsx`) copiant directement le lien officiel du canal.
+    - Bouton de copie rapide de lien dans les cartes de canal (`CanalCard.tsx`).
+    - Alignement de `CanalSettingsModal.tsx`, `CanalChatView.tsx` et `CanalCard.tsx` pour utiliser l'URL officielle (`inviteLink` ou `https://testxx.dughu.com/p/:code?id=:id`), en interdisant formellement l'adresse locale `http://localhost:3000`.
+  - **Cahier des charges & documentation** :
+    - Mise à jour de `docs/CAHIER_DES_CHARGES.md`.
+
+### Amélioration & Alignement complet — Endpoints et visibilité des demandes d'adhésion aux canaux privés
+
+* **Contexte & Symptôme** : l'administrateur d'un canal privé indiquait ne toujours pas voir les demandes d'adhésion et fournissait la spécification des 4 endpoints Postman (`GET /receivedNotifications`, `GET /processedNotifications`, `POST /requestJoinCanal`, `POST /handleJoinRequest/:requestId`).
+* **Causes identifiées** :
+  - **Absence de visibilité proactive** : sur les cartes des canaux dans « Mes canaux », aucun badge n'indiquait la présence de demandes en attente, obligeant à ouvrir manuellement la modale.
+  - **Masquage responsive dans le chat** : la colonne latérale droite de `CanalChatView` (contenant l'onglet Demandes) est masquée sur mobiles/tablettes (`hidden lg:flex`).
+  - **Précision du matching textuel** : les demandes d'adhésion générées par le backend Dughu contiennent le nom du canal dans le corps du texte (`...souhaite rejoindre le canal {nom}.`), mais le canal pouvait contenir des caractères accentués ou une absence de slug dans l'URL (`/canal//chat`).
+  - **Endpoints Postman directs** : les requêtes directes vers `/api/receivedNotifications`, `/api/processedNotifications`, `/api/requestJoinCanal` ou `/api/handleJoinRequest/:requestId` n'avaient pas de route handlers miroirs immédiats acceptant indifféremment les conventions de nommage de paramètres (`canal_id` et `canalId`, `user_id` et `userId`).
+* **Modifications et correctifs appliqués** :
+  - **Création des route handlers miroirs directs** :
+    - `src/app/api/receivedNotifications/route.ts` (GET avec `user_id`, `canal_id`, `page`).
+    - `src/app/api/processedNotifications/route.ts` (GET avec `user_id`, `canal_id`, `page`).
+    - `src/app/api/requestJoinCanal/route.ts` (POST avec `user_id`, `canal_id`).
+    - `src/app/api/handleJoinRequest/[requestId]/route.ts` et `src/app/api/handleJoinRequest/route.ts` (POST avec `user_id`, `canal_id`, `accept`).
+  - **Enrichissement de `canal.server.ts`** :
+    - Extraction textuelle par expression régulière précise (`souhaite rejoindre le canal\s+([^.]+)\.?`) avec normalisation insensible aux accents et à la casse (`normalizeText`).
+    - Injection systématique et garantie de `canalId` dans les notifications renvoyées afin d'éviter tout champ vide.
+  - **Améliorations de l'interface utilisateur** :
+    - Dans [CanalCard.tsx](file:///c:/Users/HP/dughu/src/components/canal/CanalCard.tsx) : ajout d'un badge rouge pulsant sur la bannière et d'un bouton direct `Demandes (X)` permettant d'accéder instantanément à la modale de gestion du canal avec l'onglet des demandes présélectionné.
+    - Dans [CanalChatView.tsx](file:///c:/Users/HP/dughu/src/components/canal/CanalChatView.tsx) : ajout d'un bandeau d'alerte en haut de la conversation visible sur tous les écrans (desktop, tablette, mobile) lorsqu'il y a des demandes en attente, avec bouton « Examiner » et bouton « Gérer » dans le header animé en rouge.
+    - Dans [CanalSettingsModal.tsx](file:///c:/Users/HP/dughu/src/components/canal/CanalSettingsModal.tsx) : ajout d'un bouton « Actualiser » permettant de rafraîchir à tout moment la liste des demandes en attente et traitées.
+
+### Correctif — Lien d'invitation des canaux privés (suppression du préfixe localhost)
+
+* **Contexte & Symptôme** : lors de la copie du lien d'invitation d'un canal privé depuis `CanalSettingsModal`, le lien généré contenait un préfixe local erroné du type `http://localhost:3000/canal?invite=https://testxx.dughu.com/p/...`.
+* **Cause identifiée** :
+  - La fonction de copie concaténait aveuglément `${window.location.origin}/canal?invite=` avec `canal.inviteCode`, alors que le backend Dughu renvoie déjà l'URL d'invitation absolue et officielle (`https://testxx.dughu.com/p/{code}` via `invite_link`).
+* **Correctifs appliqués** :
+  - Dans [CanalSettingsModal.tsx](file:///c:/Users/HP/dughu/src/components/canal/CanalSettingsModal.tsx), calcul résilient de `inviteUrl` qui copie et affiche directement l'URL d'invitation officielle (`inviteLink` ou `inviteCode` complet) sans préfixe `origin/localhost`.
+  - Dans [canal.types.ts](file:///c:/Users/HP/dughu/src/types/canal/canal.types.ts) et [canal.mapper.ts](file:///c:/Users/HP/dughu/src/services/canal/canal.mapper.ts), typage et normalisation distincts de `inviteLink` et `inviteCode`.
+  - Dans [canal.server.ts](file:///c:/Users/HP/dughu/src/services/canal/canal.server.ts), assainissement défensif du code dans `accessPrivateCanal` (extraction du code si une URL `/p/...` est transmise).
+
+### Correctif — Alignement de la collection Firestore et résolution des conversations
+
+* **Contexte & Symptôme** : les messages envoyés depuis l'environnement de développement semblaient ne pas arriver dans Firebase Console ni chez l'interlocuteur.
+* **Causes identifiées** :
+  - La constante `CONVERSATIONS_COLLECTION` basculait par défaut sur `conversations_test` en mode développement (`NODE_ENV !== "production"`), alors que la console Firebase, les clients mobiles et les utilisateurs réels opèrent sur la collection standard `conversations`.
+  - La recherche de conversation existante `getOrCreateConversation` ne testait qu'un seul ordre de dossier (`folder == p0_p1`) et une égalité stricte de tableau de participants, risquant de créer un fil distinct si l'interlocuteur avait initié la discussion dans l'ordre inverse (`p1_p0`).
+  - Gestion résiliente de `ensureFirebaseAuth` en cas d'absence d'Identity Platform / Firebase Auth sur le projet Firebase.
+* **Correctifs appliqués** :
+  - Alignement systématique par défaut sur la collection `conversations` dans `src/lib/firebase/client.ts` et `src/lib/firebase/admin.ts`.
+  - Recherche bidirectionnelle (`folder in [folderA, folderB]`) et recherche par `participants array-contains` dans `src/lib/firebase/conversations-helper.ts`.
+  - Migration et synchronisation des messages récents envoyés dans `conversations_test` vers `conversations`.
+  - Nettoyage des guillemets d'environnement.
+
+### Migration — Messagerie instantanée vers Firebase (Firestore, Storage & FCM)
+
+* **Contexte & Objectif** : remplacement complet de l'ancienne logique API REST Laravel/MySQL pour la messagerie instantanée par Firebase (**Firestore + Firebase Cloud Messaging**), connecté au même projet Firebase que l'ancien projet Laravel (`dughu-48cd0`) avec conservation intégrale de l'historique et des messages existants.
+* **Modifications effectuées** :
+  - **Infrastructure Firebase** :
+    - Installation et configuration des SDK `firebase` (client modulaire v10+) et `firebase-admin` (serveur strictly `server-only`).
+    - Protection git renforcée dans `.gitignore` (`*firebase*.json`, `*service-account*.json`, `firebase_credentials.json`).
+    - Variables d'environnement Next.js ajoutées dans `.env` et documentées dans `.env.example` (avec sélection de collection `conversations` / `conversations_test`).
+    - Initialisation SDK client dans `src/lib/firebase/client.ts` et Admin dans `src/lib/firebase/admin.ts`.
+    - Pont d'authentification par jeton personnalisé (`/api/auth/firebase-token` & `src/lib/firebase/auth-helper.ts`) liant le cookie de session Dughu (`dughu_user_id`) à Firebase Auth sans exposition d'identifiants.
+    - Règles de sécurité `firestore.rules` assurant un contrôle strict par participant.
+    - Téléversement des pièces jointes vers Firebase Storage (`src/lib/firebase/storage-upload.ts`).
+    - Service push FCM (`/api/messages/push`).
+  - **Hooks & Composants temps réel** :
+    - Nouveaux hooks modulaires sous `src/hooks/messages/` (`useConversations`, `useMessages`, `useSendMessage`, `useTypingIndicator`, `useMarkAsSeen`, `useDeleteMessage`, `useEditMessage`).
+    - Migration de la page `/messages` (`MessagesPageClient`), du popup flottant (`ConversationPopup`), du tiroir latéral (`ConversationSidebar`), et de la fenêtre de discussion (`ChatWindow`).
+    - Préservation intégrale des styles, de la palette caramel/marron (`#985810`, `#A35A2A`) et des fonctionnalités UX (saisie en direct, indicateur de frappe animé, accusés de lecture, pièces jointes, citations, suppression pour soi / pour tous).
+  - **Nettoyage du code mort** :
+    - Suppression des anciennes routes REST `/api/messages/chats`, `/api/messages/conversation`, `/api/messages/send`, `/api/messages/update`, `/api/messages/delete`, `/api/messages/delete-conversation`.
+    - Nettoyage des méthodes obsolètes dans `src/services/messages/messages.service.ts` (conservation exclusive de `searchContacts` et `fetchContact`).
+  - **Documentation** :
+    - Mise à jour de `/docs/CAHIER_DES_CHARGES.md` avec la section dédiée à la messagerie temps réel Firestore & FCM.
+* **Validation** :
+  - Vérification TypeScript globale `npx tsc --noEmit` : 0 erreur (code de retour 0).
+
 
 * **Signalement** : Diallo Bintou (@bintou_1diallo) affiche 27 interactions sur son profil mais « interactions : 0 » sur ses publications dans le fil (cas général : le compteur valait toujours 0 sur toutes les cartes).
 * **Cause racine** : dans `mapPost` (`src/lib/dughu.ts`), le compteur était lu uniquement sur l'objet `author` **normalisé**. Or `normalizeUser` reconstruit un objet à clés fixes qui ne conserve jamais `getTotalInteractions` / `NbrPostsTotal` — le `pick` ne trouvait donc rien et retombait sur `0`, même quand l'API Dughu fournit le compteur. Le profil, lui, lit `NbrPostsTotal` sur la réponse brute (avant normalisation), d'où l'écart. Vérifié sur données réelles : l'API renvoie `getTotalInteractions` sur l'objet user brut embarqué du post ET au niveau du post (ex. feed `getPostAll`, endpoint profil `userPost`).

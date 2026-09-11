@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import type { Metadata } from "next"
 import CanalPage from "@/components/canal/CanalPage"
 
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <CanalPage />
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F7F8FA]" />}>
+      <CanalPage />
+    </Suspense>
+  )
 }
