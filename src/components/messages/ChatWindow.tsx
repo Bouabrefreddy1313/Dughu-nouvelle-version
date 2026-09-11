@@ -26,7 +26,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import type { ChatContact, ChatMessage } from "@/lib/messages"
 import { isMeaningfulReply, resolveReplyPreview } from "@/lib/messages"
-import { formatLastSeen, formatMessageDividerDate, formatMessageTime } from "./message-formatters"
+import { formatLastSeen, formatMessageDividerDate, formatMessagePreview, formatMessageTime } from "./message-formatters"
+import { FormattedChatMessage } from "./FormattedChatMessage"
 
 interface ChatWindowProps {
   currentUserId: string
@@ -458,15 +459,13 @@ export default function ChatWindow({
                               )}
                             >
                               <p className="font-semibold">{replyPreview.sender}</p>
-                              <p className="truncate opacity-90">{replyPreview.text}</p>
+                              <p className="truncate opacity-90">{formatMessagePreview(replyPreview.text)}</p>
                             </div>
                           )}
 
                           {/* Texte du message */}
                           {message.text && (
-                            <p className="whitespace-pre-wrap break-words">
-                              {message.text}
-                            </p>
+                            <FormattedChatMessage text={message.text} isMine={message.isMine} />
                           )}
 
                           {/* Pièces jointes */}
@@ -580,7 +579,7 @@ export default function ChatWindow({
                 Répondre à {replyTo.isMine ? "vous-même" : contact?.name}
               </span>
               <p className="truncate text-[#65676B]">
-                {replyTo.text || "Pièce jointe"}
+                {formatMessagePreview(replyTo.text) || "Pièce jointe"}
               </p>
             </div>
             <button

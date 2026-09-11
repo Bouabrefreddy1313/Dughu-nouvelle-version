@@ -2,7 +2,7 @@
 
 /**
  * Page « Espaces » — liste des espaces avec onglets :
- * Actualité / Découverte / Mes espaces / Aimés / Suggestions / Administrés.
+ * Actualité / Mes espaces / Aimés / Suggestions / Administrés.
  * L'onglet « Actualité » affiche le fil global des publications des espaces
  * (carte PostCard complète : like, réactions, commentaire, republication,
  * partage). Accessible depuis le bouton « Espaces » de la sidebar gauche
@@ -12,7 +12,7 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { LayoutGrid, Newspaper, Plus, ShieldCheck, Sparkles, ThumbsUp, Users } from "lucide-react"
+import { Newspaper, Plus, ShieldCheck, Sparkles, ThumbsUp, Users } from "lucide-react"
 import MainLayout from "@/components/layout/MainLayout"
 import TabNavigation, { type TabItem } from "@/components/points/TabNavigation"
 import { useAuth } from "@/hooks/auth/use-auth"
@@ -21,11 +21,10 @@ import PageCard from "./PageCard"
 import PagesFeedTab from "./PagesFeedTab"
 import { PageEmpty, PageError, PageSkeleton } from "./PageStates"
 
-type TabKey = PagesScope | "news"
+type TabKey = Exclude<PagesScope, "feed"> | "news"
 
 const TABS: TabItem<TabKey>[] = [
   { key: "news", label: "Actualité", icon: Newspaper },
-  { key: "feed", label: "Découverte", icon: LayoutGrid },
   { key: "mine", label: "Mes espaces", icon: Users },
   { key: "liked", label: "Aimés", icon: ThumbsUp },
   { key: "suggestions", label: "Suggestions", icon: Sparkles },
@@ -34,7 +33,6 @@ const TABS: TabItem<TabKey>[] = [
 
 const EMPTY_TEXT: Record<TabKey, { title: string; text: string }> = {
   news: { title: "Aucune publication", text: "Les publications des espaces apparaîtront ici." },
-  feed: { title: "Aucun espace trouvé", text: "Revenez plus tard pour découvrir de nouveaux espaces." },
   mine: { title: "Vous n'avez pas encore d'espace", text: "Créez votre premier espace pour partager avec votre communauté." },
   liked: { title: "Aucun espace aimé", text: "Aimez des espaces pour les retrouver ici." },
   suggestions: { title: "Aucune suggestion", text: "De nouvelles suggestions apparaîtront au fil de votre activité." },

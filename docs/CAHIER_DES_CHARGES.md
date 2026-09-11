@@ -2054,7 +2054,8 @@ La barre latérale droite (`RightSidebar`) propose un ensemble de raccourcis, su
   - **Canaux publics** : adhésion directe immédiate par tout utilisateur.
   - **Canaux privés** : requièrent une validation d'adhésion par l'administrateur/créateur du canal ou un lien d'invitation direct (`/p/:inviteCode`).
   - **Demandes d'adhésion reçues** :
-    - Les demandes d'adhésion (`canal_join_request`) sont visibles dès la liste des canaux (« Mes canaux » via `CanalCard.tsx`) grâce à un badge numérique pulsant sur la bannière et un bouton d'accès direct « Demandes (X) ».
+    - Les demandes d'adhésion (`canal_join_request`) sont visibles dès la liste des canaux (« Mes canaux » via `CanalCard.tsx`) grâce à un badge numérique pulsant sur la bannière (le bouton d'alerte redondant à côté de « Ouvrir le chat » a été retiré pour une interface plus claire et épurée).
+    - **Isolation des alertes et canaux rejoints** : dans l'onglet « Canaux rejoints », `isOwner` est strictement désactivé (`!isJoinedTab`), garantissant qu'aucune alerte de demande d'adhésion de ses propres canaux n'apparaît sur les cartes des canaux dont l'utilisateur est simple membre. Le mappeur `mapCanal` déballe complètement les données imbriquées de `/getJoinedCanals` (`raw.canal`) afin d'afficher fidèlement les photos de profil, couvertures, noms et nombres de membres, et préserve l'identifiant réel du créateur du canal (`autor_id`).
     - Dans la vue chat (`CanalChatView.tsx`), un bandeau d'alerte bien visible en haut du fil de discussion prévient immédiatement le propriétaire du nombre de demandes en attente avec un bouton « Examiner ».
     - Dans la modale de gestion du canal (`CanalSettingsModal`), l'onglet « Demandes » affiche la liste complète avec sous-onglets « En attente » et « Traitées » ainsi qu'un bouton d'actualisation manuelle.
     - Le service serveur `getReceivedNotifications` interroge l'endpoint `/receivedNotifications` avec un repli intelligent vers les notifications utilisateur (`/getNotifications/:userId`) associées au canal (par slug ou extraction textuelle précise du nom normalisé insensible aux accents) afin de garantir que toutes les demandes en attente s'affichent exhaustivement.
@@ -2071,3 +2072,18 @@ La barre latérale droite (`RightSidebar`) propose un ensemble de raccourcis, su
     - Pour un canal privé, la confirmation déclenche l'envoi de la demande via l'endpoint dédié `POST {{local_dughu}}/requestJoinCanal` (`POST /api/requestJoinCanal` avec `user_id` et `canal_id`).
     - Un retour visuel immédiat (état d'envoi avec spinner, bandeau de succès confirmant la transmission au créateur du canal, ou gestion des erreurs) est affiché.
     - Si l'utilisateur est déjà le créateur du canal ou déjà membre, la modale l'en informe directement et lui propose un bouton d'accès direct vers la discussion.
+
+### Messagerie et chat (« Rendu intelligent des liens et invitations »)
+* **Formatage automatique des messages (`FormattedChatMessage.tsx`)** :
+  - **Prise en charge des liens Markdown et URLs** : Détection et transformation des syntaxes markdown `[Texte](URL)` ainsi que des adresses web brutes (`https://...`, `http://...`) dans toutes les interfaces de discussion (`ChatWindow`, `ConversationPopup`, `CanalMessageBubble`).
+  - **Cartes et boutons d'action interactifs** : Lorsqu'un message contient une action isolée (ex. invitation `[Rejoindre le groupe](https://apitest.dughu.com/group/220)` ou un lien de canal), il est converti en un bouton d'action cliquable avec icône thématique (`Users` pour les groupes, `Radio` pour les canaux, `MessageSquare` pour les publications), libellé clair et flèche directionnelle.
+  - **Liens en ligne stylisés** : Au sein d'un texte plus long, les liens et balises markdown s'intègrent harmonieusement avec soulignement soigné, icône d'ouverture, et contraste adapté que la bulle soit celle de l'expéditeur (texte blanc sur fond marron) ou du destinataire (texte marron/ambré, compatible mode clair et sombre).
+  - **Sécurité** : Neutralisation systématique des protocoles dangereux (`javascript:`, `vbscript:`, `data:`).
+* **Routage et normalisation des URLs internes Dughu** :
+  - Les URLs ciblant le domaine Dughu (ex. `https://apitest.dughu.com/group/:id`, `https://dughu.com/group/:id`, `/group/:id`) sont automatiquement converties en routes internes Next.js (`/groups/:id`) exploitant le composant `<Link>` pour une navigation fluide sans rechargement de page.
+  - Des redirections permanentes sont configurées dans `next.config.ts` (`/group` et `/group/:id` redirigent respectivement vers `/groups` et `/groups/:id`).
+* **Nettoyage des aperçus textuels (`formatMessagePreview`)** :
+  - La liste des conversations (`ConversationList`) et les aperçus de citation (`replyPreview`, `replyTo`) utilisent `formatMessagePreview` pour afficher un texte propre (ex. « Rejoindre le groupe » au lieu de la chaîne brute `[Rejoindre le groupe](https://...)`).
+* **Indicateur « Vous : » pour les messages envoyés par l'utilisateur** :
+  - Dans la liste des conversations (tiroir/popup de messagerie `ConversationSidebar` et page principale `ConversationList`), lorsque le dernier message d'un fil a été envoyé par l'utilisateur connecté, l'aperçu est automatiquement préfixé par « **Vous : ** ».
+  - Enregistrement de `lastSenderId` et `last_from_id` dans le document conversation Firestore lors de l'envoi (`useSendMessage`), et déduction intelligente dans `mapFirestoreConversationToSummary` garantissant l'affichage précis de `lastMessageIsMine` et des accusés de lecture.

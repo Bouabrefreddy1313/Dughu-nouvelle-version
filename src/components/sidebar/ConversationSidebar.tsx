@@ -6,6 +6,7 @@ import { useConversations } from "@/hooks/messages"
 import type { ChatSummary } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import ReceiptTicks from "@/components/messages/ReceiptTicks"
+import { formatMessagePreview } from "@/components/messages/message-formatters"
 import Card from "@/components/common/Card"
 import Avatar from "@/components/common/Avatar"
 import SearchBar from "@/components/common/SearchBar"
@@ -118,8 +119,10 @@ export default function ConversationSidebar({ user, open, onClose, onOpenConvers
                   <div className="flex items-center justify-between gap-2"><p className={cn("text-[14px] truncate", unread ? "font-bold text-[#2D2D2D] dark:text-[#F3F4F6]" : "font-medium text-[#2D2D2D] dark:text-[#F3F4F6]")}>{conversation.contact.name}</p><span className="text-[11px] text-[#65676B] dark:text-[#A1A1AA] shrink-0">{formatChatDate(conversation.updatedAt)}</span></div>
                   <div className="flex items-center justify-between gap-2">
                     <p className={cn("text-[12px] truncate", unread ? "font-semibold text-[#2D2D2D] dark:text-[#F3F4F6]" : "text-[#65676B] dark:text-[#A1A1AA]")}>
-                      {conversation.lastMessageIsMine ? "Vous : " : ""}
-                      {conversation.lastMessage || "Aucun message"}
+                      {conversation.lastMessageIsMine && (
+                        <span className="font-semibold text-[#2D2D2D] dark:text-[#F3F4F6]">Vous : </span>
+                      )}
+                      {formatMessagePreview(conversation.lastMessage) || "Aucun message"}
                     </p>
                     <div className="flex items-center gap-1 shrink-0">
                       {unread && (

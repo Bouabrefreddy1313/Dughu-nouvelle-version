@@ -186,6 +186,9 @@ export function useSendMessage() {
 
       batch.update(convRef, {
         lastMessage: preview,
+        lastSenderId: fromId,
+        last_sender_id: fromId,
+        last_from_id: fromId,
         updated_at: serverTimestamp(),
         [`opened.${fromId}`]: true,
         [`opened.${toId}`]: false,
@@ -194,6 +197,15 @@ export function useSendMessage() {
       })
 
       await batch.commit()
+
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(`dughu:last-sender:${convId}`, fromId)
+          localStorage.setItem(`dughu:last-msg:${convId}`, preview)
+        } catch {
+          // ignore
+        }
+      }
 
       console.log(`[Firestore] Message envoyé : ${CONVERSATIONS_COLLECTION}/${convId}/messages/${newMsgRef.id}`)
 

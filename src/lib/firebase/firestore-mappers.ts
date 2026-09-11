@@ -58,6 +58,50 @@ export function mapFirestoreConversationToSummary(
   const updatedAt = timestampToIso(data.updated_at || data.created_at)
   const lastMessage = data.lastMessage || ""
 
+  const rawSenderId = String(
+    data.lastSenderId ||
+    data.last_sender_id ||
+    data.last_from_id ||
+    ""
+  )
+
+  let lastMessageIsMine = false
+
+  if (rawSenderId) {
+    lastMessageIsMine = rawSenderId === currentId
+  } else {
+    // Déduction intelligente si les champs explicites ne sont pas encore présents
+    if (data.unread && Number(data.unread[currentId] ?? 0) > 0) {
+      lastMessageIsMine = false
+    } else if (otherId && data.unread && Number(data.unread[otherId] ?? 0) > 0) {
+      lastMessageIsMine = true
+    } else if (otherId && data.opened && data.opened[currentId] === true && data.opened[otherId] === false) {
+      lastMessageIsMine = true
+    } else if (typeof window !== "undefined") {
+      try {
+        const savedSender = localStorage.getItem(`dughu:last-sender:${convId}`)
+        const savedMsg = localStorage.getItem(`dughu:last-msg:${convId}`)
+        if (savedSender === currentId && (!savedMsg || savedMsg === lastMessage)) {
+          lastMessageIsMine = true
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // Calcul accusé de réception si le dernier message a été envoyé par l'utilisateur courant
+  let lastMessageReceipt: "sent" | "delivered" | "read" | null = null
+  if (lastMessageIsMine && otherId) {
+    const otherUnread = Number(data.unread?.[otherId] ?? 0)
+    const otherOpened = data.opened?.[otherId] === true
+    if (otherOpened || otherUnread === 0) {
+      lastMessageReceipt = "read"
+    } else {
+      lastMessageReceipt = "delivered"
+    }
+  }
+
   return {
     id: convId,
     contact,
@@ -65,8 +109,8 @@ export function mapFirestoreConversationToSummary(
     updatedAt,
     unreadCount,
     lastMessageKey: `${convId}:${updatedAt}:${lastMessage}`,
-    lastMessageReceipt: null,
-    lastMessageIsMine: false,
+    lastMessageReceipt,
+    lastMessageIsMine,
   }
 }
 

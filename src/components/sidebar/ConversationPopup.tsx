@@ -15,6 +15,8 @@ import {
 import type { ChatMessage, ChatSummary } from "@/lib/messages"
 import { isMeaningfulReply, mergeLocalReplies, persistMessageReply, resolveReplyPreview } from "@/lib/messages"
 import ReceiptTicks from "@/components/messages/ReceiptTicks"
+import { FormattedChatMessage } from "@/components/messages/FormattedChatMessage"
+import { formatMessagePreview } from "@/components/messages/message-formatters"
 import { cn } from "@/lib/utils"
 import Avatar from "@/components/common/Avatar"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -708,12 +710,12 @@ export default function ConversationPopup({
                                   <Reply size={12} className="mt-0.5 shrink-0 opacity-70" />
                                   <div className="min-w-0">
                                     <p className="font-semibold">{preview.sender}</p>
-                                    <p className="line-clamp-2 opacity-80">{preview.text}</p>
+                                    <p className="line-clamp-2 opacity-80">{formatMessagePreview(preview.text)}</p>
                                   </div>
                                 </div>
                               )
                             })()}
-                          <p className="whitespace-pre-wrap break-words">{message.text || ""}</p>
+                          <FormattedChatMessage text={message.text || ""} isMine={message.isMine} />
                           {message.attachments && message.attachments.length > 0 && (
                             <span className="mt-1 block text-xs opacity-80">
                               {message.attachments.length} pièce(s) jointe(s)
@@ -788,7 +790,7 @@ export default function ConversationPopup({
                     <span className="font-semibold text-[#050505] dark:text-[#F3F4F6]">
                       Réponse à {replyTo.isMine ? "vous" : (conversation.contact.name || "Utilisateur")}
                     </span>
-                    <p className="truncate text-[#65676B] dark:text-[#A1A1AA]">{replyTo.text || "Pièce jointe"}</p>
+                    <p className="truncate text-[#65676B] dark:text-[#A1A1AA]">{formatMessagePreview(replyTo.text) || "Pièce jointe"}</p>
                   </div>
                   <button
                     type="button"

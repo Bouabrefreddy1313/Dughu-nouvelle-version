@@ -71,37 +71,131 @@ function normalizeCanalMediaUrl(url?: string | null): string {
 
 /* ─────────────────────────────── Canal ─────────────────────────────────── */
 
-/** Normalise un objet canal brut de l'API Dughu. */
 export function mapCanal(raw: any): Canal {
-  const item = raw?.result && typeof raw.result === "object" && !Array.isArray(raw.result) && raw.result.id ? raw.result : raw
-  const rawLogo = pick(item, ["logo_url", "logo", "avatar"])
-  const rawCover = pick(item, ["cover_url", "cover", "cover_image"])
+  if (!raw || typeof raw !== "object") {
+    return {
+      id: "",
+      name: "",
+      description: "",
+      logo: "/images/avatar.png",
+      cover: "/images/cover.jpg",
+      type: "public",
+      isActive: true,
+      categoryId: "",
+      categoryName: "",
+      memberCount: 0,
+      isAdmin: false,
+      isJoined: false,
+      isFavorite: false,
+      createdAt: "",
+      userId: "",
+    }
+  }
+
+  // 1. Déballage de canal imbriqué (fréquent dans les réponses de /getJoinedCanals où chaque ligne est { id, user_id, canal: { ... } })
+  const nestedCanal =
+    raw?.canal && typeof raw.canal === "object" && !Array.isArray(raw.canal)
+      ? raw.canal
+      : raw?.channel && typeof raw.channel === "object" && !Array.isArray(raw.channel)
+      ? raw.channel
+      : raw?.canal_info && typeof raw.canal_info === "object" && !Array.isArray(raw.canal_info)
+      ? raw.canal_info
+      : raw?.canal_details && typeof raw.canal_details === "object" && !Array.isArray(raw.canal_details)
+      ? raw.canal_details
+      : raw?.details && typeof raw.details === "object" && !Array.isArray(raw.details) && (raw.details.name || raw.details.id)
+      ? raw.details
+      : raw?.result && typeof raw.result === "object" && !Array.isArray(raw.result) && (raw.result.name || raw.result.id)
+      ? raw.result
+      : null
+
+  const primary = nestedCanal || raw
+  const secondary = nestedCanal ? raw : null
+
+  // 2. Identifiant du canal (en priorité le canal_id ou l'id du canal imbriqué, pas l'id de la ligne d'adhésion)
+  const canalId = nestedCanal
+    ? str(pick(nestedCanal, ["id", "canal_id", "canalId"])) || str(pick(secondary, ["canal_id", "canalId", "id"]))
+    : str(pick(primary, ["canal_id", "canalId", "id"]))
+
+  // 3. Nom
+  const name =
+    str(pick(primary, ["name", "canal_name", "title", "channel_name"])) ||
+    (secondary ? str(pick(secondary, ["name", "canal_name", "title", "channel_name"])) : "")
+
+  // 4. Description
+  const description =
+    str(pick(primary, ["description", "about", "bio", "desc"])) ||
+    (secondary ? str(pick(secondary, ["description", "about", "bio", "desc"])) : "")
+
+  // 5. Médias : Logo (avatar) et Couverture
+  const rawLogo =
+    pick(primary, ["logo_url", "logo", "avatar", "photo", "image", "canal_logo"]) ||
+    (secondary ? pick(secondary, ["logo_url", "logo", "avatar", "photo", "image", "canal_logo"]) : undefined)
+
+  const rawCover =
+    pick(primary, ["cover_url", "cover", "cover_image", "banner", "canal_cover"]) ||
+    (secondary ? pick(secondary, ["cover_url", "cover", "cover_image", "banner", "canal_cover"]) : undefined)
+
+  // 6. Nombre de membres
+  const rawMemberCount =
+    pick(primary, ["user_count", "member_count", "memberCount", "members_count", "membersCount", "adherents_count", "users_count"]) ??
+    (secondary ? pick(secondary, ["user_count", "member_count", "memberCount", "members_count", "membersCount", "adherents_count", "users_count"]) : undefined)
+
+  // 7. Auteur / Créateur du canal (autor_id / author_id / owner_id / creator_id)
+  // ⚠️ TRÈS IMPORTANT : Dans un enregistrement d'adhésion, `raw.user_id` correspond à l'utilisateur qui a REJOINT,
+  // pas au créateur du canal ! On cherche donc d'abord l'auteur dans `primary` (le canal).
+  const canalAuthorId =
+    pick(primary, ["autor_id", "author_id", "owner_id", "creator_id", "created_by"]) ||
+    (nestedCanal ? undefined : pick(primary, ["user_id", "userId"])) ||
+    (secondary ? pick(secondary, ["autor_id", "author_id", "owner_id", "creator_id"]) : undefined)
+
+  const rawType = pick(primary, ["type", "canal_type", "privacy"]) || (secondary ? pick(secondary, ["type", "canal_type", "privacy"]) : undefined)
+
+  const rawCatId = pick(primary, ["category_id", "categoryId", "categorie"]) || (secondary ? pick(secondary, ["category_id", "categoryId", "categorie"]) : undefined)
+
+  const rawCatName =
+    primary?.category?.name ||
+    primary?.category_name ||
+    primary?.categoryName ||
+    (secondary ? secondary?.category?.name || secondary?.category_name || secondary?.categoryName : undefined)
+
+  const inviteCode =
+    primary?.invite_code ||
+    (secondary ? secondary?.invite_code : undefined) ||
+    primary?.invite_link ||
+    (secondary ? secondary?.invite_link : undefined)
+
+  const rawInviteLink = primary?.invite_link || (secondary ? secondary?.invite_link : undefined)
+
+  const isJoined = nestedCanal
+    ? true
+    : bool(pick(primary, ["isRejoind", "is_joined", "isJoined", "joined"])) ||
+      (secondary ? bool(pick(secondary, ["isRejoind", "is_joined", "isJoined", "joined"])) : false)
 
   return {
-    id: str(pick(item, ["id", "canal_id", "canalId"])),
-    name: str(item?.name || item?.canal_name),
-    description: str(item?.description),
+    id: canalId,
+    name,
+    description,
     logo: normalizeCanalMediaUrl(rawLogo ? str(rawLogo) : "") || "/images/avatar.png",
     cover: normalizeCanalMediaUrl(rawCover ? str(rawCover) : "") || "/images/cover.jpg",
-    type: item?.type === "public" ? "public" : "private",
-    isActive: bool(item?.is_active ?? item?.isActive, true),
-    categoryId: str(pick(item, ["category_id", "categoryId", "categorie"])),
-    categoryName: str(item?.category?.name || item?.category_name || item?.categoryName),
-    memberCount: num(item?.user_count ?? item?.member_count ?? item?.memberCount ?? item?.members_count),
-    isAdmin: bool(item?.is_admin ?? item?.isAdmin),
-    isJoined: bool(item?.isRejoind ?? item?.is_joined ?? item?.isJoined ?? item?.joined),
-    isFavorite: bool(item?.isFavorite ?? item?.is_favorite ?? item?.favorite),
-    inviteCode: item?.invite_code
-      ? str(item.invite_code)
-      : item?.invite_link
-      ? (str(item.invite_link).includes("/p/")
-          ? str(item.invite_link).split("/p/").pop()?.split(/[?#]/)[0]
-          : str(item.invite_link))
+    type: rawType === "public" ? "public" : "private",
+    isActive: bool(primary?.is_active ?? primary?.isActive ?? secondary?.is_active ?? secondary?.isActive, true),
+    categoryId: str(rawCatId),
+    categoryName: str(rawCatName),
+    memberCount: num(rawMemberCount),
+    isAdmin: bool(primary?.is_admin ?? primary?.isAdmin ?? secondary?.is_admin ?? secondary?.isAdmin),
+    isJoined,
+    isFavorite: bool(primary?.isFavorite ?? primary?.is_favorite ?? primary?.favorite ?? secondary?.isFavorite ?? secondary?.is_favorite),
+    inviteCode: inviteCode
+      ? (str(inviteCode).includes("/p/")
+          ? str(inviteCode).split("/p/").pop()?.split(/[?#]/)[0]
+          : str(inviteCode))
       : undefined,
-    inviteLink: item?.invite_link ? str(item.invite_link) : undefined,
-    publicToken: item?.public_token || item?.unique_identifier ? str(item.public_token || item.unique_identifier) : undefined,
-    createdAt: toIso(item?.created_at ?? item?.createdAt),
-    userId: str(pick(item, ["autor_id", "author_id", "user_id", "userId", "owner_id"])),
+    inviteLink: rawInviteLink ? str(rawInviteLink) : undefined,
+    publicToken: primary?.public_token || primary?.unique_identifier || secondary?.public_token || secondary?.unique_identifier
+      ? str(primary?.public_token || primary?.unique_identifier || secondary?.public_token || secondary?.unique_identifier)
+      : undefined,
+    createdAt: toIso(primary?.created_at ?? primary?.createdAt ?? secondary?.created_at ?? secondary?.createdAt),
+    userId: str(canalAuthorId),
   }
 }
 

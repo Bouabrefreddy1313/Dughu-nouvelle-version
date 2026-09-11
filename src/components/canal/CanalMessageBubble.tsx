@@ -10,6 +10,7 @@ import Image from "next/image"
 import { Trash2, Smile } from "lucide-react"
 import type { CanalMessage } from "@/types/canal/canal.types"
 import { useDeleteCanalMessage, useReactCanalMessage } from "@/hooks/canal/use-canal-messages"
+import { FormattedChatMessage } from "@/components/messages/FormattedChatMessage"
 
 interface CanalMessageBubbleProps {
   message: CanalMessage
@@ -27,7 +28,7 @@ export default function CanalMessageBubble({
   const deleteMutation = useDeleteCanalMessage(message.id, canalId)
   const reactMutation = useReactCanalMessage(canalId, message.id)
 
-  const isOwn = message.isOwn || (currentUserId && message.userId === currentUserId)
+  const isOwn = Boolean(message.isOwn || (currentUserId && message.userId === currentUserId))
 
   const handleReact = (emoji: string) => {
     if (!currentUserId) return
@@ -76,7 +77,7 @@ export default function CanalMessageBubble({
               : "rounded-tl-none bg-[#1E293B] text-gray-200 border border-gray-800"
           }`}
         >
-          {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}
+          {message.text && <FormattedChatMessage text={message.text} isMine={isOwn} />}
 
           {message.mediaUrl && (
             <div className="mt-2 overflow-hidden rounded-xl border border-black/20">

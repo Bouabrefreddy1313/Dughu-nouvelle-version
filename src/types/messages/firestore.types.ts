@@ -13,6 +13,9 @@ export interface FirestoreConversationDoc {
   users: FirestoreUserSummary[]
   lastMessage?: string
   lastMessageTimestamp?: Timestamp | null
+  lastSenderId?: string
+  last_sender_id?: string
+  last_from_id?: string
   created_at?: Timestamp | null
   updated_at?: Timestamp | null
   unread?: Record<string, number>

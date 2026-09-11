@@ -54,12 +54,13 @@ export default function CanalCard({
   onManage,
 }: CanalCardProps) {
   const isOwner =
-    isMine ||
-    Boolean(
-      currentUserId &&
-        canal.userId &&
-        String(canal.userId) === String(currentUserId)
-    )
+    !isJoinedTab &&
+    (isMine ||
+      Boolean(
+        currentUserId &&
+          canal.userId &&
+          String(canal.userId) === String(currentUserId)
+      ))
 
   const [isFav, setIsFav] = useState(canal.isFavorite)
   const [joinStatus, setJoinStatus] = useState<"none" | "joined" | "requested">(
@@ -69,12 +70,12 @@ export default function CanalCard({
   const [coverSrc, setCoverSrc] = useState(canal.cover || "/images/cover.jpg")
   const [logoSrc, setLogoSrc] = useState(canal.logo || "/images/avatar.png")
 
-  // Demandes d'adhésion en attente (propriétaire)
+  // Demandes d'adhésion en attente (uniquement pour le propriétaire du canal)
   const { data: notifsData } = useReceivedNotifications(
     isOwner ? currentUserId : undefined,
     isOwner ? canal.id : undefined
   )
-  const pendingRequestsCount = notifsData?.notifications?.length || 0
+  const pendingRequestsCount = isOwner ? (notifsData?.notifications?.length || 0) : 0
 
   useEffect(() => {
     setCoverSrc(canal.cover || "/images/cover.jpg")
@@ -282,22 +283,6 @@ export default function CanalCard({
                   <MessageSquare size={14} />
                   Ouvrir le chat
                 </button>
-
-                {isOwner && pendingRequestsCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onManage ? onManage(canal) : onClick?.()
-                    }}
-                    title="Voir les demandes d'adhésion"
-                    className="flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition animate-pulse"
-                  >
-                    <Bell size={13} />
-                    <span className="hidden sm:inline">Demandes</span>
-                    <span>({pendingRequestsCount})</span>
-                  </button>
-                )}
 
                 <button
                   type="button"

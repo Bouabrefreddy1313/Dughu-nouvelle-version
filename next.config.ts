@@ -47,6 +47,16 @@ const nextConfig: NextConfig = {
         destination: "/points",
         permanent: true,
       },
+      {
+        source: "/group",
+        destination: "/groups",
+        permanent: true,
+      },
+      {
+        source: "/group/:id",
+        destination: "/groups/:id",
+        permanent: true,
+      },
     ];
   },
 };

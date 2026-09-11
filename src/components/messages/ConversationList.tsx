@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import type { ChatContact, ChatSummary } from "@/lib/messages"
-import { formatRelativeTime } from "./message-formatters"
+import { formatMessagePreview, formatRelativeTime } from "./message-formatters"
 
 export type ConversationFilter = "all" | "unread"
 
@@ -450,8 +450,10 @@ export default function ConversationList({
                             : "text-[#65676B]"
                         )}
                       >
-                        {previewPrefix}
-                        {chat.lastMessage || "Aucun message"}
+                        {isMine && (
+                          <span className="font-semibold text-[#050505] dark:text-[#F3F4F6]">Vous : </span>
+                        )}
+                        {formatMessagePreview(chat.lastMessage) || "Aucun message"}
                       </p>
 
                       {/* Pastille non-lu pleine marron #8B5E34 */}

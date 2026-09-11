@@ -12,6 +12,71 @@ Chaque entrée doit contenir :
 * éventuelles corrections importantes.
 
 ## 2026-09-11
+### Correctif — Affichage des canaux rejoints et isolation des alertes de demandes (`CanalCard.tsx`, `canal.mapper.ts`)
+
+* **Symptômes** :
+  1. Dans l'onglet « Canaux rejoints », les alertes de demandes d'adhésion en attente des propres canaux de l'utilisateur s'affichaient à tort sur les cartes des canaux dont il était simple membre.
+  2. Les informations de ces canaux (photos de profil/logo, couvertures, noms, nombre de membres) n'apparaissaient pas.
+* **Causes identifiées** :
+  1. L'endpoint `/getJoinedCanals` renvoie des enregistrements d'adhésion où l'objet canal est imbriqué (`item.canal`). L'ancien mappeur ne déballait pas cet objet, laissant le nom, logo, couverture et membres vides.
+  2. Le champ `item.user_id` de la ligne d'adhésion correspond à l'utilisateur qui a rejoint (l'utilisateur courant), ce qui faisait croire à `CanalCard` que l'utilisateur était le propriétaire (`isOwner = true`). Les notifications de demandes d'adhésion personnelles fuitaient alors sur chaque carte.
+* **Modifications et nouveautés** :
+  - **Mappeur `canal.mapper.ts` (`mapCanal`)** :
+    - Déballage complet et sécurisé des structures imbriquées (`raw.canal`, `raw.channel`, etc.).
+    - Extraction prioritaire de l'auteur réel du canal (`autor_id` / `author_id`) sans écrasement par le `user_id` de l'adhérent.
+    - Récupération correcte du logo, de la couverture, du nom et du nombre réel de membres.
+  - **Composant `CanalCard.tsx`** :
+    - `isOwner` est strictement désactivé dans l'onglet des canaux rejoints (`!isJoinedTab`).
+    - L'interrogation des notifications de demandes (`useReceivedNotifications`) et le compteur `pendingRequestsCount` sont restreints aux stricts propriétaires (`isOwner`), supprimant ainsi toute fausse alerte.
+
+### Amélioration — Retrait de l'alerte redondante des demandes d'adhésion sur les cartes de canal (`CanalCard.tsx`)
+
+* **Demande utilisateur** : sur la carte de canal dans « Mes canaux », supprimer le bouton d'alerte rouge des demandes d'adhésion situé à côté de « Ouvrir le chat » pour ne pas avoir deux alertes superflues sur la même carte.
+* **Modifications et nouveautés** :
+  - **Composant `CanalCard.tsx`** :
+    - Retrait du bouton d'alerte rouge `Demandes (X)` placé à droite du bouton « Ouvrir le chat ».
+    - Maintien du badge d'alerte sur la bannière de couverture du canal et du compteur numérique sur l'icône de réglages, garantissant une visibilité claire sans surcharge visuelle.
+
+### Amélioration — Retrait de la section « Découverte » dans la page Espaces
+
+* **Demande utilisateur** : retirer l'onglet / la section « Découverte » de la page Espaces (`/espaces`).
+* **Modifications et nouveautés** :
+  - **Composant `PagesPage.tsx`** :
+    - Retrait de l'onglet `feed` (« Découverte ») de la navigation `TABS`.
+    - Conservation des onglets : « Actualité », « Mes espaces », « Aimés », « Suggestions » et « Administrés ».
+    - Nettoyage des imports et textes d'état vide associés.
+
+### Amélioration — Préfixe « Vous : » dans la liste des conversations de la messagerie
+
+* **Demande utilisateur** : dans la liste des conversations (sidebar/popup de messagerie), afficher explicitement « Vous : [message] » lorsque le dernier message a été envoyé par l'utilisateur connecté.
+* **Modifications et nouveautés** :
+  - **Firestore & Mappeurs (`firestore-mappers.ts`, `useSendMessage.ts`)** :
+    - Enregistrement systématique de `lastSenderId`, `last_sender_id` et `last_from_id` dans le document de conversation lors de l'envoi d'un message.
+    - Détection intelligente dans `mapFirestoreConversationToSummary` (lecture des champs d'expéditeur, déduction basée sur les statuts d'ouverture/non-lus, persistance locale de secours) garantissant un calcul fiable de `lastMessageIsMine`.
+  - **Interface utilisateur (`ConversationSidebar.tsx`, `ConversationList.tsx`)** :
+    - Affichage du préfixe « **Vous : ** » mis en valeur dès que `lastMessageIsMine` est vrai.
+    - Nettoyage automatique des syntaxes markdown (`formatMessagePreview`) pour un affichage textuel épuré.
+
+### Correctif & Amélioration — Rendu intelligent et cliquable des liens et invitations dans la messagerie (`FormattedChatMessage`)
+
+* **Symptôme** : lorsqu'un utilisateur recevait un message contenant une invitation ou un lien markdown comme `[Rejoindre le groupe](https://apitest.dughu.com/group/220)`, le message s'affichait sous sa forme brute non cliquable avec crochets et parenthèses, empêchant l'utilisateur d'y accéder.
+* **Modifications et nouveautés** :
+  - **Composant `FormattedChatMessage.tsx`** :
+    - Détection et analyse des syntaxes de liens markdown `[libellé](url)` et des URLs brutes dans le corps des messages.
+    - Pour les invitations et liens d'action isolés (comme `[Rejoindre le groupe](...)`), affichage sous forme de bouton d'action interactif avec icône dédiée (`Users` pour les groupes, `Radio` pour les canaux, etc.), flèche directionnelle et retour tactile.
+    - Pour les liens au milieu d'un paragraphe, affichage sous forme de lien interactif et souligné avec contraste optimisé que le message soit envoyé (`isMine`) ou reçu, en mode clair comme en mode sombre.
+    - Protection stricte contre les protocoles vulnérables (`javascript:`, `vbscript:`, etc.).
+  - **Normalisation automatique et routage des URLs Dughu** :
+    - Détection des domaines `apitest.dughu.com`, `dughu.com` et conversion automatique du chemin singulier `/group/:id` vers le chemin pluriel interne `/groups/:id`.
+    - Utilisation du composant `<Link>` de Next.js pour naviguer directement dans l'application sans rechargement complet de la page.
+    - Ajout de redirections permanentes dans `next.config.ts` de `/group` et `/group/:id` vers `/groups` et `/groups/:id`.
+  - **Intégration dans toutes les interfaces de chat** :
+    - `ChatWindow.tsx` (vue discussion principale)
+    - `ConversationPopup.tsx` (popup flottant de conversation)
+    - `CanalMessageBubble.tsx` (bulles de chat des canaux)
+  - **Nettoyage des aperçus (`formatMessagePreview`)** :
+    - `ConversationList.tsx` et les encarts de citation affichent désormais le texte épuré (ex. « Rejoindre le groupe » au lieu de la syntaxe brute markdown).
+
 ### Correctif — Ordre des hooks React dans `CanalSettingsModal.tsx`
 
 * **Symptôme** : avertissement/erreur React « *React has detected a change in the order of Hooks called by CanalSettingsModal* » lors de l'ouverture/fermeture de la modale.

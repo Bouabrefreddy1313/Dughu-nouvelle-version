@@ -64,3 +64,15 @@ export function formatLastSeen(value?: string | null): string {
     minute: "2-digit",
   })
 }
+
+/**
+ * Nettoie le texte d'un message pour l'affichage en aperçu (liste des conversations, citations, notifications).
+ * Transforme par exemple `[Rejoindre le groupe](https://...)` en `Rejoindre le groupe`.
+ */
+export function formatMessagePreview(value?: string | null): string {
+  if (!value) return ""
+  return value
+    .replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s\)]+)\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim()
+}
