@@ -453,8 +453,9 @@ export function mapCanalDocumentList(raw: any): CanalDocument[] {
 /** Normalise une notification de canal. */
 export function mapCanalNotification(raw: any): CanalNotification {
   const senderName = str(
-    raw?.notifier?.fullName ??
+    raw?.notifier?.username ??
       raw?.notifier?.name ??
+      raw?.notifier?.fullName ??
       raw?.sender_name ??
       raw?.user_name ??
       raw?.user?.name ??
@@ -472,19 +473,46 @@ export function mapCanalNotification(raw: any): CanalNotification {
       ""
   )
   const senderAvatar = rawAvatar ? normalizeCanalMediaUrl(rawAvatar) : undefined
-  const requestId = str(pick(raw, ["request_id", "requestId", "id", "notification_id"]))
+  const notifId = str(pick(raw, ["id", "notification_id", "request_id", "requestId"]))
+
+  const targetUserId = str(
+    raw?.notifier?.user_id ??
+      raw?.notifier?.id ??
+      raw?.notifier_id ??
+      raw?.notifierId ??
+      raw?.sender_id ??
+      raw?.senderId ??
+      raw?.applicant_id ??
+      raw?.applicantId ??
+      raw?.user?.id ??
+      raw?.user?.user_id ??
+      raw?.member_id ??
+      raw?.memberId ??
+      raw?.user_id ??
+      raw?.userId ??
+      ""
+  )
+
+  const rawStatus =
+    raw?.statut_canal_join_request ??
+    raw?.status_canal_join_request ??
+    raw?.status ??
+    raw?.statut ??
+    raw?.state ??
+    raw?.status_text
 
   return {
-    id: str(pick(raw, ["id", "notification_id"])),
-    userId: str(pick(raw, ["user_id", "userId"]) || raw?.notifier?.user_id),
+    id: notifId,
+    userId: str(pick(raw, ["recipient_id", "user_id", "userId"]) || raw?.notifier?.user_id),
     canalId: str(pick(raw, ["canal_id", "canalId"])),
-    type: str(raw?.type ?? raw?.notification_type),
-    content: str(raw?.content ?? raw?.message ?? raw?.body ?? raw?.text),
-    status: raw?.status !== undefined && raw?.status !== null ? str(raw.status) : null,
+    type: str(raw?.type ?? raw?.notification_type ?? "canal_join_request"),
+    content: str(raw?.text ?? raw?.content ?? raw?.message ?? raw?.body),
+    status: rawStatus !== undefined && rawStatus !== null ? str(rawStatus) : null,
     createdAt: toIso(raw?.created_at ?? raw?.createdAt),
     senderName: senderName || undefined,
     senderAvatar: senderAvatar || undefined,
-    requestId: requestId || undefined,
+    requestId: notifId || undefined,
+    targetUserId: targetUserId || undefined,
   }
 }
 

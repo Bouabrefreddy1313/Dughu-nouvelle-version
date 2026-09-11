@@ -28,13 +28,22 @@ export async function POST(
       const search = new URLSearchParams(text)
       userId = search.get("user_id") || search.get("userId") || ""
       canalId = search.get("canal_id") || search.get("canalId") || ""
+      const rawAccepte = search.get("accepte")
       const rawAccept = search.get("accept")
-      accept = rawAccept === "0" || rawAccept === "false" ? false : true
+      if (rawAccepte !== null) {
+        accept = rawAccepte === "1" || rawAccepte === "true"
+      } else if (rawAccept !== null) {
+        accept = rawAccept === "0" || rawAccept === "false" ? false : true
+      }
     } else {
       const body = await req.json().catch(() => ({}))
       userId = String(body?.user_id || body?.userId || "")
       canalId = String(body?.canal_id || body?.canalId || "")
-      accept = body?.accept === 0 || body?.accept === false ? false : true
+      if (body?.accept !== undefined) {
+        accept = Boolean(body.accept) && body.accept !== "false" && body.accept !== "0" && body.accept !== 0
+      } else if (body?.accepte !== undefined) {
+        accept = Boolean(body.accepte) && body.accepte !== "false" && body.accepte !== "0" && body.accepte !== 0
+      }
     }
 
     if (!userId) {
@@ -48,7 +57,7 @@ export async function POST(
       )
     }
 
-    const result = await handleJoinRequest(requestId, userId, accept, canalId)
+    const result = await handleJoinRequest(requestId, userId, accept)
     return NextResponse.json(result)
   } catch (error) {
     console.error("API ALIAS HANDLE JOIN REQUEST ERROR:", error)

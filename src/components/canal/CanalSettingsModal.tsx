@@ -15,6 +15,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react"
 import Image from "next/image"
+import { toast } from "sonner"
 import {
   X,
   Users,
@@ -101,7 +102,7 @@ export default function CanalSettingsModal({
   )
   const processedRequests = processedNotifsData?.notifications ?? []
 
-  const { data: members = [], isLoading: membersLoading } = useCanalMembers(canal.id)
+  const { data: members = [], isLoading: membersLoading, refetch: refetchMembers } = useCanalMembers(canal.id)
   const { data: categories = [] } = usePossibleCategories()
 
   // Mutations
@@ -144,18 +145,12 @@ export default function CanalSettingsModal({
     setSaveError(null)
   }, [canal, categories])
 
+  // Normaliser le lien d'invitation pour ne jamais pointer vers localhost
   const inviteUrl = useMemo(() => {
-    let base = ""
-    if (canal.inviteLink && (canal.inviteLink.startsWith("http://") || canal.inviteLink.startsWith("https://"))) {
-      base = canal.inviteLink
-    } else if (canal.inviteCode && (canal.inviteCode.startsWith("http://") || canal.inviteCode.startsWith("https://"))) {
-      base = canal.inviteCode
-    } else if (canal.inviteCode) {
-      base = `https://testxx.dughu.com/p/${canal.inviteCode}`
-    } else if (canal.id) {
-      base = `https://testxx.dughu.com/canal?id=${canal.id}`
+    let base = canal.inviteLink || ""
+    if (!base && canal.inviteCode) {
+      base = `https://testxx.dughu.com/canal/join/${encodeURIComponent(canal.inviteCode)}`
     }
-
     if (!base) return ""
     // Ne jamais inclure http://localhost:3000
     base = base.replace(/http:\/\/localhost(:\d+)?/g, "https://testxx.dughu.com")
@@ -168,13 +163,28 @@ export default function CanalSettingsModal({
 
   if (!isOpen) return null
 
-  const handleAction = (requestId: string, accept: boolean) => {
-    handleJoinMutation.mutate({
-      requestId,
-      userId: currentUserId,
-      canalId: canal.id,
-      accept,
-    })
+  const handleAction = (notificationId: string, accept: boolean) => {
+    handleJoinMutation.mutate(
+      {
+        notificationId,
+        requestId: notificationId,
+        targetUserId: notificationId,
+        userId: currentUserId,
+        canalId: canal.id,
+        accept,
+      },
+      {
+        onSuccess: () => {
+          toast.success(accept ? "Demande d'adhésion acceptée !" : "Demande d'adhésion refusée.")
+          void refetchReceived()
+          void refetchProcessed()
+          void refetchMembers()
+        },
+        onError: (err) => {
+          toast.error(err instanceof Error ? err.message : "Erreur lors du traitement de la demande.")
+        },
+      }
+    )
   }
 
   const handleDeleteNotif = (notificationId: string) => {
@@ -471,7 +481,7 @@ export default function CanalSettingsModal({
               ) : (
                 <div className="space-y-3">
                   {(notifsSubTab === "pending" ? pendingRequests : processedRequests).map((notif) => {
-                    const reqId = notif.requestId || notif.id
+                    const notifId = String(notif.id || notif.requestId || notif.targetUserId || "")
                     const isAccepted = notif.status?.toLowerCase().includes("accept")
                     const isRejected = notif.status?.toLowerCase().includes("rejet") || notif.status?.toLowerCase().includes("refus")
 
@@ -519,7 +529,7 @@ export default function CanalSettingsModal({
                             <>
                               <button
                                 type="button"
-                                onClick={() => handleAction(reqId, true)}
+                                onClick={() => handleAction(notifId, true)}
                                 disabled={handleJoinMutation.isPending}
                                 className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50 cursor-pointer"
                               >
@@ -529,7 +539,7 @@ export default function CanalSettingsModal({
 
                               <button
                                 type="button"
-                                onClick={() => handleAction(reqId, false)}
+                                onClick={() => handleAction(notifId, false)}
                                 disabled={handleJoinMutation.isPending}
                                 className="flex items-center gap-1.5 rounded-xl bg-red-950/60 border border-red-800/80 px-3.5 py-2 text-xs font-bold text-red-300 transition hover:bg-red-900/80 disabled:opacity-50 cursor-pointer"
                               >

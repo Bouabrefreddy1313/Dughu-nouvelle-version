@@ -8,6 +8,7 @@ import {
   serverTimestamp,
   increment,
   getDoc,
+  arrayRemove,
 } from "firebase/firestore"
 import { db, auth, CONVERSATIONS_COLLECTION } from "@/lib/firebase/client"
 import { ensureFirebaseAuth } from "@/lib/firebase/auth-helper"
@@ -194,6 +195,7 @@ export function useSendMessage() {
         [`opened.${toId}`]: false,
         [`unread.${toId}`]: increment(1),
         [`typing.${fromId}`]: false,
+        deletedFor: arrayRemove(fromId, toId),
       })
 
       await batch.commit()

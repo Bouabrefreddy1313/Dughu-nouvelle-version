@@ -12,6 +12,60 @@ Chaque entrée doit contenir :
 * éventuelles corrections importantes.
 
 ## 2026-09-11
+### Correctif — Alignement strict sur le contrat backend de traitement d'adhésion (`/handleJoinRequest/:notificationId`)
+
+* **Symptômes** :
+  - Lors de l'acceptation d'une demande d'adhésion, un toast de succès s'affichait mais rien ne se passait côté backend (la demande restait bloquée, le membre n'était pas validé).
+* **Incohérences identifiées par rapport à la spécification backend officielle** :
+  1. **Mauvais identifiant dans l'URL** : l'URL envoyait l'ID de l'utilisateur demandeur (ex. 5747) au lieu de l'ID de la notification (`JoinRequestNotification.id`).
+  2. **Masquage d'erreur serveur** : le bloc `catch` dans `canal.server.ts` retournait un faux succès `{ success: true, message: "Demande d'adhésion acceptée avec succès." }` lorsque l'appel backend échouait, trompant l'interface et l'utilisateur.
+  3. **Champ de statut non mappé** : le backend utilise `statut_canal_join_request`, qui n'était pas extrait dans `canal.mapper.ts`.
+  4. **Structure du demandeur** : extraction de `notifier.username` et `notifier.avatar` en priorité.
+* **Modifications apportées** :
+  - **Mappeur `canal.mapper.ts`** :
+    - Prise en charge du champ `statut_canal_join_request` pour normaliser le statut (`pending`, `accepted`, etc.).
+    - Extraction prioritaire de `notifier.username` et conservation de `notif.id` comme identifiant principal.
+  - **Service serveur `canal.server.ts`** :
+    - Appel de `POST /handleJoinRequest/${notificationId}` avec le payload JSON strict `{ user_id: adminUserId, accept: boolean }` (aucun `canal_id` envoyé afin de respecter strictement le contrat attendu par le contrôleur backend).
+    - Propagation stricte des erreurs backend : aucun faux succès en cas d'échec de l'API externe.
+  - **Hooks & Composants (`use-canals.ts`, `CanalSettingsModal.tsx`, `CanalChatView.tsx`)** :
+    - Transmission de `notif.id` à la mutation `handleJoinRequest`.
+    - Invalidation réactive de la liste des membres (`CANALS_KEYS.members`), des détails du canal (`CANALS_KEYS.detail`) et des notifications pour une synchronisation immédiate.
+
+### Évolution — Traitement des adhésions de canal sur `/handleJoinRequest/:targetUserId` (`canal.server.ts`, `canal.service.ts`)
+
+* **Demande utilisateur** :
+  - Brancher l'acceptation ou le refus d'une adhésion à un canal privé sur l'endpoint `/handleJoinRequest/:targetUserId` (où l'identifiant dans l'URL est celui de l'utilisateur demandeur, ex. 5747).
+  - Envoyer les champs `user_id` (administrateur/propriétaire) et `accepte` (booléen : `true` pour accepter, `false` pour refuser).
+* **Modifications et nouveautés** :
+  - **Mappeur `canal.mapper.ts`** :
+    - Extraction de `targetUserId` depuis la notification brute (`notifier.id`, `notifier.user_id`, `sender_id`, `user_id`, etc.) afin de cibler directement l'utilisateur demandeur.
+  - **Service serveur `canal.server.ts`** :
+    - Mise à jour de `handleJoinRequest(targetUserId, userId, accept, canalId)` pour appeler `POST /handleJoinRequest/${targetUserId}` avec le payload `{ user_id, accepte: accept, accept, canal_id }`.
+    - Double support JSON natif et repli `form-urlencoded` pour une compatibilité totale avec le backend PHP Dughu.
+  - **Service frontend & Route Handlers** :
+    - `canal.service.ts` et Route Handlers `/api/handleJoinRequest/[requestId]` / `/api/handleJoinRequest` mis à jour pour acheminer `targetUserId`, `user_id` et `accepte`.
+  - **Composants d'interface (`CanalSettingsModal.tsx`, `CanalChatView.tsx`)** :
+    - Passage de `targetUserId` lors du clic sur « Accepter » ou « Refuser ».
+    - Notification par toast immédiat (`toast.success` / `toast.error` via Sonner) et réactualisation automatique de la liste des demandes en attente et des membres.
+
+### Correctif — Réapparition des conversations supprimées lors d'un nouvel échange (`useSendMessage.ts`, `useMessages.ts`, `MessagesPageClient.tsx`)
+
+* **Symptômes** :
+  - Lorsqu'un utilisateur supprimait une discussion puis écrivait à nouveau à la même personne, la nouvelle conversation créée n'apparaissait pas dans la liste des discussions.
+* **Causes identifiées** :
+  - La suppression ajoutait l'utilisateur à la liste `deletedFor` sur le document Firestore de la conversation (`convRef`).
+  - Lors de l'envoi d'un nouveau message, `useSendMessage` mettait à jour le document sans retirer l'utilisateur de `deletedFor`.
+  - Le mappeur `mapFirestoreConversationToSummary` continuait donc de masquer la conversation, empêchant son affichage dans la liste (`chats`).
+* **Modifications et nouveautés** :
+  - **Désoccultation automatique (`useSendMessage.ts`, `conversations-helper.ts`)** :
+    - Utilisation de `arrayRemove(fromId, toId)` dans le batch Firestore lors de l'envoi pour retirer immédiatement l'expéditeur et le destinataire de `deletedFor`.
+    - Retrait préventif de `deletedFor` dans `getOrCreateConversation` dès la réouverture du fil.
+  - **Préservation de la suppression d'historique (`useMessages.ts`, `firestore-mappers.ts`)** :
+    - Écoute du champ `deletedAt[userId]` du document parent pour masquer les messages antérieurs à la suppression et ne présenter que le nouveau fil de discussion propre.
+  - **Résolution préventive (`MessagesPageClient.tsx`)** :
+    - Prise en charge des paramètres `target` et `userId` et résolution immédiate de la conversation parent pour une ouverture instantanée.
+
 ### Correctif — Affichage des canaux rejoints et isolation des alertes de demandes (`CanalCard.tsx`, `canal.mapper.ts`)
 
 * **Symptômes** :

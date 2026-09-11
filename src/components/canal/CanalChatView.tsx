@@ -13,6 +13,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react"
 import Image from "next/image"
+import { toast } from "sonner"
 import {
   X,
   Search,
@@ -158,7 +159,7 @@ export default function CanalChatView({
 
   // Demandes d'adhésion & Notifications
   const handleJoinMutation = useHandleJoinRequest()
-  const { data: notifsData } = useReceivedNotifications(currentUserId, activeCanalId)
+  const { data: notifsData, refetch: refetchNotifs } = useReceivedNotifications(currentUserId, activeCanalId)
   const notifications = notifsData?.notifications ?? []
   const pendingRequests = notifications.filter(
     (n) =>
@@ -723,7 +724,7 @@ export default function CanalChatView({
                   </p>
                 ) : (
                   pendingRequests.map((n) => {
-                    const reqId = n.requestId || n.id
+                    const notificationId = n.id || n.requestId || n.targetUserId
                     return (
                       <div
                         key={n.id}
@@ -752,15 +753,28 @@ export default function CanalChatView({
                           <button
                             type="button"
                             onClick={() =>
-                              handleJoinMutation.mutate({
-                                requestId: reqId,
-                                userId: currentUserId,
-                                canalId: activeCanalId,
-                                accept: true,
-                              })
+                              handleJoinMutation.mutate(
+                                {
+                                  notificationId,
+                                  requestId: notificationId,
+                                  targetUserId: notificationId,
+                                  userId: currentUserId,
+                                  canalId: activeCanalId,
+                                  accept: true,
+                                },
+                                {
+                                  onSuccess: () => {
+                                    toast.success("Demande acceptée !")
+                                    void refetchNotifs()
+                                  },
+                                  onError: (err) => {
+                                    toast.error(err instanceof Error ? err.message : "Erreur lors de l'acceptation.")
+                                  },
+                                }
+                              )
                             }
                             disabled={handleJoinMutation.isPending}
-                            className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-emerald-600 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-500"
+                            className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-emerald-600 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-500 disabled:opacity-50 cursor-pointer"
                           >
                             <Check size={13} />
                             Accepter
@@ -768,15 +782,28 @@ export default function CanalChatView({
                           <button
                             type="button"
                             onClick={() =>
-                              handleJoinMutation.mutate({
-                                requestId: reqId,
-                                userId: currentUserId,
-                                canalId: activeCanalId,
-                                accept: false,
-                              })
+                              handleJoinMutation.mutate(
+                                {
+                                  notificationId,
+                                  requestId: notificationId,
+                                  targetUserId: notificationId,
+                                  userId: currentUserId,
+                                  canalId: activeCanalId,
+                                  accept: false,
+                                },
+                                {
+                                  onSuccess: () => {
+                                    toast.success("Demande refusée.")
+                                    void refetchNotifs()
+                                  },
+                                  onError: (err) => {
+                                    toast.error(err instanceof Error ? err.message : "Erreur lors du refus.")
+                                  },
+                                }
+                              )
                             }
                             disabled={handleJoinMutation.isPending}
-                            className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-red-950/60 border border-red-800/80 py-1.5 text-xs font-bold text-red-300 transition hover:bg-red-900/80"
+                            className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-red-950/60 border border-red-800/80 py-1.5 text-xs font-bold text-red-300 transition hover:bg-red-900/80 disabled:opacity-50 cursor-pointer"
                           >
                             <UserX size={13} />
                             Refuser

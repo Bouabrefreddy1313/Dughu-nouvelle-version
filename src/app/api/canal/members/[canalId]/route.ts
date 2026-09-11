@@ -25,7 +25,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ can
   try {
     const { canalId: requestId } = await params
     const body = await req.json().catch(() => ({}))
-    const accept = Boolean(body?.accept)
+    let accept = true
+    if (body?.accepte !== undefined) {
+      accept = body.accepte === true || body.accepte === "true" || body.accepte === 1 || body.accepte === "1"
+    } else if (body?.accept !== undefined) {
+      accept = Boolean(body?.accept)
+    }
     const userId = String(body?.userId || body?.user_id || "") || (await getDughuUserIdFromCookies())
     const targetCanalId = String(body?.canalId || body?.canal_id || "")
 
@@ -33,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ can
       return NextResponse.json({ success: false, message: "Session requise." }, { status: 401 })
     }
 
-    const result = await handleJoinRequest(requestId, userId, accept, targetCanalId)
+    const result = await handleJoinRequest(requestId, userId, accept)
     return NextResponse.json(result)
   } catch (error) {
     console.error("CANAL HANDLE JOIN REQUEST ERROR:", error)

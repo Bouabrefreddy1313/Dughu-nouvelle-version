@@ -32,6 +32,9 @@ import {
   useDeleteMessage,
   useEditMessage,
 } from "@/hooks/messages"
+import { collection, query, where, getDocs } from "firebase/firestore"
+import { db, CONVERSATIONS_COLLECTION } from "@/lib/firebase/client"
+import { ensureFirebaseAuth } from "@/lib/firebase/auth-helper"
 
 import ConversationList from "@/components/messages/ConversationList"
 import ChatWindow from "@/components/messages/ChatWindow"
@@ -46,12 +49,13 @@ function contactIdFromConversationKey(value: string, currentUserId: string) {
 export default function MessagesPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const requestedTarget = searchParams.get("target") || ""
+  const requestedTarget = searchParams.get("target") || searchParams.get("userId") || ""
   const { data: user, isLoading: authLoading } = useAuth()
   const currentUserId = String(user?.dughu?.userId || "")
 
   const [activeTarget, setActiveTarget] = useState(requestedTarget)
   const [standaloneContact, setStandaloneContact] = useState<ChatContact | null>(null)
+  const [existingConvId, setExistingConvId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [composing, setComposing] = useState(false)
   const [contactQuery, setContactQuery] = useState("")
@@ -64,7 +68,41 @@ export default function MessagesPageClient() {
     () => chats.find((chat) => chat.contact.id === activeTarget),
     [chats, activeTarget]
   )
-  const activeConvId = activeChat?.id || null
+
+  // Recherche préventive d'un document existant si la discussion est masquée/supprimée de la liste
+  useEffect(() => {
+    if (!activeTarget || !currentUserId) {
+      setExistingConvId(null)
+      return
+    }
+    if (chats.some((chat) => chat.contact.id === activeTarget)) {
+      setExistingConvId(null)
+      return
+    }
+
+    let cancelled = false
+    const lookupExisting = async () => {
+      try {
+        await ensureFirebaseAuth(currentUserId)
+        const p0 = String(currentUserId)
+        const p1 = String(activeTarget)
+        const convCol = collection(db, CONVERSATIONS_COLLECTION)
+        const q = query(convCol, where("folder", "in", [`${p0}_${p1}`, `${p1}_${p0}`]))
+        const snap = await getDocs(q)
+        if (!cancelled && !snap.empty) {
+          setExistingConvId(snap.docs[0]!.id)
+        }
+      } catch {
+        // ignore
+      }
+    }
+    void lookupExisting()
+    return () => {
+      cancelled = true
+    }
+  }, [activeTarget, currentUserId, chats])
+
+  const activeConvId = activeChat?.id || existingConvId || null
 
   const { messages, loading: loadingMessages } = useMessages(activeConvId, currentUserId)
   const { sendMessage: sendMsg, sending } = useSendMessage()
@@ -154,6 +192,7 @@ export default function MessagesPageClient() {
   const selectTarget = (target: string) => {
     setActiveTarget(target)
     setStandaloneContact(null)
+    setExistingConvId(null)
     setComposing(false)
     setContactQuery("")
     setContactResults([])
@@ -186,7 +225,7 @@ export default function MessagesPageClient() {
     if (!currentUserId || !activeTarget || sending) return
     stopTyping()
     try {
-      await sendMsg({
+      const res = await sendMsg({
         conversationId: activeConvId,
         targetUserId: activeTarget,
         currentUserId,
@@ -206,6 +245,9 @@ export default function MessagesPageClient() {
           avatar: selectedContact?.avatar || "",
         },
       })
+      if (res?.conversationId) {
+        setExistingConvId(res.conversationId)
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Impossible d’envoyer le message")
     }
@@ -262,6 +304,7 @@ export default function MessagesPageClient() {
       await deleteConv(activeConvId || undefined)
       setDeleteConversationOpen(false)
       setStandaloneContact(null)
+      setExistingConvId(null)
       setActiveTarget("")
       router.replace("/messages")
       toast.success("Conversation supprimée.")

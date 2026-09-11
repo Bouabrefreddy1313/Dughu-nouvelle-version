@@ -1,12 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { collection, query, orderBy, onSnapshot, type Unsubscribe } from "firebase/firestore"
+import { collection, doc, query, orderBy, onSnapshot, type Unsubscribe } from "firebase/firestore"
 import { db, CONVERSATIONS_COLLECTION } from "@/lib/firebase/client"
 import { ensureFirebaseAuth } from "@/lib/firebase/auth-helper"
 import { mapFirestoreMessageToChatMessage } from "@/lib/firebase/firestore-mappers"
 import type { ChatMessage } from "@/types/messages/message.types"
-import type { FirestoreMessageDoc } from "@/types/messages/firestore.types"
+import type { FirestoreConversationDoc, FirestoreMessageDoc } from "@/types/messages/firestore.types"
 
 export function useMessages(conversationId: string | null | undefined, currentUserId: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -25,7 +25,8 @@ export function useMessages(conversationId: string | null | undefined, currentUs
       return
     }
 
-    let unsubscribe: Unsubscribe | null = null
+    let unsubscribeMessages: Unsubscribe | null = null
+    let unsubscribeConv: Unsubscribe | null = null
     let isCancelled = false
 
     const setupListener = async () => {
@@ -34,22 +35,71 @@ export function useMessages(conversationId: string | null | undefined, currentUs
         await ensureFirebaseAuth(currentUserId)
         if (isCancelled) return
 
+        let deletedAtMs: number | null = null
+        let rawMessageDocs: Array<{ id: string; data: FirestoreMessageDoc }> = []
+
+        const applyFilterAndSetMessages = () => {
+          const items: ChatMessage[] = []
+          for (const docItem of rawMessageDocs) {
+            const msg = mapFirestoreMessageToChatMessage(
+              docItem.id,
+              docItem.data,
+              currentUserId,
+              deletedAtMs
+            )
+            if (msg) {
+              items.push(msg)
+            }
+          }
+          setMessages(items)
+        }
+
+        // 1. Écouter le document parent pour obtenir deletedAt de l'utilisateur courant
+        const convRef = doc(db, CONVERSATIONS_COLLECTION, conversationId)
+        unsubscribeConv = onSnapshot(
+          convRef,
+          (convSnap) => {
+            if (isCancelled || !convSnap.exists()) return
+            const convData = convSnap.data() as FirestoreConversationDoc
+            const userDeletedAt = convData?.deletedAt?.[currentUserId]
+            let newDeletedAtMs: number | null = null
+            if (userDeletedAt) {
+              if (typeof (userDeletedAt as any)?.toMillis === "function") {
+                newDeletedAtMs = (userDeletedAt as any).toMillis()
+              } else if (typeof (userDeletedAt as any)?._seconds === "number") {
+                newDeletedAtMs = (userDeletedAt as any)._seconds * 1000
+              } else if (typeof userDeletedAt === "number") {
+                newDeletedAtMs = userDeletedAt < 1e12 ? userDeletedAt * 1000 : userDeletedAt
+              }
+            }
+            if (deletedAtMs !== newDeletedAtMs) {
+              deletedAtMs = newDeletedAtMs
+              if (rawMessageDocs.length > 0) {
+                applyFilterAndSetMessages()
+              }
+            }
+          },
+          (convErr) => {
+            console.warn("Conversation doc snapshot error:", convErr)
+          }
+        )
+
+        // 2. Écouter la sous-collection messages
         const messagesCol = collection(db, CONVERSATIONS_COLLECTION, conversationId, "messages")
         const q = query(messagesCol, orderBy("timestamp", "asc"))
 
-        unsubscribe = onSnapshot(
+        unsubscribeMessages = onSnapshot(
           q,
           (snapshot) => {
             if (isCancelled) return
-            const items: ChatMessage[] = []
+            rawMessageDocs = []
             snapshot.forEach((docSnap) => {
-              const data = docSnap.data() as FirestoreMessageDoc
-              const msg = mapFirestoreMessageToChatMessage(docSnap.id, data, currentUserId)
-              if (msg) {
-                items.push(msg)
-              }
+              rawMessageDocs.push({
+                id: docSnap.id,
+                data: docSnap.data() as FirestoreMessageDoc,
+              })
             })
-            setMessages(items)
+            applyFilterAndSetMessages()
             setLoading(false)
             setError(null)
           },
@@ -57,18 +107,29 @@ export function useMessages(conversationId: string | null | undefined, currentUs
             console.warn("Messages snapshot error (trying fallback):", err)
             // Fallback sans orderBy si l'index est en création
             const fallbackQuery = query(messagesCol)
-            unsubscribe = onSnapshot(
+            unsubscribeMessages = onSnapshot(
               fallbackQuery,
               (fallbackSnap) => {
                 if (isCancelled) return
-                const items: ChatMessage[] = []
+                rawMessageDocs = []
                 fallbackSnap.forEach((docSnap) => {
-                  const data = docSnap.data() as FirestoreMessageDoc
-                  const msg = mapFirestoreMessageToChatMessage(docSnap.id, data, currentUserId)
+                  rawMessageDocs.push({
+                    id: docSnap.id,
+                    data: docSnap.data() as FirestoreMessageDoc,
+                  })
+                })
+                const items: ChatMessage[] = []
+                for (const docItem of rawMessageDocs) {
+                  const msg = mapFirestoreMessageToChatMessage(
+                    docItem.id,
+                    docItem.data,
+                    currentUserId,
+                    deletedAtMs
+                  )
                   if (msg) {
                     items.push(msg)
                   }
-                })
+                }
                 items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
                 setMessages(items)
                 setLoading(false)
@@ -95,8 +156,11 @@ export function useMessages(conversationId: string | null | undefined, currentUs
 
     return () => {
       isCancelled = true
-      if (unsubscribe) {
-        unsubscribe()
+      if (unsubscribeMessages) {
+        unsubscribeMessages()
+      }
+      if (unsubscribeConv) {
+        unsubscribeConv()
       }
     }
   }, [conversationId, currentUserId, reloadTrigger])

@@ -291,35 +291,69 @@ export async function getAdherents(canalId: string): Promise<CanalMember[]> {
   return mapCanalMembers(raw)
 }
 
-/** POST /handleJoinRequest/:request_id — accepter/refuser une demande. */
-/** POST /handleJoinRequest/:request_id — accepter/refuser une demande. */
+/**
+ * POST /handleJoinRequest/:notification_id — accepter ou refuser une adhésion à un canal privé.
+ * Endpoint Dughu : /handleJoinRequest/:notificationId (ID de la notification JoinRequestNotification.id)
+ * Headers : Content-Type: application/json, Accept: application/json
+ * Body JSON : { user_id: adminUserId, accept: boolean }
+ */
 export async function handleJoinRequest(
-  requestId: string,
+  notificationId: string,
   userId: string,
-  accept: boolean,
-  canalId?: string
+  accept: boolean
 ): Promise<CanalMutationResponse> {
+  const { dughuServer } = await import("@/lib/api/server/dughu-instance")
+
+  const adminUserId = Number(userId) || userId
+  const payload = {
+    user_id: adminUserId,
+    accept: Boolean(accept),
+  }
+
+  // 1. Envoi JSON conforme à la spécification backend
   try {
-    const raw = await requestForm<any>(`/handleJoinRequest/${encodeURIComponent(requestId)}`, {
-      user_id: userId,
-      canal_id: canalId || undefined,
-      accept: accept ? 1 : 0,
-    })
-    return { success: raw?.success ?? true, message: raw?.message, result: raw }
-  } catch (error) {
-    // Si l'endpoint backend `/handleJoinRequest` échoue à cause du routage interne du backend,
-    // on supprime proprement la notification de demande pour finaliser l'action sans bloquer l'administrateur.
-    try {
-      await deleteNotification(requestId, { userId, canalId })
-    } catch {
-      // Ignorer l'erreur de suppression secondaire
+    const res = await dughuServer.post<any>(
+      `/handleJoinRequest/${encodeURIComponent(notificationId)}`,
+      payload
+    )
+
+    if (res.data && res.data.success === false) {
+      throw new Error(res.data.message || "Erreur lors du traitement de la demande d'adhésion.")
     }
 
     return {
       success: true,
-      message: accept
-        ? "Demande d'adhésion acceptée avec succès."
-        : "Demande d'adhésion refusée.",
+      message: res.data?.message ?? (accept ? "Demande d'adhésion acceptée avec succès." : "Demande d'adhésion refusée."),
+      result: res.data,
+    }
+  } catch (error: any) {
+    // 2. Repli de précaution en form-urlencoded si le serveur externe attend du form
+    try {
+      const raw = await requestForm<any>(`/handleJoinRequest/${encodeURIComponent(notificationId)}`, {
+        user_id: String(adminUserId),
+        accept: accept ? "1" : "0",
+      })
+
+      if (raw && raw.success === false) {
+        throw new Error(raw.message || "Erreur lors du traitement de la demande d'adhésion.")
+      }
+
+      return {
+        success: true,
+        message: raw?.message ?? (accept ? "Demande d'adhésion acceptée avec succès." : "Demande d'adhésion refusée."),
+        result: raw,
+      }
+    } catch (formError: any) {
+      const backendMessage =
+        formError?.response?.data?.message ||
+        formError?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Une erreur est survenue lors du traitement de la demande."
+
+      console.error("handleJoinRequest error from backend:", backendMessage, { error, formError })
+      throw new Error(backendMessage)
     }
   }
 }

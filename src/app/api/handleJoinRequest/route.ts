@@ -25,17 +25,22 @@ export async function POST(req: NextRequest) {
       requestId = requestId || search.get("requestId") || search.get("request_id") || search.get("id") || ""
       userId = userId || search.get("user_id") || search.get("userId") || ""
       canalId = canalId || search.get("canal_id") || search.get("canalId") || ""
+      const rawAccepte = search.get("accepte")
       const rawAccept = search.get("accept")
-      if (rawAccept !== null) {
+      if (rawAccepte !== null) {
+        accept = rawAccepte === "1" || rawAccepte === "true"
+      } else if (rawAccept !== null) {
         accept = rawAccept === "0" || rawAccept === "false" ? false : true
       }
     } else {
       const body = await req.json().catch(() => ({}))
-      requestId = requestId || String(body?.requestId || body?.request_id || body?.id || "")
+      requestId = requestId || String(body?.targetUserId || body?.target_user_id || body?.requestId || body?.request_id || body?.id || "")
       userId = userId || String(body?.user_id || body?.userId || "")
       canalId = canalId || String(body?.canal_id || body?.canalId || "")
       if (body?.accept !== undefined) {
-        accept = body.accept === 0 || body.accept === false ? false : true
+        accept = Boolean(body.accept) && body.accept !== "false" && body.accept !== "0" && body.accept !== 0
+      } else if (body?.accepte !== undefined) {
+        accept = Boolean(body.accepte) && body.accepte !== "false" && body.accepte !== "0" && body.accepte !== 0
       }
     }
 
@@ -50,7 +55,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const result = await handleJoinRequest(requestId, userId, accept, canalId)
+    const result = await handleJoinRequest(requestId, userId, accept)
     return NextResponse.json(result)
   } catch (error) {
     console.error("API ALIAS HANDLE JOIN REQUEST ROOT ERROR:", error)

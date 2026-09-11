@@ -331,18 +331,20 @@ export async function fetchAdherents(canalId: string, signal?: AbortSignal): Pro
   }
 }
 
-/** POST /api/canal/members/:canalId — accepter/refuser une demande d'adhésion. */
+/** POST /api/handleJoinRequest/:notificationId — accepter/refuser une demande d'adhésion. */
 export async function handleJoinRequest(
-  requestId: string,
+  notificationId: string,
   userId: string,
   accept: boolean,
-  canalId?: string,
   signal?: AbortSignal
 ): Promise<CanalMutationResponse> {
   try {
     const res = await apiClient.post<CanalMutationResponse>(
-      `/canal/members/${encodeURIComponent(requestId)}`,
-      { userId, accept, canalId },
+      `/handleJoinRequest/${encodeURIComponent(notificationId)}`,
+      {
+        user_id: userId,
+        accept: Boolean(accept),
+      },
       { signal }
     )
     return res.data

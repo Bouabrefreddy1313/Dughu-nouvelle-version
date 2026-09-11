@@ -216,6 +216,7 @@ export interface CanalNotification {
   senderName?: string
   senderAvatar?: string
   requestId?: string
+  targetUserId?: string
 }
 
 export interface CanalNotificationsResponse {

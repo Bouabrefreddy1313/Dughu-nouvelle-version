@@ -6,6 +6,8 @@ import {
   addDoc,
   doc,
   getDoc,
+  updateDoc,
+  arrayRemove,
   serverTimestamp,
 } from "firebase/firestore"
 import { db, CONVERSATIONS_COLLECTION } from "./client"
@@ -36,7 +38,18 @@ export async function getOrCreateConversation(
     const q = query(convCol, where("folder", "in", [folderA, folderB]))
     const snap = await getDocs(q)
     if (!snap.empty) {
-      return snap.docs[0]!.id
+      const docSnap = snap.docs[0]!
+      const data = docSnap.data()
+      if (Array.isArray(data.deletedFor) && data.deletedFor.includes(p0)) {
+        try {
+          await updateDoc(docSnap.ref, {
+            deletedFor: arrayRemove(p0),
+          })
+        } catch {
+          // ignore
+        }
+      }
+      return docSnap.id
     }
   } catch {
     /* fallback si clause in non supportée */
@@ -51,6 +64,16 @@ export async function getOrCreateConversation(
       return Array.isArray(parts) && parts.map(String).includes(p1)
     })
     if (existingDoc) {
+      const data = existingDoc.data()
+      if (Array.isArray(data.deletedFor) && data.deletedFor.includes(p0)) {
+        try {
+          await updateDoc(existingDoc.ref, {
+            deletedFor: arrayRemove(p0),
+          })
+        } catch {
+          // ignore
+        }
+      }
       return existingDoc.id
     }
   } catch {

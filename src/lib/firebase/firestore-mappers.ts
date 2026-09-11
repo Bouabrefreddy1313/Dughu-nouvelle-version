@@ -121,7 +121,8 @@ export function mapFirestoreConversationToSummary(
 export function mapFirestoreMessageToChatMessage(
   msgId: string,
   data: FirestoreMessageDoc,
-  currentUserId: string
+  currentUserId: string,
+  userDeletedAtMs?: number | null
 ): ChatMessage | null {
   const currentId = String(currentUserId)
 
@@ -131,6 +132,24 @@ export function mapFirestoreMessageToChatMessage(
   }
   if (data.delete && data.delete[currentId] === true) {
     return null
+  }
+
+  // Filtrer si le message a été envoyé avant la suppression de l'historique par cet utilisateur
+  if (userDeletedAtMs != null && userDeletedAtMs > 0 && data.timestamp) {
+    let msgTimeMs = 0
+    if (typeof (data.timestamp as any)?.toMillis === "function") {
+      msgTimeMs = (data.timestamp as any).toMillis()
+    } else if (typeof (data.timestamp as any)?._seconds === "number") {
+      msgTimeMs = (data.timestamp as any)._seconds * 1000
+    } else if (typeof data.timestamp === "number") {
+      msgTimeMs = data.timestamp < 1e12 ? data.timestamp * 1000 : data.timestamp
+    } else if (typeof data.timestamp === "string") {
+      const parsed = Date.parse(data.timestamp)
+      if (!Number.isNaN(parsed)) msgTimeMs = parsed
+    }
+    if (msgTimeMs > 0 && msgTimeMs <= userDeletedAtMs) {
+      return null
+    }
   }
 
   // Si supprimé pour tout le monde

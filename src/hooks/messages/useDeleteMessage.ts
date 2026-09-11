@@ -60,6 +60,7 @@ export function useDeleteMessage(conversationId: string | null | undefined, curr
         await updateDoc(convRef, {
           deletedFor: arrayUnion(currentUserIdStr),
           [`deletedAt.${currentUserIdStr}`]: serverTimestamp(),
+          [`unread.${currentUserIdStr}`]: 0,
         })
       } finally {
         setDeleting(false)

@@ -257,20 +257,31 @@ export function useHandleJoinRequest() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({
+      notificationId,
+      targetUserId,
       requestId,
       userId,
       accept,
       canalId,
     }: {
-      requestId: string
+      notificationId?: string | number
+      targetUserId?: string
+      requestId?: string
       userId: string
       accept: boolean
       canalId?: string
-    }) => handleJoinRequest(requestId, userId, accept, canalId),
+    }) => {
+      const notifId = String(notificationId || requestId || targetUserId || "")
+      return handleJoinRequest(notifId, userId, accept)
+    },
     retry: 0,
-    onSettled: () => {
+    onSettled: (_data, _err, variables) => {
       invalidateCanals(queryClient)
       void queryClient.invalidateQueries({ queryKey: ["canal", "notifications"] })
+      if (variables?.canalId) {
+        void queryClient.invalidateQueries({ queryKey: CANALS_KEYS.members(variables.canalId) })
+        void queryClient.invalidateQueries({ queryKey: CANALS_KEYS.detail(variables.canalId) })
+      }
     },
   })
 }
